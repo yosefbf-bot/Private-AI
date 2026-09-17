@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
+    />
+    <title>Private AI</title>
+    <meta name="description" content="Private local AI assistant with document reasoning, multi-turn chat, task scheduling, and secure local workspace management." />
+    <meta property="og:title" content="Private AI" />
+    <meta property="og:description" content="Private local AI assistant with document reasoning, multi-turn chat, task scheduling, and secure local workspace management." />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div id="sidebar-body">
+        <div class="brand">
+          <img class="brand-logo" src="logo.png" alt="Private AI" /><span class="local-dot" title="Local application"></span>
+        </div>
+        <button class="new-chat" data-act="new">
+          ＋ New chat <kbd>Ctrl K</kbd></button
+        ><button class="nav" data-act="temporary">◌ Temporary chat</button>
+        <nav>
+          <button class="nav" data-act="view" data-view="projects">
+            ▤ Projects</button
+          ><button class="nav" data-act="view" data-view="agents">
+            ✧ Agents</button
+          ><button class="nav" data-act="view" data-view="schedules">
+            ◷ Scheduled tasks</button
+          ><button class="nav" data-act="view" data-view="files">
+            ▧ Files
+          </button>
+        </nav>
+        <button class="nav" data-act="view" data-view="apps">▦ Apps</button>
+        <button class="nav" data-act="view" data-view="processing">◇ AI Processing</button><button class="nav" data-act="view" data-view="usage">$ API Usage</button>
+        <button class="nav" data-act="view" data-view="messaging">↗ Messaging</button><button class="nav" data-act="view" data-view="browser">▣ Browser reports</button><button class="nav" data-act="view" data-view="guide">? User guide</button><div class="history-title">YOUR CHATS</div>
+        <input
+          id="search"
+          type="search"
+          placeholder="Search chats"
+          aria-label="Search chats"
+        />
+        <div id="history"></div>
+        </div>
+        <footer>
+          <button class="nav" data-act="view" data-view="worker">
+            ◉ Worker</button
+          ><button class="nav" data-act="view" data-view="settings">
+            ⚙ Settings
+          </button>
+          <div class="local-label">Local tools · Local brain · Your OpenAI API</div>
+          <div class="local-label" id="last-updated" title="Date this app build's source was last updated">Last updated: unavailable</div>
+        </footer>
+      </aside>
+      <main>
+        <header id="topbar">
+          <div>
+            <strong id="view-title">New chat</strong
+            ><span id="model-label"></span>
+          </div>
+          <div id="top-actions"></div>
+        </header>
+        <div id="notice" hidden></div>
+        <div id="resource-status" role="status" aria-live="polite"></div>
+        <section id="content"></section>
+        <section id="compose">
+          <div id="attachments"></div>
+          <div class="composer-box">
+            <textarea
+              id="prompt"
+              placeholder="Ask Private AI…"
+              rows="2"
+              aria-label="Message"
+            ></textarea>
+            <div class="composer-actions">
+              <button
+                class="icon-button"
+                id="attach"
+                title="Attach files"
+                aria-label="Attach files"
+              >
+                ＋</button
+              ><label class="web-option"
+                ><input id="web" type="checkbox" /> Web search</label
+              ><span id="compose-status"></span
+              ><button id="send" class="primary">Send ↑</button
+              ><button id="stop" class="secondary" hidden>Stop ■</button>
+            </div>
+          </div>
+          <label class="check">WhatsApp for this task <select id="task-forward" aria-label="WhatsApp result routing"><option value="default">Use global setting</option><option value="never">Do not forward</option><option value="send">Send when app is inactive</option></select></label>
+          <p class="composer-note" id="composer-note">
+            Private AI can make mistakes. Review important information.
+          </p>
+        </section>
+      </main>
+    </div>
+    <div id="toast" role="status" hidden></div>
+    <dialog id="modal">
+      <form id="modal-form">
+        <h2 id="modal-title"></h2>
+        <div id="modal-content"></div>
+        <div class="modal-actions">
+          <button type="button" id="modal-cancel" class="secondary">
+            Cancel</button
+          ><button type="submit" class="primary" id="modal-submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="vendor/purify.min.js"></script>
+    <script src="web-bridge.js"></script>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>

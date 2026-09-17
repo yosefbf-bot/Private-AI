@@ -1,0 +1,436 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'"><title>Private AI guide</title><style>body{font:16px/1.6 system-ui,sans-serif;color:#243e35;max-width:1000px;padding:32px;margin:auto}h1,h2{color:#215b53}section{border-top:1px solid #ccd6d1;margin-top:30px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}th,td{border:1px solid #d3dbd6;padding:10px;vertical-align:top}th{background:#eef4f0}a{color:#166a54}code{font-size:14px;background:#eef4f0}li{margin:7px 0}</style></head><body><h1>Private AI user guide</h1><p>2.1.3 · Unsigned Windows evaluation build</p><section><h1>Private AI 2.1.3 — local model loading fix</h1>
+<p>The newer recording shows Qwen refused with LOW_MEMORY at about 4.8 GB available, and Llama changing from loading to CANCELLED. These are separate issues from the screen-refresh error fixed in 2.1.2. A Microsoft runtime installation would not resolve either recorded error.</p>
+<h2>What changed</h2>
+<ul>
+<li><strong>Startup no longer counts as idle.</strong> The old maintenance timer could stop a manually loaded model before it became ready because its last-use timestamp was still zero. Idle cleanup now applies only to a ready, unused model.</li>
+<li><strong>Corrected RAM estimate.</strong> At the default 4096-token context, both included model choices pass the estimate with the 4.8 GB available shown in the recording. The budget includes model size, working headroom, and a conservative context-cache allowance. It remains an estimate; the app still stops the model if available RAM falls below 1 GiB.</li>
+<li><strong>Honest cancellation and memory errors.</strong> A memory-pressure stop stays a LOW_MEMORY error. Unload cancels startup; a late health response cannot make a stopped model appear ready. Changing the selected model clears an old model&#39;s error.</li>
+<li><strong>No Microsoft setup step.</strong> The Windows engine is rebuilt from the same pinned llama.cpp source with compiler-runtime support linked into its files. The package includes both a baseline x64 CPU backend and an AVX2 backend, selected automatically. It needs no separate Visual C++ Redistributable installation. The old Microsoft runtime setup button is removed.</li>
+</ul>
+<h2>Upgrade</h2>
+<ol>
+<li>Quit Private AI, including its tray icon.</li>
+<li>Extract the installer ZIP into a new folder. Run <strong>Installer/PrivateAI-Setup-2.1.3-x64.exe</strong> under your usual Windows account. The installer is configured for your account without elevation. For portable use, extract the separate portable ZIP into a new local folder and open <strong>Portable/PrivateAI.exe</strong>.</li>
+<li>Open <strong>AI Processing</strong>. Select either existing model, then click <strong>Load model</strong> once and wait for <strong>ready</strong>. Loading may take a few minutes. Selecting a model does not itself load it.</li>
+<li>For an initial test without API credits, select <strong>Local Only</strong>, save processing settings, and ask a short question in a new chat.</li>
+</ol>
+<p>Keep your downloaded model files and PrivateAI2 data folder. No model redownload or Microsoft runtime repair is required for this update. Run only one app copy at a time. The installer and portable app share the current Windows account&#39;s existing data.</p>
+<p>If RAM is lower because other programs are open, close heavy programs, set <strong>Local context tokens</strong> to <strong>2048</strong>, save, and retry. Llama is the smaller model. The app cannot create additional RAM or override your organization&#39;s application-control policy.</p>
+<h2>Validation and limits</h2>
+<p>128 regression tests and 22 Chromium UI checks passed. Real Qwen and Llama inference at context 4096 passed on Linux with the corrected manual-load lifecycle, including remaining ready through the maintenance timer, with zero OpenAI requests. Windows engine inspection verifies x64 architecture, every bundled DLL dependency and imported symbol, baseline/AVX2 backends, and absence of external compiler-runtime DLL requirements. Installer archive and delivery ZIP integrity are checked separately.</p>
+<p>The Windows executable could not be run in this environment: the available Wine runtime requires Unix sockets that this environment does not permit. Linux inference and static Windows checks do not replace execution on your PC. See Validation/startup-inference.json and Validation/runtime-check.json for the exact evidence.</p>
+</section>
+<section><h1>Private AI 2.1.1 — additional local brain</h1>
+<p>Built with Llama.</p>
+<p>This update adds <strong>Llama 3.2 3B Instruct Q4_K_M</strong> alongside Qwen3-4B Q4_K_M. This is a pretrained Meta model converted to GGUF by bartowski, not a newly trained model. The optional download is 2,019,377,696 bytes (about 2.02 GB). It is pinned to a specific revision and SHA-256 checksum.</p>
+<h2>Use it</h2>
+<ol>
+<li>Quit Private AI, including the tray icon, and run the new 2.1.1 installer over the existing installation. Do not delete the app&#39;s data folder. Portable users should extract the new portable download into a separate folder and run only one copy.</li>
+<li>Open <strong>AI Processing → Local Brain</strong>.</li>
+<li>Click <strong>Use / download Llama 3.2 3B Q4_K_M</strong>. Review the included license and Acceptable Use Policy, then accept if appropriate. You can cancel and continue using Qwen.</li>
+<li>Wait for downloading/verification. The model becomes the selected model automatically when no inference is running. Its path appears on the page. If a task is running, wait for it and choose the downloaded GGUF afterward.</li>
+<li>For zero OpenAI calls, select <strong>Local Only</strong>. Try a short document summary with synthetic text.</li>
+</ol>
+<p>You may keep both models downloaded. Use either model button to verify and select that model without downloading it again, or use <strong>Choose a GGUF file</strong>. Normal model downloads live under <code>%LOCALAPPDATA%\PrivateAIModels</code>. Switching does not delete either model, your chats, or your settings. Only one model runs at a time; existing memory protections and five-minute idle unloading still apply.</p>
+<p>The app uses the GGUF&#39;s chat template. Qwen-specific thinking controls are applied only to a Qwen-named file, so Llama does not receive the Qwen /no_think marker. Changing models changes reasoning behavior, not computer permissions or tools. No new WhatsApp capabilities are part of this update.</p>
+<h2>Download failures</h2>
+<p>A truncated or incorrect download is rejected and the partial file is removed. An already-existing file is rechecked before selection. A damaged existing file is preserved; move that model file aside and retry the download, or select a known-good GGUF. Do not delete PrivateAI2 or its encrypted data to fix a model download.</p>
+<h2>Source and terms</h2>
+<ul>
+<li>GGUF conversion: <a href="https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF">https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF</a></li>
+<li>Original model: <a href="https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct">https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct</a></li>
+<li>Revision: <code>5ab33fa94d1d04e903623ae72c95d1696f09f9e8</code></li>
+<li>SHA-256: <code>6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff</code></li>
+<li>Read <code>LLAMA_TERMS.html</code>, <code>LLAMA_LICENSE.txt</code>, <code>LLAMA_USE_POLICY.md</code>, and <code>LLAMA_NOTICE.txt</code> included here.</li>
+</ul>
+<p>Llama 3.2 is licensed under the Llama 3.2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.</p>
+<p>This remains an unsigned Windows evaluation build. Live Windows use and the earlier documented integration limitations still require on-PC verification. Model weights are optional downloads, not included in the application ZIPs.</p>
+</section>
+<section><h1>Private AI 2.1.1 — Hybrid upgrade evaluation</h1>
+<p>This is an in-place upgrade of 2.0.1. It retains the Windows startup fix, encrypted database, Windows-protected key, 90-day default retention, report folder, manual Chrome capture, and existing OpenAI connection. No data reset is required.</p>
+<h2>Upgrade and start</h2>
+<ol>
+<li>Close Private AI, including its tray icon. Extract the installer ZIP and run <code>Installer/PrivateAI-Setup-2.1.1-x64.exe</code> using the same Windows account and installation folder. Do not uninstall or delete <code>%LOCALAPPDATA%\PrivateAI2</code>.</li>
+<li>Open <strong>AI Processing</strong>. Smart Hybrid is the default. Select Local Only if you want every OpenAI call blocked. Existing API keys/settings remain saved.</li>
+<li>The CPU inference runtime is bundled. Download <strong>Qwen3-4B Q4_K_M</strong> with the app&#39;s button (about 2.50 GB), or select a compatible GGUF model you already have. Downloading is optional. The pinned default model&#39;s checksum is verified. Its Apache-2.0 license and publisher are linked below.</li>
+<li>Model files downloaded by the app live in <code>%LOCALAPPDATA%\PrivateAIModels</code>, outside normal program updates. They contain public model weights, not chat history. Models load on demand and unload after five idle minutes. Balanced mode limits CPU use. RAM pressure unloads the model; only one local inference request runs at a time.</li>
+<li>In <strong>Worker</strong>, enable background jobs and optional start-at-sign-in if wanted. Windows must remain signed in and awake. Closing the app window keeps an enabled Worker or messaging bridge running; Quit stops it. A system restart requires Windows sign-in again.</li>
+<li>Run <strong>Settings → Run local checks</strong>, then try <code>/calc (120 + 30) * 4</code>. Test real work only after the Windows checks and your organization&#39;s review.</li>
+</ol>
+<p>The portable download is an alternative, not another user account. Extract it to a separate local folder and run <code>Portable/PrivateAI.exe</code>. Both forms use the same account&#39;s existing encrypted data; run one at a time.</p>
+<h2>What works locally</h2>
+<ul>
+<li><code>/calc 120 * 4</code> — arithmetic with no LLM or API call.</li>
+<li><code>/extract</code> — return the text of attached documents without inference.</li>
+<li><code>/unread</code> or “Check today&#39;s unread emails” — list up to 50 unread classic Outlook messages after granting access in Apps.</li>
+<li><code>/calendar today</code> or <code>/calendar tomorrow</code> — retrieve a date&#39;s classic Outlook appointments after permission is granted. Appointments are sorted and timed overlaps are flagged. Meetings are not moved automatically.</li>
+<li><code>/status</code> — Worker/model status, without an API call.</li>
+<li><code>/report NAME</code> — run an explicitly configured browser report workflow and save the download to your approved work folder.</li>
+<li>Ordinary questions/documents use your selected processing mode. The local model can summarize and explain short text. Images, overly large context, freshness-sensitive requests, and high-stakes reasoning may require cloud processing. In Local Only, unsupported tasks stop or receive an explicitly unverified local draft; no cloud request is made.</li>
+</ul>
+<p>The local model does not receive arbitrary shell/computer-control tools. Commands embedded in documents and pages are not executed. Existing Apps and folder permissions continue to control access.</p>
+<h2>Reliability and API usage</h2>
+<p>Scores are <strong>validation heuristics, not probabilities or guaranteed accuracy</strong>. Local answers are checked for source quotations, matching numerical tokens, missing context, and available tool results. This does not independently prove that every interpretation is correct. Cloud answers are labeled as requiring review rather than assigned an invented accuracy score.</p>
+<p>API Usage shows measured local tasks, cloud attempts, provider token counts, and daily/weekly/monthly totals within retained history. Configure your exact model&#39;s input, cached-input, and output rates to get token-cost estimates. Unknown prices and failed requests with unknown usage remain explicitly unknown. Tool/search charges are excluded. Local-model tokens are not OpenAI tokens. Dollar savings and counterfactual API calls avoided are not fabricated.</p>
+<p>The existing bounded document/context preparation remains in use. This is not a full retrieval/indexing system for arbitrary hundreds-of-page files; excessive inputs are rejected rather than silently truncated.</p>
+<h2>Browser report workflows</h2>
+<p>Browser reports use a separate local Edge profile. You sign in yourself. No account credentials are embedded in a workflow. Add an HTTPS report URL, a precise download-button selector, and any reviewed fill/click/wait steps. Additional trusted origins may be needed for your site&#39;s sign-in flow. The workflow stops if a selector is ambiguous, navigation leaves those origins, or the expected download does not appear. Setup depends on the reporting website; no facility-specific workflow has been validated here.</p>
+<p>Only document formats are saved, under the selected report folder. A report-browser task unloads the local model; inference does not run alongside that heavy workflow. The Chrome Companion remains manual and is not used to scan ordinary pages automatically.</p>
+<h2>WhatsApp setup and limits</h2>
+<p>Messaging is optional and starts disabled. It is experimental because WhatsApp&#39;s interface can change.</p>
+<ol>
+<li>In Messaging, open WhatsApp Web, sign in yourself, and select your dedicated group. This uses a separate local Edge window/profile. Keep it open.</li>
+<li>Send a harmless message from your phone. Verify the open group and choose the stable sender ID belonging to your trusted account. Display names are not used for authorization.</li>
+<li>Review the privacy warning and select the permissions you want. Copy the displayed command example, which includes the prefix, this PC&#39;s command code, and <code>/status</code>.</li>
+<li>Enable the bridge, wait a few seconds for its initial baseline, and send a <strong>new</strong> command. Existing messages are ignored. Each PC has its own command code.</li>
+<li>Response text is off by default; enable it if approved. Documents stay in the report/ShareSync folder. Attachment sending is not implemented/enabled in this release. Task chats remain encrypted in Private AI and follow retention.</li>
+<li>Background access while the app is locked requires its separate checkbox. This permits only the bridge&#39;s approved tasks; it does not unlock the desktop interface. Disable the bridge to stop new remote work. An action already underway may have completed.</li>
+</ol>
+<p><strong>Windows-app limitation:</strong> native intake is capability-gated. It works only when the selected WhatsApp process exposes stable group/message identifiers through Windows accessibility. If those identifiers are unavailable, the app refuses to infer identity from displayed names; use Web intake. Automatic replies currently use the separately connected Web fallback. Desktop-only automatic sending is not implemented.</p>
+<p>Before sending a reply, the Web adapter verifies the group identity/header. If delivery cannot be confirmed, the bridge disables itself and does not retry. On-PC pairing and actual WhatsApp delivery have not been tested here. Treat a failed/uncertain status as a reason to inspect the group before repeating a command.</p>
+<p>Optional forwarding of desktop results applies when the Private AI window is not focused. Use the global setting or the per-task choice below the chat box. The bridge and response-text permission still apply. Started, completion, and failure notices are configurable. Continuous progress updates are not implemented.</p>
+<h2>Privacy boundary</h2>
+<p>OpenAI traffic uses HTTPS. Local inference uses an authenticated random loopback port bound to <code>127.0.0.1</code>; it is not exposed to the LAN and does not use TLS. The Chrome native connection remains the existing protected local connection. Multiple PCs maintain separate keys, ports, and databases.</p>
+<p>No API keys, WhatsApp profiles/cookies, or live databases go into ShareSync. Normal diagnostics exclude message bodies. Encrypted app records, usage records, and outbound-message records follow local retention. WhatsApp and ShareSync have their own retention/version policies; app cleanup cannot remove every external copy. Keeping WhatsApp open consumes additional RAM, and the model checks available memory before loading.</p>
+<p>Installing this application, encryption, or disappearing messages does not establish HIPAA suitability. Your organization&#39;s approvals and provider/channel requirements still apply.</p>
+<h2>Evidence and remaining acceptance work</h2>
+<ul>
+<li>The earlier 2.0.1 startup and key-preservation tests remain in the regression suite.</li>
+<li>Real Qwen3-4B Q4_K_M CPU inference was run successfully on Linux with zero OpenAI calls; this is not a speed benchmark for your laptop.</li>
+<li>Mode enforcement, memory refusal/unload, usage separation, privacy checks, deduplication, group changes, and uncertain-delivery behavior have synthetic regression tests.</li>
+<li>UI checks run in Chromium with synthetic data/IPC. No live mailbox, WhatsApp account, facility website, or ShareSync service was accessed.</li>
+<li>Actual Windows installation/startup, Windows runtime loading, classic Outlook, live WhatsApp pairing/replies, your browser report recipes, and all-day operation remain on-PC acceptance checks.</li>
+</ul>
+<p>The full proposed plan is therefore <strong>not completely accepted/validated</strong>. This build implements the main hybrid path and controlled adapters, with the specific limits above. It is an unsigned evaluation build, not a production certification.</p>
+<p>Sources: <a href="https://huggingface.co/Qwen/Qwen3-4B-GGUF">Qwen3-4B GGUF publisher</a>, <a href="https://github.com/ggml-org/llama.cpp/releases/tag/b10809">pinned llama.cpp runtime b10809</a>, <a href="https://github.com/ggml-org/llama.cpp/blob/b10809/tools/server/README.md">llama.cpp server documentation</a>.</p>
+</section>
+<section><h1>Changes in 2.1.0</h1>
+<p>Built on 2.0.1; no database reset or schema-format change. The writable-handle startup fix remains.</p>
+<p>Added Smart Hybrid, Local First, Cloud First, and hard Local Only enforcement; deterministic commands; on-demand GGUF CPU inference; five-minute idle unloading; memory checks and one-inference-at-a-time control; actual token recording and optional price estimates; heuristic evidence checks; AI Processing and Usage screens; reviewed browser report recipes; optional WhatsApp Web control; capability-gated Windows intake with Web reply fallback; encrypted message records, deduplication, scoped background access, per-task forwarding choices, started/completion notifications, and uncertain-delivery shutdown. Calendar tools now sort appointments and flag overlapping times.</p>
+<p>Fixed settings changes being unnecessarily blocked when an already-selected ShareSync folder is temporarily unavailable. Existing Chrome page capture remains explicit.</p>
+<p>Known gaps: Windows-only WhatsApp sending, attachments, continuous progress updates, automatic calendar rescheduling, broad autonomous tool planning, and site-specific workflow setup are not complete. Full live-PC acceptance remains pending. See HYBRID_UPGRADE.md for exact behavior.</p>
+</section>
+<section><h1>Private AI 2.0.1 — Windows startup fix</h1>
+<h2>Install the fix</h2>
+<ol>
+<li>Close Private AI, including its system-tray icon if present.</li>
+<li>Extract the complete new ZIP. Run <code>Installer/PrivateAI-Setup-2.0.1-x64.exe</code> under the same Windows account and choose your existing installation folder. You do not need to uninstall first.</li>
+<li>Open Private AI. In Settings, run <strong>Run local checks</strong>.</li>
+</ol>
+<p>For portable use, extract to a new local folder and run its <code>Portable/PrivateAI.exe</code>. Keep all neighboring files. Use only one installed or portable copy at a time.</p>
+<p>Both versions use the existing <code>%LOCALAPPDATA%\PrivateAI2</code> data folder. Do not delete, rename, or move this folder or <code>vault.dpapi</code> as a troubleshooting step. The upgrade keeps the same database format and key location; no reset or data migration is needed. Your chosen report folder and 90-day retention setting remain as saved.</p>
+<p>If startup still fails, send a screenshot of the new diagnostic code. It identifies the startup stage without displaying paths, account names, keys, or chat content. A missing encryption key with an existing database now stops safely instead of creating a replacement key.</p>
+<h2>What was corrected</h2>
+<p>Version 2.0.0 wrote a temporary file, reopened it with read-only access, and called <code>fsyncSync</code>. On Windows, the underlying <code>FlushFileBuffers</code> operation requires a writable file handle. First-run creation of <code>vault.dpapi</code> could therefore produce the reported generic storage error. The same utility is used for some other saved files.</p>
+<p>The utility now creates the temporary file with exclusive write access, writes and flushes through that handle, closes it, and then replaces the destination. Write, flush, or replacement failures leave the existing destination intact and attempt temporary-file cleanup. Encryption and folder permission checks remain enabled.</p>
+<p>Reference: <a href="https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers">Microsoft FlushFileBuffers documentation</a>.</p>
+<h2>Validation and limits</h2>
+<p>The original code failed the new first-run and replacement regression cases under simulated Windows file-handle rules. The corrected code passes those cases, failure-injection checks, encrypted-key lifecycle checks, and the existing regression suite. Tests use synthetic data. See <code>Validation/test-results.txt</code> and <code>Validation/startup-before-fix.txt</code> for results.</p>
+<p>The executable and bundled runtimes come from the original 2.0.0 release; application code and installer are repackaged as 2.0.1. Packaged source is checked against the corrected source. This environment cannot execute the application on your actual Windows profile, so Windows launch, DPAPI, and organization-specific policies still need the local check above. The package remains unsigned.</p>
+<p>This release fixes startup in the released 2.0.0 package. It does not include the separate, unfinished remote-command additions discussed later.</p>
+</section>
+<section><h1>Version 2.1.0</h1>
+<p>Start with <a href="HYBRID_UPGRADE.md">HYBRID_UPGRADE.md</a>. It covers optional local inference, local commands, messaging, and browser workflows. The instructions below describe the preserved manual/API workflow.</p>
+<h1>Set up once, then open and chat</h1>
+<h2>Installation and first test</h2>
+<p>Extract the complete package to a local disk folder. Run the installer under your normal Windows account, or run <code>Portable/PrivateAI.exe</code>. Both use <code>%LOCALAPPDATA%\PrivateAI2</code> for private data. Use one installation at a time per Windows profile. The app takes a per-profile single-instance lock; installer and portable copies are not separate accounts.</p>
+<p>The installer is unsigned. Your organization may block it. Do not lower Windows security settings or bypass your organization&#39;s controls. IT should inspect the included source, hashes, test report, and binaries. Re-running the installer repairs application files without intentionally removing private data. Uninstallation keeps private data.</p>
+<p>Open Settings: save the approved API key, load available models or enter an approved model ID, choose a report work folder, review HIPAA and retention options, and save settings. The approval checkbox is an attestation, not automatic verification. Replacing the key or changing API project/organization revokes this confirmation.</p>
+<p>Run local checks. They use synthetic data, no OpenAI requests. They test Windows encryption, private folder ACL, encrypted SQLite backup/cleanup, the local bridge, the bundled app-access helper, file formats, report-folder write/cleanup, and audit-chain integrity. Separately test your API connection and one synthetic chat; generation may incur API charges.</p>
+<h2>Daily chat</h2>
+<p>New Chat creates persistent local history; Temporary Chat does not save chat or imported working files to the app database. Copy, edit/regenerate, stop, and export are available. An explicit export from any chat creates a normal document that remains until removed. Explicitly saving a temporary chat stores it as persistent history.</p>
+<p>Attach only the files needed for your question. Supported references: text, Markdown, CSV, text-based PDF, DOCX, XLSX, PNG/JPEG/WebP, EML, MSG, and ICS. Email attachments are not analyzed. Save and attach an email attachment separately if required. Scanned/image-only PDFs need external, organization-approved OCR first. Encrypted files, macros, legacy DOC/XLS, audio, and arbitrary code execution are not supported. Typical limits: 20 MB per file, six attachments per request, 300 PDF pages, 350,000 extracted characters, and 90,000 request-context characters by default. A large image request has an additional 40 MB serialized-request ceiling.</p>
+<p>Save an answer as Word, PDF, Markdown, text, Excel, or CSV. Excel/CSV export requires a Markdown table in the answer. Formulas remain text; ordinary safe numeric cells become numbers. Review dates, leading-zero identifiers, totals, and source facts. Reports get unique generic filenames to avoid collisions and PHI-bearing filenames. Open the report to confirm appearance in your actual Office/PDF app.</p>
+<p>Projects hold instructions and related chats. Memory is explicit and off by default, with its own expiry. Agents are reusable report prompts and selected file snapshots, not unrestricted computer-use agents.</p>
+<h2>Chrome — manual page reads only</h2>
+<p>Settings → Connect Chrome opens the included extension directory. In <code>chrome://extensions</code>, enable Developer mode, Load unpacked, select that directory, and pin the extension. Your administrator may need to allow an unpacked extension and native messaging. The expected ID is <code>joamalncafnpildccchmddldboiefphl</code>; do not regenerate its public key.</p>
+<p>Opening the panel or sending an ordinary question does not query the tab or extract its page. To read a page, click the toolbar icon on that tab, select Include this page or selection only, and send. Only that attempt reads the chosen content. The checkbox resets even if extraction fails. Old page snapshots are not automatically attached to future follow-up requests, though previous answers remain conversation context. No automatic rereads, browsing, link following, DOM watchers, or page actions are present. Chrome&#39;s own pages, PDF viewer, protected pages, cross-origin frames, and certain sites cannot be captured; use selected/copied text or a local file instead.</p>
+<p>Chrome has no API key. The included native bridge uses this Windows profile&#39;s app and secrets. If the panel cannot connect, open/unlock the desktop app, reconnect Chrome in Settings, reload the extension, and check your organization&#39;s policy. If you move the portable folder, reconnect Chrome and update its unpacked-extension location. Never move the whole private-data folder into ShareSync.</p>
+<h2>Outlook, WhatsApp, other programs, and folders</h2>
+<p>Under Apps, independently allow Outlook message reading, calendar reading, draft creation, and appointment creation. Direct integration requires classic Outlook and a configured profile. Message browsing reads only headers for up to 50 recent default Inbox items; choosing one reads its plain body, without attachments. Calendar reading uses the default calendar, a user-selected range of up to 31 days, and up to 200 overlapping events. Dates/times use the PC&#39;s local timezone. No shared mailbox picker or attendee/invitation workflow is included. Drafts and appointments are saved/displayed in Outlook after a native confirmation; no Send call exists. Outlook may display its own profile/security prompts. If a write times out, inspect Outlook before retrying to avoid a duplicate.</p>
+<p>For WhatsApp or another program: open it, choose Choose an open app, explicitly enable read/write permissions, and later choose Read visible text or Write a draft. The exact executable is hash-pinned; after an app update, choose it again. Screen reads use visible Windows accessibility content, not screenshots or hidden conversations. Draft writes only use an exposed writable text field selected by the user, and replace its current value after confirmation. There are no injected keystrokes, mouse actions, Send clicks, clipboard reads, elevation bypasses, or model-driven computer actions. Some apps expose no usable text/fields; use copy/paste instead. A permission grant is not a HIPAA approval for that app or account. Do not use WhatsApp for PHI unless your organization has expressly approved the particular service and workflow.</p>
+<p>Allowed folders have separate read/write grants. Browse reads the selected directory only, not a recursive index; choose a file to import it. Existing originals stay untouched unless you explicitly edit a TXT/MD file and confirm. Version checks reject stale edits, and creating a new note never overwrites an existing filename. Concurrent changes across ShareSync replicas can still create vendor conflict copies—review those normally. New DOCX/PDF/XLSX/CSV reports can be saved into a write-allowed folder. Revoking access stops subsequent actions; it does not erase content you already imported, exported, or wrote to another app.</p>
+<h2>Worker and scheduled reports</h2>
+<p>Install independently on each PC and enter a separate approved API key/project configuration on each. Keys are never shared by the job queue. Choose the same approved ShareSync workspace and unique PC labels. Publish each identity in Worker, compare the displayed fingerprints using a trusted channel, and trust each peer explicitly on both PCs. Assign a remote job to one named Worker; other Workers cannot decrypt or run it.</p>
+<p>Enable background jobs and optional start-at-sign-in on the Worker. Keep Windows signed in and awake with the workspace available. Private AI is a per-user background application, not a Windows service. Closing its window keeps it running when Worker is enabled; use the tray menu to pause or quit. Jobs may continue while Private AI is locked. Windows logoff, restart, sleep, missing credentials, or an unavailable work folder prevent unattended execution. An internal daily/weekday scheduler catches up once after a missed time, not once for every missed day. Do not clone the private data directory or copy schedules onto several PCs to run the same task.</p>
+<p>Uncertain/interrupted jobs are not automatically generated again; review status before explicitly retrying. Successful generation with a failed export can be exported again without another provider generation. Ordinary analysis schedules use imported snapshots. Explicit local commands such as /unread, /calendar, and /report NAME use the permissions and reviewed workflows described in the hybrid guide. Final reports remain normal documents accessible from other authorized devices through the organization&#39;s ShareSync setup.</p>
+<h2>Retention, backup, and lock</h2>
+<p>Default retention is 90 days since last saved activity for local chats, working files, and completed jobs. Memory has separate expiry. Original source files and exported reports are not deleted. Failed cleanup is surfaced/deferred; synced backups and ShareSync version history have separate administrative retention. A local encrypted backup requires this Windows user&#39;s original DPAPI master key; a database alone is not a cross-PC backup. Set an optional app passphrase; maintain Windows screen locking, disk encryption, endpoint protection, and managed backups regardless.</p>
+</section>
+<section><h1>Security boundary and deployment review</h1>
+<p>Reviewed 2026-09-10. This is HIPAA-oriented software, not a compliance certification or legal conclusion. Organization authorization and a documented risk assessment remain necessary. It is not a fully offline AI model.</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Implemented behavior</th>
+<th>Organization responsibility / limit</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Device</td>
+<td>Standard-user Windows app; no elevation in normal install</td>
+<td>Supported patched Windows, BitLocker, Windows lock, managed identities, endpoint controls, incident response, secure disposal</td>
+</tr>
+<tr>
+<td>Private storage</td>
+<td>DPAPI-wrapped master key; AES-256-GCM records and metadata; private directory DACL restricted to user SID and SYSTEM; SQLite WAL, full sync, migrations</td>
+<td>Same-user malware or administrators can act as the user; DPAPI is not protection against a compromised logged-in session</td>
+</tr>
+<tr>
+<td>Retention</td>
+<td>90-day default, memory expiry, temporary-chat lifecycle, app-owned backup cleanup</td>
+<td>Logical deletion is not forensic secure erasure; storage snapshots, paging, crash dumps, OS backups and sync version history require independent controls</td>
+</tr>
+<tr>
+<td>Audit</td>
+<td>Allowlisted event metadata and HMAC-chained integrity; no prompts, bodies, filenames, tokens, or keys in audit details</td>
+<td>Not tamper-proof. Whole-database rollback or tail removal cannot be detected without an external trusted anchor. Export/store compliance evidence under organization policy</td>
+</tr>
+<tr>
+<td>Browser</td>
+<td>MV3, activeTab only, manual extraction, native messaging; no API key, global website permissions, content script, telemetry, or automatic reads</td>
+<td>Managed Chrome must permit this extension/host; other extensions and the browser&#39;s own controls are outside this app</td>
+</tr>
+<tr>
+<td>Local transport</td>
+<td>Exact extension-origin allowlist; encrypted authenticated Windows named-pipe protocol; native operation allowlist excludes settings/secrets/app access</td>
+<td>No product TCP/HTTP listener or LAN API. Windows named pipes still depend on Windows/SMB/firewall controls; this is not a claim that Windows networking is disabled</td>
+</tr>
+<tr>
+<td>Provider transport</td>
+<td>Fixed OpenAI HTTPS origin, normal certificate verification, no redirect following, dedicated nonpersistent API session</td>
+<td>Corporate proxy/trust configuration and approved OpenAI account. No certificate validation bypass or local root certificate installation</td>
+</tr>
+<tr>
+<td>Provider retention</td>
+<td>Foreground Responses requests with <code>store:false</code>; no hosted files/vector stores/conversations or provider background mode; web-search tool blocked in HIPAA mode</td>
+<td><code>store:false</code> does not establish a BAA, MAM, or ZDR. Your administrator must verify the approved model/endpoint and current account/project settings and exceptions</td>
+</tr>
+<tr>
+<td>Other PCs</td>
+<td>Distinct local identity/keypair per PC; signed encrypted handoffs addressed to one Worker; local persistent single-use claims</td>
+<td>Keep private databases and keys off shared folders. Do not clone a running identity or restore old queue/claim snapshots as a second live worker. Same API project quotas are still shared</td>
+</tr>
+<tr>
+<td>ShareSync</td>
+<td>Generic unique report filenames, safe relative paths, separate output/queue folders, encrypted handoff payloads</td>
+<td>Final reports are ordinary plaintext document files at the application layer. Approved ShareSync BAA/configuration, ACLs, encryption, devices, access revocation and independent retention are required</td>
+</tr>
+<tr>
+<td>Apps/folders</td>
+<td>Independent user-selected grants; on-request reads; preview before chat; explicit write confirmation; no programmatic sending</td>
+<td>Third-party app/account suitability must be separately approved. UI Automation varies by version. Writable-field providers may have app-specific side effects; use synthetic tests first</td>
+</tr>
+</tbody></table>
+<h2>Provider details</h2>
+<p>OpenAI&#39;s current documentation describes separately configured Modified Abuse Monitoring and Zero Data Retention, model/endpoint limitations, safety exceptions, image handling exceptions, and application-state behavior. This app&#39;s HIPAA setting cannot inspect your contract or remotely enforce those administrative settings. It disables all provider web search in HIPAA mode; it does not attempt the documented cache-only exception. See <a href="https://developers.openai.com/api/docs/guides/your-data">OpenAI data controls</a> and your executed agreements. No API key was supplied for live account validation during this build.</p>
+<h2>Local application safeguards</h2>
+<p>The renderer has sandboxing, context isolation, no Node integration, an exact trusted IPC sender check, restrictive CSP, and blocked remote renderer networking. Answer Markdown is sanitized and remote images are removed. Untrusted document/webpage text is marked as reference material, not instructions. The model has no app, folder, shell, or computer-control tools to execute a reference&#39;s malicious instructions.</p>
+<p>Document extraction/export runs in a short-lived separate process with a memory ceiling and timeout; no key or vault handle is passed to it. Process isolation limits crashes, but is not a complete least-privilege OS sandbox: the utility process still runs under the Windows user&#39;s rights. Import only authorized documents. No macros, formulas, remote embedded images, or email attachments are executed. Office/PDF software used later to open exports is a separate security boundary.</p>
+<p>Production Electron fuses disable RunAsNode, NODE_OPTIONS, Node CLI inspection, and loading the application from outside its ASAR. ASAR is packaging, not authenticated code signing. This build is unsigned and does not claim verified update authenticity or embedded-ASAR integrity enforcement. No automatic application updater is included. The optional model download verifies a pinned checksum. IT should sign and approve reviewed releases for broader deployment.</p>
+<p>No cleartext application temp files are used for chat or imported content. DPAPI, memory, local file parsing, OS paging, Windows crash reports, other apps, and third-party sync retain their own behavior. An app lock hides interactive content but is not a separate cryptographic logoff; authorized background jobs may continue. Workstation protections remain essential.</p>
+<p>Granting an Outlook/UI Automation read can make the selected local source visible to Private AI. It is not sent to OpenAI until the user explicitly uses it in chat and sends. Visible UI Automation text is best effort, not a guarantee that every provider&#39;s accessibility tree perfectly matches pixels. Permissions are checked again after asynchronous reads so locking/revoking prevents returning content. Write timeouts cannot guarantee the target app did nothing; inspect it before retrying. Version checks on local TXT/MD edits are optimistic, not a distributed ShareSync lock.</p>
+<h2>Primary implementation references</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata">Windows DPAPI</a></li>
+<li><a href="https://www.electronjs.org/docs/latest/tutorial/security">Electron security checklist</a> and <a href="https://www.electronjs.org/docs/latest/api/safe-storage">safeStorage</a></li>
+<li><a href="https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging">Chrome native messaging</a> and <a href="https://developer.chrome.com/docs/extensions/develop/concepts/activeTab">activeTab</a></li>
+<li><a href="https://learn.microsoft.com/en-us/office/vba/outlook/concepts/getting-started/automating-outlook-from-other-office-applications">Microsoft Outlook automation</a></li>
+<li><a href="https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/ui-automation-overview">Windows UI Automation overview</a></li>
+</ul>
+<p>These references describe platform capabilities, not validation or endorsement of this package.</p>
+<h2>2.1.0 additions</h2>
+<p>See HYBRID_UPGRADE.md for the extended boundary: authenticated loopback inference, optional automated WhatsApp replies, explicit background access, private browser profiles, and usage retention. The earlier manual Apps preview restrictions remain; approved Messaging commands are a separate opt-in execution channel. Browser report recipes and messaging do not grant the Chrome Companion automatic page access.</p>
+</section>
+<section><h1>Hybrid additions in 2.1.0</h1>
+<p>See HYBRID_UPGRADE.md for processing modes, local inference, usage metering, browser recipes, and optional messaging. The table below describes the preserved base features; its scheduler restrictions apply to ordinary analysis prompts, while approved /report, /unread and /calendar commands can retrieve fresh data.</p>
+<h1>What exists and what still requires validation</h1>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Included</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Windows delivery</td>
+<td>NSIS installer and extracted portable application, bundled Electron and Windows helper runtime</td>
+<td>Cross-built, unsigned; real Windows execution not tested here</td>
+</tr>
+<tr>
+<td>Chat</td>
+<td>Stream, stop, copy, edit/regenerate, persistent/temporary chat, local projects and explicit memory</td>
+<td>API key/account not provided; real API request not tested</td>
+</tr>
+<tr>
+<td>Privacy</td>
+<td>DPAPI, encrypted SQLite records/metadata, ACL validation, audit, 90-day retention, cleanup, local checks</td>
+<td>HIPAA requires administrator approval and agreements; no compliance certification</td>
+</tr>
+<tr>
+<td>Chrome</td>
+<td>Side panel, manual page/selection capture, sanitized answers, native bridge</td>
+<td>Real Chromium UI/logic tested with synthetic native IPC; actual installed Windows Chrome extension bridge not tested</td>
+</tr>
+<tr>
+<td>Documents</td>
+<td>TXT/MD/CSV/PDF/DOCX/XLSX/images/EML/MSG/ICS references; DOCX/PDF/XLSX/CSV/TXT/MD reports</td>
+<td>Text-based PDF only; no OCR, audio/video, macros, code execution, or automatic email-attachment reading</td>
+</tr>
+<tr>
+<td>ShareSync</td>
+<td>Custom work folder, unique reports, safe paths, encrypted Worker handoffs</td>
+<td>Local simulated folder tests only; actual ShareSync/service controls not tested</td>
+</tr>
+<tr>
+<td>Worker</td>
+<td>Per-PC keys, mutual trust, designated recipient, persistent claim, status, pause, scheduled jobs</td>
+<td>Per-user signed-in app, not a Windows system service; no exactly-once guarantee across manual machine cloning or restored old state</td>
+</tr>
+<tr>
+<td>Scheduler</td>
+<td>Daily and weekday schedules; catch up once; local or designated Worker execution</td>
+<td>No live mailbox/folder watchers, unattended webpages, calendars as triggers, or arbitrary workflows</td>
+</tr>
+<tr>
+<td>Outlook</td>
+<td>Chosen Inbox messages, date-limited default calendar, reviewed draft and appointment creation</td>
+<td>Classic Outlook only; no send, invitation, shared-mailbox picker, or live Windows COM test</td>
+</tr>
+<tr>
+<td>WhatsApp / selected apps</td>
+<td>Explicit visible-text read and selected writable-field draft; exact EXE fingerprint</td>
+<td>Best-effort UI Automation. Some versions offer no supported field; manual copy/paste fallback. Not a WhatsApp-specific API connector</td>
+</tr>
+<tr>
+<td>Folders</td>
+<td>Separate read/write grants, explicit browse/import, TXT/MD editing, report saving</td>
+<td>No recursive indexing or arbitrary binary/system-file editing; no distributed file lock</td>
+</tr>
+<tr>
+<td>Browser actions / cowork</td>
+<td>User-chosen reference → chat → reviewed copy/export</td>
+<td>No autonomous navigation, clicking, form filling, browser scripts, or general computer-control agent</td>
+</tr>
+<tr>
+<td>Migration</td>
+<td>v2 schema migrations preserve encrypted records; separate PrivateAI2 profile</td>
+<td>Automatic import of Python/v0.x history not implemented; originals preserved</td>
+</tr>
+<tr>
+<td>Updates</td>
+<td>Re-run installer / replace complete portable application files</td>
+<td>No code signing or automatic updater; distribution requires IT review</td>
+</tr>
+</tbody></table>
+<p>The security-first choices above intentionally narrow automated app actions. A permission flag is not a promise that every third-party program supports accessibility or is approved for PHI.</p>
+</section>
+<section><h1>Upgrade from 2.0.0 to 2.0.1</h1>
+<p>See <a href="STARTUP_FIX_2.0.1.md">startup-fix instructions</a>. Install over the existing application under the same Windows account. The data folder remains <code>%LOCALAPPDATA%\PrivateAI2</code>; the database format and encryption key are unchanged. Never delete that folder to resolve a launch error.</p>
+<hr>
+<h1>Previous failures and safe upgrade behavior</h1>
+<p>The reference package and prior-failure material were used as regression requirements, not copied as a runtime dependency.</p>
+<table>
+<thead>
+<tr>
+<th>Previous issue</th>
+<th>Change in this implementation</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Microsoft Store Python alias mistaken for a usable Python runtime</td>
+<td>No Python executable discovery or Python runtime dependency</td>
+<td>Source/runtime packaging inspection; actual Windows clean-profile test still required</td>
+</tr>
+<tr>
+<td>Incompatible Gradio Chatbot <code>type</code> argument</td>
+<td>No Gradio; fixed dependency versions and lockfile</td>
+<td>Node tests and browser UI checks</td>
+</tr>
+<tr>
+<td>Windows blocked unsigned PowerShell setup</td>
+<td>No PowerShell install scripts; normal self-contained NSIS and portable paths</td>
+<td>Installer cross-built; it is still unsigned and may need IT approval</td>
+</tr>
+<tr>
+<td>SQLite backup reader left open, causing WinError 32 during cleanup</td>
+<td>Reader handles closed in <code>finally</code>; backup copies isolated; locked deletions deferred without aborting a successful backup</td>
+<td>Backup/delete regression tests; real Windows lock behavior still requires local checks</td>
+</tr>
+<tr>
+<td>PDF library API cleanup changed</td>
+<td>Destroy the loading task; isolate extraction/export in a separate child process</td>
+<td>PDF export/readback and format tests</td>
+</tr>
+<tr>
+<td>Chosen work folder discarded unsaved settings</td>
+<td>Preserve form draft while selecting a folder</td>
+<td>Real Chromium UI check</td>
+</tr>
+<tr>
+<td>Potential duplicate Worker execution after restart/replay</td>
+<td>Receiver-bound encrypted signed jobs and durable claims before generation; no automatic uncertain retry</td>
+<td>Multiple-Worker and replay regression tests</td>
+</tr>
+<tr>
+<td>Large history refresh decoded entire documents</td>
+<td>Small encrypted chat/file metadata index; transactional schema v3 migration</td>
+<td>Metadata-only and migration regression tests</td>
+</tr>
+<tr>
+<td>Page capture permission could remain selected after failure</td>
+<td>Reset the one-shot choice before attempting extraction</td>
+<td>Browser failure-path regression check</td>
+</tr>
+<tr>
+<td>App lock could leave preview text in a dialog</td>
+<td>Clear/close previews, prompt and attachments on lock; recheck permission after reads</td>
+<td>Source review and regression coverage of revoked reads</td>
+</tr>
+</tbody></table>
+<h2>Existing users</h2>
+<p>The new application keeps data in <code>%LOCALAPPDATA%\PrivateAI2</code>. Older Python/v0.x directories are not modified or automatically imported. Keep the old version and its data until you have verified this build with synthetic work and exported any history you need. Import only approved documents into the new app. Do not solve an upgrade by deleting an old database.</p>
+<p>Within v2, schema migrations run transactionally and preserve settings/history. A future unknown schema fails closed. For an upgrade, quit Private AI from the tray, make an organization-approved backup that preserves the original Windows profile/key, install the reviewed release, and run local checks. Local app backups preserve encrypted database records but require the original DPAPI master file. They are not a turnkey cross-PC restore procedure.</p>
+<p>Installer and portable variants share the same local profile. Do not run both to create independent workers. If moving the portable application, reconnect Chrome afterward and update Chrome&#39;s loaded extension location. Keep the entire runtime folder together.</p>
+<p>Disable redundant old scheduled jobs/Workers only after verifying the replacement. Private AI does not modify or turn off your previous installation. Each new Worker gets its own identity and explicit peer trust. Never sync or clone the PrivateAI2 private directory between active PCs.</p>
+</section>
+<section><h1>Private AI 2.1.3 — validation status</h1>
+<p>Evaluation build, 11 September 2026. Windows binaries were cross-packaged on Linux and have not been executed on a real Windows PC here.</p>
+<h2>Completed evidence</h2>
+<ul>
+<li>128 automated regression checks passed, zero failures. They cover prior startup/file-handle and key-preservation bugs, encrypted records, permissions, retention, document processing, API behavior, Worker handoffs, four processing modes, Local Only network guards, memory refusal/unloading, usage estimates, messaging authorization/deduplication/uncertain delivery, background permission isolation, calendar overlaps, and per-task forwarding.</li>
+<li>22 Chromium UI checks passed with synthetic IPC and data. These include manual Chrome page capture, untrusted HTML stripping, small-window navigation, AI Processing, Usage, Messaging, and Browser reports.</li>
+<li>The pinned Qwen3-4B Q4_K_M GGUF completed real CPU inference through the local runtime on Linux with zero OpenAI calls. Runtime and model downloads were verified against pinned SHA-256 checksums. This is not a laptop speed benchmark.</li>
+<li>The .NET Windows helper compiled successfully as a self-contained x64 application.</li>
+<li>Packaging checks compare bundled code and extension files against source, inspect PE architecture, native dependencies, inference runtime, and Electron security fuses. Installer integrity and ZIP checks accompany the final downloads.</li>
+</ul>
+<p>Validation logs are included in each download&#39;s Validation folder. Tests use synthetic content; no live mailbox, WhatsApp account, or reporting site was accessed.</p>
+<h2>Required on-PC acceptance</h2>
+<ol>
+<li>With synthetic data and your usual Windows account, close all Private AI processes and run the new installer over the existing installation. Confirm prior settings and chat history remain, and run Settings → Run local checks. Do not delete the encrypted data folder to troubleshoot.</li>
+<li>Download/select the optional model. Try local arithmetic and a short attached-text summary in Local Only. Confirm no OpenAI calls appear. Test loading/unloading on the laptop and normal responsiveness.</li>
+<li>If cloud use is authorized, verify your existing key, approved settings, and a synthetic API call. Check actual token counts and configured price estimates.</li>
+<li>Check permission-controlled classic Outlook reads and calendar output. Confirm overlapping appointments against Outlook.</li>
+<li>Pair your own WhatsApp group with synthetic content, verified sender IDs, and the PC command code. Test new-message intake, a completion reply, conversation changes, sign-out, and Disable. Windows intake may expose insufficient stable identifiers; replies require the Web fallback. Native-only sending and attachments are not implemented.</li>
+<li>Configure and validate each website&#39;s exact report workflow. Confirm downloads reach the chosen ShareSync report folder. Test temporary ShareSync unavailability.</li>
+<li>Leave Worker running through a full workday, including scheduled tasks, model idle unloading, messaging interruptions, and recovery after Windows sign-in.</li>
+<li>Evaluate portable operation separately using the same account; run only one app copy at a time.</li>
+</ol>
+<p>Until these checks succeed, the full upgrade plan is not fully accepted. This package does not certify HIPAA compliance. See HYBRID_UPGRADE.md for the precise implemented behavior and remaining feature limits.</p>
+<h2>2.1.2 checks</h2>
+<p>Six additional download/catalog checks cover both catalog entries, verified reuse, corrupt existing files, truncated downloads, unknown IDs, and concurrent/cancelled downloads. The added UI check confirms that each model button requests its own catalog ID. Validation/llama-smoke.json records the real Linux inference result separately. No API calls were made by this model test.</p>
+<h2>2.1.2 repair validation</h2>
+<p>The recorded model-selection event is now exercised in Chromium. A simulated startup failure remains visible without clearing unsaved settings. Four new regression checks cover Microsoft DLL presence detection, Windows exit-code classification, safe diagnostics, and repeated Load clicks. These checks do not prove that the Microsoft prerequisite is missing on any particular user PC. See STARTUP_FIX_2.1.2.md.</p>
+<h2>2.1.3 loading and runtime fix</h2>
+<p>See STARTUP_FIX_2.1.3.md. The 128-test suite includes loading through maintenance, memory-pressure error preservation, cancellation before spawn, late health responses, and the recorded RAM budget. The Windows engine now includes its compiler runtime and passes transitive DLL/symbol checks. Both models passed actual inference and manual-load maintenance on Linux (startup-inference.json). Windows execution is still pending; Wine could not run because this environment disallows Unix sockets.</p>
+</section>
+<section><h1>Remote commands in 2.1.0</h1>
+<p>The optional Messaging bridge is now implemented as an experimental Windows/Web adapter. See <a href="HYBRID_UPGRADE.md">HYBRID_UPGRADE.md</a> for setup, permission checks, privacy warnings, and remaining limits.</p>
+<p>Only new messages from approved stable sender IDs in the verified group, beginning with the configured prefix and this PC&#39;s command code, are accepted. Ordinary conversation and previously visible messages are ignored. Polling consumes no AI tokens. Local commands stay local; reasoning follows the selected processing mode and cloud permissions.</p>
+<p>Completion/failure and optional started notices return through the WhatsApp Web connection. Response text needs a separate permission. Windows-app intake requires stable accessibility identifiers; native-only sending and attachments are not implemented. Documents stay in the approved report folder. Uncertain delivery disables the bridge without retrying.</p>
+<p>This is a UI-based integration, not the official WhatsApp Business API. Live account pairing/delivery, platform eligibility, and the organization&#39;s approval of the channel remain to be checked. A group title alone never authorizes a task. The app does not claim that disappearing messages or encryption establish HIPAA suitability.</p>
+<p>Outlook message/calendar reading and reviewed drafts remain available in Apps. Monitoring emails to yourself as a remote-command channel is not included in this hybrid release.</p>
+</section></body></html>

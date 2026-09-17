@@ -1,0 +1,110 @@
+{
+  "name": "private-ai-desktop",
+  "productName": "Private AI",
+  "version": "3.0.0",
+  "description": "Private Windows chat and an explicitly controlled Chrome companion",
+  "author": "Private AI",
+  "license": "UNLICENSED",
+  "main": "source/main.cjs",
+  "scripts": {
+    "dev": "node server.cjs",
+    "start": "node server.cjs",
+    "build": "node -e \"console.log('Build ready')\"",
+    "prepare:browser": "node build/prepare-browser-assets.cjs",
+    "prestart": "node build/prepare-browser-assets.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "test:ui": "node tests/ui-check.cjs",
+    "build:helper": "dotnet publish desktop-helper/PrivateAI.Access.csproj -c Release -o build/desktop-helper",
+    "build:win": "node build/windows-build.cjs",
+    "build:dir": "electron-builder --win --x64 --dir",
+    "test:messaging-ui": "node tests/messaging-ui-check.cjs"
+  },
+  "build": {
+    "appId": "org.privateai.desktop",
+    "productName": "Private AI",
+    "executableName": "PrivateAI",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/@napi-rs/canvas-win32-x64-msvc/**/*"
+    ],
+    "afterPack": "build/after-pack.cjs",
+    "beforePack": "build/prepare-browser-assets.cjs",
+    "npmRebuild": false,
+    "toolsets": {
+      "wine": "1.0.1"
+    },
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "source/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/desktop-helper",
+        "to": "desktop-helper"
+      },
+      {
+        "from": "chrome_extension",
+        "to": "chrome_extension"
+      },
+      {
+        "from": "docs",
+        "to": "docs"
+      },
+      {
+        "from": "build/local-runtime",
+        "to": "local-runtime"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "PrivateAI-Setup-${version}-${arch}.${ext}",
+      "icon": "build/icon.ico",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "Private AI",
+      "runAfterFinish": true,
+      "include": "build/installer.nsh"
+    }
+  },
+  "dependencies": {
+    "@google/genai": "^2.23.0",
+    "@kenjiuno/msgreader": "1.28.0",
+    "docx": "9.7.1",
+    "dompurify": "3.4.15",
+    "exceljs": "4.4.0",
+    "express": "^5.2.1",
+    "mailparser": "3.9.23",
+    "mammoth": "1.12.2",
+    "marked": "18.0.12",
+    "pdfjs-dist": "6.3.289",
+    "pdfkit": "0.20.2",
+    "playwright-core": "1.63.0",
+    "whatsapp-web.js": "1.34.7"
+  },
+  "devDependencies": {
+    "@sparticuz/chromium": "152.0.0",
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3",
+    "playwright": "1.63.0",
+    "prettier": "3.9.6"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
+  },
+  "optionalDependencies": {
+    "@napi-rs/canvas-win32-x64-msvc": "1.0.9"
+  }
+}

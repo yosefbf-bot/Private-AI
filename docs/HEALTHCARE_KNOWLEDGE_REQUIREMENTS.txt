@@ -1,0 +1,1504 @@
+PRIVATE AI — MAJOR HEALTHCARE KNOWLEDGE ENGINE UPDATE
+
+IMPORTANT:
+This is an upgrade to the EXISTING Private AI application and codebase. Do not restart the application from scratch and do not replace working existing functionality unnecessarily.
+
+Preserve the current Private AI architecture, installer approach, HIPAA controls, local/cloud AI modes, Projects, File Library, Agents, Automations, background Worker, ShareSync support, chat interface, local model support, OpenAI API support, and existing user preferences.
+
+The purpose of this update is to add a comprehensive Healthcare Knowledge Engine that makes Private AI highly capable for:
+
+- Nursing-home administration
+- Skilled nursing facility operations
+- Federal nursing-home regulation
+- New York nursing-home regulation
+- Survey preparation and deficiency analysis
+- MDS / RAI / PDPM
+- Quality measures / Five-Star
+- Clinical medicine
+- Geriatric medicine
+- Post-acute medicine
+- Medication and pharmacology knowledge
+- Resident-specific clinical analysis
+- Facility policies and procedures
+- Infection prevention
+- Medical and regulatory research
+
+======================================================================
+1. CORE DESIGN PRINCIPLE
+======================================================================
+
+DO NOT attempt to make the local AI model memorize healthcare knowledge through retraining.
+
+Keep the local brain as a general reasoning model.
+
+Healthcare specialization should primarily be implemented through:
+
+RAG — Retrieval-Augmented Generation
+
+The workflow should be:
+
+User question
+→ determine question type
+→ determine relevant knowledge domains
+→ search Healthcare Knowledge Engine
+→ retrieve authoritative passages
+→ provide retrieved passages to AI brain
+→ AI reasons over sources
+→ answer
+→ display citations/source information
+
+The system should use:
+
+KNOWLEDGE = curated database / RAG
+
+REASONING = local model or OpenAI model
+
+USER WORK STYLE = instructions, examples and possibly fine-tuning later
+
+Do not use model fine-tuning simply to memorize regulations, clinical guidelines or medication information that can change over time.
+
+======================================================================
+2. NEW MAIN COMPONENT: HEALTHCARE KNOWLEDGE ENGINE
+======================================================================
+
+Add a major component called:
+
+HEALTHCARE KNOWLEDGE ENGINE
+
+This should be available to:
+
+- Normal Chat
+- Projects
+- Agents
+- Scheduled Agents
+- Document analysis
+- Clinical analysis
+- Research tasks
+- Facility policy review
+- Resident-specific tasks
+
+It should NOT be a separate application.
+
+It should be integrated into the existing Private AI interface and architecture.
+
+======================================================================
+3. KNOWLEDGE BASE CATEGORIES
+======================================================================
+
+Create built-in knowledge categories.
+
+At minimum include:
+
+NURSING HOME / REGULATORY
+
+- Federal Nursing Home Regulations
+- CMS
+- 42 CFR Part 483
+- State Operations Manual
+- Appendix PP
+- F-Tags
+- Long-Term Care Survey Process
+- CMS QSO Memoranda
+- Survey Guidance
+- Enforcement Guidance
+- Immediate Jeopardy Guidance
+- Plans of Correction
+- Quality Assurance / QAPI
+- Emergency Preparedness
+- Resident Rights
+- Abuse / Neglect / Exploitation
+- Accidents / Falls
+- Infection Prevention
+- Staffing
+- Pharmacy Services
+- Medical Director requirements
+- Physician Services
+- Nursing Services
+- Dietary / Nutrition
+- Behavioral Health
+- Admission / Transfer / Discharge
+- Medical Records
+- Quality of Care
+- Quality of Life
+
+NEW YORK NURSING HOME
+
+- NYSDOH
+- 10 NYCRR Part 415
+- New York nursing-home regulations
+- Dear Administrator Letters
+- NY-specific reporting requirements
+- NY-specific survey requirements
+- NY infection prevention requirements
+- NY resident rights requirements
+- NY emergency preparedness requirements
+- other applicable NY nursing-home guidance
+
+MDS / REIMBURSEMENT
+
+- MDS 3.0
+- RAI Manual
+- PDPM
+- ICD-10 mappings
+- Quality Measures
+- Five-Star methodology
+- Staffing measures
+- PBJ
+- SNF reimbursement references
+- Case-mix related references
+
+CLINICAL MEDICINE
+
+- Geriatric Medicine
+- Internal Medicine
+- Cardiology
+- Pulmonology
+- Nephrology
+- Endocrinology
+- Neurology
+- Infectious Disease
+- Psychiatry
+- Behavioral Health
+- Dementia
+- Gastroenterology
+- Hematology
+- Oncology basics
+- Orthopedics
+- Rehabilitation medicine
+- Wound care
+- Dermatology relevant to LTC
+- Palliative care
+- Hospice concepts
+- Nutrition
+- Dehydration
+- Falls
+- Delirium
+- CHF
+- COPD
+- CKD
+- Diabetes
+- Hypertension
+- Stroke
+- Seizures
+- Pneumonia
+- UTIs
+- Sepsis
+- Electrolyte disorders
+- anemia
+- common post-acute conditions
+- other common SNF/LTC medical conditions
+
+MEDICATION / PHARMACOLOGY
+
+Create Medication and Pharmacology as a FIRST-CLASS knowledge area.
+
+Include support for:
+
+- Generic drug names
+- Brand names
+- Drug classes
+- Indications
+- Standard dosing information
+- Renal dosing considerations
+- Hepatic considerations
+- Contraindications
+- Drug-drug interactions
+- Drug-disease interactions
+- Adverse effects
+- Common side effects
+- Serious adverse reactions
+- Black Box / Boxed Warnings
+- Geriatric considerations
+- Beers Criteria-type considerations where appropriate
+- Monitoring parameters
+- Laboratory monitoring
+- Therapeutic monitoring
+- Anticoagulants
+- Insulin
+- Diabetes medications
+- Antibiotics
+- Antipsychotics
+- Antidepressants
+- Benzodiazepines
+- Opioids
+- Cardiac medications
+- Diuretics
+- Antihypertensives
+- Seizure medications
+- Pain medications
+- Renally cleared medications
+- Psychotropic medication management
+- Gradual Dose Reduction
+- unnecessary drug considerations
+- polypharmacy
+- medication reconciliation
+- pharmacy consultant issues
+- nursing-home medication regulations
+
+CLINICAL REFERENCE
+
+Allow high-quality medical references to be indexed so that Private AI can provide:
+
+Physician-grade reference retrieval
++
+AI clinical reasoning
++
+nursing-home context
+
+The goal is NOT to claim that the AI replaces a physician.
+
+The goal is to give the AI strong, clinician-grade reference material that it can retrieve and reason over.
+
+INFECTION PREVENTION
+
+Include:
+
+- CDC
+- respiratory virus guidance
+- isolation / precautions
+- outbreak management
+- vaccination
+- NHSN LTC
+- antibiotic stewardship
+- multidrug-resistant organisms
+- hand hygiene
+- surveillance
+- infection preventionist resources
+
+FACILITY / COMPANY KNOWLEDGE
+
+Allow permanent indexing of:
+
+- Policies and procedures
+- Clinical protocols
+- Employee handbook
+- Emergency preparedness plan
+- Infection-control plan
+- Abuse policies
+- Falls policies
+- Elopement policies
+- Admission policies
+- Transfer / discharge policies
+- Pharmacy policies
+- Consultant pharmacist policies
+- QAPI materials
+- Corporate guidance
+- Forms
+- Templates
+- Training documents
+- operational procedures
+- Centers Healthcare materials where authorized
+
+USER-CREATED KNOWLEDGE
+
+Allow the user to create custom categories and subcategories.
+
+======================================================================
+4. KNOWLEDGE VS PHI CLASSIFICATION
+======================================================================
+
+Do NOT create a separate clinical application or separate secure workspace.
+
+The entire Private AI application is already designed as a HIPAA-controlled environment.
+
+Instead implement DATA CLASSIFICATION inside the same application.
+
+Classification A:
+
+REFERENCE KNOWLEDGE
+
+Examples:
+
+- CMS
+- CDC
+- NYSDOH
+- regulations
+- clinical references
+- medication references
+- facility policies
+- training manuals
+
+Reference Knowledge may be indexed and reused across chats and projects.
+
+Classification B:
+
+PHI / RESIDENT-SPECIFIC INFORMATION
+
+Examples:
+
+- resident charts
+- progress notes
+- MAR
+- TAR
+- labs
+- vital signs
+- diagnoses
+- census
+- assessments
+- incident reports
+- care plans
+- therapy records
+- resident-specific medical records
+
+PHI may be analyzed normally inside Private AI.
+
+However:
+
+DO NOT automatically turn resident-specific PHI into general Knowledge Base information.
+
+DO NOT automatically add resident information to long-term AI memory.
+
+DO NOT allow one resident's information to appear in unrelated searches or conversations.
+
+Resident-specific information should remain scoped to the relevant chat, project, resident task, or file context unless the user explicitly moves it elsewhere.
+
+======================================================================
+5. SOURCE HIERARCHY
+======================================================================
+
+Private AI should understand that healthcare sources have different authority.
+
+Build source-ranking metadata into the retrieval system.
+
+For regulatory/nursing-home questions, generally prefer:
+
+1. Applicable law / regulation
+2. CMS official guidance
+3. State law / regulation
+4. NYSDOH official guidance
+5. Other government guidance
+6. Current recognized professional clinical guidelines
+7. FDA / official medication information where applicable
+8. Facility / corporate policies
+9. Other authoritative clinical references
+10. General AI model knowledge
+
+For medication questions, generally prefer:
+
+1. FDA / official drug labeling
+2. DailyMed / official drug information
+3. Major recognized clinical guidelines
+4. Government medical references
+5. recognized professional references
+6. facility protocols
+7. model knowledge
+
+Do not blindly merge conflicting sources.
+
+If relevant sources disagree, identify the difference.
+
+Example:
+
+"Federal regulation requires X; the facility policy is more restrictive and requires Y."
+
+======================================================================
+6. SOURCE METADATA
+======================================================================
+
+Every Knowledge Base document should support metadata including:
+
+- Title
+- Organization
+- Source
+- URL if applicable
+- Category
+- Subcategory
+- Jurisdiction
+- Federal / State / Facility / Clinical
+- Publication date
+- Effective date
+- Revision date
+- Version
+- Date imported
+- Last checked
+- Current
+- Superseded
+- Archived
+- Tags
+- User notes
+
+When relevant, store:
+
+- regulation citation
+- F-Tag
+- CFR citation
+- NYCRR citation
+- policy number
+- document revision number
+- drug name
+- guideline organization
+
+======================================================================
+7. VERSION CONTROL
+======================================================================
+
+Healthcare guidance changes frequently.
+
+The Knowledge Engine must be version aware.
+
+Private AI should normally retrieve:
+
+CURRENT
++
+EFFECTIVE
+
+references.
+
+Superseded material should not be treated as current unless requested.
+
+However, retain older versions so historical questions can be answered.
+
+Example:
+
+"What requirement was in effect when this survey occurred in February 2025?"
+
+The Knowledge Engine should retrieve the version that was effective at that time when possible.
+
+The UI should clearly label:
+
+CURRENT
+
+SUPERSEDED
+
+ARCHIVED
+
+======================================================================
+8. KNOWLEDGE BASE UPDATE SYSTEM
+======================================================================
+
+Create a Knowledge Base Update feature.
+
+It should be capable of checking approved public sources for updates such as:
+
+- CMS
+- NYSDOH
+- CDC
+- FDA
+- DailyMed
+- other approved government/clinical sources
+
+It should NOT automatically overwrite important references without user visibility.
+
+Preferred workflow:
+
+Update available
+→ show user
+→ identify existing version
+→ identify new version
+→ show what changed if practical
+→ allow user to approve update
+→ mark prior version superseded
+→ retain older version for history
+
+Example UI:
+
+Healthcare Knowledge Updates
+
+3 updates detected
+
+MDS RAI Manual
+New version available
+
+CMS QSO Memo
+New document available
+
+NYSDOH DAL
+New guidance available
+
+[Review]
+[Import]
+[Ignore]
+
+======================================================================
+9. HEALTHCARE ANSWER MODE
+======================================================================
+
+Add healthcare-aware answer functionality.
+
+When a healthcare question is detected, Private AI should automatically consider whether Knowledge Base retrieval is appropriate.
+
+Add controls such as:
+
+Use Healthcare Knowledge Base: ON/OFF
+
+Show Sources: ON/OFF
+
+Prefer Current Sources: ON
+
+Include Facility Policies: ON/OFF
+
+Include Clinical References: ON/OFF
+
+Include Medication References: ON/OFF
+
+Advanced users can change these settings.
+
+Normal users should not need to configure them for each question.
+
+======================================================================
+10. CITATIONS
+======================================================================
+
+Healthcare and regulatory responses should support strong source citations.
+
+Example:
+
+Sources used:
+
+CMS Appendix PP — F689
+10 NYCRR §415.xx
+Facility Falls Policy — Rev. 04/2026
+CDC Clinical Guidance — current version
+
+Clicking a citation should open:
+
+THE RELEVANT PASSAGE
+
+rather than merely opening page 1 of a 500-page PDF.
+
+Show:
+
+- document name
+- section
+- page if known
+- regulation/F-Tag if known
+- relevant quoted/extracted text
+- publication/revision date
+- source classification
+
+======================================================================
+11. CLINICAL QUESTION HANDLING
+======================================================================
+
+Distinguish two major clinical modes.
+
+MODE A:
+
+REFERENCE / EDUCATIONAL
+
+Example:
+
+"What are the clinical manifestations of hyperkalemia?"
+
+Retrieve medical references and answer.
+
+MODE B:
+
+RESIDENT-SPECIFIC CLINICAL ANALYSIS
+
+Example:
+
+"Resident has CKD, creatinine increased from 1.3 to 2.1, is taking apixaban and furosemide. What should the clinical team review?"
+
+The AI may:
+
+- summarize relevant findings
+- identify abnormal trends
+- identify potential medication issues
+- identify monitoring considerations
+- identify possible differential considerations
+- identify questions for physician/NP review
+- identify potentially relevant guidelines
+- identify urgency/red flags where appropriate
+
+The system should clearly distinguish:
+
+FACTS FROM THE RESIDENT RECORD
+
+from
+
+INFORMATION FROM REFERENCES
+
+from
+
+AI REASONING / POSSIBILITIES
+
+Do not present uncertain reasoning as confirmed diagnosis.
+
+======================================================================
+12. MEDICATION INTELLIGENCE
+======================================================================
+
+Create dedicated medication intelligence.
+
+When medication names appear in:
+
+- MAR
+- progress notes
+- hospital discharge summary
+- pharmacy review
+- care plan
+- incident report
+- uploaded document
+
+Private AI should be capable of identifying them and retrieving relevant medication knowledge.
+
+Support questions such as:
+
+"Review this medication regimen."
+
+"Any important interactions?"
+
+"Which medications need renal review?"
+
+"Which medications could contribute to falls?"
+
+"Which medications could contribute to hypotension?"
+
+"Which are psychotropics?"
+
+"Are there potential GDR issues?"
+
+"What should be monitored?"
+
+"Could any of these medications contribute to the lab abnormalities?"
+
+For medication analysis, show the basis/source when possible.
+
+======================================================================
+13. NURSING-HOME-SPECIFIC INTELLIGENCE
+======================================================================
+
+The AI should understand SNF/LTC workflows.
+
+Examples:
+
+"Review this incident for possible F-Tag exposure."
+
+"Compare this incident to our facility policy."
+
+"What documents should I review before concluding this investigation?"
+
+"Review this 2567."
+
+"Draft a POC."
+
+"Compare our POC against the cited deficiency."
+
+"Which CMS requirement applies?"
+
+"What NY reporting requirement may apply?"
+
+"Review this medication regimen for nursing-home compliance concerns."
+
+"Analyze the latest MDS."
+
+"Review this fall investigation."
+
+"Review this hospitalization."
+
+"Find changes in condition."
+
+"Summarize clinical risk."
+
+"Create an administrator review."
+
+"Create a QAPI summary."
+
+======================================================================
+14. FACILITY POLICY + REGULATION COMPARISON
+======================================================================
+
+Build explicit support for comparison between:
+
+FACILITY POLICY
+
+and
+
+REGULATORY REQUIREMENT
+
+and
+
+CLINICAL GUIDANCE
+
+Example:
+
+User:
+
+"Review this fall."
+
+Private AI should be capable of retrieving:
+
+resident information
++
+facility falls policy
++
+CMS F689 guidance
++
+NY requirements if relevant
++
+clinical fall-risk guidance
+
+and then structure the answer appropriately.
+
+======================================================================
+15. HEALTHCARE KNOWLEDGE UI
+======================================================================
+
+Add a Healthcare Knowledge section in the main navigation.
+
+Suggested layout:
+
+Healthcare Knowledge
+
+Overview
+
+Knowledge Library
+
+Categories
+
+Clinical Medicine
+
+Medications
+
+Federal / CMS
+
+New York / NYSDOH
+
+MDS / PDPM
+
+Survey / F-Tags
+
+Quality Measures
+
+Infection Prevention
+
+Facility Policies
+
+Updates
+
+Source Manager
+
+Settings
+
+Users should be able to:
+
+- search sources
+- add sources
+- remove sources
+- replace sources
+- archive sources
+- change categories
+- add tags
+- mark current/superseded
+- see update status
+- open source
+- search inside source
+- view citations
+- view chunks/index status
+- rebuild index
+- exclude a source temporarily
+
+======================================================================
+16. KNOWLEDGE DOCUMENT IMPORT
+======================================================================
+
+Support importing:
+
+PDF
+DOCX
+XLSX
+XLS
+CSV
+TXT
+MD
+HTML when appropriate
+
+For imported references:
+
+- extract text
+- preserve headings where possible
+- preserve tables when possible
+- preserve page references
+- chunk intelligently
+- create searchable index
+- optionally create embeddings
+- save source metadata
+
+Do not use arbitrary fixed-length chunks if better semantic/document-aware chunking is available.
+
+Prefer chunk boundaries around:
+
+- headings
+- sections
+- regulations
+- F-Tags
+- policy sections
+- medication entries
+- table rows
+- clinical guideline sections
+
+======================================================================
+17. SEARCH / RETRIEVAL DESIGN
+======================================================================
+
+Use hybrid retrieval where practical:
+
+- keyword search
+- FTS5
+- semantic search / embeddings
+- metadata filters
+- reranking
+
+The system should support searches by:
+
+- topic
+- regulation
+- F-Tag
+- CFR citation
+- NYCRR section
+- medication
+- diagnosis
+- clinical topic
+- policy name
+- policy number
+- date
+- source organization
+- jurisdiction
+
+The retrieval engine should return only the strongest relevant passages instead of dumping entire documents into the model context.
+
+======================================================================
+18. LOCAL VS CLOUD AI
+======================================================================
+
+Preserve existing Private AI AI Processing Modes:
+
+SMART HYBRID
+
+LOCAL FIRST
+
+CLOUD FIRST
+
+LOCAL ONLY
+
+Healthcare Knowledge retrieval should work regardless of whether reasoning is local or cloud-based.
+
+Example:
+
+Knowledge search occurs locally.
+
+Relevant passages are selected.
+
+Then:
+
+Local Brain can reason over them.
+
+OR
+
+OpenAI can reason over them if Smart Hybrid determines escalation is warranted.
+
+When OpenAI is used, follow existing HIPAA/security/provider rules.
+
+Send only information needed for the task.
+
+======================================================================
+19. USER TRANSPARENCY
+======================================================================
+
+Under healthcare answers, display a compact status indicator.
+
+Examples:
+
+🧠 Local Brain
+📚 6 Knowledge Sources
+☁️ OpenAI not used
+
+or
+
+☁️ OpenAI Reasoning
+📚 8 Knowledge Sources
+
+Potentially also show:
+
+Clinical Knowledge
+Medication Knowledge
+CMS
+NYSDOH
+Facility Policy
+
+Do not make the status line visually distracting.
+
+It should appear like a small footer/source indicator beneath the response.
+
+======================================================================
+20. ANSWER CONFIDENCE / SOURCE QUALITY
+======================================================================
+
+Do not create fake numerical confidence scores.
+
+Instead use source quality indicators such as:
+
+Authoritative source found
+
+Facility policy found
+
+Clinical guideline found
+
+Limited source support
+
+Potentially outdated source
+
+Conflicting sources detected
+
+This is more useful than arbitrary percentages.
+
+======================================================================
+21. HEALTHCARE SEARCH BEHAVIOR
+======================================================================
+
+When answering healthcare questions:
+
+FIRST search installed/local Knowledge Base when appropriate.
+
+Then determine whether external/current information is necessary.
+
+If web/current-source access is enabled and needed:
+
+search approved authoritative sources.
+
+Do not prefer random general websites over primary sources.
+
+Prefer:
+
+CMS
+CDC
+FDA
+DailyMed
+NYSDOH
+NIH
+recognized professional organizations
+official regulatory sources
+
+======================================================================
+22. CLINICAL SAFETY / ROLE DESIGN
+======================================================================
+
+Private AI should be capable of sophisticated clinical analysis.
+
+However:
+
+Do not falsely represent itself as a physician.
+
+Do not state that AI reasoning is equivalent to examination by a treating clinician.
+
+For resident-specific clinical analysis:
+
+show evidence
+show references
+identify uncertainty
+distinguish possible concerns from confirmed findings
+identify potentially urgent findings clearly
+
+Allow the user to use the AI as a:
+
+clinical analysis assistant
+
+medication analysis assistant
+
+nursing-home administrator assistant
+
+regulatory research assistant
+
+document reviewer
+
+rather than presenting it as autonomous medical decision-maker.
+
+======================================================================
+23. KNOWLEDGE BASE MEMORY RULES
+======================================================================
+
+Healthcare Knowledge Base and AI Memory are DIFFERENT systems.
+
+Knowledge Base:
+
+authoritative reference material.
+
+Memory:
+
+user preferences, persistent project context and explicitly approved information.
+
+Do not automatically turn Knowledge Base content into AI memory.
+
+Do not automatically turn resident data into memory.
+
+Temporary Chat should continue to avoid memory updates.
+
+======================================================================
+24. FACILITY KNOWLEDGE
+======================================================================
+
+Facility policies should be first-class searchable Knowledge Base content.
+
+Allow:
+
+FACILITY
+
+COMPANY
+
+CORPORATE
+
+DEPARTMENT
+
+UNIT
+
+tags.
+
+Examples:
+
+Williamsbridge Center
+Centers Healthcare
+Nursing
+Medical
+Administration
+Social Work
+Dietary
+Recreation
+Therapy
+Pharmacy
+Infection Prevention
+
+When answering policy questions, show which facility/company policy was used.
+
+======================================================================
+25. PROJECT-SPECIFIC KNOWLEDGE
+======================================================================
+
+Allow Projects to have their own additional Knowledge Base.
+
+Example:
+
+Project:
+2026 Annual Survey Preparation
+
+Project knowledge might include:
+
+last survey
+POCs
+audits
+QAPI plans
+current resident reports
+department audits
+survey preparation files
+
+Private AI should combine:
+
+GLOBAL HEALTHCARE KNOWLEDGE
+
++
+FACILITY KNOWLEDGE
+
++
+PROJECT KNOWLEDGE
+
++
+CURRENT CHAT FILES
+
+when appropriate.
+
+======================================================================
+26. AGENTS
+======================================================================
+
+Healthcare Knowledge Engine should be available to Agents.
+
+Possible agent presets:
+
+Healthcare Research Agent
+
+CMS / NYSDOH Regulatory Agent
+
+Survey Preparation Agent
+
+2567 Reviewer
+
+Plan of Correction Reviewer
+
+Clinical Chart Review Agent
+
+Medication Review Agent
+
+MDS Review Agent
+
+Quality Measure Agent
+
+Facility Policy Review Agent
+
+Infection Prevention Agent
+
+Do not create autonomous clinical actions.
+
+Agents analyze, organize, draft, compare, research and report.
+
+======================================================================
+27. AUTOMATIC KNOWLEDGE ROUTING
+======================================================================
+
+Private AI should intelligently recognize question type.
+
+Example:
+
+"What is F689?"
+
+→ regulatory knowledge
+
+"Does Eliquis need adjustment in renal impairment?"
+
+→ medication knowledge
+
+"Resident has increased confusion and sodium of 121."
+
+→ clinical medicine + resident data
+
+"Does our policy require an RN assessment?"
+
+→ facility policy + regulatory sources
+
+"What does the RAI Manual say?"
+
+→ MDS Knowledge Base
+
+The user should not need to manually select the database every time.
+
+======================================================================
+28. OPTIONAL MANUAL SOURCE SELECTION
+======================================================================
+
+Allow advanced users to restrict a question to selected sources.
+
+Example:
+
+Search only:
+
+☑ CMS
+☑ NYSDOH
+☐ Clinical references
+☐ Facility policy
+☐ Medication references
+
+Useful for legal/regulatory research where source scope matters.
+
+======================================================================
+29. AUDITABILITY
+======================================================================
+
+For important healthcare tasks, allow the user to inspect:
+
+- which sources were searched
+- which sources were selected
+- which passages were retrieved
+- which model was used
+- whether OpenAI was used
+- what files were included
+
+Do not expose hidden model reasoning / chain-of-thought.
+
+Show source evidence and workflow metadata instead.
+
+======================================================================
+30. PERFORMANCE
+======================================================================
+
+This feature must work on the existing Primary PC architecture.
+
+Do not load every healthcare document into RAM.
+
+Use indexed retrieval.
+
+Only retrieve relevant chunks.
+
+Embeddings/indexes should be persisted.
+
+Large reference libraries should not require keeping the local AI model plus entire source library in memory.
+
+Respect existing RAM safeguards.
+
+If needed:
+
+release local model
+perform indexing
+reload local model afterward
+
+without breaking normal chat.
+
+======================================================================
+31. BACKGROUND INDEXING
+======================================================================
+
+Large healthcare references can be indexed as background tasks.
+
+Use existing Worker architecture.
+
+States:
+
+Queued
+Running
+Waiting
+Paused
+Completed
+Failed
+
+Foreground chat remains priority.
+
+Indexing should pause safely when system resources are constrained.
+
+======================================================================
+32. USER EXPERIENCE
+======================================================================
+
+Do not make the healthcare system complicated for normal use.
+
+Normal workflow should remain:
+
+Open Private AI
+
+Ask:
+
+"Review this fall."
+
+Private AI automatically:
+
+recognizes healthcare question
+searches relevant sources
+retrieves policy/regulations/clinical guidance
+analyzes uploaded resident information
+responds
+shows citations
+
+Advanced controls remain available when needed.
+
+======================================================================
+33. STARTER HEALTHCARE KNOWLEDGE PACK
+======================================================================
+
+Design the system to support a starter knowledge pack containing categories for:
+
+CMS nursing-home regulations
+
+CMS Appendix PP
+
+Federal LTC regulations
+
+CMS QSO guidance
+
+MDS RAI Manual
+
+PDPM resources
+
+Five-Star methodology
+
+Quality Measure manuals
+
+NYSDOH nursing-home regulations
+
+10 NYCRR Part 415
+
+NYSDOH Dear Administrator Letters
+
+CDC nursing-home infection prevention
+
+CDC respiratory guidance
+
+FDA medication references
+
+DailyMed medication references
+
+Geriatric clinical references
+
+Post-acute medical references
+
+Facility policies
+
+Do not illegally bundle copyrighted commercial medical databases without proper licensing.
+
+The application should support user-provided or appropriately licensed clinical references.
+
+======================================================================
+34. FUTURE SUPPORT
+======================================================================
+
+Design the architecture so that later we can add:
+
+- additional clinical databases
+- licensed medical references
+- formulary databases
+- drug interaction databases
+- automatic regulatory update feeds
+- document comparison
+- policy compliance scanning
+- resident longitudinal analysis
+- more advanced clinical agents
+
+without redesigning the whole Healthcare Knowledge Engine.
+
+======================================================================
+35. DO NOT BREAK EXISTING PRIVATE AI
+======================================================================
+
+This update must preserve existing functionality.
+
+Do not remove or regress:
+
+- normal chat
+- streaming
+- local models
+- OpenAI API
+- Smart Hybrid
+- Local First
+- Cloud First
+- Local Only
+- Projects
+- Files
+- Memory
+- Temporary Chat
+- Agents
+- Scheduler
+- Worker
+- ShareSync
+- browser automation
+- HIPAA Mode
+- retention controls
+- secure credentials
+- exports
+- document analysis
+- background task priority system
+- RAM safeguards
+- Pause Background Work
+- provider transparency
+- existing installer/updater behavior
+
+======================================================================
+36. IMPLEMENTATION PRIORITY
+======================================================================
+
+Implement in phases inside this major update.
+
+PHASE 1
+
+Knowledge Base architecture
+Healthcare categories
+document import
+metadata
+indexing
+search
+RAG retrieval
+citations
+source viewer
+PHI/reference classification
+
+PHASE 2
+
+Healthcare-aware automatic routing
+clinical medicine
+medication intelligence
+CMS/NYSDOH/facility source hierarchy
+version control
+historical-version retrieval
+
+PHASE 3
+
+Knowledge Update system
+regulatory/source update detection
+Healthcare Agents
+advanced source filters
+facility/regulation comparison
+medication review workflows
+
+PHASE 4
+
+Optimization
+performance improvements
+retrieval reranking
+source quality indicators
+UI polish
+testing
+
+======================================================================
+37. TESTING REQUIREMENTS
+======================================================================
+
+Test with questions such as:
+
+"What is F689?"
+
+"What does CMS require for abuse investigations?"
+
+"What does New York require?"
+
+"Compare our falls policy with CMS requirements."
+
+"What does the current RAI Manual say about this MDS item?"
+
+"Review this 2567."
+
+"Review this Plan of Correction."
+
+"Review this medication list."
+
+"Which medications can contribute to falls?"
+
+"Which medications require renal consideration?"
+
+"What are the major adverse effects of apixaban?"
+
+"Resident has CKD and worsening creatinine. Review the medication regimen."
+
+"Resident has new confusion, fever and hypotension. What clinical concerns should the team review?"
+
+"Compare this facility policy to federal and NY requirements."
+
+"What regulation was in effect in February 2025?"
+
+Testing should verify:
+
+correct source selection
+correct version
+citation accuracy
+no cross-resident PHI leakage
+proper local/cloud routing
+proper PHI handling
+reasonable resource usage
+background indexing behavior
+source viewer behavior
+
+======================================================================
+38. FINAL DESIGN GOAL
+======================================================================
+
+Private AI should evolve from:
+
+"a general AI assistant that can read healthcare documents"
+
+into:
+
+"a healthcare-aware AI platform with authoritative nursing-home, regulatory, clinical and medication knowledge."
+
+The AI brain should NOT need to memorize healthcare knowledge.
+
+The Healthcare Knowledge Engine should supply current, authoritative information to whichever reasoning model is being used.
+
+The final architecture should effectively be:
+
+PRIVATE AI
+
+→ Chat / Projects / Agents / Automations
+
+→ Healthcare Knowledge Engine
+
+→ Federal / CMS Knowledge
+→ NY / NYSDOH Knowledge
+→ MDS / PDPM Knowledge
+→ Clinical Medicine Knowledge
+→ Medication / Pharmacology Knowledge
+→ Facility / Corporate Knowledge
+→ Project Knowledge
+
+→ Resident / PHI Context when applicable
+
+→ Local Brain or OpenAI Reasoning
+
+→ Answer + evidence + citations + model/source transparency
+
+This should feel completely integrated into Private AI rather than like a separate healthcare module bolted onto the side.
+
+Preserve the existing clean ChatGPT-style interface and existing application design while adding this functionality in a way that is powerful but simple for the user.

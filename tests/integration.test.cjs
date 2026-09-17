@@ -1,0 +1,23 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {Core}=require('../source/core.cjs');
+const {BrowserWorker}=require('../source/browser-worker.cjs');
+const {WhatsAppWeb}=require('../source/whatsapp-web.cjs');
+const {AccessManager}=require('../source/access.cjs');
+const {uuid}=require('../source/security.cjs');
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+function make(t){const map=new Map();const store={get:(k,id)=>structuredClone(map.get(k+':'+id)),put:(k,id,v)=>map.set(k+':'+id,structuredClone(v)),list:k=>[...map].filter(([key])=>key.startsWith(k+':')).map(([,v])=>structuredClone(v)),delete:(k,id)=>map.delete(k+':'+id),audit:()=>{},cleanup:()=>({})};
+ store.project=(kind,select)=>store.list(kind).map(select);store.count=kind=>store.list(kind).length;
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'privateai-test-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const core=new Core({store,root:path.join(root,'vault')});fs.mkdirSync(core.root);store.put('settings','main',{processingMode:'local-only',allowCloud:false,hipaa:true,workspace:path.join(root,'reports')});core.resources.memory=()=>8*1024**3;core.resources.sleep=()=>delay(2);core.client.generate=()=>assert.fail('must not call API');return core;}
+test('real Core foreground deterministic chat keeps local-only and temporary chat behavior',async t=>{const c=make(t),chat=c.createChat({temporary:true});const result=await c.send({chatId:chat.id,prompt:'/calc 10*4'});assert.match(result.chat.messages.at(-1).text,/40/);assert.equal(c.requests.size,0);assert.equal(c.resources.foreground,0);assert.equal(c.store.get('chat',chat.id),undefined);});
+test('real Core local-only job exports once; queued pause and cancellation are visible',async t=>{const c=make(t);const j={id:uuid(),prompt:'/calc 3+4',title:'Test',format:'txt',files:[]};await c.runJob(j);const record=c.store.get('job',j.id);assert.equal(record.status,'completed',JSON.stringify(record));assert.match(fs.readFileSync(path.join(c.settings().workspace,record.output),'utf8'),/7/);c.store.put('settings','main',{...c.settings(),workerPaused:true});const id=uuid(),pending=c.runJob({...j,id});await delay(10);assert.equal(c.store.get('job',id).status,'paused');c.stop(id);await pending;assert.equal(c.store.get('job',id).status,'failed');assert.equal(c.resources.background,null);});
+test('unattended report, Outlook, and WhatsApp send stop before any side effect',async t=>{const c=make(t),chromium={launchPersistentContext:()=>assert.fail('browser launched')};const browser=new BrowserWorker(c,{chromium}),wa=new WhatsAppWeb(c,{chromium});c.store.put('access','outlook',{readMessages:true});const access=new AccessManager(c,()=>assert.fail('helper invoked'));
+ await assert.rejects(c.resources.task('background',()=>browser.run({name:'Report',url:'https://example.com',steps:[{op:'download',selector:'button'}]})),{code:'INTERFERENCE'});
+ browser.context={close:()=>assert.fail('Denied task closed an existing manual browser')};
+ await assert.rejects(c.resources.task('background',()=>browser.run({name:'Report',url:'https://example.com',steps:[{op:'download',selector:'button'}]})),{code:'INTERFERENCE'});
+ await assert.rejects(c.resources.task('background',()=>access.outlook('outlook.messages')),{code:'INTERFERENCE'});
+ await assert.rejects(c.runMessagingBackground(()=>wa.send({},'test')),{code:'INTERFERENCE'});
+ assert.equal(browser.busy,false);assert.equal(c.resources.browser,null);
+});
+test('denied browser approval leaves launch unexecuted',async t=>{const c=make(t);c.resources.approve=async()=>false;const b=new BrowserWorker(c,{chromium:{launchPersistentContext:()=>assert.fail()}});await assert.rejects(b.open('https://example.com',['https://example.com']),{code:'DEFERRED'});assert.equal(c.resources.browser,null);});
+test('foreground continues while background job is paused',async t=>{const c=make(t);c.store.put('settings','main',{...c.settings(),workerPaused:true});const id=uuid(),pending=c.runJob({id,prompt:'/calc 1+1',title:'wait',format:'txt',files:[]});await delay(5);const chat=c.createChat();const result=await c.send({chatId:chat.id,prompt:'/calc 2*5'});assert.match(result.chat.messages.at(-1).text,/10/);assert.equal(c.store.get('job',id).status,'paused');c.stop(id);await pending;});

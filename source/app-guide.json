@@ -1,0 +1,578 @@
+{
+  "version": "3.0.0",
+  "title": "Private AI user guide",
+  "topics": [
+    {
+      "id": "start",
+      "title": "Start here",
+      "location": "User guide",
+      "aliases": [
+        "user guide",
+        "manual",
+        "instructions for using",
+        "getting started",
+        "use private ai",
+        "use this app",
+        "what can you do",
+        "help me use",
+        "features",
+        "capabilities",
+        "how do i use you",
+        "what can i do",
+        "how do i get started",
+        "do you have a guide"
+      ],
+      "steps": [
+        "Open User guide in the sidebar to browse or search these instructions at any time.",
+        "For help in chat, ask “How do I change my local brain?” or type /help models. Common guide answers are retrieved locally without loading a brain or calling OpenAI.",
+        "Choose AI Processing to configure local models or cloud use. Choose Settings to select your approved work folder. Then start a New chat."
+      ],
+      "note": "The guide explains supported features. Asking for instructions does not itself change settings or grant permissions."
+    },
+    {
+      "id": "chat",
+      "title": "Chat, edit and save a response",
+      "location": "New chat",
+      "aliases": [
+        "chat",
+        "new chat",
+        "edit a message",
+        "regenerate",
+        "copy response",
+        "save response",
+        "export",
+        "keyboard shortcuts"
+      ],
+      "steps": [
+        "Choose New chat (Ctrl+K), type a message, and press Enter to send. Shift+Enter adds a new line. Stop cancels an active response.",
+        "Use Edit under your message to change it. Sending the edit replaces the later conversation branch. Regenerate retries the last question and may use your configured model or API.",
+        "Use Copy or Save as… below the answer. DOCX, PDF, XLSX, CSV, MD and TXT exports go to your chosen work folder.",
+        "Assistant answers appear in a light-grey box. Model-routing and verification notices appear below as compact footnotes; they still matter when reviewing the answer."
+      ],
+      "note": "The saved response can include verification notices. A local evidence score is a heuristic, not a measured accuracy percentage."
+    },
+    {
+      "id": "models",
+      "title": "Choose and download a local brain",
+      "location": "AI Processing",
+      "aliases": [
+        "brain",
+        "brains",
+        "models",
+        "local model",
+        "small brain",
+        "smallest brain",
+        "model tiers",
+        "change model",
+        "download model",
+        "gguf"
+      ],
+      "steps": [
+        "Open AI Processing → Local brain tiers. Small is Qwen3 1.7B Q4_K_M; Medium is Llama 3.2 3B Q4_K_M; High is Qwen3 4B Q4_K_M; Extra High is Qwen3 8B Q4_K_M.",
+        "Use Download model for a missing tier, or Locate existing file to reuse a compatible GGUF already on disk. Existing downloads are verified and reused.",
+        "Choose a local tier and automatic tier cap, then Save processing settings. Load selected / starting model loads it explicitly; normal reasoning loads a model when needed.",
+        "Extra High is optional and needs considerably more available RAM. Only one model is loaded at a time."
+      ],
+      "note": "A larger model is not guaranteed to be correct. Downloads require internet, but ordinary local inference does not. Missing models are never downloaded automatically."
+    },
+    {
+      "id": "automatic",
+      "title": "Automatic tier selection",
+      "location": "AI Processing",
+      "aliases": [
+        "automatic",
+        "auto",
+        "escalation",
+        "tier cap",
+        "larger brain",
+        "larger model",
+        "upgrade brain"
+      ],
+      "steps": [
+        "In AI Processing, choose Automatic for the local tier and choose the highest allowed automatic tier. Save processing settings.",
+        "With Small installed, the app uses it for a short assessment and may switch to an available larger tier. It checks available RAM and stops the previous engine before loading another.",
+        "When a larger tier is unavailable, capped or cannot fit, the answer may remain a smaller-model draft with a visible footnote.",
+        "Health & recovery → Keep loaded brain for follow-ups controls optional reuse. Zero keeps the default Small-first behavior."
+      ],
+      "note": "The selection is a heuristic. It does not guarantee the best tier, and allowing a higher cap does not install that model."
+    },
+    {
+      "id": "ram",
+      "title": "Reduce RAM use and model loading problems",
+      "location": "AI Processing; Health & recovery",
+      "aliases": [
+        "ram",
+        "memory pressure",
+        "low memory",
+        "out of memory",
+        "context",
+        "loading model",
+        "load model",
+        "unload"
+      ],
+      "steps": [
+        "Open AI Processing and choose Unload now before changing to a smaller model or context.",
+        "Try Small or Medium, Local context tokens 2048, and Maximum local answer tokens 512. Save processing settings, then Load selected / starting model.",
+        "Close unused heavy programs and browser sessions. Balanced reduces CPU demand; a smaller brain and context reduce model RAM demand.",
+        "Health & recovery shows available RAM, the active model and waiting reasons. Keep free RAM and RAM recovery delay control resource checks."
+      ],
+      "note": "Do not reduce the RAM reserve just to force an oversized model to load. Work may wait or pause until enough RAM returns. The engine can stop when RAM becomes critically low."
+    },
+    {
+      "id": "processing",
+      "title": "Local Only, Local First and cloud modes",
+      "location": "AI Processing",
+      "aliases": [
+        "local only",
+        "local-only",
+        "offline",
+        "processing mode",
+        "cloud first",
+        "cloud-first",
+        "local first",
+        "smart hybrid",
+        "api calls"
+      ],
+      "steps": [
+        "Open AI Processing → Processing mode. Local Only blocks every OpenAI request, including model-list and connection tests.",
+        "Local First and Smart Hybrid can use OpenAI only when cloud access is allowed and the required API/privacy settings are complete. Cloud First uses the configured API for AI reasoning.",
+        "Ordinary local commands and built-in guide answers use local code, without a model or API key.",
+        "Use Save processing settings after changing the mode. The provider information beneath a response shows how that response was produced."
+      ],
+      "note": "Local Only cannot provide live web search through OpenAI. Some tasks may be refused or need a smaller scope when local capability or RAM is insufficient."
+    },
+    {
+      "id": "api",
+      "title": "Set up OpenAI API access",
+      "location": "Settings; AI Processing; API Usage",
+      "aliases": [
+        "api key",
+        "openai key",
+        "api setup",
+        "api credits",
+        "cloud setup",
+        "api usage",
+        "billing",
+        "cost"
+      ],
+      "steps": [
+        "Open Settings to save your OpenAI API key and configure the model, organization or project fields when needed.",
+        "Complete the privacy approval shown by the app before using cloud requests in HIPAA mode.",
+        "In AI Processing, choose a mode that permits cloud use and enable Allow OpenAI when needed if appropriate. Local Only continues to block OpenAI.",
+        "API Usage shows recorded usage. Configure price inputs for estimates; an unknown price is not a promise that a request is free."
+      ],
+      "note": "ChatGPT subscriptions do not supply an API key to this app. API billing is separate. Guide answers use no API credits, and no key belongs in a prompt or shared work folder."
+    },
+    {
+      "id": "files",
+      "title": "Attach and ask about documents",
+      "location": "Files; chat attachment button",
+      "aliases": [
+        "attach",
+        "attachments",
+        "documents",
+        "pdf",
+        "word",
+        "excel",
+        "csv",
+        "import files",
+        "working files"
+      ],
+      "steps": [
+        "Use the + attachment button in chat, or Files → Import files. From Files, choose Ask about this file to begin a related chat.",
+        "Ask a specific question and identify the documents to compare. The current build supports text PDFs, DOCX, XLSX, CSV, TXT, EML, MSG and images.",
+        "Use /extract to return attached extracted text without a model. Check extraction before relying on a complex table or document.",
+        "Use Save as… to create a report in your approved work folder."
+      ],
+      "note": "Image understanding depends on the selected provider/model; the bundled text brains cannot inspect image pixels. Scanned PDFs may need OCR outside this app. Unsupported legacy file formats should be converted before import."
+    },
+    {
+      "id": "workspace",
+      "title": "Choose an output folder or ShareSync",
+      "location": "Settings → Work folder",
+      "aliases": [
+        "sharesync",
+        "work folder",
+        "output folder",
+        "save folder",
+        "reports folder",
+        "where are reports",
+        "where are files saved"
+      ],
+      "steps": [
+        "Open Settings and choose your approved Work folder. This can be a ShareSync folder approved for your work.",
+        "The app installs separately from this folder. Exported reports and approved Worker handoffs use the work folder.",
+        "For two PCs, select the same synced work folder on each and connect their identities in Worker after checking fingerprints.",
+        "Use Open work folder in Worker to open the selected destination."
+      ],
+      "note": "Do not place the app database, encrypted key file, browser profiles, caches or model downloads into the shared task folder. Each PC keeps its protected application data locally."
+    },
+    {
+      "id": "projects",
+      "title": "Organize a project",
+      "location": "Projects",
+      "aliases": [
+        "project",
+        "projects",
+        "project instructions",
+        "project files"
+      ],
+      "steps": [
+        "Open Projects → New project. Enter its name, instructions and optional output subfolder.",
+        "Choose New project chat to work with its instructions. Import or attach the relevant documents explicitly.",
+        "Edit updates the project settings; Remove project removes its project record. Review deletion prompts before confirming."
+      ],
+      "note": "Project instructions guide answers; they do not grant access to apps, folders, websites or cloud services."
+    },
+    {
+      "id": "agents",
+      "title": "Create a reusable report agent",
+      "location": "Agents",
+      "aliases": [
+        "agent",
+        "agents",
+        "reusable report",
+        "run report",
+        "report agent"
+      ],
+      "steps": [
+        "Open Agents → New agent. Enter a name and clear instructions, select an output format and choose any working files to include.",
+        "Use Run report, then choose this PC or a connected Worker when offered. The job follows AI Processing settings.",
+        "Review the resulting report and the recent-job status. Edit the agent to reuse improved instructions."
+      ],
+      "note": "An agent is a reusable task configuration. This version is not a general-purpose autonomous controller that can perform arbitrary operations across every desktop app."
+    },
+    {
+      "id": "schedules",
+      "title": "Schedule a report",
+      "location": "Scheduled tasks; Worker",
+      "aliases": [
+        "schedule",
+        "schedules",
+        "scheduled tasks",
+        "daily",
+        "weekdays",
+        "recurring",
+        "automatic reports"
+      ],
+      "steps": [
+        "Open Scheduled tasks and create or edit a report with its prompt, selected files, and output format.",
+        "Choose one-time, daily, weekdays, weekly, monthly, custom interval, or a work-folder file-change watcher. Enter the fields for your chosen recurrence. Times use this PC's local time.",
+        "Weekly days use 0 for Sunday through 6 for Saturday. Monthly dates beyond the end of a shorter month use its last day. Interval and watcher polling use minutes.",
+        "The first watcher poll records a baseline; a later file metadata change triggers a report. The watcher path is relative to the approved work folder.",
+        "Duplicate creates a paused copy. Review it before enabling. Keep the PC, app, and Worker running; paused background work cannot run scheduled jobs."
+      ],
+      "note": "One-time jobs disable after their run. A file watcher detects file metadata changes, not arbitrary conditions in emails or websites. Scheduled reports use your existing processing and privacy settings."
+    },
+    {
+      "id": "pause",
+      "title": "Pause background work and understand job states",
+      "location": "Top bar; Health & recovery",
+      "aliases": [
+        "pause",
+        "resume",
+        "waiting",
+        "paused",
+        "running",
+        "failed",
+        "stop background",
+        "job status"
+      ],
+      "steps": [
+        "Use Pause background work in the top bar. Active work reaches a safe boundary before it pauses; this is not an immediate termination of an in-progress action.",
+        "Use Resume background work when ready. Foreground chat receives priority at safe boundaries.",
+        "Running means an active phase; Waiting means a resource or priority condition is blocking progress; Paused means a manual or recovery pause; Failed means the job ended with an error.",
+        "Open Health & recovery for the reason. Use Stop on a recent job to cancel it."
+      ],
+      "note": "One background AI job and one browser session are permitted. Close an open automation browser session before local reasoning needs its RAM."
+    },
+    {
+      "id": "worker",
+      "title": "Set up a Worker PC and Windows startup",
+      "location": "Worker",
+      "aliases": [
+        "worker",
+        "second pc",
+        "other pc",
+        "remote pc",
+        "start at login",
+        "sign in",
+        "autostart",
+        "background jobs"
+      ],
+      "steps": [
+        "Open Worker, choose this PC’s role, and enable background jobs if desired. Save Worker settings.",
+        "Enable Start Private AI when I sign in to Windows if you want it to launch at sign-in; this can be changed later.",
+        "Choose the same approved ShareSync work folder on both PCs. Compare the displayed fingerprints and connect each trusted PC to the other.",
+        "Keep the Worker awake and signed in. Closing the window can leave enabled background work running; Quit in the tray stops the app."
+      ],
+      "note": "Each PC needs its own local credentials and model files. A Worker role does not remove approvals or provide guaranteed desktop-input isolation."
+    },
+    {
+      "id": "browser",
+      "title": "Run a reviewed browser report",
+      "location": "Browser reports",
+      "aliases": [
+        "browser",
+        "browser reports",
+        "recipe",
+        "website automation",
+        "playwright"
+      ],
+      "steps": [
+        "Open Browser reports to create or review a supported recipe for the approved site and its defined steps.",
+        "Review the interference warning before manually opening or running browser work. Log in or complete verification yourself when required.",
+        "Run the reviewed recipe from the interface or use /report NAME for a saved recipe. Close the browser session when finished."
+      ],
+      "note": "Separate profiles do not guarantee focus isolation. Visible browser actions can take focus, share session state, open windows or download files. Unattended interfering actions are deferred."
+    },
+    {
+      "id": "interference",
+      "title": "Automation warnings and safe deferral",
+      "location": "Preflight dialog; Apps; Browser reports",
+      "aliases": [
+        "interference",
+        "focus",
+        "mouse",
+        "keyboard",
+        "clipboard",
+        "interrupt",
+        "approval",
+        "permissions",
+        "desktop control"
+      ],
+      "steps": [
+        "Read the preflight warning before an action that may affect ordinary PC use. It identifies affected apps only when the action provides evidence for those names.",
+        "Desktop mouse/keyboard input may affect whichever app is currently in focus. Window, clipboard and shared-session effects are described when applicable.",
+        "Choose Defer safely to leave the action unexecuted, or Run now — I approve when you are ready for that invocation.",
+        "Keep Private AI visible, focused and unlocked for manual approval. Unattended jobs do not bring it forward to ask."
+      ],
+      "note": "App help is explanatory. It never grants permissions, clicks approval buttons, or bypasses these controls."
+    },
+    {
+      "id": "chrome",
+      "title": "Use the browser companion in Chrome, Edge or Firefox",
+      "location": "Settings → Browser Companion",
+      "aliases": [
+        "chrome",
+        "chrome companion",
+        "extension",
+        "read webpage",
+        "read page",
+        "firefox",
+        "edge",
+        "browser companion"
+      ],
+      "steps": [
+        "Open Settings → Browser Companion → Set up browser companion in the rebuilt desktop app. This registers the local host and opens the extension folder.",
+        "Chrome/Edge: open chrome://extensions or edge://extensions, enable Developer mode, select Load unpacked, and choose that folder.",
+        "Firefox: use about:debugging#/runtime/this-firefox → Load Temporary Add-on and choose manifest.json in the firefox subfolder. Temporary installation ends on browser restart.",
+        "Pin and click the toolbar icon to open the sidebar. Ask a question. Enable Include page only when you intend to read the current page; click the icon on that tab first to grant access.",
+        "Disconnect browser companions in Settings and close open panels when finished. Re-run setup if the desktop executable moves."
+      ],
+      "note": "Firefox live native integration is not yet validated and permanent distribution requires Mozilla signing. Brave is an unverified Chromium compatibility candidate. Browser-internal pages and some PDF viewers cannot be captured. The companion uses the desktop app; it contains no independent model or API key."
+    },
+    {
+      "id": "outlook",
+      "title": "Use approved Outlook access",
+      "location": "Apps",
+      "aliases": [
+        "outlook",
+        "unread emails",
+        "calendar",
+        "email access",
+        "mailbox"
+      ],
+      "steps": [
+        "Open Apps to review and grant the available Outlook read permissions you intend to use.",
+        "Use /unread for unread messages, or /calendar today and /calendar tomorrow for the supported calendar lookup.",
+        "Review any interruption approval before the helper interacts with Outlook."
+      ],
+      "note": "A help question about Outlook does not read your mailbox. The actual commands require permissions and may be deferred when unattended."
+    },
+    {
+      "id": "whatsapp",
+      "title": "Configure the WhatsApp bridge",
+      "location": "Messaging; Apps",
+      "aliases": [
+        "whatsapp",
+        "messaging",
+        "phone",
+        "paired group",
+        "remote messages"
+      ],
+      "steps": [
+        "Open Messaging and connect the dedicated WhatsApp Web account by scanning its QR code. Keep Private AI and the connection running; no particular chat needs to stay open.",
+        "Read all conversations continuously defaults on when the bridge is enabled. Turn it off to stop broad reading without changing selected-conversation permissions.",
+        "Load connected conversations, select and verify each permitted destination, and configure approved sender IDs and command-only or open read/write mode. Open read/write accepts ordinary messages from approved senders.",
+        "Disable all writing overrides every WhatsApp reply and forwarding option and pauses incoming task execution; reading continues according to the read settings. Enable actual response text and task-start commands separately as needed.",
+        "Show latest observed messages to inspect encrypted local observations. Reading does not automatically send messages to an AI model. Clear locally observed messages removes those app records, not messages in WhatsApp.",
+        "Follow-up context is kept separately per conversation and sender. Send /new to start fresh; approved-command mode also requires the configured prefix and PC code.",
+        "Enable progress notices for a running-time notice each minute. Actual response text is on by default for new configurations, and long answers are split into numbered messages. Existing saved preferences are preserved."
+      ],
+      "note": "The Web account receives new text-message events across conversations and refreshes up to 100 available recent messages per conversation. It does not download media, recover unavailable history, or operate while the PC/app/connection is offline. History never starts tasks. Windows-native intake remains open-conversation-only. The unofficial whatsapp-web.js connection needs live account validation before release."
+    },
+    {
+      "id": "privacy",
+      "title": "Privacy settings and retention",
+      "location": "Settings",
+      "aliases": [
+        "retention",
+        "privacy",
+        "hipaa",
+        "delete history",
+        "keep history",
+        "cleanup",
+        "data storage"
+      ],
+      "steps": [
+        "Open Settings to review HIPAA mode, cloud approval and retention. The default retention is 90 days; choose a listed duration, a custom duration or Keep indefinitely if appropriate.",
+        "Use Save settings. Run retention cleanup now applies the configured cleanup to eligible expired local records and working copies.",
+        "Original documents and explicitly saved reports are separate from the app’s working copies. Manage those in their approved storage location.",
+        "Protected app data remains under %LOCALAPPDATA%\\PrivateAI2; credentials stay local to the Windows user."
+      ],
+      "note": "HIPAA mode is an app control, not a compliance certification. The app does not change your organization’s provider agreements, endpoint controls or approved channels."
+    },
+    {
+      "id": "temporary",
+      "title": "Use a temporary chat",
+      "location": "Temporary chat",
+      "aliases": [
+        "temporary chat",
+        "temporary",
+        "save temporary",
+        "unsaved chat"
+      ],
+      "steps": [
+        "Choose Temporary chat before sending. It does not use or save the app’s memory and is removed when closed.",
+        "Choose Save chat to convert it to a saved conversation when you intentionally want to keep it.",
+        "Explicitly exported files remain in the work folder even when the temporary chat ends."
+      ],
+      "note": "Temporary chat does not erase copies held by an external provider or other applications. Processing-mode and provider permissions still apply."
+    },
+    {
+      "id": "memory",
+      "title": "Manage what the app remembers",
+      "location": "Settings → Memory",
+      "aliases": [
+        "saved memory",
+        "remember",
+        "memories",
+        "project memory",
+        "global memory"
+      ],
+      "steps": [
+        "Open the Memory controls from Settings. Enable memory only when you intend it to be used.",
+        "Add, edit or delete an entry, choose its duration, and choose global or project scope.",
+        "Temporary chats never use or update app memory."
+      ],
+      "note": "Saved memory is user-approved text included in eligible requests; it is different from the PC’s RAM."
+    },
+    {
+      "id": "recovery",
+      "title": "Recover interrupted work and export diagnostics",
+      "location": "Health & recovery",
+      "aliases": [
+        "recovery",
+        "diagnostics",
+        "crash",
+        "safe startup",
+        "interrupted",
+        "unclean exit",
+        "resume report"
+      ],
+      "steps": [
+        "Open Health & recovery after a crash, interrupted session or sleep. Read the recorded status and reason before resuming.",
+        "Acknowledge startup notice dismisses the safe-start notice. Resume background work is a separate action.",
+        "For an eligible failed local report, use Review & resume report. Saved inputs and completed steps are reused; a request that was not saved may need to run again.",
+        "Use Run local checks or Export diagnostics. Review the technical report before sharing it."
+      ],
+      "note": "Diagnostics exclude prompts, file contents, credentials, paths and device names. Recovery does not replay every kind of job or guarantee that an external action was undone. Do not delete the data folder to repair a launch error."
+    },
+    {
+      "id": "install",
+      "title": "Install, use portable and upgrade safely",
+      "location": "Installer; Portable folder",
+      "aliases": [
+        "install",
+        "installation",
+        "portable",
+        "upgrade",
+        "update",
+        "new pc",
+        "version"
+      ],
+      "steps": [
+        "For regular setup, extract the installer ZIP and run Installer → PrivateAI-Setup-3.0.0-x64.exe. Quit running copies first; use the existing location when updating.",
+        "For portable use, extract the entire portable ZIP to a permanent folder and run Portable\\PrivateAI.exe. Keep all supporting files together.",
+        "Both use local user data outside the program folder. Models and chats do not need to be redownloaded during this update.",
+        "The bundled local engine needs no separate Microsoft runtime installation. The installer works per user without administrator rights."
+      ],
+      "note": "Copying the portable folder to another PC does not automatically transfer protected data or models. Windows execution of a new build must still be checked on the target PC."
+    },
+    {
+      "id": "custominstructions",
+      "title": "Set global custom instructions",
+      "location": "Settings → Custom instructions",
+      "aliases": [
+        "custom instructions",
+        "global instructions",
+        "writing preferences"
+      ],
+      "steps": [
+        "Open Settings and enter your preferences in Custom instructions.",
+        "Save Settings. The instructions are combined with relevant project instructions and approved memory for chat requests."
+      ],
+      "note": "Instructions do not override app permissions or provider restrictions. Do not use this field to store resident data or credentials."
+    },
+    {
+      "id": "archive",
+      "title": "Archive and restore chats",
+      "location": "Chat → Archive; Settings → Manage archived chats",
+      "aliases": [
+        "archive",
+        "archived chats",
+        "restore chat"
+      ],
+      "steps": [
+        "Open the chat and choose Archive. It disappears from the active sidebar list.",
+        "Open Settings → Manage archived chats to restore a conversation."
+      ],
+      "note": "Archiving does not delete the chat or exempt it from retention. Temporary chats cannot be archived. Archiving a WhatsApp session makes its next inquiry start a new chat."
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Ask Private AI to troubleshoot",
+      "location": "Chat; Health & recovery; User guide",
+      "aliases": [
+        "troubleshoot",
+        "troubleshooting",
+        "diagnose",
+        "not working",
+        "error code"
+      ],
+      "steps": [
+        "Type /diagnose or troubleshoot Private AI for local read-only configuration checks. These do not need a model or API connection.",
+        "Review the observed configuration separately from the suggested steps. The check does not test the network, key validity, installer, or live WhatsApp connection.",
+        "Use /help followed by a topic for instructions, and include the error code and what you were doing when asking for more help.",
+        "For a failing local model, inspect AI Processing and Health & recovery. For browser or WhatsApp problems, inspect the relevant connection and permissions."
+      ],
+      "note": "Diagnostics do not automatically fix settings or send messages. They do not expose your API key, work-folder path, or resident records. Other questions still follow your selected AI processing mode."
+    },
+    {
+      "id": "lastupdated",
+      "title": "Check when this app source was updated",
+      "location": "Bottom of sidebar",
+      "aliases": [
+        "last updated",
+        "build date",
+        "update date"
+      ],
+      "steps": [
+        "Read Last updated at the bottom of the sidebar. The date uses this PC's local time.",
+        "The timestamp changes when source content changes during build preparation. Opening the app does not reset it."
+      ],
+      "note": "This is a source-build timestamp, not evidence of an automatic update or completed release validation."
+    }
+  ]
+}

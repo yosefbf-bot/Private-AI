@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Private AI Companion",
+  "version": "3.0.0",
+  "description": "Private AI beside your work. Webpages are read only after an explicit request.",
+  "permissions": [
+    "nativeMessaging",
+    "activeTab",
+    "scripting"
+  ],
+  "background": {
+    "scripts": [
+      "background.mjs"
+    ],
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Private AI Companion",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "commands": {
+    "open-private-ai": {
+      "suggested_key": {
+        "default": "Alt+Shift+A"
+      },
+      "description": "Open Private AI Companion"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; object-src 'none'; connect-src 'none'; img-src 'self' data:; style-src 'self'; base-uri 'none'; form-action 'none'"
+  },
+  "sidebar_action": {
+    "default_title": "Private AI Companion",
+    "default_panel": "panel.html",
+    "default_icon": "icon48.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "companion@privateai.local",
+      "strict_min_version": "128.0"
+    }
+  }
+}

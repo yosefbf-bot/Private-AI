@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Private AI Companion</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="icon48.png" alt="" />Private AI <span>Companion</span>
+      </div>
+      <button id="desktop" title="Open desktop app">↗</button>
+    </header>
+    <div class="status">
+      <span id="mode">Connecting to your PC…</span
+      ><button id="reconnect">Reconnect</button>
+    </div>
+    <nav>
+      <button id="new">＋ New chat</button><button id="temp">◌ Temporary</button
+      ><select id="history" aria-label="Recent chats">
+        <option value="">Recent chats</option>
+      </select>
+    </nav>
+    <div class="privacy">
+      Pages stay private until you explicitly include one in a request.
+    </div>
+    <main id="messages">
+      <div class="welcome">
+        <h1>Ask alongside your work</h1>
+        <p>
+          Ask a general question, or intentionally include the page you’re
+          viewing.
+        </p>
+      </div>
+    </main>
+    <div id="error" role="status" hidden></div>
+    <section id="composer">
+      <label class="include"
+        ><input id="include" type="checkbox" /> Include this page
+        <span>one request</span></label
+      ><label class="selection"
+        ><input id="selection" type="checkbox" /> Use selected text only</label
+      ><textarea
+        id="prompt"
+        placeholder="Ask Private AI…"
+        aria-label="Question"
+        rows="3"
+      ></textarea>
+      <div class="actions">
+        <button id="summarize">Summarize page</button
+        ><button id="send" class="primary">Ask Private AI ↑</button
+        ><button id="stop" hidden>Stop ■</button>
+      </div>
+      <div class="small-actions">
+        <button id="save" hidden>Save temporary chat</button
+        ><select id="export" aria-label="Save answer">
+          <option value="">Save answer as…</option>
+          <option value="docx">Word</option>
+          <option value="pdf">PDF</option>
+          <option value="md">Markdown</option>
+        </select>
+      </div>
+      <p class="note">
+        Uses your desktop API configuration. No API key is stored in Chrome.
+      </p>
+    </section>
+    <script src="vendor/purify.min.js"></script>
+    <script type="module" src="panel.mjs"></script>
+  </body>
+</html>
