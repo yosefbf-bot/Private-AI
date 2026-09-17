@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
     />
     <title>Private AI</title>
     <meta name="description" content="Private local AI assistant with document reasoning, multi-turn chat, task scheduling, and secure local workspace management." />
@@ -23,6 +23,9 @@
         <button class="new-chat" data-act="new">
           ＋ New chat <kbd>Ctrl K</kbd></button
         ><button class="nav" data-act="temporary">◌ Temporary chat</button>
+        <button class="nav voice-sidebar-item" data-act="voice-toggle" id="voice-sidebar-btn" title="Toggle First-Class Voice Mode (Ctrl+Shift+V)">
+          🎙 Voice Mode <span class="voice-badge" id="voice-sidebar-badge">Ready</span>
+        </button>
         <nav>
           <button class="nav" data-act="view" data-view="projects">
             ▤ Projects</button
@@ -65,6 +68,86 @@
         </header>
         <div id="notice" hidden></div>
         <div id="resource-status" role="status" aria-live="polite"></div>
+        <section id="voice-hud" class="voice-hud" hidden aria-label="Private AI Voice Controller">
+          <div class="voice-hud-header">
+            <div class="voice-status-block">
+              <div class="voice-indicator-badge" id="voice-indicator-badge">
+                <span class="voice-indicator-pulse" id="voice-indicator-pulse"></span>
+                <span class="voice-indicator-text" id="voice-indicator-text">LISTENING</span>
+              </div>
+              <div class="voice-mode-tabs" role="tablist" aria-label="Voice input modes">
+                <button type="button" class="voice-tab active" data-voice-mode="handsfree" title="Hands-free conversational turn-taking">Hands-Free</button>
+                <button type="button" class="voice-tab" data-voice-mode="ptt" title="Push-to-Talk (Hold Spacebar)">Push-to-Talk</button>
+                <button type="button" class="voice-tab" data-voice-mode="always" title="Always Listening mode">Always Listening</button>
+              </div>
+            </div>
+            <div class="voice-header-actions">
+              <button type="button" class="voice-hard-mute-btn" id="voice-hard-mute-btn" title="Physically cuts microphone hardware stream immediately">
+                <span class="voice-mute-icon">🛡</span> <span id="voice-mute-label">HARD MUTE</span>
+              </button>
+              <button type="button" class="voice-close-btn" id="voice-close-btn" title="Close Voice Mode (Esc)">✕</button>
+            </div>
+          </div>
+
+          <div class="voice-hud-body">
+            <div class="voice-visualizer-container">
+              <canvas id="voice-visualizer" class="voice-visualizer-canvas" width="460" height="40" aria-label="Microphone activity visualizer"></canvas>
+              <div class="voice-ptt-container" id="voice-ptt-container" hidden>
+                <button type="button" class="voice-ptt-disc" id="voice-ptt-disc">
+                  <span class="voice-ptt-disc-icon">🎙</span>
+                  <span class="voice-ptt-disc-label">HOLD TO TALK</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="voice-transcript-panel" id="voice-transcript-panel">
+              <div class="voice-transcript-header">
+                <span class="voice-transcript-title">Streaming Speech Transcript</span>
+                <span class="voice-transcript-hint" id="voice-transcript-hint">Auto-sends when you pause speaking</span>
+              </div>
+              <div class="voice-transcript-stream" id="voice-transcript-stream">Listening for your voice…</div>
+            </div>
+
+            <div class="voice-controls-bar">
+              <div class="voice-control-group">
+                <label class="voice-control-label">
+                  Route to Agent
+                  <select id="voice-agent-select" class="voice-select" aria-label="Select routing agent">
+                    <option value="">Default Assistant (Standard Router)</option>
+                  </select>
+                </label>
+                <label class="voice-control-label">
+                  Voice Option
+                  <select id="voice-profile-select" class="voice-select" aria-label="Select voice personality">
+                    <option value="nova">Nova · Calm &amp; Natural</option>
+                    <option value="atlas">Atlas · Deep &amp; Authoritative</option>
+                    <option value="sage">Sage · Warm Clinical</option>
+                    <option value="breeze">Breeze · Fast &amp; Expressive</option>
+                  </select>
+                </label>
+                <label class="voice-control-label">
+                  Speech Rate
+                  <select id="voice-rate-select" class="voice-select" aria-label="Select speech speed">
+                    <option value="0.9">0.9x Deliberate</option>
+                    <option value="1.0" selected>1.0x Normal</option>
+                    <option value="1.15">1.15x Conversational</option>
+                    <option value="1.3">1.3x Quick</option>
+                  </select>
+                </label>
+              </div>
+              <div class="voice-control-buttons">
+                <button type="button" class="voice-interrupt-btn" id="voice-interrupt-btn" title="Interrupt assistant voice response">■ Interrupt / Barge-in</button>
+                <label class="voice-tts-toggle" title="Read responses aloud">
+                  <input type="checkbox" id="voice-tts-toggle" checked> Spoken replies
+                </label>
+              </div>
+            </div>
+            <div class="voice-compliance-notice" id="voice-compliance-notice">
+              <span class="voice-shield-icon">🔒</span>
+              <span><strong>HIPAA &amp; Zero-Cloud Compliance:</strong> Audio processing and text-to-speech are performed on-device. No audio data or voice biometric telemetry is sent to any cloud API or external service.</span>
+            </div>
+          </div>
+        </section>
         <section id="content"></section>
         <section id="compose">
           <div id="attachments"></div>
@@ -76,6 +159,14 @@
               aria-label="Message"
             ></textarea>
             <div class="composer-actions">
+              <button
+                class="icon-button voice-composer-btn"
+                id="voice-composer-btn"
+                title="Voice Mode &amp; PTT (Ctrl+Shift+V)"
+                aria-label="Toggle Voice Mode"
+              >
+                🎙
+              </button>
               <button
                 class="icon-button"
                 id="attach"

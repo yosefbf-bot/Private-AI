@@ -4,6 +4,7 @@ import {createBrowserUI} from "./browser-recipes.mjs";
 import {createHybridUI} from "./hybrid.mjs";
 import { marked } from "./vendor/marked.mjs";
 import { createAccessUI } from "./access.mjs";
+import { VoiceManager } from "./voice.mjs";
 const $ = (id) => document.getElementById(id),
   esc = (v) =>
     String(v ?? "").replace(
@@ -48,6 +49,7 @@ async function refresh() {
   state = await api("summary");
   renderSidebar();
   updateTop();
+  populateVoiceAgents();
 }
 function renderSidebar() {
   const updated=new Date(state.buildInfo?.updatedAt||'');
@@ -441,9 +443,290 @@ function showLocked() {
   $("view-title").textContent = "Private AI";
   $("top-actions").innerHTML = "";
 }
+let voiceManager = null;
+let voiceHudOpen = false;
+
+function initVoice() {
+  if (voiceManager) return;
+  const canvas = $("voice-visualizer");
+
+  voiceManager = new VoiceManager({
+    onSend: async ({ prompt, rawVoiceText, agentId }) => {
+      if (sending) return { text: "" };
+      if (view !== "chat" || !chat) {
+        if (!chat) await newChat();
+        else {
+          view = "chat";
+          renderChat();
+        }
+      }
+
+      sending = true;
+      $("send").hidden = true;
+      $("stop").hidden = false;
+      $("prompt").disabled = true;
+      $("attach").disabled = true;
+
+      const args = {
+        chatId: chat.id,
+        forwardMessaging: $("task-forward").value,
+        prompt,
+        fileIds: pending.map((f) => f.id),
+        web: $("web").checked,
+        editIndex: null,
+        regenerate: false,
+      };
+
+      chat.messages.push({
+        role: "user",
+        text: rawVoiceText,
+        fileIds: args.fileIds,
+      });
+      chat.messages.push({ role: "assistant", text: "" });
+      renderChat();
+      $("prompt").value = "";
+      pending = [];
+      renderAttachments();
+
+      try {
+        const result = await api("send", args);
+        chat = result.chat;
+        renderChat();
+        const lastMsg = chat.messages[chat.messages.length - 1];
+        return {
+          text: lastMsg && lastMsg.role === "assistant" ? lastMsg.text : "",
+        };
+      } catch (err) {
+        toast(err.message);
+        throw err;
+      } finally {
+        sending = false;
+        $("send").hidden = false;
+        $("stop").hidden = true;
+        $("prompt").disabled = false;
+        $("attach").disabled = false;
+        await refresh().catch(() => {});
+        if (view === "chat") renderChat();
+        $("content").scrollTop = $("content").scrollHeight;
+      }
+    },
+    onStateChange: (vState) => {
+      updateVoiceUIState(vState);
+    },
+    getState: () => state,
+    getChat: () => chat,
+  });
+
+  voiceManager.onTranscript = ({ fullText, interim, final }) => {
+    const el = $("voice-transcript-stream");
+    if (el) {
+      if (fullText) {
+        el.innerHTML = `<span>${esc(final)}</span> <em style="color: #4338ca; font-weight: 500;">${esc(interim)}</em>`;
+      } else {
+        el.textContent =
+          voiceManager.state === "listening"
+            ? "Listening for your voice…"
+            : "Ready";
+      }
+    }
+  };
+
+  // Wire up Voice HUD Controls
+  const muteBtn = $("voice-hard-mute-btn");
+  if (muteBtn) {
+    muteBtn.onclick = () => {
+      voiceManager.toggleHardMute();
+    };
+  }
+
+  const closeBtn = $("voice-close-btn");
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      toggleVoiceHud(false);
+    };
+  }
+
+  const interruptBtn = $("voice-interrupt-btn");
+  if (interruptBtn) {
+    interruptBtn.onclick = () => {
+      voiceManager.interruptSpeech();
+    };
+  }
+
+  document.querySelectorAll(".voice-tab").forEach((tab) => {
+    tab.onclick = () => {
+      const mode = tab.dataset.voiceMode;
+      document
+        .querySelectorAll(".voice-tab")
+        .forEach((t) => t.classList.toggle("active", t === tab));
+      $("voice-ptt-container").hidden = mode !== "ptt";
+      const hint = $("voice-transcript-hint");
+      if (hint) {
+        hint.textContent =
+          mode === "ptt"
+            ? "Hold Spacebar or the button to speak"
+            : "Auto-sends when you pause speaking";
+      }
+      voiceManager.setMode(mode);
+    };
+  });
+
+  const pttDisc = $("voice-ptt-disc");
+  if (pttDisc) {
+    const onPttDown = (e) => {
+      e.preventDefault();
+      pttDisc.classList.add("holding");
+      voiceManager.startPtt();
+    };
+    const onPttUp = (e) => {
+      e.preventDefault();
+      pttDisc.classList.remove("holding");
+      voiceManager.stopPtt();
+    };
+    pttDisc.addEventListener("mousedown", onPttDown);
+    pttDisc.addEventListener("mouseup", onPttUp);
+    pttDisc.addEventListener("mouseleave", onPttUp);
+    pttDisc.addEventListener("touchstart", onPttDown, { passive: false });
+    pttDisc.addEventListener("touchend", onPttUp, { passive: false });
+  }
+
+  const profileSel = $("voice-profile-select");
+  if (profileSel) {
+    profileSel.onchange = () => {
+      voiceManager.voiceProfile = profileSel.value;
+    };
+  }
+
+  const rateSel = $("voice-rate-select");
+  if (rateSel) {
+    rateSel.onchange = () => {
+      voiceManager.speechRate = parseFloat(rateSel.value) || 1.0;
+    };
+  }
+
+  const agentSel = $("voice-agent-select");
+  if (agentSel) {
+    agentSel.onchange = () => {
+      voiceManager.activeAgentId = agentSel.value;
+    };
+  }
+
+  const ttsToggle = $("voice-tts-toggle");
+  if (ttsToggle) {
+    ttsToggle.onchange = () => {
+      voiceManager.ttsEnabled = ttsToggle.checked;
+    };
+  }
+
+  const composerMic = $("voice-composer-btn");
+  if (composerMic) {
+    composerMic.onclick = () => toggleVoiceHud();
+  }
+
+  const sidebarMic = $("voice-sidebar-btn");
+  if (sidebarMic) {
+    sidebarMic.onclick = () => toggleVoiceHud();
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (
+      (e.ctrlKey && e.shiftKey && (e.key === "V" || e.key === "v")) ||
+      (e.altKey && (e.key === "V" || e.key === "v"))
+    ) {
+      e.preventDefault();
+      toggleVoiceHud();
+    }
+    if (e.key === "Escape" && voiceHudOpen) {
+      toggleVoiceHud(false);
+    }
+  });
+
+  populateVoiceAgents();
+}
+
+function populateVoiceAgents() {
+  const agentSel = $("voice-agent-select");
+  if (!agentSel || !state) return;
+  const currentVal = agentSel.value;
+  const agents = state.agents || [];
+  agentSel.innerHTML =
+    '<option value="">Default Assistant (Standard Router)</option>' +
+    agents.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("");
+  if (agents.some((a) => a.id === currentVal)) {
+    agentSel.value = currentVal;
+  }
+}
+
+function updateVoiceUIState(vState) {
+  const badge = $("voice-indicator-badge");
+  const text = $("voice-indicator-text");
+  const muteBtn = $("voice-hard-mute-btn");
+  const muteLabel = $("voice-mute-label");
+  const sideBadge = $("voice-sidebar-badge");
+
+  if (!badge || !text) return;
+
+  badge.className =
+    "voice-indicator-badge " + (vState.isHardMuted ? "muted" : vState.state);
+
+  if (vState.isHardMuted) {
+    text.textContent = "HARD MUTED — MIC CUT";
+    if (muteBtn) {
+      muteBtn.classList.add("active");
+      muteLabel.textContent = "UNMUTE MIC";
+    }
+    if (sideBadge) {
+      sideBadge.textContent = "Muted";
+      sideBadge.className = "voice-badge muted";
+    }
+  } else {
+    if (muteBtn) {
+      muteBtn.classList.remove("active");
+      muteLabel.textContent = "HARD MUTE";
+    }
+    const stateLabels = {
+      idle: "READY",
+      listening:
+        vState.mode === "always" ? "ALWAYS LISTENING" : "LISTENING",
+      processing: "ROUTING TO AI…",
+      speaking: "SPEAKING (BARGE-IN ACTIVE)",
+      muted: "MUTED",
+    };
+    text.textContent = stateLabels[vState.state] || "READY";
+    if (sideBadge) {
+      sideBadge.textContent =
+        vState.state === "listening" ? "Listening" : "Ready";
+      sideBadge.className =
+        "voice-badge " + (vState.state === "listening" ? "listening" : "");
+    }
+  }
+}
+
+function toggleVoiceHud(forceState) {
+  initVoice();
+  voiceHudOpen = forceState !== undefined ? forceState : !voiceHudOpen;
+  const hud = $("voice-hud");
+  if (!hud) return;
+  hud.hidden = !voiceHudOpen;
+
+  if (voiceHudOpen) {
+    voiceManager.startAudioVisualizer($("voice-visualizer"));
+    if (
+      !voiceManager.isHardMuted &&
+      (voiceManager.mode === "always" || voiceManager.mode === "handsfree")
+    ) {
+      voiceManager.startListening();
+    }
+  } else {
+    voiceManager.stopAudioVisualizer();
+    voiceManager.stopListening();
+  }
+}
+
 async function init() {
   try {
     await refresh();
+    initVoice();
     if (!state.settings.localModelPath && (!state.keySaved || !state.settings.model)) {
       view = "processing";
       renderPage(view);
@@ -750,6 +1033,9 @@ document.addEventListener("click", async (e) => {
       return;
     }
     switch (act) {
+      case "voice-toggle":
+        toggleVoiceHud();
+        break;
       case "guide-ask":
         if(sending){toast('Stop the current response first.');break;}
         await newChat();$("prompt").value='/help '+b.dataset.topic;await send();break;
