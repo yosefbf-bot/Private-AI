@@ -21,6 +21,8 @@ const OUTLOOK = {
   "outlook.calendar": "readCalendar",
   "outlook.draft": "writeDrafts",
   "outlook.appointment": "writeCalendar",
+  "outlook.delete": "deleteMessages",
+  "outlook.cleanup": "deleteMessages",
 };
 function helperCall(executable, data) {
   return new Promise((resolve, reject) => {

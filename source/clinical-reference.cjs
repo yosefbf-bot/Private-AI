@@ -24,10 +24,13 @@ const CLINICAL_DOMAINS = {
       "physician", "doctor", "md", "differential", "diagnosis", "workup", "lab", "labs",
       "bmp", "cmp", "cbc", "chest x-ray", "ekg", "delirium", "dementia", "sepsis",
       "aki", "dehydration", "pneumonia", "syncope", "beers", "polypharmacy", "deprescribing",
-      "anticholinergic", "recertification", "physician visit", "orders"
+      "anticholinergic", "recertification", "physician visit", "orders",
+      "hypertension", "bp", "blood pressure", "ketoacidosis", "dka", "diabetes"
     ],
     content: `### Geriatric Physician (MD) Reasoning & Guidelines
-- **Geriatric Differentials**:
+- **Geriatric Differentials & Management**:
+  * Hypertension (HTN): Primary goal in long-term care geriatrics is SBP 130-139 mmHg without orthostasis or fall precipitations. First-line agents: ACE inhibitors / ARBs, dihydropyridine CCBs (amlodipine), or thiazide-like diuretics. Avoid aggressive reductions that induce postural hypotension, syncope, or cerebral hypoperfusion.
+  * Diabetic Ketoacidosis (DKA) & Hyperosmolar Hyperglycemic State (HHS): Medical emergencies presenting with hyperglycemia, dehydration, altered mental status, and electrolyte shifts. DKA features metabolic acidosis with elevated anion gap and ketonuria/ketonemia; immediately notify MD/provider for emergency transfer, IV isotonic fluid resuscitation, electrolyte repletion (potassium monitoring), and intravenous regular insulin protocol.
   * Acute Confusion: Prioritize Delirium vs. Dementia vs. Depression (3 D's). Delirium is acute, fluctuating, with inattention; always investigate underlying triggers (infection/UTI, pneumonia, medications/anticholinergics, electrolyte imbalance, fecal impaction, urinary retention, pain, hypoxia).
   * Sepsis in Elders: Often lacks high fever; look for hypothermia (<96.8°F / 36°C), acute functional decline, tachypnea (>22 bpm), acute encephalopathy/altered mental status, hypotension (SBP <100 mmHg), or hypoglycemia.
   * Atypical Presentations: Myocardial infarction often presents as shortness of breath, unexplained falls, or fatigue rather than classic substernal chest pain.

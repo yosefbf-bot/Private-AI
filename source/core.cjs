@@ -21,9 +21,12 @@ const {HYBRID_DEFAULTS,validateHybrid,cloudAllowed}=require("./hybrid-settings.c
 const {HybridRouter}=require("./hybrid-router.cjs");
 const DEFAULTS = {
   ...HYBRID_DEFAULTS,
+  provider: "openai",
+  customEndpoint: "",
   customInstructions: "",
   hipaa: true,
   approved: false,
+  autoReminders: true,
   retentionDays: 90,
   memoryEnabled: false,
   memoryDays: 90,
@@ -76,6 +79,10 @@ class Core {
       });
     this.stability = new (require("./stability.cjs").Stability)(this);
     this.stability.start();
+    this.reminderTimer = setInterval(() => {
+      try { this.checkReminders(); } catch {}
+    }, 30000);
+    this.reminderTimer.unref?.();
     this.performCleanup();
     store.audit("startup");
   }
@@ -99,6 +106,7 @@ class Core {
       settings: s,
       resources: this.resources.snapshot(),
       health: this.stability.snapshot(),
+      ramProfile: require('./ram-profile.cjs').getRAMProfile(),
       buildInfo: require('./build-info.json'),
       localBrain: this.router.local?.status() || {state:"unavailable"},
       localTiers: this.modelManager?.catalog(s)||[],
@@ -116,7 +124,18 @@ class Core {
       folders: this.store.list("folder"),
       outlook: this.store.get("access", "outlook") || {},
       maintenance: this.store.get("maintenance", "backupCleanup") || {},
-      keySaved: !!this.store.get("secret", "openai"),
+      keySaved: !!(this.key(this.settings().provider) || this.key("openai")),
+      activeProvider: this.settings().provider || (this.key("openai") ? "openai" : "local"),
+      savedProviders: {
+        local: true,
+        openai: !!this.key("openai"),
+        gemini: !!this.key("gemini"),
+        anthropic: !!this.key("anthropic"),
+        deepseek: !!this.key("deepseek"),
+        groq: !!this.key("groq"),
+        custom: !!this.key("custom"),
+      },
+      providers: require("./providers.cjs").PROVIDERS,
       chats: this.store.summaries("chat").map((c) => ({
         id: c.id,
         title: c.title,
@@ -134,7 +153,16 @@ class Core {
         hipaa: f.hipaa,
       })),
       memories: this.store.list("memory"),
-      agents: this.store.list("agent"),
+      agents: (() => {
+        const stored = this.store.list("agent");
+        try {
+          const clinical = require("./clinical-reference.cjs").clinicalAgents;
+          return [...clinical, ...stored.filter((s) => !clinical.some((c) => c.id === s.id))];
+        } catch {
+          return stored;
+        }
+      })(),
+      todos: this.store.list("todo"),
       schedules: this.store.list("schedule"),
       jobs: this.store.project("job",({recoveryInput,checkpoint,savedAnswer,...j})=>({...j,recoverable:!!recoveryInput&&!j.remote,step:checkpoint?.phase||null})),
       worker: {
@@ -158,9 +186,14 @@ class Core {
       "workspace",
       "role",
       "reasoning",
+      "provider",
+      "customEndpoint",
+      "ollamaEndpoint",
     ])
       if (input[k] !== undefined)
-        s[k] = text(input[k], k === "workspace" ? 2000 : 120);
+        s[k] = text(input[k], k === "workspace" || k === "customEndpoint" || k === "ollamaEndpoint" ? 2000 : 120);
+    if (s.provider && !["local", "ollama", "gemini", "anthropic", "openai", "deepseek", "groq", "custom"].includes(s.provider))
+      throw fail("INVALID");
     if (
       !["primary", "worker", "both"].includes(s.role) ||
       ![
@@ -211,31 +244,44 @@ class Core {
     this.store.audit("settings");
     return s;
   }
-  saveKey(key) {
+  saveKey(key, provider) {
     this.assertUnlocked();
     text(key, 500);
-    if (!key.startsWith("sk-") || /\s/.test(key)) throw fail("INVALID");
-    this.store.put("secret", "openai", { key });
-    this.store.put("settings", "main", { ...this.settings(), approved: false });
+    const prov = provider || this.settings().provider || "openai";
+    const { validateKeyForProvider } = require("./providers.cjs");
+    validateKeyForProvider(key, prov);
+    this.store.put("secret", prov, { key });
+    if (prov === "openai" || key.startsWith("sk-")) {
+      this.store.put("secret", "openai", { key });
+    }
+    const current = this.settings();
+    this.store.put("settings", "main", { ...current, provider: prov, approved: false });
     this.store.audit("key_saved");
     return true;
   }
-  deleteKey() {
+  deleteKey(provider) {
     this.assertUnlocked();
-    this.store.delete("secret", "openai");
+    const prov = provider || this.settings().provider || "openai";
+    this.store.delete("secret", prov);
+    if (prov === "openai") this.store.delete("secret", "openai");
     this.store.audit("key_deleted");
     return true;
   }
-  key() {
-    return this.store.get("secret", "openai")?.key;
+  key(provider) {
+    const prov = provider || this.settings().provider || "openai";
+    return this.store.get("secret", prov)?.key || (prov === "openai" ? this.store.get("secret", "openai")?.key : null);
   }
-  async models() {
+  async models(provider) {
     this.assertUnlocked();
-    if(!cloudAllowed(this.settings())) throw fail("LOCAL_ONLY");
+    const prov = provider || this.settings().provider || "openai";
+    if (prov === "local") {
+      return ["local-knowledge-engine", "local-clinical-engine", "local-rules-engine"];
+    }
+    if (prov !== "ollama" && !cloudAllowed(this.settings())) throw fail("LOCAL_ONLY");
     try {
       return await this.client.models(
-        this.key(),
-        this.settings(),
+        this.key(prov),
+        { ...this.settings(), provider: prov },
         AbortSignal.timeout(20000),
       );
     } catch (e) {
@@ -243,27 +289,50 @@ class Core {
       throw fail("NETWORK");
     }
   }
-  async testConnection() {
+  async testConnection(provider) {
     this.assertUnlocked();
-    this.canSend(this.settings().hipaa,true);
-    const s = { ...this.settings(), maxOutput: 256 };
+    const prov = provider || this.settings().provider || "openai";
+    if (prov === "local") {
+      return { ok: true, note: "Local Assistant is active and ready (no API key required)." };
+    }
+    if (prov === "ollama") {
+      try {
+        const ep = (this.settings().ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
+        const r = await this.client.fetcher(ep + '/api/tags', { signal: AbortSignal.timeout(2500) });
+        if (r.ok) {
+          const data = await r.json();
+          const count = Array.isArray(data.models) ? data.models.length : 0;
+          return { ok: true, note: `Ollama is connected on localhost:11434 (${count} model${count === 1 ? '' : 's'} available).` };
+        }
+      } catch {
+        return { ok: false, note: "Could not reach Ollama at localhost:11434. Ensure Ollama is running." };
+      }
+    }
+    this.canSend(this.settings().hipaa, true);
+    const s = { ...this.settings(), provider: prov, maxOutput: 256 };
+    if (prov === "gemini" && !s.model) s.model = "gemini-2.5-flash";
+    if (prov === "anthropic" && !s.model) s.model = "claude-3-7-sonnet-20250219";
+    if (prov === "groq" && !s.model) s.model = "llama-3.3-70b-versatile";
+    if (prov === "deepseek" && !s.model) s.model = "deepseek-chat";
     const r = await this.client.generate(
-      this.key(),
+      this.key(prov),
       s,
       [{ role: "user", content: "Reply with OK." }],
       {},
     );
-    this.router.meter.record({...r,provider:"openai",model:s.model,reason:"connection_test"},s);
+    this.router.meter.record({...r, provider: prov, model: s.model, reason: "connection_test"}, s);
     this.store.audit("request", r.usage);
     return { ok: true, usage: r.usage };
   }
-  canSend(hipaa,cloud=true) {
+  canSend(hipaa, cloud = true) {
     const s = this.settings();
-    if(!cloud)return;
-    if(!cloudAllowed(s))throw fail("LOCAL_ONLY");
+    if (!cloud) return;
+    const provider = s.provider || (this.key("openai") ? "openai" : "local");
+    if (provider === "local" || provider === "ollama") return;
+    if (!cloudAllowed(s)) throw fail("LOCAL_ONLY");
     if (hipaa && !s.approved) throw fail("SETUP");
     if (!s.model) throw fail("MODEL");
-    if (!this.key()) throw fail("KEY");
+    if (!this.key(provider)) throw fail("KEY");
   }
   createChat({ temporary = false, project = null } = {}) {
     this.assertUnlocked();
@@ -958,6 +1027,63 @@ class Core {
     this.jobPayload(a);
     this.store.put("agent", a.id, a);
     return a;
+  }
+  saveTodo(input) {
+    this.assertUnlocked();
+    const t = {
+      id: isId(input.id) ? input.id : uuid(),
+      title: text(input.title || "Follow-up item", 200),
+      description: text(input.description || "", 4000),
+      dueAt: input.dueAt ? Number(input.dueAt) : null,
+      followUpDate: input.followUpDate ? String(input.followUpDate).slice(0, 50) : null,
+      priority: ["low", "normal", "high", "urgent"].includes(input.priority) ? input.priority : "normal",
+      status: ["pending", "completed"].includes(input.status) ? input.status : "pending",
+      reminderEnabled: input.reminderEnabled !== false,
+      notified: input.notified === true,
+      source: ["manual", "email", "chat"].includes(input.source) ? input.source : "manual",
+      createdAt: input.createdAt || Date.now(),
+      completedAt: input.status === "completed" ? (input.completedAt || Date.now()) : null,
+    };
+    this.store.put("todo", t.id, t);
+    this.emit({ type: "todos_changed" });
+    return t;
+  }
+  toggleTodoStatus(id) {
+    this.assertUnlocked();
+    if (!isId(id)) throw fail("INVALID");
+    const t = this.store.get("todo", id);
+    if (!t) throw fail("NOT_FOUND");
+    t.status = t.status === "completed" ? "pending" : "completed";
+    t.completedAt = t.status === "completed" ? Date.now() : null;
+    this.store.put("todo", t.id, t);
+    this.emit({ type: "todos_changed" });
+    return t;
+  }
+  checkReminders() {
+    if (this.locked) return [];
+    const s = this.settings();
+    if (!s.autoReminders) return [];
+    const now = Date.now();
+    const list = this.store.list("todo");
+    const due = [];
+    for (const t of list) {
+      if (t.status !== "pending" || t.reminderEnabled === false || t.notified) continue;
+      let isDue = false;
+      if (t.dueAt && t.dueAt <= now) isDue = true;
+      if (t.followUpDate) {
+        const parsed = Date.parse(t.followUpDate);
+        if (!isNaN(parsed) && parsed <= now) isDue = true;
+      }
+      if (isDue) {
+        t.notified = true;
+        this.store.put("todo", t.id, t);
+        due.push(t);
+      }
+    }
+    if (due.length > 0) {
+      this.emit({ type: "reminder_due", items: due });
+    }
+    return due;
   }
   saveSchedule(input) {
     this.assertUnlocked();

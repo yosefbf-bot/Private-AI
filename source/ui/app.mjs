@@ -68,7 +68,9 @@ function renderSidebar() {
 }
 function updateTop() {
   const resource=state.resources;
-  if(resource)$('resource-status').textContent=`Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
+  const ram=state.ramProfile||state.health?.ramProfile;
+  const ramPart=ram?`Hardware RAM: ${ram.totalGB} GB (${ram.availableGB} GB Free · ${ram.statusBadge}) · `:``;
+  if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
   const names = {
     chat: chat?.title || "New chat",
     projects: "Projects",
@@ -82,8 +84,19 @@ function updateTop() {
     memory: "Memory",health:"Health & recovery",guide:"User guide",
   };
   $("view-title").textContent = names[view] || "Private AI";
-  $("model-label").textContent =
-    ({"smart-hybrid":"Smart Hybrid","local-first":"Local First","cloud-first":"Cloud First","local-only":"Local Only"}[state.settings.processingMode] || "Smart Hybrid");
+  const provNames = {
+    local: "Local Assistant",
+    ollama: "Ollama (Local)",
+    gemini: "Gemini",
+    anthropic: "Claude",
+    openai: "OpenAI",
+    deepseek: "DeepSeek",
+    groq: "Groq",
+    custom: "Custom Server"
+  };
+  const modeName = ({"smart-hybrid":"Smart Hybrid","local-first":"Local First","cloud-first":"Cloud First","local-only":"Local Only"}[state.settings.processingMode] || "Smart Hybrid");
+  const activeProv = state.settings.provider || (state.keySaved ? "openai" : "local");
+  $("model-label").textContent = `${modeName} · ${provNames[activeProv] || activeProv}`;
   const hipaa =
     chat && view === "chat"
       ? chat.hipaa || state.settings.hipaa
@@ -101,7 +114,8 @@ function updateTop() {
   $("composer-note").textContent = chat?.temporary
     ? "Temporary chat · Removed when closed · Explicit exports remain."
     : "Private AI can make mistakes. Review important information.";
-  const incomplete = state.settings.processingMode==="cloud-first" && (!state.keySaved || !state.settings.model || (state.settings.hipaa && !state.settings.approved));
+  const isLocal = activeProv === "local" || activeProv === "ollama";
+  const incomplete = state.settings.processingMode==="cloud-first" && !isLocal && (!state.keySaved || !state.settings.model || (state.settings.hipaa && !state.settings.approved));
   $("notice").hidden = !incomplete;
   $("notice").innerHTML =
     'Finish your API and privacy setup before sending. <button data-act="view" data-view="settings">Open Settings</button>';
@@ -277,6 +291,14 @@ async function send(regenerate = false) {
   }
 }
 window.privateAI.onEvent((event) => {
+  if (event.type === "reminder_due") {
+    const list = (event.items || []).map(i => i.title).join(", ");
+    toast("⏰ Reminder due: " + (list || "Action item"));
+    refresh().then(() => { if (view === "todos") renderPage("todos"); }).catch(() => {});
+  }
+  if (event.type === "todos_changed") {
+    refresh().then(() => { if (view === "todos") renderPage("todos"); }).catch(() => {});
+  }
   if(event.type==="model-download"){const e=document.getElementById("model-progress");if(e)e.textContent=event.error?.message||event.state+(event.total?" · "+Math.round(event.received/event.total*100)+"%":"");}
 
   if(event.type==="model-download"&&event.state==="selected")refresh().then(()=>{if(view==="processing")renderPage("processing");}).catch(e=>toast(e.message));
@@ -391,10 +413,131 @@ const accessUI = createAccessUI({
 async function confirmAction(title, message, button = "Continue") {
   return !!(await form(title, `<p>${esc(message)}</p>`, button));
 }
-function healthHTML(){const h=state.health||{},s=state.settings,r=state.resources||{};return `<div class="page"><h1>Health &amp; recovery</h1><p>Private AI ${esc(h.version)} · ${h.safeStartup?'Safe startup after an unclean exit. Background work is paused.':'Startup state recorded.'}</p><section class="section"><h2>Resources</h2><p>${esc(h.availableRAMGB)} GB available of ${esc(h.totalRAMGB)} GB RAM · App process: ${esc(h.appMemoryMB)} MB</p><p>Brain: ${esc(state.localBrain?.model)} — ${esc(state.localBrain?.state)}. Model cooldown: ${esc(h.modelCooldownSeconds)} seconds.</p><p>Background: ${esc(r.background?.state)} — ${esc(r.background?.reason)}</p><div class="fields"><label class="field">PC use profile<select name="workProfile"><option value="work" ${s.workProfile==='work'?'selected':''}>Work — balanced CPU</option><option value="away" ${s.workProfile==='away'?'selected':''}>Away — configured CPU setting</option></select></label>${field('Keep free RAM (MB)','ramReserveMB',s.ramReserveMB,'number')}${field('RAM recovery delay (seconds)','ramRecoverySeconds',s.ramRecoverySeconds,'number')}${field('Keep loaded brain for follow-ups (minutes; 0 = Small first)','keepBrainMinutes',s.keepBrainMinutes,'number')}</div><label class="check"><input type="checkbox" name="sectionedReports" ${s.sectionedReports?'checked':''}> Allow section-by-section processing for oversized report jobs (up to 12 sections; additional inference and possible API charges)</label><p>Away does not enable jobs, allow cloud use, or approve desktop input. After sleep or an unclean exit, resume background work manually. Windows peak working-set readings can increase later RAM budgets; they never lower the existing estimate. Other RAM observations reflect system changes.</p><button data-act="health-save">Save stability settings</button> <button data-act="health-refresh">Refresh health</button> <button data-act="health-ack">Acknowledge startup notice</button></section><section class="section"><h2>Diagnostics</h2><p>No prompts, document contents, credentials, file paths, or device names are included. Review the saved technical report before sharing it.</p><button data-act="self-check">Run local checks</button> <button data-act="diagnostics">Export diagnostics</button><p>Recent technical events: ${esc((h.events||[]).map(e=>e.event).join(', ')||'None this session')}</p></section>${jobsHTML()}</div>`;}
+function healthHTML(){
+  const h=state.health||{},s=state.settings,r=state.resources||{};
+  const ram=state.ramProfile||h.ramProfile||{totalGB:h.totalRAMGB||16,availableGB:h.availableRAMGB||3,profile:'conservative',statusBadge:'Conservative Mode (Compact Models)',description:'Host RAM is conserved for background clinical apps.',tierCap:'medium',keepAlive:'0s',threadBudget:4,recommendedModels:['qwen2.5:1.5b','llama3.2:1b']};
+  return `<div class="page"><h1>Health &amp; recovery</h1><p>Private AI ${esc(h.version)} · ${h.safeStartup?'Safe startup after an unclean exit. Background work is paused.':'Startup state recorded.'}</p>
+  <section class="section">
+    <h2>Hardware Memory &amp; Upgrade Awareness</h2>
+    <div class="card" style="border-left: 4px solid #2563eb">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+        <strong>Live System Memory: ${esc(ram.totalGB)} GB Installed (${esc(ram.availableGB)} GB Available)</strong>
+        <span class="badge ${ram.profile==='expanded'?'success':ram.profile==='balanced'?'info':'warning'}">${esc(ram.statusBadge)}</span>
+      </div>
+      <p style="margin:4px 0 8px">${esc(ram.description)}</p>
+      <div style="font-size:13px; line-height:1.6">
+        <div>• <strong>Auto-Tier Ceiling:</strong> <strong>${esc(ram.tierCap?.toUpperCase())}</strong> (protects against system lockups and high memory paging)</div>
+        <div>• <strong>Memory Cache (keep_alive):</strong> <strong>${esc(ram.keepAlive)}</strong> ${ram.keepAlive==='0s'?'(cleans memory immediately to prevent laptop lag)':'(maintains warm model for instant follow-ups)'}</div>
+        <div>• <strong>CPU Threads:</strong> <strong>${esc(ram.threadBudget)}</strong> worker threads (keeps foreground clinical apps responsive)</div>
+        <div>• <strong>Optimal Local Models:</strong> ${esc((ram.recommendedModels||[]).join(', '))}</div>
+      </div>
+      <p style="margin-top:10px; font-size:12px; color:var(--text-muted, #555); background:rgba(37,99,235,0.08); padding:10px 14px; border-radius:6px; border:1px solid rgba(37,99,235,0.18)">
+        <strong>Zero-Touch Upgrade Guarantee:</strong> Private AI reads host physical RAM and real-time available headroom dynamically. When you install your additional 16 GB of RAM (bringing the machine to 32 GB), Private AI will instantly detect the expanded memory on startup and automatically unlock 7B/8B model tiers, boost threads, and extend warm-cache retention without requiring any manual setup or changes.
+      </p>
+    </div>
+  </section>
+  <section class="section"><h2>Resources</h2><p>${esc(h.availableRAMGB)} GB available of ${esc(h.totalRAMGB)} GB RAM · App process: ${esc(h.appMemoryMB)} MB</p><p>Brain: ${esc(state.localBrain?.model)} — ${esc(state.localBrain?.state)}. Model cooldown: ${esc(h.modelCooldownSeconds)} seconds.</p><p>Background: ${esc(r.background?.state)} — ${esc(r.background?.reason)}</p><div class="fields"><label class="field">PC use profile<select name="workProfile"><option value="work" ${s.workProfile==='work'?'selected':''}>Work — balanced CPU</option><option value="away" ${s.workProfile==='away'?'selected':''}>Away — configured CPU setting</option></select></label>${field('Keep free RAM (MB)','ramReserveMB',s.ramReserveMB,'number')}${field('RAM recovery delay (seconds)','ramRecoverySeconds',s.ramRecoverySeconds,'number')}${field('Keep loaded brain for follow-ups (minutes; 0 = Small first)','keepBrainMinutes',s.keepBrainMinutes,'number')}</div><label class="check"><input type="checkbox" name="sectionedReports" ${s.sectionedReports?'checked':''}> Allow section-by-section processing for oversized report jobs (up to 12 sections; additional inference and possible API charges)</label><p>Away does not enable jobs, allow cloud use, or approve desktop input. After sleep or an unclean exit, resume background work manually. Windows peak working-set readings can increase later RAM budgets; they never lower the existing estimate. Other RAM observations reflect system changes.</p><button data-act="health-save">Save stability settings</button> <button data-act="health-refresh">Refresh health</button> <button data-act="health-ack">Acknowledge startup notice</button></section><section class="section"><h2>Diagnostics</h2><p>No prompts, document contents, credentials, file paths, or device names are included. Review the saved technical report before sharing it.</p><button data-act="self-check">Run local checks</button> <button data-act="diagnostics">Export diagnostics</button><p>Recent technical events: ${esc((h.events||[]).map(e=>e.event).join(', ')||'None this session')}</p></section>${jobsHTML()}</div>`;}
 function settingsHTML() {
   const s = state.settings;
-  return `<div class="page"><h1>Make Private AI yours</h1><p class="subtitle">Set up once, then open Private AI and start working.</p><section class="section"><h2>1. Connect your OpenAI account</h2><p>${state.keySaved ? "Your API key is saved with Windows-protected encryption." : "Add an API key from your organization’s approved OpenAI project."} API billing is separate from your ChatGPT subscription.</p>${field("API key", "apiKey", "", "password")}<div class="button-row"><button class="primary" data-act="save-key">${state.keySaved ? "Replace key" : "Save key securely"}</button><button class="secondary" data-act="test-api">Test connection</button>${state.keySaved ? '<button class="danger" data-act="delete-key">Delete key</button>' : ""}</div><label class="field">Model<input name="model" list="model-list" value="${esc(s.model)}" placeholder="Choose a model your API account supports"><datalist id="model-list"></datalist><small>Model availability and supported tools depend on your API project.</small></label><button class="secondary" data-act="load-models">Load my models</button></section>
+  const currentProvider = s.provider || (state.keySaved ? "openai" : "local");
+  const provs = state.providers || {
+    local: { name: "Local Assistant (No API Key)", description: "Runs 100% on this PC with zero cloud API keys, zero network data transmission, and zero subscription or token costs.", models: ["local-knowledge-engine", "local-clinical-engine", "local-rules-engine"] },
+    ollama: { name: "Ollama (Local Daemon)", description: "Connects to your local Ollama daemon (http://127.0.0.1:11434). 100% offline, zero API keys, and includes automated memory unloading (keep_alive) to protect your PC RAM.", models: ["qwen2.5:1.5b", "llama3.2:1b", "llama3.2:3b", "qwen2.5:3b", "qwen2.5:7b", "deepseek-r1:1.5b", "deepseek-r1:7b"] },
+    gemini: { name: "Google Gemini", description: "Google AI Studio API key (starts with AIzaSy...). Ultra-fast reasoning and multimodal capabilities.", models: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"] },
+    anthropic: { name: "Anthropic Claude", description: "Anthropic API key (starts with sk-ant-...). Exceptional nuanced reasoning and clinical safety analysis.", models: ["claude-3-7-sonnet-20250219", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"] },
+    openai: { name: "OpenAI", description: "OpenAI API key (starts with sk-...). GPT-4o, o3-mini, and advanced reasoning models.", models: ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "gpt-4-turbo"] },
+    deepseek: { name: "DeepSeek", description: "DeepSeek API key (starts with sk-...). Cost-effective high-capability reasoning and chat models.", models: ["deepseek-chat", "deepseek-reasoner"] },
+    groq: { name: "Groq", description: "Groq Cloud API key (starts with gsk_...). Ultra-low latency LPU inference.", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"] },
+    custom: { name: "Custom / OpenAI-Compatible", description: "Connect to any OpenAI-compatible API endpoint, local Ollama/LM Studio server, or OpenRouter gateway.", models: ["llama3.2", "mistral", "qwen2.5", "custom"] }
+  };
+  const activeProv = provs[currentProvider] || provs.local;
+  const hasKey = currentProvider === "local" || currentProvider === "ollama" ? true : !!(state.savedProviders && state.savedProviders[currentProvider]);
+
+  let providerSection = "";
+  if (currentProvider === "local") {
+    providerSection = `
+      <div class="provider-box">
+        <div class="provider-badge success">✓ Active: Running 100% Locally on this PC (No API Key Required)</div>
+        <p class="provider-desc">Private AI operates offline with zero cloud API keys, zero network data transmission, and zero subscription or token costs. Geriatric and nursing home clinical guidelines, Beers criteria, SBAR triage, regulatory lookups, task automation, and deterministic tools operate securely on your PC.</p>
+        <div class="button-row">
+          <button class="secondary" data-act="test-api">Test Local Engine</button>
+        </div>
+      </div>
+      <label class="field">Active Local Engine
+        <input name="model" list="model-list" value="${esc(s.model || 'local-knowledge-engine')}" placeholder="local-knowledge-engine">
+        <datalist id="model-list">
+          <option value="local-knowledge-engine"></option>
+          <option value="local-clinical-engine"></option>
+          <option value="local-rules-engine"></option>
+        </datalist>
+        <small>Select from built-in offline clinical, operations, and deterministic reasoning engines.</small>
+      </label>
+    `;
+  } else if (currentProvider === "ollama") {
+    const ram = state.ramProfile || state.health?.ramProfile || { totalGB: 16, availableGB: 3, profile: 'conservative', statusBadge: 'Conservative Mode (Compact Models)', keepAlive: '0s', threadBudget: 4, tierCap: 'medium' };
+    providerSection = `
+      <div class="provider-box">
+        <div class="provider-badge success">✓ Active: Ollama Local Daemon (No API Key Required)</div>
+        <p class="provider-desc">Private AI communicates directly with your local Ollama daemon. Models run 100% locally on your Intel CPU with AVX2 acceleration and hardware-adaptive RAM protection.</p>
+        <div style="background:var(--bg-subtle, rgba(0,0,0,0.03)); border-radius:6px; padding:8px 12px; margin:8px 0; font-size:13px; line-height:1.5;">
+          <strong>Hardware RAM State:</strong> ${esc(ram.totalGB)} GB Installed (${esc(ram.availableGB)} GB Free) · <span class="badge ${ram.profile==='expanded'?'success':ram.profile==='balanced'?'info':'warning'}">${esc(ram.statusBadge)}</span><br>
+          Auto unloader: <code>keep_alive: ${esc(ram.keepAlive)}</code> | Threads: <code>${esc(ram.threadBudget)}</code> | Safe tier: <code>${esc(ram.tierCap?.toUpperCase())}</code><br>
+          <span style="font-size:12px; color:var(--text-muted, #666);">Zero-touch upgrade: When you install your additional 16 GB of RAM, Private AI will automatically detect 32 GB on next boot, raising tier caps and keeping models warm in cache with zero configuration required.</span>
+        </div>
+        ${field("Ollama Daemon URL", "ollamaEndpoint", s.ollamaEndpoint || "http://127.0.0.1:11434", "text", "Default: http://127.0.0.1:11434")}
+        <div class="button-row">
+          <button class="primary" data-act="test-api">Test Ollama connection</button>
+          <button class="secondary" data-act="load-models">Load installed Ollama models</button>
+        </div>
+      </div>
+      <label class="field">Active Ollama Model
+        <input name="model" list="model-list" value="${esc(s.model || (ram.profile === 'expanded' ? 'qwen2.5:7b' : 'qwen2.5:1.5b'))}" placeholder="e.g. qwen2.5:1.5b, llama3.2:1b, llama3.2:3b, qwen2.5:7b">
+        <datalist id="model-list">${(activeProv.models || []).map(m => `<option value="${esc(m)}"></option>`).join("")}</datalist>
+        <small>${ram.profile === 'expanded' ? 'High RAM detected: 7B and 8B models (e.g. qwen2.5:7b, llama3.1:8b) run smoothly with extended memory retention.' : 'Conservative mode active: compact models (e.g. <strong>qwen2.5:1.5b</strong> or <strong>llama3.2:1b</strong>) run with zero post-task memory footprint.'}</small>
+      </label>
+    `;
+  } else if (currentProvider === "custom") {
+    providerSection = `
+      <div class="provider-box">
+        <div class="provider-badge neutral">Custom OpenAI-Compatible Endpoint</div>
+        <p class="provider-desc">${esc(activeProv.description)}</p>
+        ${field("Server Endpoint URL", "customEndpoint", s.customEndpoint || "http://localhost:11434/v1", "text", "Supports Ollama (http://localhost:11434/v1), LM Studio (http://localhost:1234/v1), vLLM, or OpenRouter (https://openrouter.ai/api/v1)")}
+        ${field("API Key (optional)", "apiKey", "", "password", "Optional auth token or bearer key for custom proxy")}
+        <div class="button-row">
+          <button class="primary" data-act="save-key">Save custom settings</button>
+          <button class="secondary" data-act="test-api">Test connection</button>
+        </div>
+      </div>
+      <label class="field">Model
+        <input name="model" list="model-list" value="${esc(s.model || 'llama3.2')}" placeholder="e.g. llama3.2, mistral, qwen2.5">
+        <datalist id="model-list">${(activeProv.models || []).map(m => `<option value="${esc(m)}"></option>`).join("")}</datalist>
+        <small>Enter the model name hosted by your local or remote server.</small>
+      </label>
+      <button class="secondary" data-act="load-models">Load server models</button>
+    `;
+  } else {
+    const keyHint = currentProvider === 'gemini' ? 'Google AI Studio key (starts with AIzaSy...)' : currentProvider === 'anthropic' ? 'Anthropic key (starts with sk-ant-...)' : currentProvider === 'groq' ? 'Groq key (starts with gsk_...)' : 'API key (starts with sk-...)';
+    providerSection = `
+      <div class="provider-box">
+        <div class="provider-badge ${hasKey ? 'success' : 'warning'}">${hasKey ? '✓ ' + esc(activeProv.name) + ' key is saved securely with Windows encryption' : 'No API key currently saved for ' + esc(activeProv.name)}</div>
+        <p class="provider-desc">${esc(activeProv.description)}</p>
+        ${field("API key", "apiKey", "", "password", keyHint)}
+        <div class="button-row">
+          <button class="primary" data-act="save-key">${hasKey ? "Replace key" : "Save key securely"}</button>
+          <button class="secondary" data-act="test-api">Test connection</button>
+          ${hasKey ? '<button class="danger" data-act="delete-key">Delete key</button>' : ""}
+        </div>
+      </div>
+      <label class="field">Model
+        <input name="model" list="model-list" value="${esc(s.model || activeProv.models?.[0] || '')}" placeholder="Choose a model your API account supports">
+        <datalist id="model-list">${(activeProv.models || []).map(m => `<option value="${esc(m)}"></option>`).join("")}</datalist>
+        <small>Model availability and supported tools depend on your ${esc(activeProv.name)} account.</small>
+      </label>
+      <button class="secondary" data-act="load-models">Load my models</button>
+    `;
+  }
+
+  return `<div class="page"><h1>Make Private AI yours</h1><p class="subtitle">Set up once, then open Private AI and start working.</p><section class="section"><h2>1. AI Provider &amp; API Key Configuration</h2><p>You can run Private AI completely locally on this PC without an API key or subscription, or connect an API key for Google Gemini, Anthropic Claude, OpenAI, DeepSeek, Groq, or custom endpoints.</p><label class="field">Selected AI Provider<select name="provider" id="provider-select"><option value="local" ${currentProvider==='local'?'selected':''}>Local Assistant (No API Key Required) — 100% on this PC</option><option value="ollama" ${currentProvider==='ollama'?'selected':''}>Ollama (Local Daemon at localhost:11434) — No Key Needed</option><option value="gemini" ${currentProvider==='gemini'?'selected':''}>Google Gemini (Google AI Studio Key: AIzaSy...)</option><option value="anthropic" ${currentProvider==='anthropic'?'selected':''}>Anthropic Claude (API Key: sk-ant-...)</option><option value="openai" ${currentProvider==='openai'?'selected':''}>OpenAI (API Key: sk-...)</option><option value="deepseek" ${currentProvider==='deepseek'?'selected':''}>DeepSeek (API Key: sk-...)</option><option value="groq" ${currentProvider==='groq'?'selected':''}>Groq (Ultra-Fast LPU Key: gsk_...)</option><option value="custom" ${currentProvider==='custom'?'selected':''}>Custom / OpenAI-Compatible (Ollama, LM Studio, vLLM, OpenRouter)</option></select></label>${providerSection}</section>
   <section class="section"><h2>2. Choose where reports are saved</h2><p>Choose a normal folder or your approved ShareSync folder. You can change it later.</p><div class="path-display">${esc(s.workspace || "No work folder selected")}</div><div class="button-row"><button class="primary" data-act="choose-workspace">Choose folder</button><button class="secondary" data-act="open-workspace">Open folder</button></div><p>Finished reports stay here until you remove them. Private history, keys, and settings stay on this PC.</p></section>
   <section class="section"><h2>3. Privacy and retention</h2><label class="check"><input name="hipaa" type="checkbox" ${s.hipaa ? "checked" : ""}> HIPAA mode</label><p>PHI use requires your organization’s approved devices and policies, an applicable OpenAI BAA, and approved API retention and endpoint configuration. This switch does not verify or establish compliance.</p><label class="check"><input name="approved" type="checkbox" ${s.approved ? "checked" : ""}> I confirm that my organization has approved this API project, its BAA and retention configuration, and these devices for the information I will use.</label><div class="fields">${select(
     "Keep local chat history",
@@ -415,7 +558,7 @@ function settingsHTML() {
   )}${field("Custom retention in days", "customRetention", s.retentionDays || 90, "number")}</div><p>Cleanup covers expired local history, working files, memories, and job records. It does not delete your original documents or final saved reports.</p><button class="secondary" data-act="cleanup">Run retention cleanup now</button></section>
   <div class="button-row"><button class="primary" data-act="save-settings">Save settings</button><button class="secondary" data-act="new">Start chatting</button></div>
   <section class="section"><h2>Browser Companion</h2><p>Ask beside your webpage. Pages are read only after you explicitly include a page and send your request.</p><button class="secondary" data-act="connect-chrome">Set up browser companion</button><details><summary>Browser installation steps</summary><p>Click the setup button above. For Chrome or Brave, open chrome://extensions; for Edge, open edge://extensions. Enable Developer mode, click Load unpacked, and select the folder that opens. For Firefox, open about:debugging#/runtime/this-firefox, click Load Temporary Add-on, and choose manifest.json in the firefox subfolder. Temporary Firefox installation lasts until Firefox restarts; permanent installation needs Mozilla signing. Pin Private AI Companion. If your organization blocks extension installation, it needs to approve the extension.</p><button class="secondary" data-act="disconnect-chrome">Disconnect browser companions</button></details></section>
-  <section class="section"><h2>Custom instructions</h2>${textarea("Instructions used across chats", "customInstructions", s.customInstructions||"")}<p>Project instructions are added for the current project.</p><button data-act="chat-archives">Manage archived chats</button></section><section class="section"><h2>Memory</h2><label class="check"><input name="memoryEnabled" type="checkbox" ${s.memoryEnabled ? "checked" : ""}> Use the memories I explicitly save</label><p>Memory is off by default. Private AI never silently creates permanent memory from chats.</p><button class="secondary" data-act="view" data-view="memory">Review saved memories</button></section>
+  <section class="section"><h2>Custom instructions</h2>${textarea("Instructions used across chats", "customInstructions", s.customInstructions||"")}<p>Project instructions are added for the current project.</p><button data-act="chat-archives">Manage archived chats</button></section><section class="section"><h2>Memory</h2><label class="check"><input name="memoryEnabled" type="checkbox" ${s.memoryEnabled ? "checked" : ""}> Use the memories I explicitly save</label><p>Memory is off by default. Private AI never silently creates permanent memory from chats.</p><button class="secondary" data-act="view" data-view="memory">Review saved memories</button></section><section class="section"><h2>To-Do &amp; Follow-Up Reminders</h2><label class="check"><input name="autoReminders" type="checkbox" ${s.autoReminders !== false ? "checked" : ""}> Remind me automatically on pending follow-ups</label><p>Private AI monitors follow-up dates and deadlines extracted from Outlook emails or manual to-dos, notifying you on this PC when a task is due.</p><button class="secondary" data-act="view" data-view="todos">View To-Do list &amp; reminders</button></section>
   <details class="section"><summary>More settings and privacy tools</summary><div class="fields">${select(
     "Reasoning effort",
     "reasoning",
@@ -550,6 +693,13 @@ function initVoice() {
   if (interruptBtn) {
     interruptBtn.onclick = () => {
       voiceManager.interruptSpeech();
+    };
+  }
+
+  const contBtn = $("voice-continue-btn");
+  if (contBtn) {
+    contBtn.onclick = () => {
+      voiceManager.dispatchTranscriptExplicit("Please continue where you left off.");
     };
   }
 
@@ -727,7 +877,8 @@ async function init() {
   try {
     await refresh();
     initVoice();
-    if (!state.settings.localModelPath && (!state.keySaved || !state.settings.model)) {
+    const isLocal = state.settings.provider === "local" || (!state.keySaved && state.settings.provider !== "openai");
+    if (!isLocal && !state.settings.localModelPath && (!state.keySaved || !state.settings.model)) {
       view = "processing";
       renderPage(view);
     } else renderChat();
@@ -780,6 +931,16 @@ function renderPage(name) {
       items: state.schedules,
       card: (s) =>
         `<h3>${esc(s.name)}</h3><p>${esc(s.frequency)} ${["interval","watch"].includes(s.frequency)?"every "+esc(s.intervalMinutes)+" minutes":"at "+esc(s.frequency==="once"?s.at:s.time)} · Next: ${s.next?new Date(s.next).toLocaleString():"Completed"} · ${s.enabled ? "Enabled" : "Paused"}</p><div class="button-row"><button data-act="schedule-edit" data-id="${s.id}">Edit</button><button data-act="schedule-duplicate" data-id="${s.id}">Duplicate</button><button data-act="schedule-toggle" data-id="${s.id}">${s.enabled ? "Pause" : "Resume"}</button><button class="danger" data-act="delete-item" data-kind="schedule" data-id="${s.id}">Delete</button></div>`,
+    },
+    todos: {
+      title: "To-Do & Follow-Up Reminders",
+      subtitle:
+        "Track pending items and email follow-ups with automated reminders and completion status.",
+      button: "New follow-up item",
+      action: "todo-new",
+      items: state.todos || [],
+      card: (t) =>
+        `<h3>${t.status === "completed" ? "<s>" : ""}${esc(t.title)}${t.status === "completed" ? "</s>" : ""} <span class="pill ${t.status === "completed" ? "" : (t.priority === "urgent" || t.priority === "high" ? "danger" : "")}">${t.status === "completed" ? "Completed" : esc(t.priority)}</span></h3><p>${esc(t.description || "No notes")}</p><p><small>${t.followUpDate ? "Follow-up: " + esc(t.followUpDate) + " · " : ""}${t.reminderEnabled ? "Reminders: Active" : "Reminders: Off"} · Source: ${esc(t.source || "manual")}</small></p><div class="button-row"><button class="${t.status === "completed" ? "secondary" : "primary"}" data-act="todo-toggle" data-id="${t.id}">${t.status === "completed" ? "Mark Pending" : "Mark Complete"}</button><button data-act="todo-edit" data-id="${t.id}">Edit</button><button class="danger" data-act="delete-item" data-kind="todo" data-id="${t.id}">Delete</button></div>`,
     },
     files: {
       title: "Your working files",
@@ -943,6 +1104,41 @@ async function editTask(type, id) {
     renderPage(type === "agent" ? "agents" : "schedules");
   }
 }
+async function editTodo(id) {
+  const t = (state.todos || []).find((x) => x.id === id) || {};
+  const r = await form(
+    t.id ? "Edit follow-up item" : "New follow-up item",
+    field("Title / Task", "title", t.title || "") +
+    textarea("Details / Context", "description", t.description || "") +
+    field("Follow-up date / time", "followUpDate", t.followUpDate || "", "datetime-local") +
+    select(
+      "Priority",
+      "priority",
+      [
+        ["low", "Low"],
+        ["normal", "Normal"],
+        ["high", "High"],
+        ["urgent", "Urgent"],
+      ],
+      t.priority || "normal",
+    ) +
+    `<label class="check"><input type="checkbox" name="reminderEnabled" ${t.reminderEnabled !== false ? "checked" : ""}> Remind me automatically when due</label>`,
+    "Save follow-up",
+  );
+  if (r) {
+    await api("todoSave", {
+      id: t.id,
+      title: r.title,
+      description: r.description,
+      followUpDate: r.followUpDate,
+      priority: r.priority,
+      reminderEnabled: r.reminderEnabled === "on" || r.reminderEnabled === true,
+    });
+    await refresh();
+    renderPage("todos");
+    toast("Follow-up item saved.");
+  }
+}
 async function runAgent(id) {
   const a = state.agents.find((a) => a.id === id);
   if (!a) return;
@@ -996,6 +1192,31 @@ document.addEventListener("keydown", (e) => {
   }
 });
 document.addEventListener("change", async (e) => {
+  if (e.target.name === "provider") {
+    try {
+      const selected = e.target.value;
+      const defModels = {
+        local: "local-knowledge-engine",
+        ollama: "qwen2.5:1.5b",
+        gemini: "gemini-2.5-flash",
+        anthropic: "claude-3-7-sonnet-20250219",
+        openai: "gpt-4o",
+        deepseek: "deepseek-chat",
+        groq: "llama-3.3-70b-versatile",
+        custom: "llama3.2"
+      };
+      await api("settings", {
+        provider: selected,
+        model: defModels[selected] || state.settings.model
+      });
+      await refresh();
+      renderPage("settings");
+      toast(`AI Provider switched to ${selected === 'local' ? 'Local Assistant' : selected === 'ollama' ? 'Ollama' : selected}.`);
+    } catch (x) {
+      toast(x.message);
+    }
+    return;
+  }
   if (e.target.matches("[data-export]") && e.target.value) {
     try {
       const out = await api("exportChat", {
@@ -1108,43 +1329,66 @@ document.addEventListener("click", async (e) => {
         break;
       case "save-key": {
         const input = document.querySelector('[name="apiKey"]');
-        await api("saveKey", { key: input.value.trim() });
-        input.value = "";
+        const provSelect = document.querySelector('[name="provider"]');
+        const provider = provSelect ? provSelect.value : (state.settings.provider || "openai");
+        if (provider === "local") {
+          await saveSettings();
+          toast("Local Assistant is active. No API key needed.");
+          break;
+        }
+        const keyVal = input ? input.value.trim() : "";
+        if (!keyVal && provider !== "custom") {
+          toast("Please enter an API key.");
+          break;
+        }
+        await api("saveKey", { key: keyVal, provider });
+        if (input) input.value = "";
+        await saveSettings();
         await refresh();
-        toast("API key saved securely.");
+        renderPage("settings");
+        toast(`API key for ${provider} saved securely.`);
         break;
       }
-      case "delete-key":
+      case "delete-key": {
+        const provSelect = document.querySelector('[name="provider"]');
+        const provider = provSelect ? provSelect.value : (state.settings.provider || "openai");
         if (
           await confirmAction(
-            "Delete API key?",
-            "Your chats and reports will stay. Add a key again to use AI requests.",
+            `Delete ${provider} API key?`,
+            "Your chats and reports will stay. You can switch to Local Assistant or re-enter a key anytime.",
             "Delete key",
           )
         ) {
-          await api("deleteKey");
+          await api("deleteKey", { provider });
           await refresh();
           renderPage("settings");
+          toast(`Key for ${provider} deleted.`);
         }
         break;
+      }
       case "load-models": {
         b.disabled = true;
         await saveSettings();
-        const models = await api("models");
+        const provSelect = document.querySelector('[name="provider"]');
+        const provider = provSelect ? provSelect.value : (state.settings.provider || "openai");
+        const models = await api("models", { provider });
         $("model-list").innerHTML = models
           .map((x) => `<option value="${esc(x)}"></option>`)
           .join("");
-        toast("Models loaded. Choose one in the model field.");
+        toast(`Loaded ${models.length} models for ${provider}. Choose one in the model field.`);
         b.disabled = false;
         break;
       }
-      case "test-api":
+      case "test-api": {
+        b.disabled = true;
         await saveSettings();
-        await api("testConnection");
-        toast(
-          "Connected successfully. This test used a small billable API request.",
-        );
+        const provSelect = document.querySelector('[name="provider"]');
+        const provider = provSelect ? provSelect.value : (state.settings.provider || "openai");
+        const r = await api("testConnection", { provider });
+        toast(r?.note || "Connected successfully.");
+        b.disabled = false;
         break;
+      }
       case "save-settings":
         await saveSettings();
         toast("Settings saved.");
@@ -1286,6 +1530,17 @@ document.addEventListener("click", async (e) => {
         renderPage("schedules");
         break;
       }
+      case "todo-new":
+        await editTodo();
+        break;
+      case "todo-edit":
+        await editTodo(id);
+        break;
+      case "todo-toggle":
+        await api("todoToggle", { id });
+        await refresh();
+        renderPage("todos");
+        break;
       case "app-add":
         if (await api("addApp")) {
           await refresh();
@@ -1400,6 +1655,9 @@ async function saveSettings() {
   }
   const days = val("retentionDays").value;
   await api("settings", {
+    provider: val("provider") ? val("provider").value : state.settings.provider,
+    ollamaEndpoint: val("ollamaEndpoint") ? val("ollamaEndpoint").value.trim() : (state.settings.ollamaEndpoint || "http://127.0.0.1:11434"),
+    customEndpoint: val("customEndpoint") ? val("customEndpoint").value.trim() : (state.settings.customEndpoint || ""),
     model: val("model").value.trim(),
     hipaa,
     approved: val("approved").checked,
@@ -1409,11 +1667,12 @@ async function saveSettings() {
     ),
     customInstructions: val("customInstructions").value,
     memoryEnabled: val("memoryEnabled").checked,
+    autoReminders: val("autoReminders") ? val("autoReminders").checked : true,
     reasoning: val("reasoning").value,
     maxOutput: Number(val("maxOutput").value),
     lockMinutes: Number(val("lockMinutes").value),
-    org: val("org").value.trim(),
-    projectId: val("projectId").value.trim(),
+    org: val("org") ? val("org").value.trim() : "",
+    projectId: val("projectId") ? val("projectId").value.trim() : "",
   });
   await refresh();
 }

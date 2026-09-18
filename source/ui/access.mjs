@@ -102,9 +102,9 @@ export function createAccessUI(ctx) {
   return {
     html() {
       const s = ctx.state(),
-        o = {readMessages:false,readCalendar:false,writeDrafts:false,writeCalendar:false,...s.outlook};
+        o = {readMessages:false,readCalendar:false,writeDrafts:false,writeCalendar:false,deleteMessages:false,...s.outlook};
       return `<div class="page"><h1>Your apps. Your permission.</h1><p class="subtitle">No background screen or mailbox reading. Choose a source, review it, then send your question.</p>
-      <section class="section"><h2>Outlook messages & calendar</h2><p>Connects locally to classic Outlook in your Windows profile. New Outlook: import a saved EML, MSG, or ICS file instead. Email attachments are not read.</p><div class="button-row">${button("outlook-permissions", "Permissions")}${button("outlook-messages", "Read a message", "", o.readMessages)}${button("outlook-calendar", "Read calendar", "", o.readCalendar)}${button("outlook-draft", "Prepare email draft", "", o.writeDrafts)}${button("outlook-appointment", "Create appointment", "", o.writeCalendar)}</div><p>Drafts are never sent. Appointments have no attendees or invitations.</p>${button("health", "Check local app access")}<button data-act="files-import">Import saved message or calendar</button></section>
+      <section class="section"><h2>Outlook messages & calendar</h2><p>Connects locally to classic Outlook in your Windows profile. New Outlook: import a saved EML, MSG, or ICS file instead. Email attachments are not read.</p><div class="button-row">${button("outlook-permissions", "Permissions")}${button("outlook-messages", "Read a message", "", o.readMessages)}${button("outlook-cleanup", "Clean up / Delete", "", o.deleteMessages)}${button("outlook-calendar", "Read calendar", "", o.readCalendar)}${button("outlook-draft", "Prepare email draft", "", o.writeDrafts)}${button("outlook-appointment", "Create appointment", "", o.writeCalendar)}</div><p>Drafts are never sent. Deletions always require per-action approval. Appointments have no attendees or invitations.</p>${button("health", "Check local app access")}<button data-act="files-import">Import saved message or calendar</button></section>
       <section class="section"><h2>WhatsApp & other chosen programs</h2><p>Read visible text or write into a field you choose, using Windows accessibility. Support depends on the app. No clicking Send, keystrokes, or unattended monitoring. A write replaces that field's current text.</p><div class="button-row">${button("choose-app", "Choose an open app")}<button data-act="app-add">Choose program file (open only)</button></div>${(s.apps || []).map((a) => `<div class="card"><h3>${esc(a.name)}</h3><p>${esc(a.capability)}</p><div class="button-row">${button("app-read", "Read visible text", a.id, a.read)}${button("app-write", "Write a draft", a.id, a.write)}${button("app-permissions", "Permissions", a.id)}<button data-act="app-open" data-id="${a.id}">Open</button><button class="danger" data-act="delete-item" data-kind="app" data-id="${a.id}">Remove access</button></div></div>`).join("")}</section>
       <section class="section"><h2>Allowed folders</h2><p>Allow specific folders, including an organization-approved ShareSync folder. Read and write access are separate. Original documents stay untouched unless you explicitly edit a TXT or Markdown file.</p>${button("folder-add", "Allow a folder")}${(s.folders || []).map((f) => `<div class="card"><h3>${esc(f.name)}</h3><p class="path-display">${esc(f.path)}</p><p>${f.read ? "Read on request" : "No read access"} · ${f.write ? "Reviewed writes" : "No write access"}</p><div class="button-row">${button("folder-browse", "Browse", f.id, f.read)}${button("folder-note", "New text note", f.id, f.write)}${button("folder-export", "Save last answer here", f.id, f.write && !!ctx.answerReference())}${button("folder-permissions", "Permissions", f.id)}<button class="danger" data-act="delete-item" data-kind="folder" data-id="${f.id}">Remove access</button></div></div>`).join("")}</section></div>`;
     },
@@ -143,6 +143,11 @@ export function createAccessUI(ctx) {
                   "Create reviewed appointments — no invitations",
                   "writeCalendar",
                   o.writeCalendar,
+                ) +
+                check(
+                  "Clean up and delete messages — requires per-action approval",
+                  "deleteMessages",
+                  o.deleteMessages,
                 ),
             );
           if (r) {
@@ -154,10 +159,39 @@ export function createAccessUI(ctx) {
                   "readCalendar",
                   "writeDrafts",
                   "writeCalendar",
+                  "deleteMessages",
                 ].map((k) => [k, r[k] === "on"]),
               ),
             );
             await changed();
+          }
+          break;
+        }
+        case "access-outlook-cleanup": {
+          const messages = await api("outlookMessages");
+          if (!messages.length) {
+            toast("No messages found in the Inbox to clean up.");
+            break;
+          }
+          const choice = await form(
+            "Clean up Outlook messages",
+            "<p>Select messages to clean up. Every deletion requires your explicit confirmation before items are moved to Deleted Items.</p>" +
+            messages.slice(0, 30).map((m, i) =>
+              `<label class="check" style="margin-bottom:6px; display:block;"><input type="checkbox" name="msg_${i}"> ${esc(m.subject || '(No subject)')} — <small>${esc(m.sender || '')} · ${esc(m.received || '')}</small></label>`
+            ).join(""),
+            "Delete selected messages with approval"
+          );
+          if (choice) {
+            const selected = [];
+            messages.slice(0, 30).forEach((m, i) => {
+              if (choice[`msg_${i}`] === "on") selected.push(m);
+            });
+            if (!selected.length) {
+              toast("No messages were selected.");
+              break;
+            }
+            await api("outlookCleanup", { items: selected });
+            toast(`Cleaned up ${selected.length} message(s) in Outlook.`);
           }
           break;
         }
@@ -187,7 +221,45 @@ export function createAccessUI(ctx) {
                 id: m.id,
                 storeId: m.storeId,
               });
-            await preview("Outlook message", result.text);
+            const action = await form(
+              "Outlook message: " + (m.subject || "No subject"),
+              `<p>From: <strong>${esc(m.sender)}</strong> · ${esc(m.received)}</p><textarea readonly rows="12">${esc(result.text)}</textarea>` +
+              select(
+                "Next action",
+                "action",
+                [
+                  ["chat", "Use in new chat"],
+                  ["todo", "Extract action items & add to To-Do / Follow-up list"],
+                  ["delete", "Delete this message with approval"],
+                  ["close", "Close without changes"]
+                ],
+                "chat"
+              ),
+              "Proceed"
+            );
+            if (action) {
+              if (action.action === "chat") {
+                await ctx.useReference(await api("importReference", { name: "Outlook: " + (m.subject || "Message"), text: result.text }));
+              } else if (action.action === "todo") {
+                await api("todoSave", {
+                  title: "Follow-up: " + (m.subject || "Email action item"),
+                  description: `From: ${m.sender}\nReceived: ${m.received}\n\n${result.text.slice(0, 1000)}`,
+                  source: "email",
+                  priority: "normal",
+                  reminderEnabled: true
+                });
+                toast("Saved to your To-Do & Follow-up list with automated reminders.");
+              } else if (action.action === "delete") {
+                await api("outlookDelete", {
+                  id: m.id,
+                  storeId: m.storeId,
+                  subject: m.subject,
+                  sender: m.sender,
+                  received: m.received
+                });
+                toast("Message deleted and moved to Deleted Items.");
+              }
+            }
           }
           break;
         }

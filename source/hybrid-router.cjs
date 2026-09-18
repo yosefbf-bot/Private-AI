@@ -24,6 +24,9 @@ class HybridRouter {
   const appGuide=require('./app-guide.cjs');
   const help=appGuide.answerHelp(prompt,messages);if(help)return this.finish(help,s,options);
   const guideContext=appGuide.modelContext(prompt);if(guideContext)options={...options,instructions:(options.instructions||'')+guideContext};
+  const clinicalRef=require('./clinical-reference.cjs');
+  const clinicalContext=clinicalRef.findMatchingContext(prompt);
+  if(clinicalContext)options={...options,instructions:(options.instructions||'')+clinicalContext};
   if(options.web&&s.hipaa)throw fail('POLICY');
   if(!options.web){result=await deterministic(prompt,messages,this.core.localTools);if(result)return this.finish(result,s,options);}
   const hard=options.web||/\b(?:current|latest|today's news|legal|regulat(?:ion|ory)|diagnos(?:is|e)|medical advice|treatment|dosage|medication|liability|compliance|root.cause|complex cod(?:e|ing))\b/i.test(prompt)||messages.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==='input_image'));
@@ -46,14 +49,20 @@ class HybridRouter {
   // while the local model is running must not allow a later cloud escalation.
   const latest=this.core.settings();
   if(!cloudAllowed(s)||!cloudAllowed(latest))throw fail('LOCAL_ONLY');
+  const activeProvider = s.provider || (key ? 'openai' : 'local');
+  if (activeProvider === 'local' || (!key && s.processingMode !== 'cloud-first')) {
+    const { generateLocalResponse } = require('./local-assistant.cjs');
+    const localResult = await generateLocalResponse(prompt, messages, options);
+    return this.finish(localResult, s, options);
+  }
   this.core.canSend(s.hipaa,true);
   if(localWorkTokens)this.meter.record({provider:'local',model:'Local assessment / answer attempts',localTokens:localWorkTokens,reason:'local_work_before_cloud'},s);
   try{
-   const call=()=>{const current=this.core.settings();if(!cloudAllowed(current))throw fail('LOCAL_ONLY');this.core.canSend(s.hipaa||current.hipaa,true);if(current.hipaa&&options.web)throw fail('POLICY');return this.core.client.generate(key,{...s,hipaa:s.hipaa||current.hipaa,processingMode:current.processingMode,allowCloud:current.allowCloud},messages,options);};
+   const call=()=>{const current=this.core.settings();if(!cloudAllowed(current))throw fail('LOCAL_ONLY');this.core.canSend(s.hipaa||current.hipaa,true);if(current.hipaa&&options.web)throw fail('POLICY');return this.core.client.generate(key,{...s,provider:activeProvider,hipaa:s.hipaa||current.hipaa,processingMode:current.processingMode,allowCloud:current.allowCloud},messages,options);};
    const r=this.core.resources?await this.core.resources.withAI(call):await call();
-   const row={...r,provider:'openai',model:s.model,reason,routing:localRouting,localReliability:localEvidence?.score??null,reliability:{score:null,label:'Review required',reasons:['Cloud output has not been independently verified.']}};
+   const row={...r,provider:activeProvider,model:s.model||r.model,reason,routing:localRouting,localReliability:localEvidence?.score??null,reliability:{score:null,label:'Review required',reasons:['Cloud output has not been independently verified.']}};
    row.meter=this.meter.record(row,s);return row;
-  }catch(e){this.meter.record({provider:'openai',model:s.model,reason,failed:true,usageUnknown:true},s);throw e;}
+  }catch(e){this.meter.record({provider:activeProvider,model:s.model,reason,failed:true,usageUnknown:true},s);throw e;}
  }
  finish(result,s,options){if(options.signal?.aborted)throw fail('CANCELLED');options.onDelta?.(result.text);result.meter=this.meter.record(result,s);return result;}
 }

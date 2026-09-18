@@ -36,6 +36,11 @@ export class VoiceManager {
     // TTS & Barge-in
     this.currentUtterance = null;
     this.availableVoices = [];
+    this.wasInterrupted = false;
+    this.interruptedContext = null;
+    this.currentCleanText = '';
+    this.lastSpokenCharIndex = 0;
+    this.lastAssistantText = '';
 
     // Presets definition
     this.voicePresets = {
@@ -114,10 +119,9 @@ export class VoiceManager {
       rec.onresult = (event) => {
         if (this.isHardMuted) return;
 
-        // Barge-in check: If user speaks while assistant is talking, immediately cancel assistant speech!
-        if (window.speechSynthesis && window.speechSynthesis.speaking) {
-          window.speechSynthesis.cancel();
-          this.setState('listening');
+        // Barge-in check: If user speaks while assistant is talking, immediately cut off speech and record interruption context!
+        if ((typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) || this.state === 'speaking') {
+          this.interruptSpeech(true);
         }
 
         let interim = '';
@@ -412,6 +416,13 @@ export class VoiceManager {
     }
   }
 
+  async dispatchTranscriptExplicit(text) {
+    if (!text || this.state === 'processing') return;
+    this.finalTranscript = text;
+    this.interimTranscript = '';
+    await this.dispatchCurrentTranscript();
+  }
+
   async dispatchCurrentTranscript() {
     const text = (this.finalTranscript + ' ' + this.interimTranscript).trim();
     if (!text || this.state === 'processing') return;
@@ -428,13 +439,27 @@ export class VoiceManager {
       // Route through the existing Private AI router with selected Agent context
       const chat = this.getChat ? this.getChat() : null;
       const state = this.getState ? this.getState() : {};
+
+      // Detect continuation vs new question following interruption (like Gemini Live and ChatGPT Voice)
+      const isContinuation = /^(continue|go on|keep going|what were you saying|finish|proceed|tell me more|yes continue|and then|finish your thought)/i.test(text.trim());
+
+      let conversationalPrefix = '';
+      if (this.wasInterrupted && this.interruptedContext) {
+        if (isContinuation) {
+          conversationalPrefix = `[Conversational Continuation: You were interrupted while explaining. You had just said: "${this.interruptedContext.spokenText || this.interruptedContext.fullText.slice(0, 200)}". The user asks: "${text}". Smoothly pick up and continue your explanation from that exact point without repeating what was already spoken.]\n\n`;
+        } else {
+          conversationalPrefix = `[Conversational Interruption: You were speaking: "${this.interruptedContext.spokenText || this.interruptedContext.fullText.slice(0, 150)}". The user interrupted with: "${text}". Respond directly and naturally to the user's new question or comment.]\n\n`;
+        }
+        this.wasInterrupted = false;
+        this.interruptedContext = null;
+      }
       
-      let prompt = text;
+      let prompt = conversationalPrefix + text;
       // If an autonomous agent is selected in Voice HUD, layer the agent's instructions
       if (this.activeAgentId && state.agents) {
         const agent = state.agents.find(a => a.id === this.activeAgentId);
         if (agent && agent.prompt) {
-          prompt = `[Role Instruction: ${agent.prompt}]\n\nUser Question: ${text}`;
+          prompt = `[Role Instruction: ${agent.prompt}]\n\n${prompt}`;
         }
       }
 
@@ -513,16 +538,28 @@ export class VoiceManager {
       utterance.rate = this.speechRate * (preset.rate || 1.0);
       utterance.pitch = this.speechPitch * (preset.pitch || 1.0);
 
-      this.setState('speaking', 'Speaking response (speak to interrupt)...');
+      this.currentCleanText = clean;
+      this.lastSpokenCharIndex = 0;
+      this.lastAssistantText = text;
+
+      utterance.onboundary = (e) => {
+        if (e.name === 'word' || typeof e.charIndex === 'number') {
+          this.lastSpokenCharIndex = e.charIndex;
+        }
+      };
+
+      this.setState('speaking', 'Speaking response (speak or click to interrupt)...');
 
       utterance.onend = () => {
         this.currentUtterance = null;
+        this.currentCleanText = '';
         this.resumeListeningAfterResponse();
         resolve();
       };
 
       utterance.onerror = (e) => {
         this.currentUtterance = null;
+        this.currentCleanText = '';
         this.resumeListeningAfterResponse();
         resolve();
       };
@@ -532,12 +569,36 @@ export class VoiceManager {
     });
   }
 
-  interruptSpeech() {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+  interruptSpeech(byUserSpeech = false) {
+    if (this.currentUtterance || (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking)) {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      const charIdx = this.lastSpokenCharIndex || 0;
+      const spoken = this.currentCleanText ? this.currentCleanText.slice(0, Math.max(charIdx, 20)) : '';
+      const remaining = this.currentCleanText ? this.currentCleanText.slice(Math.max(charIdx, 20)) : '';
+
+      this.wasInterrupted = true;
+      this.interruptedContext = {
+        fullText: this.lastAssistantText || this.currentCleanText,
+        spokenText: spoken,
+        remainingText: remaining,
+        timestamp: Date.now()
+      };
+      this.currentUtterance = null;
+      this.currentCleanText = '';
+
+      this.setState('interrupted', 'Interrupted — listening to your follow-up...');
+      setTimeout(() => {
+        if (this.state === 'interrupted') {
+          this.setState('listening', 'Listening...');
+        }
+      }, 350);
+
+      if (!byUserSpeech) {
+        this.resumeListeningAfterResponse();
+      }
     }
-    this.currentUtterance = null;
-    this.resumeListeningAfterResponse();
   }
 
   setState(newState, statusMessage = '') {

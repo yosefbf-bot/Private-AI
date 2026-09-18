@@ -40,6 +40,8 @@ internal static class Program
         "outlook.calendar" => Calendar(),
         "outlook.draft" => MailDraft(),
         "outlook.appointment" => Appointment(),
+        "outlook.delete" => DeleteMessage(),
+        "outlook.cleanup" => CleanupMessages(),
         _ => throw new InvalidOperationException()
     };
     static object Windows()
@@ -154,5 +156,32 @@ internal static class Program
         dynamic app = Outlook(), item = Keep(app.CreateItem(1));
         item.Subject = S("subject", 500); item.Start = start; item.End = end; item.Location = S("location", 500); item.Body = S("body"); item.ReminderSet = false; item.Save(); item.Display(false);
         return new { saved = true, invitationsSent = false };
+    }
+    static object DeleteMessage()
+    {
+        dynamic app = Outlook(), ns = Keep(app.GetNamespace("MAPI")), mail = Keep(ns.GetItemFromID(S("id", 2000), S("storeId", 2000)));
+        if ((int)mail.Class != 43) throw new InvalidOperationException();
+        string subject = Clip(mail.Subject, 300);
+        mail.Delete();
+        return new { deleted = true, subject };
+    }
+    static object CleanupMessages()
+    {
+        dynamic app = Outlook(), ns = Keep(app.GetNamespace("MAPI"));
+        var ids = request.GetProperty("messageIds");
+        int deletedCount = 0;
+        foreach (var el in ids.EnumerateArray()) {
+            string id = el.GetProperty("id").GetString() ?? "";
+            string storeId = el.GetProperty("storeId").GetString() ?? "";
+            if (string.IsNullOrEmpty(id)) continue;
+            try {
+                dynamic mail = Keep(ns.GetItemFromID(id, storeId));
+                if ((int)mail.Class == 43) {
+                    mail.Delete();
+                    deletedCount++;
+                }
+            } catch { }
+        }
+        return new { deleted = true, count = deletedCount };
     }
 }

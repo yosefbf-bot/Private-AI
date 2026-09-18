@@ -1,5 +1,6 @@
 "use strict";
 const os=require('node:os');
+const {getRAMProfile}=require('./ram-profile.cjs');
 const {fail}=require('./security.cjs');
 const VERSION=require('../package.json').version;
 const EVENTS=new Set(['unclean-start','renderer-gone','renderer-hung','promise-failed','model-failed','model-timeout','sleep','wake','service-failed','job-interrupted']);
@@ -16,7 +17,7 @@ class Stability {
  assertModel(){if(this.now()<this.blockedUntil)throw fail('MODEL_COOLDOWN');}
  acknowledge(){this.core.assertUnlocked();this.safe=false;this.core.emit?.({type:'jobs_changed'});}
  observe(tier,context,bytes){if(!['small','medium','high','extra'].includes(tier)||!Number.isFinite(bytes)||bytes<0)return;const key=tier+':'+context;this.memorySamples[key]=Math.max(this.memorySamples[key]||0,Math.ceil(bytes));}
- snapshot(){return {version:VERSION,uptimeSeconds:Math.floor((this.now()-this.started)/1000),safeStartup:this.safe,modelCooldownSeconds:Math.max(0,Math.ceil((this.blockedUntil-this.now())/1000)),totalRAMGB:Math.round(os.totalmem()/2**30*10)/10,availableRAMGB:Math.round(this.core.resources.memory()/2**30*10)/10,appMemoryMB:Math.round(process.memoryUsage().rss/2**20),observedModelPeakWorkingSetBytes:{...this.modelPeaks},systemFreeRAMDropBytes:{...this.memorySamples},events:this.incidents.slice(-20)};}
+ snapshot(){return {version:VERSION,uptimeSeconds:Math.floor((this.now()-this.started)/1000),safeStartup:this.safe,modelCooldownSeconds:Math.max(0,Math.ceil((this.blockedUntil-this.now())/1000)),totalRAMGB:Math.round(os.totalmem()/2**30*10)/10,availableRAMGB:Math.round(this.core.resources.memory()/2**30*10)/10,appMemoryMB:Math.round(process.memoryUsage().rss/2**20),ramProfile:getRAMProfile(),observedModelPeakWorkingSetBytes:{...this.modelPeaks},systemFreeRAMDropBytes:{...this.memorySamples},events:this.incidents.slice(-20)};}
  close(){this.core.store.put('maintenance','sessionHealth',{version:VERSION,clean:true,closed:this.now()});}
 }
 module.exports={Stability};

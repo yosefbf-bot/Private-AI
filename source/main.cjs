@@ -386,7 +386,12 @@ async function dispatch(
     case "localLoad": {
       core.stability.assertModel();
       const s=core.settings(),catalog=modelManager.catalog(s);let row;
-      if(s.localTier==='auto')row=catalog.find(t=>t.installed&&TIERS.findIndex(x=>x.tier===t.tier)<=TIERS.findIndex(x=>x.tier===s.localMaxTier));
+      const { getRAMProfile } = require('./ram-profile.cjs');
+      const ram = getRAMProfile();
+      const dynCap = TIERS.findIndex(x=>x.tier===ram.tierCap);
+      const userCap = s.localMaxTier&&s.localMaxTier!=='auto'?TIERS.findIndex(x=>x.tier===s.localMaxTier):-1;
+      const cap = userCap>=0?Math.min(userCap,dynCap):dynCap;
+      if(s.localTier==='auto')row=catalog.find(t=>t.installed&&TIERS.findIndex(x=>x.tier===t.tier)<=cap);
       else if(s.localTier!=='selected'){row=catalog.find(t=>t.tier===s.localTier&&t.installed);if(!row)throw fail('LOCAL_FILE_MISSING');}
       const selected=row?{...s,localModelPath:row.file}:s;
       await core.resources.task('foreground',()=>core.resources.withAI(async()=>{if(row)await modelManager.verifyTier(row.tier,s);return core.router.local.load(selected).catch(e=>{if(/^LOCAL_ENGINE/.test(e.code||''))core.stability.modelFailure();throw e;});},{localSettings:selected}));return core.router.local.status();
@@ -543,6 +548,33 @@ async function dispatch(
         location: data.location,
         body: data.body,
       });
+    case "outlookDelete":
+      await confirmWrite(
+        "Delete this Outlook message?",
+        "User approval required.\n\n" +
+          "Subject: " + (data.subject || "(No subject)") + "\n" +
+          "From: " + (data.sender || "Unknown") + "\n" +
+          "Received: " + (data.received || "") + "\n\n" +
+          "This message will be moved to Deleted Items in Outlook.",
+      );
+      return access.outlook("outlook.delete", {
+        id: data.id,
+        storeId: data.storeId,
+      });
+    case "outlookCleanup": {
+      const count = Array.isArray(data.items) ? data.items.length : 0;
+      await confirmWrite(
+        `Clean up and delete ${count} Outlook message(s)?`,
+        "User approval required.\n\n" +
+          "Review matching messages to clean up:\n" +
+          (data.items || []).slice(0, 5).map(m => `• ${m.subject || '(No subject)'} — ${m.sender || ''}`).join("\n") +
+          (count > 5 ? `\n...and ${count - 5} more items.` : "") +
+          "\n\nAll selected items will be moved to Deleted Items in Outlook.",
+      );
+      return access.outlook("outlook.cleanup", {
+        messageIds: (data.items || []).map(m => ({ id: m.id, storeId: m.storeId })),
+      });
+    }
     case "grantFolder": {
       const result = await dialog.showOpenDialog(win, {
         title: "Choose a folder to allow",
@@ -596,13 +628,13 @@ async function dispatch(
     case "settings":
       return core.saveSettings(data);
     case "saveKey":
-      return core.saveKey(data.key);
+      return core.saveKey(data.key, data.provider);
     case "deleteKey":
-      return core.deleteKey();
+      return core.deleteKey(data.provider);
     case "models":
-      return core.models();
+      return core.models(data?.provider);
     case "testConnection":
-      return core.testConnection();
+      return core.testConnection(data?.provider);
     case "chooseWorkspace": {
       const r = await dialog.showOpenDialog(win, {
         title: "Choose your Private AI work folder",
@@ -660,6 +692,12 @@ async function dispatch(
     case "scheduleDuplicate": return core.duplicateSchedule(data.id);
     case "scheduleSave":
       return core.saveSchedule(data);
+    case "todoSave":
+      return core.saveTodo(data);
+    case "todoToggle":
+      return core.toggleTodoStatus(data.id);
+    case "todoCheckReminders":
+      return core.checkReminders();
     case "deleteItem":
       if (
         ![
@@ -670,6 +708,7 @@ async function dispatch(
           "schedule",
           "app",
           "folder",
+          "todo",
         ].includes(data.kind) ||
         !require("./security.cjs").isId(data.id)
       )
@@ -854,7 +893,18 @@ if (!isNative && !app.requestSingleInstanceLock()) {
         cache: false,
       });
       const client = new (require("./api.cjs").OpenAIClient)((url, options) => {
-        if (!url.startsWith("https://api.openai.com/v1/")) throw fail("POLICY");
+        const isAllowedAiEndpoint = (u) => {
+          try {
+            const p = new URL(u);
+            const host = p.hostname.toLowerCase();
+            if (["api.openai.com", "generativelanguage.googleapis.com", "api.anthropic.com", "api.deepseek.com", "api.groq.com", "openrouter.ai"].includes(host) && p.protocol === "https:") return true;
+            if ((host === "localhost" || host === "127.0.0.1") && (p.protocol === "http:" || p.protocol === "https:")) return true;
+            return false;
+          } catch {
+            return false;
+          }
+        };
+        if (!isAllowedAiEndpoint(url)) throw fail("POLICY");
         if(core&&!cloudAllowed(core.settings()))throw fail("LOCAL_ONLY");
         return apiSession.fetch(url, {
           ...options,

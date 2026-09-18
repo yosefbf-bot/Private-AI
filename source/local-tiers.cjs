@@ -1,6 +1,7 @@
 'use strict';
 const {fail}=require('./security.cjs');
 const {localInput,requiredMemory}=require('./local-brain.cjs');
+const {getRAMProfile}=require('./ram-profile.cjs');
 const {userText,references}=require('./deterministic.cjs');
 const ORDER=['small','medium','high','extra'];
 const ANSWER_SCHEMA='Return only JSON with answer (string), evidence (array of exact source quotations), uncertainties (array of strings). Do not invent evidence.';
@@ -17,8 +18,9 @@ function fits(s,messages,options){try{localInput(s,messages,options);return true
 function excerpt(text,max=160){let result='';for(const c of text){if(Buffer.byteLength(result+c)>max)break;result+=c;}return result;}
 async function generateTiers(router,s,messages,options,evaluate){
  const core=router.core,manager=core.modelManager,local=router.local,resources=core.resources;
- const mode=s.localTier||'auto',cap=ORDER.indexOf(s.localMaxTier||'high');
- const all=manager.catalog(s),available=all.filter(t=>t.installed),route={mode,recommendedTier:null,selectedTier:null,attempts:[],notice:''};
+ const mode=s.localTier||'auto',ram=getRAMProfile({freeBytes:resources?.memory?.()});
+ const cap=s.localMaxTier&&s.localMaxTier!=='auto'?ORDER.indexOf(s.localMaxTier):ORDER.indexOf(ram.tierCap);
+ const all=manager.catalog(s),available=all.filter(t=>t.installed),route={mode,recommendedTier:null,selectedTier:null,attempts:[],notice:'',ramProfile:ram};
  let calls=0,tokens=0,smallResult=null,desired=floorTier(options.taskPrompt??userText(messages),messages);
  const fullOptions={...options,onDelta:undefined,instructions:(options.instructions||'')+'\n'+ANSWER_SCHEMA};
  const state=(phase,tier)=>{router.tierStatus={phase,tier};core.emit?.({type:'local-status'});};

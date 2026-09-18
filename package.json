@@ -10,6 +10,7 @@
     "dev": "node server.cjs",
     "start": "node server.cjs",
     "build": "node -e \"console.log('Build ready')\"",
+    "lint": "node --check source/main.cjs source/core.cjs server.cjs",
     "prepare:browser": "node build/prepare-browser-assets.cjs",
     "prestart": "node build/prepare-browser-assets.cjs",
     "test": "node --test tests/*.test.cjs",
