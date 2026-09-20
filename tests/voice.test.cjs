@@ -109,4 +109,112 @@ test("Voice subsystem logic and state management", async (t) => {
       assert.ok(preset.pitch > 0);
     }
   });
+
+  await t.test("Turn detection patience modes adjust silence thresholds", () => {
+    const vm = new VoiceManager({
+      onSend: async () => ({ text: "ok" }),
+      getState: () => ({}),
+      getChat: () => null,
+      onStateChange: () => {}
+    });
+
+    assert.equal(vm.turnPatience, "normal");
+    assert.equal(vm.patienceThresholds.normal, 1250);
+    assert.equal(vm.patienceThresholds.patient, 2200);
+    assert.equal(vm.patienceThresholds.fast, 680);
+
+    vm.setTurnPatience("patient");
+    assert.equal(vm.turnPatience, "patient");
+
+    vm.setTurnPatience("fast");
+    assert.equal(vm.turnPatience, "fast");
+  });
+
+  await t.test("Barge-in / Interruption eliminates ghost context and records exact heard speech", async () => {
+    let sentPayload = null;
+    let stopCalledWith = null;
+
+    const vm = new VoiceManager({
+      onSend: async (payload) => {
+        sentPayload = payload;
+        return { text: "Here is your updated census summary." };
+      },
+      getState: () => ({}),
+      getChat: () => ({ id: "chat-xyz" }),
+      callApi: async (op, data) => {
+        if (op === "stop") stopCalledWith = data;
+        return true;
+      },
+      onStateChange: () => {}
+    });
+
+    // Simulate assistant speaking
+    vm.state = "speaking";
+    vm.currentUtterance = { text: "We have 42 residents in West Wing and 3 open beds in Unit 2." };
+    vm.assistantGeneratedText = "We have 42 residents in West Wing and 3 open beds in Unit 2.";
+    vm.lastSpokenCharIndex = 30; // user interrupted around "West Wing"
+
+    // User speaks / barge-in occurs
+    vm.interruptSpeech(true);
+
+    assert.equal(vm.wasInterrupted, true);
+    assert.ok(vm.interruptedContext);
+    assert.ok(vm.interruptedContext.heardText.includes("42 residents"));
+    assert.equal(stopCalledWith.id, "chat-xyz");
+
+    // Next turn continuation without apologetic filler
+    vm.finalTranscript = "continue";
+    await vm.dispatchCurrentTranscript();
+
+    assert.ok(sentPayload);
+    assert.match(sentPayload.prompt, /Conversational Continuation/);
+    assert.match(sentPayload.prompt, /smoothly continue from that exact thought/);
+    assert.equal(vm.wasInterrupted, false);
+  });
+
+  await t.test("Streaming Audio Playback Queue enqueues and flushes sentence chunks cleanly", () => {
+    const vm = new VoiceManager({
+      onSend: async () => ({ text: "ok" }),
+      getState: () => ({}),
+      getChat: () => null,
+      onStateChange: () => {}
+    });
+
+    vm.isQueuePlaying = true; // pause auto-consumption to inspect queue state
+    vm.handleStreamResponseChunk("First sentence is ready. ");
+    vm.handleStreamResponseChunk("Second sentence follows right after! ");
+
+    assert.equal(vm.playbackQueue.length, 2);
+    assert.match(vm.playbackQueue[0].text, /First sentence is ready/);
+    assert.match(vm.playbackQueue[1].text, /Second sentence follows right after/);
+
+    // Flushing queue on hard mute or interruption
+    vm.flushPlaybackQueue();
+    assert.equal(vm.playbackQueue.length, 0);
+    assert.equal(vm.streamBuffer, "");
+  });
+
+  await t.test("Live Translation Mode wraps spoken prompt with target language instruction", async () => {
+    let sentPayload = null;
+    const vm = new VoiceManager({
+      onSend: async (payload) => {
+        sentPayload = payload;
+        return { text: "Buenos días, ¿cómo puedo ayudarle?" };
+      },
+      getState: () => ({}),
+      getChat: () => ({ id: "chat-es" }),
+      onStateChange: () => {}
+    });
+
+    vm.liveTranslation = true;
+    vm.translationTargetLang = "Spanish";
+    vm.finalTranscript = "Good morning, how can I help you today?";
+
+    await vm.dispatchCurrentTranscript();
+
+    assert.ok(sentPayload);
+    assert.match(sentPayload.prompt, /Live Spoken Translation Mode/);
+    assert.match(sentPayload.prompt, /Translate the user's spoken words into natural, fluent Spanish/);
+    assert.match(sentPayload.prompt, /Good morning, how can I help you today\?/);
+  });
 });

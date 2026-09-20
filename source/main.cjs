@@ -270,6 +270,7 @@ const NATIVE_ALLOWED = new Set([
   "saveTemporary",
   "exportChat",
   "openDesktop",
+  "liveSession",
 ]);
 function compactChat(c) {
   const messages = [];
@@ -460,6 +461,8 @@ async function dispatch(
     }
     case "stop":
       return core.stop(data.id);
+    case "liveSession":
+      return await core.createLiveSession(data);
     case "exportChat": {
       let index = data.index ?? null;
       if (native) {
@@ -812,6 +815,38 @@ async function dispatch(
       await shell.openExternal(url.href);
       return true;
     }
+    case "snfDashboard":
+      return core.snf ? core.snf.getDashboardMetrics() : { error: "Not initialized" };
+    case "snfAlerts": {
+      let alerts = core.store.list("snf_alert");
+      if (data.unresolvedOnly) alerts = alerts.filter((a) => a.status !== "resolved");
+      if (data.severity) alerts = alerts.filter((a) => a.severity === data.severity);
+      return alerts;
+    }
+    case "snfAcknowledgeAlert":
+      return core.snf.acknowledgeAlert(data.alertId, data.user || "Clinical User");
+    case "snfAssignAlert":
+      return core.snf.assignAlert(data.alertId, data.assignedTo, data.user || "Clinical User", data.note || "");
+    case "snfResolveAlert":
+      return core.snf.resolveAlert(data.alertId, data.resolutionStatus, data.note || "", data.user || "Clinical User");
+    case "snfOpenIssues":
+      return core.store.list("snf_open_issue");
+    case "snfMorningBrief":
+      return { text: core.snf.generateMorningBrief() };
+    case "snfResidentTimeline":
+      return { text: core.snf.getResidentTimelineReport(data.query) };
+    case "snfFeedStatus":
+      return core.snf.getFeedStatus();
+    case "snfMedChanges":
+      return core.snf ? core.snf.getMedicationChangesList() : [];
+    case "snfPsychWatch":
+      return core.snf ? core.snf.getPsychWatchData() : {};
+    case "snfRunRules":
+      return await core.snf.runRulesEngine(data.user || "Clinical User");
+    case "snfSeedData":
+      return await core.snf.seedRealisticPCCDataset();
+    case "snfIngest":
+      return await core.snf.ingestReports(data.reports || [], data.user || "Clinical User");
     default:
       throw fail("INVALID");
   }

@@ -24,6 +24,59 @@ function createTools(core,access,browser){return async prompt=>{
   return formatCalendar(rows);
  }
  if(p.startsWith('/report ')){if(!browser)throw fail('LOCAL_UNAVAILABLE');const name=prompt.slice(8).trim(),recipe=core.store.list('browserRecipe').find(r=>r.name===name);if(!recipe)throw fail('INVALID');const out=await browser.run(recipe);return 'Report saved: '+out.relative;}
+ const isSNF = core.settings().snfEnabled !== false;
+ const snfOff = 'SNF Clinical Surveillance is currently disabled in Settings. Enable "SNF Clinical Surveillance" in Settings to activate clinical commands.';
+ if(p==='/critical')return isSNF ? (core.snf ? core.snf.getCriticalAlertsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/psychwatch')return isSNF ? (core.snf ? core.snf.getPsychWatchReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/newmeds')return isSNF ? (core.snf ? core.snf.getNewMedsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/behaviorgap')return isSNF ? (core.snf ? core.snf.getBehaviorGapsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/diagnosisgap')return isSNF ? (core.snf ? core.snf.getDiagnosisGapsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/gdr')return isSNF ? (core.snf ? core.snf.getGDRReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/prn14')return isSNF ? (core.snf ? core.snf.getPRN14Report() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/medchange')return isSNF ? (core.snf ? core.snf.getNewMedsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/unresolved')return isSNF ? (core.snf ? core.snf.getUnresolvedIssuesReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p.startsWith('/resident')) {
+  if(!isSNF) return snfOff;
+  const q = prompt.slice(9).trim();
+  return core.snf ? core.snf.getResidentTimelineReport(q) : 'SNF surveillance engine not loaded.';
+ }
+ if(p==='/morning')return isSNF ? (core.snf ? core.snf.generateMorningBrief() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/7day') {
+  if(!isSNF) return snfOff;
+  if (!core.snf) return 'SNF surveillance engine not loaded.';
+  const metrics = core.snf.getDashboardMetrics();
+  return `# 7-DAY CLINICAL SURVEILLANCE & PSYCH WATCH TRENDS\n\n` +
+   `- Active Census: ${metrics.totalCensus}\n` +
+   `- Antipsychotic Residents: ${metrics.antipsychoticResidentsCount}\n` +
+   `- New Antipsychotics (7-day window): ${metrics.antipsychoticMetrics.newAPs7d}\n` +
+   `- Regimen / Dose Increases: ${metrics.antipsychoticMetrics.doseIncreases}\n` +
+   `- PRN Antipsychotic Regimens: ${metrics.antipsychoticMetrics.prnAPs}\n` +
+   `- Open Documentation Review Gaps: ${metrics.antipsychoticMetrics.docGaps}\n` +
+   `- Pending GDR Reviews: ${metrics.antipsychoticMetrics.gdrAlerts}\n` +
+   `- PRN 14-Day Limit Deadlines: ${metrics.antipsychoticMetrics.prnDeadlines}\n` +
+   `- Estimated Quality Measure Exposure: ${metrics.qmWatch.estimatedRatePercentage}%\n\n` +
+   `*Full breakdown accessible in the SNF Command Center.*`;
+ }
+ if(p==='/qapi') {
+  if(!isSNF) return snfOff;
+  if (!core.snf) return 'SNF surveillance engine not loaded.';
+  const metrics = core.snf.getDashboardMetrics();
+  const qm = metrics.qmWatch;
+  return `# QAPI CLINICAL PERFORMANCE & SURVEILLANCE SUMMARY\n\n` +
+   `### 1. Psychotropic Medication Quality Measure (${qm.label})\n` +
+   `- Estimated Rate: **${qm.estimatedRatePercentage}%**\n` +
+   `- Long-Stay Denominator: ${qm.longStayDenominator}\n` +
+   `- Potential Numerator: ${qm.potentialNumeratorCount}\n` +
+   `- Documented Known Exclusions: ${qm.knownExclusionsCount}\n` +
+   `- Exclusions Requiring Verification: ${qm.possibleExclusionsToVerifyCount}\n\n` +
+   `### 2. High-Alert Clinical Exceptions & Open Issues\n` +
+   `- Unresolved Critical Alerts: ${metrics.unresolvedAlertCounts.critical}\n` +
+   `- Unresolved High Alerts: ${metrics.unresolvedAlertCounts.high}\n` +
+   `- Review Items: ${metrics.unresolvedAlertCounts.review}\n\n` +
+   `### 3. Data Integrity & PCC Feed Compliance\n` +
+   `- Surveillance Status: ${metrics.feedStatus.isSurveillanceComplete ? '✅ Complete' : '⚠️ Incomplete / Feeds Pending'}\n` +
+   `- Data Freshness: ${metrics.feedStatus.dataCurrentThroughFormatted}\n`;
+ }
  throw fail('INVALID');
 };}
 function diagnose(core){

@@ -1,23 +1,76 @@
-// Private AI Voice Subsystem — First-Class Voice Architecture
-// Hands-free conversational, Push-to-Talk, Always Listening with Hard Mute, Streaming STT, and Multi-Voice TTS
+// Private AI — Real-Time Full-Duplex Conversational Voice Subsystem (GPT-Live-1 Architecture)
+// Features: Full-Duplex Audio, Turn Detection (Auto/Patient/Normal/Fast), Barge-In / Interruption Engine,
+// Ghost-Context Elimination, Audio Playback Queue, Separation of Conversation vs Task Intelligence,
+// Live Translation Mode, WebRTC/Local Provider Abstraction, and Voice HUD State Machine.
+
+export const TurnDetectionMode = {
+  AUTO: 'auto',
+  PATIENT: 'patient',
+  NORMAL: 'normal',
+  FAST: 'fast',
+  MANUAL: 'manual', // Push-to-Talk
+};
+
+export const LiveVoiceState = {
+  IDLE: 'idle',
+  CONNECTING: 'connecting',
+  LISTENING: 'listening',
+  USER_SPEAKING: 'user_speaking',
+  TURN_EVALUATION: 'turn_evaluation',
+  THINKING: 'thinking',
+  AI_SPEAKING: 'speaking',
+  INTERRUPTED: 'interrupted',
+  TOOL_RUNNING: 'tool_running',
+  WAITING_FOR_USER: 'waiting_for_user',
+  RECONNECTING: 'reconnecting',
+  ERROR: 'error',
+  MUTED: 'muted',
+  CLOSED: 'closed',
+};
+
+// Common incomplete connector phrases indicating human is still pausing/thinking
+const INCOMPLETE_PHRASES = /\b(and|or|but|because|if|when|while|although|though|so|then|that|which|with|about|like|um|uh|er|ah|let me think|wait|hold on|hang on|for example)\s*$/i;
 
 export class VoiceManager {
-  constructor({ onSend, onStateChange, getState, getChat }) {
+  constructor({ onSend, onStateChange, onTranscript, onStatusNotice, getState, getChat, callApi }) {
     this.onSend = onSend;
     this.onStateChange = onStateChange;
+    this.onTranscript = onTranscript;
+    this.onStatusNotice = onStatusNotice;
     this.getState = getState;
     this.getChat = getChat;
+    this.callApi = callApi;
 
     // Operational Settings
-    this.mode = 'handsfree'; // 'ptt' | 'handsfree' | 'always'
+    this.mode = 'handsfree'; // 'handsfree' | 'ptt' | 'always'
+    this.turnPatience = TurnDetectionMode.NORMAL; // 'auto' | 'patient' | 'normal' | 'fast' | 'manual'
     this.isHardMuted = false;
-    this.state = 'idle'; // 'idle' | 'listening' | 'processing' | 'speaking' | 'muted'
+    this.state = LiveVoiceState.IDLE;
+    this.statusMessage = '';
     this.activeAgentId = '';
     this.voiceProfile = 'nova';
     this.speechRate = 1.0;
     this.speechPitch = 1.0;
     this.ttsEnabled = true;
-    this.silenceThresholdMs = 1400; // ms of silence before auto-sending in handsfree/always mode
+
+    // Live Translation Mode
+    this.liveTranslation = false;
+    this.translationSourceLang = 'auto';
+    this.translationTargetLang = 'Spanish';
+
+    // Provider config
+    this.activeProvider = 'local'; // 'local' | 'openai-realtime'
+    this.realtimePeerConnection = null;
+    this.realtimeDataChannel = null;
+
+    // Timing & Turn Detection Thresholds (in ms)
+    this.patienceThresholds = {
+      [TurnDetectionMode.PATIENT]: 2200,
+      [TurnDetectionMode.NORMAL]: 1250,
+      [TurnDetectionMode.FAST]: 680,
+      [TurnDetectionMode.AUTO]: 1200,
+      [TurnDetectionMode.MANUAL]: 999999,
+    };
 
     // Audio & Recognition handles
     this.recognition = null;
@@ -27,33 +80,46 @@ export class VoiceManager {
     this.animFrameId = null;
     this.silenceTimer = null;
     this.isPttHolding = false;
+    this.micVolume = 0;
+    this.lastSpeechStartTime = 0;
+    this.speechSampleCount = 0;
 
     // Transcripts
     this.interimTranscript = '';
     this.finalTranscript = '';
     this.lastRecognizedText = '';
 
-    // TTS & Barge-in
-    this.currentUtterance = null;
-    this.availableVoices = [];
+    // Full-Duplex Interruption & Ghost Context Metrics
+    this.assistantGeneratedAudioMs = 0;
+    this.assistantPlayedAudioMs = 0;
+    this.assistantGeneratedText = '';
+    this.assistantHeardText = '';
+    this.lastSpokenCharIndex = 0;
     this.wasInterrupted = false;
     this.interruptedContext = null;
-    this.currentCleanText = '';
-    this.lastSpokenCharIndex = 0;
-    this.lastAssistantText = '';
 
-    // Presets definition
+    // Streaming Audio Playback Queue
+    this.playbackQueue = [];
+    this.isQueuePlaying = false;
+    this.currentUtterance = null;
+    this.currentPlayingChunk = null;
+    this.speechStartTime = 0;
+    this.availableVoices = [];
+
+    // Voice Profiles & Presets
     this.voicePresets = {
       nova: { name: 'Nova', desc: 'Calm, balanced & natural', pitch: 1.0, rate: 1.05, preferredGenders: ['female', 'neutral'] },
       atlas: { name: 'Atlas', desc: 'Deep, deliberate & authoritative', pitch: 0.85, rate: 0.95, preferredGenders: ['male'] },
       sage: { name: 'Sage', desc: 'Warm, clear & clinical precision', pitch: 1.05, rate: 1.0, preferredGenders: ['female', 'neutral'] },
-      breeze: { name: 'Breeze', desc: 'Fast, expressive & conversational', pitch: 1.15, rate: 1.15, preferredGenders: ['neutral', 'female'] }
+      breeze: { name: 'Breeze', desc: 'Fast, expressive & conversational', pitch: 1.15, rate: 1.15, preferredGenders: ['neutral', 'female'] },
     };
 
     this.initSpeechSynthesis();
     this.initRecognition();
     this.setupKeyboardShortcuts();
   }
+
+  // --- Speech Synthesis & Voice Presets ---
 
   initSpeechSynthesis() {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -74,7 +140,6 @@ export class VoiceManager {
     const voices = this.availableVoices;
     if (!voices.length) return null;
 
-    // Try finding exact English natural voices
     const enVoices = voices.filter(v => v.lang && v.lang.startsWith('en'));
     const pool = enVoices.length ? enVoices : voices;
 
@@ -87,6 +152,9 @@ export class VoiceManager {
     } else if (presetKey === 'breeze') {
       const match = pool.find(v => /natural|jenny|victoria|breeze|steffi|fiona/i.test(v.name));
       if (match) return match;
+    } else if (presetKey === 'cove') {
+      const match = pool.find(v => /cove|oliver|tom|richard|michael|brian/i.test(v.name));
+      if (match) return match;
     } else {
       // Nova default
       const match = pool.find(v => /natural|google|zira|samantha|karen|eva/i.test(v.name));
@@ -95,11 +163,13 @@ export class VoiceManager {
     return pool[0];
   }
 
+  // --- Recognition & Turn Detection ---
+
   initRecognition() {
     if (typeof window === 'undefined') return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      console.warn('SpeechRecognition API not natively available in this browser environment.');
+      console.warn('SpeechRecognition API not available in this environment.');
       return;
     }
 
@@ -112,70 +182,118 @@ export class VoiceManager {
 
       rec.onstart = () => {
         if (!this.isHardMuted) {
-          this.setState('listening');
+          if (this.state !== LiveVoiceState.AI_SPEAKING && this.state !== LiveVoiceState.THINKING) {
+            this.setState(LiveVoiceState.LISTENING, 'Listening for your voice…');
+          }
         }
+      };
+
+      rec.onspeechstart = () => {
+        this.lastSpeechStartTime = Date.now();
+        this.speechSampleCount = 0;
       };
 
       rec.onresult = (event) => {
         if (this.isHardMuted) return;
 
-        // Barge-in check: If user speaks while assistant is talking, immediately cut off speech and record interruption context!
-        if ((typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) || this.state === 'speaking') {
-          this.interruptSpeech(true);
-        }
-
         let interim = '';
         let finalChunk = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
+          const res = event.results[i];
+          const transcript = res[0].transcript;
+          if (res.isFinal) {
             finalChunk += transcript + ' ';
           } else {
             interim += transcript;
           }
         }
 
+        const candidateSpeech = (this.finalTranscript + ' ' + finalChunk + ' ' + interim).trim();
+
+        // Check if user spoke enough content to constitute genuine speech vs a brief microphone click or cough
+        const speechDurationMs = Date.now() - (this.lastSpeechStartTime || Date.now());
+        const hasSubstantialText = (finalChunk + interim).trim().length >= 2 || speechDurationMs > 250;
+
+        // Barge-In Detection: User speaks while assistant is generating or speaking audio!
+        if (hasSubstantialText && (this.state === LiveVoiceState.AI_SPEAKING || (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking))) {
+          this.interruptSpeech(true);
+        }
+
         if (finalChunk) {
           this.finalTranscript += finalChunk;
         }
         this.interimTranscript = interim;
+
+        if (hasSubstantialText && this.state !== LiveVoiceState.USER_SPEAKING && this.state !== LiveVoiceState.AI_SPEAKING) {
+          this.setState(LiveVoiceState.USER_SPEAKING, 'Hearing your speech…');
+        }
+
         this.emitTranscriptUpdate();
 
-        // Hands-free & Always Listening: Auto-send on silence detection
+        // Hands-Free & Always Listening turn taking
         if (this.mode === 'handsfree' || this.mode === 'always') {
-          this.resetSilenceTimer();
+          this.evaluateTurnCompletion(candidateSpeech);
         }
       };
 
       rec.onerror = (event) => {
         if (event.error === 'no-speech') {
-          // Normal silence, continue listening if in handsfree/always
           return;
         }
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          this.setState('muted', 'Microphone access blocked or denied.');
+          this.setState(LiveVoiceState.MUTED, 'Microphone permission blocked or denied.');
           return;
         }
-        console.warn('SpeechRecognition error:', event.error);
+        console.warn('SpeechRecognition notice:', event.error);
       };
 
       rec.onend = () => {
-        // Automatically restart listening if still in active listening mode and not hard muted
-        if (!this.isHardMuted && (this.mode === 'always' || this.mode === 'handsfree') && this.state !== 'processing') {
+        if (!this.isHardMuted && (this.mode === 'always' || this.mode === 'handsfree') && this.state !== LiveVoiceState.THINKING) {
           try {
             rec.start();
           } catch (e) {
-            // Already active or restarting
+            // Already active or transitioning
           }
-        } else if (this.state === 'listening' && this.mode === 'ptt') {
-          this.setState('idle');
+        } else if (this.state === LiveVoiceState.LISTENING && this.mode === 'ptt') {
+          this.setState(LiveVoiceState.IDLE, 'Ready');
         }
       };
 
       this.recognition = rec;
     } catch (err) {
-      console.warn('Error initializing SpeechRecognition:', err);
+      console.warn('SpeechRecognition initialization error:', err);
+    }
+  }
+
+  evaluateTurnCompletion(candidateText) {
+    this.cancelSilenceTimer();
+
+    // Determine silence duration based on Turn Detection patience mode
+    let silenceDurationMs = this.patienceThresholds[this.turnPatience] || this.patienceThresholds[TurnDetectionMode.NORMAL];
+
+    // Semantic pause adjustment: If the user ended on a conjunction or connector ("and...", "or...", "let me think..."), give them extra room to finish their thought!
+    if (INCOMPLETE_PHRASES.test(candidateText.trim())) {
+      silenceDurationMs = Math.max(silenceDurationMs, 2400);
+      this.setState(LiveVoiceState.TURN_EVALUATION, 'Waiting for you to complete your thought…');
+    } else {
+      this.setState(LiveVoiceState.TURN_EVALUATION, 'Evaluating natural conversational turn…');
+    }
+
+    this.silenceTimer = setTimeout(() => {
+      const fullText = (this.finalTranscript + ' ' + this.interimTranscript).trim();
+      if (fullText.length > 0) {
+        this.dispatchCurrentTranscript();
+      } else {
+        this.setState(LiveVoiceState.LISTENING, 'Listening…');
+      }
+    }, silenceDurationMs);
+  }
+
+  cancelSilenceTimer() {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
     }
   }
 
@@ -183,7 +301,7 @@ export class VoiceManager {
     if (typeof window === 'undefined') return;
 
     window.addEventListener('keydown', (e) => {
-      // Spacebar for Push-To-Talk when PTT is selected and user is NOT typing in an input/textarea
+      // Spacebar for Push-to-Talk when enabled and outside inputs
       if (e.code === 'Space' && this.mode === 'ptt' && !this.isHardMuted) {
         const active = document.activeElement;
         const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
@@ -193,7 +311,7 @@ export class VoiceManager {
         }
       }
 
-      // Quick Mute hotkey: 'M' or 'Ctrl+M' when not in text input
+      // Quick Hard Mute: Alt+M or Ctrl+M
       if (e.key === 'm' || e.key === 'M') {
         const active = document.activeElement;
         const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
@@ -212,12 +330,25 @@ export class VoiceManager {
     });
   }
 
+  // --- Audio Capture & Visualizer with Echo Cancellation ---
+
   async startAudioVisualizer(canvas) {
     if (typeof window === 'undefined' || !canvas || this.isHardMuted) return;
     try {
       if (!this.mediaStream) {
-        this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        // High-fidelity full-duplex constraints: AEC, noise suppression, AGC
+        this.mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+            sampleRate: 48000,
+          },
+          video: false,
+        });
       }
+
       if (!this.audioCtx) {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         this.audioCtx = new AudioCtx();
@@ -229,6 +360,7 @@ export class VoiceManager {
       const source = this.audioCtx.createMediaStreamSource(this.mediaStream);
       this.analyser = this.audioCtx.createAnalyser();
       this.analyser.fftSize = 64;
+      this.analyser.smoothingTimeConstant = 0.6;
       source.connect(this.analyser);
 
       const bufferLength = this.analyser.frequencyBinCount;
@@ -237,9 +369,8 @@ export class VoiceManager {
 
       const draw = () => {
         if (!this.analyser || this.isHardMuted) {
-          // Flatline when hard muted or inactive
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.strokeStyle = this.isHardMuted ? '#e13c3c' : '#8a99b5';
+          ctx.strokeStyle = this.isHardMuted ? '#ef4444' : '#64748b';
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.moveTo(0, canvas.height / 2);
@@ -251,28 +382,41 @@ export class VoiceManager {
         this.animFrameId = requestAnimationFrame(draw);
         this.analyser.getByteFrequencyData(dataArray);
 
+        // Compute instant mic volume for noise gate & speech activity
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+        this.micVolume = sum / (bufferLength * 255);
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const barWidth = (canvas.width / bufferLength) * 1.5;
+        const barWidth = (canvas.width / bufferLength) * 1.4;
         let x = 0;
 
         for (let i = 0; i < bufferLength; i++) {
           const barHeight = Math.max(4, (dataArray[i] / 255) * (canvas.height - 8));
-          
-          let fill = '#3154c8';
-          if (this.state === 'listening') {
+
+          let fill = '#3b82f6';
+          if (this.state === LiveVoiceState.USER_SPEAKING) {
             fill = '#10b981'; // Emerald
-          } else if (this.state === 'speaking') {
-            fill = '#6366f1'; // Indigo
-          } else if (this.state === 'processing') {
+          } else if (this.state === LiveVoiceState.AI_SPEAKING) {
+            fill = '#8b5cf6'; // Violet
+          } else if (this.state === LiveVoiceState.THINKING || this.state === LiveVoiceState.TOOL_RUNNING) {
             fill = '#f59e0b'; // Amber
+          } else if (this.state === LiveVoiceState.INTERRUPTED) {
+            fill = '#ec4899'; // Pink/Rose
+          } else if (this.state === LiveVoiceState.LISTENING) {
+            fill = '#0ea5e9'; // Sky blue
           }
 
           ctx.fillStyle = fill;
           const y = (canvas.height - barHeight) / 2;
-          ctx.beginPath();
-          ctx.roundRect ? ctx.roundRect(x, y, barWidth - 2, barHeight, 2) : ctx.rect(x, y, barWidth - 2, barHeight);
-          ctx.fill();
+          if (ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(x, y, barWidth - 2, barHeight, 2);
+            ctx.fill();
+          } else {
+            ctx.fillRect(x, y, barWidth - 2, barHeight);
+          }
 
           x += barWidth;
         }
@@ -280,7 +424,8 @@ export class VoiceManager {
 
       draw();
     } catch (err) {
-      console.warn('Could not initialize audio visualizer microphone stream:', err);
+      console.warn('Microphone capture stream failed:', err);
+      this.setState(LiveVoiceState.ERROR, 'Microphone capture error: ' + err.message);
     }
   }
 
@@ -290,7 +435,7 @@ export class VoiceManager {
       this.animFrameId = null;
     }
     if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach(t => t.stop());
+      this.mediaStream.getTracks().forEach((t) => t.stop());
       this.mediaStream = null;
     }
     if (this.audioCtx && this.audioCtx.state !== 'closed') {
@@ -313,9 +458,14 @@ export class VoiceManager {
       if (newMode === 'always' || newMode === 'handsfree') {
         this.startListening();
       } else {
-        this.setState('idle');
+        this.setState(LiveVoiceState.IDLE, 'Ready');
       }
     }
+    this.notifyState();
+  }
+
+  setTurnPatience(patienceMode) {
+    this.turnPatience = patienceMode;
     this.notifyState();
   }
 
@@ -323,13 +473,15 @@ export class VoiceManager {
     this.isHardMuted = !this.isHardMuted;
 
     if (this.isHardMuted) {
-      // Physical cut of all audio streams
       this.stopListening();
       this.stopAudioVisualizer();
-      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
-      this.setState('muted', 'HARD MUTED — Microphone hardware disconnected');
+      this.flushPlaybackQueue();
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      this.setState(LiveVoiceState.MUTED, 'HARD MUTED — Microphone hardware disconnected');
     } else {
-      this.setState('idle');
+      this.setState(LiveVoiceState.IDLE, 'Ready');
       if (this.mode === 'always' || this.mode === 'handsfree') {
         this.startListening();
       }
@@ -351,7 +503,7 @@ export class VoiceManager {
         // Recognition already active
       }
     }
-    this.setState('listening');
+    this.setState(LiveVoiceState.LISTENING, 'Listening for speech…');
   }
 
   stopListening() {
@@ -361,8 +513,8 @@ export class VoiceManager {
         this.recognition.stop();
       } catch (e) {}
     }
-    if (this.state === 'listening') {
-      this.setState('idle');
+    if (this.state === LiveVoiceState.LISTENING || this.state === LiveVoiceState.USER_SPEAKING) {
+      this.setState(LiveVoiceState.IDLE, 'Ready');
     }
   }
 
@@ -370,7 +522,7 @@ export class VoiceManager {
     if (this.isHardMuted || this.isPttHolding) return;
     this.isPttHolding = true;
     if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
+      this.interruptSpeech(true);
     }
     this.startListening();
     this.notifyState();
@@ -382,27 +534,9 @@ export class VoiceManager {
     this.stopListening();
     this.notifyState();
 
-    // Trigger dispatch of whatever was captured
     setTimeout(() => {
       this.dispatchCurrentTranscript();
-    }, 150);
-  }
-
-  resetSilenceTimer() {
-    this.cancelSilenceTimer();
-    this.silenceTimer = setTimeout(() => {
-      const fullText = (this.finalTranscript + ' ' + this.interimTranscript).trim();
-      if (fullText.length > 1) {
-        this.dispatchCurrentTranscript();
-      }
-    }, this.silenceThresholdMs);
-  }
-
-  cancelSilenceTimer() {
-    if (this.silenceTimer) {
-      clearTimeout(this.silenceTimer);
-      this.silenceTimer = null;
-    }
+    }, 120);
   }
 
   emitTranscriptUpdate() {
@@ -411,68 +545,94 @@ export class VoiceManager {
       this.onTranscript({
         fullText: text,
         interim: this.interimTranscript,
-        final: this.finalTranscript
+        final: this.finalTranscript,
+        isInterim: !!this.interimTranscript,
       });
     }
   }
 
   async dispatchTranscriptExplicit(text) {
-    if (!text || this.state === 'processing') return;
+    if (!text || this.state === LiveVoiceState.THINKING) return;
     this.finalTranscript = text;
     this.interimTranscript = '';
     await this.dispatchCurrentTranscript();
   }
 
+  // --- Conversational Intelligence & Brain Router Dispatch ---
+
   async dispatchCurrentTranscript() {
     const text = (this.finalTranscript + ' ' + this.interimTranscript).trim();
-    if (!text || this.state === 'processing') return;
+    if (!text || this.state === LiveVoiceState.THINKING) return;
 
     this.cancelSilenceTimer();
     this.stopListening();
-    this.setState('processing', 'Routing to AI engine...');
+    this.setState(LiveVoiceState.THINKING, 'Engaging brain router…');
     this.lastRecognizedText = text;
     this.finalTranscript = '';
     this.interimTranscript = '';
     this.emitTranscriptUpdate();
 
     try {
-      // Route through the existing Private AI router with selected Agent context
-      const chat = this.getChat ? this.getChat() : null;
       const state = this.getState ? this.getState() : {};
 
-      // Detect continuation vs new question following interruption (like Gemini Live and ChatGPT Voice)
+      // 1. Check for Actionable Tool / Delegated Request
+      const isToolRequest = /\b(calendar|schedule|meeting|appointment|email|whatsapp|census|staffing|overtime|sbar|fall incident|report|export|file|search)\b/i.test(text);
+
+      if (isToolRequest) {
+        this.setState(LiveVoiceState.TOOL_RUNNING, 'Executing tool / intelligence playbook…');
+        if (this.onStatusNotice) {
+          this.onStatusNotice(`Analyzing task: ${text}`);
+        }
+      }
+
+      // 2. Handle Interruption Context vs Continuation (Ghost Context Elimination)
       const isContinuation = /^(continue|go on|keep going|what were you saying|finish|proceed|tell me more|yes continue|and then|finish your thought)/i.test(text.trim());
 
       let conversationalPrefix = '';
       if (this.wasInterrupted && this.interruptedContext) {
         if (isContinuation) {
-          conversationalPrefix = `[Conversational Continuation: You were interrupted while explaining. You had just said: "${this.interruptedContext.spokenText || this.interruptedContext.fullText.slice(0, 200)}". The user asks: "${text}". Smoothly pick up and continue your explanation from that exact point without repeating what was already spoken.]\n\n`;
+          conversationalPrefix = `[Conversational Continuation: You were speaking when interrupted. You had reached: "${this.interruptedContext.heardText}". The user says: "${text}". Please smoothly continue from that exact thought without repeating what was already spoken.]\n\n`;
         } else {
-          conversationalPrefix = `[Conversational Interruption: You were speaking: "${this.interruptedContext.spokenText || this.interruptedContext.fullText.slice(0, 150)}". The user interrupted with: "${text}". Respond directly and naturally to the user's new question or comment.]\n\n`;
+          conversationalPrefix = `[Conversational Interruption: You were speaking: "${this.interruptedContext.heardText}". The user interrupted and changed direction to: "${text}". Address their new instruction directly and naturally without apologizing for the interruption.]\n\n`;
         }
         this.wasInterrupted = false;
         this.interruptedContext = null;
       }
-      
-      let prompt = conversationalPrefix + text;
-      // If an autonomous agent is selected in Voice HUD, layer the agent's instructions
+
+      // 3. Live Translation Mode Prompt Decorator
+      let liveTranslationPrompt = '';
+      if (this.liveTranslation && this.translationTargetLang) {
+        liveTranslationPrompt = `[Live Spoken Translation Mode: Translate the user's spoken words into natural, fluent ${this.translationTargetLang}. Provide the direct translation first followed by a concise spoken response.]\n\n`;
+      }
+
+      let prompt = liveTranslationPrompt + conversationalPrefix + text;
+
+      // 4. Role / Agent Instruction Layer
       if (this.activeAgentId && state.agents) {
-        const agent = state.agents.find(a => a.id === this.activeAgentId);
+        const agent = state.agents.find((a) => a.id === this.activeAgentId);
         if (agent && agent.prompt) {
           prompt = `[Role Instruction: ${agent.prompt}]\n\n${prompt}`;
         }
       }
 
+      // 5. Send to Private AI Pipeline & Stream Response Chunks
       if (this.onSend) {
         const result = await this.onSend({
           prompt,
           rawVoiceText: text,
-          agentId: this.activeAgentId || null
+          agentId: this.activeAgentId || null,
+          onStreamChunk: (chunk) => {
+            // Streaming sentence-level speech playback as tokens generate
+            this.handleStreamResponseChunk(chunk);
+          },
         });
 
-        // Assistant response handling
+        // Assistant response speech
         if (result && result.text && this.ttsEnabled && !this.isHardMuted) {
-          await this.speakResponse(result.text);
+          // If streaming chunks didn't already consume the full text, speak response
+          if (this.playbackQueue.length === 0 && !this.isQueuePlaying) {
+            await this.speakResponse(result.text);
+          }
         } else {
           this.resumeListeningAfterResponse();
         }
@@ -481,7 +641,7 @@ export class VoiceManager {
       }
     } catch (err) {
       console.error('Error during voice dispatch:', err);
-      this.setState('idle', err.message);
+      this.setState(LiveVoiceState.IDLE, err.message);
       this.resumeListeningAfterResponse();
     }
   }
@@ -489,48 +649,97 @@ export class VoiceManager {
   resumeListeningAfterResponse() {
     if (!this.isHardMuted && (this.mode === 'always' || this.mode === 'handsfree')) {
       setTimeout(() => {
-        if (!this.isHardMuted && this.state !== 'speaking') {
+        if (!this.isHardMuted && this.state !== LiveVoiceState.AI_SPEAKING) {
           this.startListening();
         }
-      }, 400);
+      }, 350);
     } else {
-      this.setState('idle');
+      this.setState(LiveVoiceState.IDLE, 'Ready');
     }
   }
+
+  // --- Text Preprocessing & Cleaning ---
 
   cleanTextForSpeech(text) {
     if (!text) return '';
     return text
-      // Strip markdown code fences
       .replace(/```[\s\S]*?```/g, ' Code snippet omitted. ')
-      // Strip inline code backticks
       .replace(/`([^`]+)`/g, '$1')
-      // Strip markdown links [text](url) -> text
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Strip bold/italic markdown
       .replace(/[*_~#]/g, '')
-      // Strip HTML tags
       .replace(/<[^>]+>/g, '')
-      // Clean duplicate whitespace
       .replace(/\s+/g, ' ')
       .trim();
   }
 
-  speakResponse(text) {
-    return new Promise((resolve) => {
+  // --- Streaming Audio Playback Queue & Chunking ---
+
+  handleStreamResponseChunk(delta) {
+    if (!delta || !this.ttsEnabled || this.isHardMuted) return;
+    this.streamBuffer = (this.streamBuffer || '') + delta;
+
+    // Sentence/clause boundary detection: ., !, ?, ;\n
+    const match = this.streamBuffer.match(/(.*?([.!?\n]+|\.{3}))(\s+|$)/);
+    if (match) {
+      const sentence = match[1].trim();
+      this.streamBuffer = this.streamBuffer.slice(match[0].length);
+      if (sentence.length > 2) {
+        this.enqueueAudioChunk(sentence);
+      }
+    }
+  }
+
+  enqueueAudioChunk(textChunk) {
+    const clean = this.cleanTextForSpeech(textChunk);
+    if (!clean) return;
+
+    const chunk = {
+      id: 'chunk_' + Math.random().toString(36).slice(2, 9),
+      text: clean,
+      rawText: textChunk,
+      timestamp: Date.now(),
+      status: 'queued',
+    };
+
+    this.playbackQueue.push(chunk);
+    if (!this.isQueuePlaying) {
+      this.processPlaybackQueue();
+    }
+  }
+
+  async processPlaybackQueue() {
+    if (this.isQueuePlaying || this.playbackQueue.length === 0 || this.isHardMuted) return;
+    this.isQueuePlaying = true;
+
+    while (this.playbackQueue.length > 0 && !this.isHardMuted) {
+      const chunk = this.playbackQueue.shift();
+      this.currentPlayingChunk = chunk;
+      chunk.status = 'playing';
+
+      try {
+        await this.speakUtteranceChunk(chunk.text);
+        chunk.status = 'played';
+      } catch (e) {
+        chunk.status = 'cancelled';
+        break;
+      }
+    }
+
+    this.isQueuePlaying = false;
+    this.currentPlayingChunk = null;
+
+    if (this.state === LiveVoiceState.AI_SPEAKING) {
+      this.resumeListeningAfterResponse();
+    }
+  }
+
+  speakUtteranceChunk(cleanText) {
+    return new Promise((resolve, reject) => {
       if (typeof window === 'undefined' || !('speechSynthesis' in window) || !this.ttsEnabled || this.isHardMuted) {
-        this.resumeListeningAfterResponse();
         return resolve();
       }
 
-      window.speechSynthesis.cancel();
-      const clean = this.cleanTextForSpeech(text);
-      if (!clean) {
-        this.resumeListeningAfterResponse();
-        return resolve();
-      }
-
-      const utterance = new SpeechSynthesisUtterance(clean);
+      const utterance = new SpeechSynthesisUtterance(cleanText);
       const voice = this.getBestVoiceForPreset(this.voiceProfile);
       if (voice) utterance.voice = voice;
 
@@ -538,9 +747,10 @@ export class VoiceManager {
       utterance.rate = this.speechRate * (preset.rate || 1.0);
       utterance.pitch = this.speechPitch * (preset.pitch || 1.0);
 
-      this.currentCleanText = clean;
-      this.lastSpokenCharIndex = 0;
-      this.lastAssistantText = text;
+      this.currentUtterance = utterance;
+      this.assistantGeneratedText = cleanText;
+      this.speechStartTime = Date.now();
+      this.setState(LiveVoiceState.AI_SPEAKING, 'Speaking… (speak to barge in)');
 
       utterance.onboundary = (e) => {
         if (e.name === 'word' || typeof e.charIndex === 'number') {
@@ -548,58 +758,95 @@ export class VoiceManager {
         }
       };
 
-      this.setState('speaking', 'Speaking response (speak or click to interrupt)...');
-
       utterance.onend = () => {
+        this.assistantPlayedAudioMs += Date.now() - this.speechStartTime;
         this.currentUtterance = null;
-        this.currentCleanText = '';
-        this.resumeListeningAfterResponse();
         resolve();
       };
 
       utterance.onerror = (e) => {
         this.currentUtterance = null;
-        this.currentCleanText = '';
-        this.resumeListeningAfterResponse();
-        resolve();
+        if (e.error === 'interrupted' || e.error === 'canceled') {
+          reject(new Error('interrupted'));
+        } else {
+          resolve();
+        }
       };
 
-      this.currentUtterance = utterance;
       window.speechSynthesis.speak(utterance);
     });
   }
 
+  speakResponse(fullText) {
+    this.flushPlaybackQueue();
+    const clean = this.cleanTextForSpeech(fullText);
+    if (!clean) {
+      this.resumeListeningAfterResponse();
+      return Promise.resolve();
+    }
+    this.enqueueAudioChunk(clean);
+    return Promise.resolve();
+  }
+
+  flushPlaybackQueue() {
+    this.playbackQueue = [];
+    this.streamBuffer = '';
+    this.isQueuePlaying = false;
+  }
+
+  // --- Barge-In & Ghost Context Elimination ---
+
   interruptSpeech(byUserSpeech = false) {
-    if (this.currentUtterance || (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking)) {
+    const isSpeaking = this.currentUtterance || (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) || this.isQueuePlaying;
+
+    if (isSpeaking) {
+      // 1. Immediately cut off audio output
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
-      const charIdx = this.lastSpokenCharIndex || 0;
-      const spoken = this.currentCleanText ? this.currentCleanText.slice(0, Math.max(charIdx, 20)) : '';
-      const remaining = this.currentCleanText ? this.currentCleanText.slice(Math.max(charIdx, 20)) : '';
+      this.flushPlaybackQueue();
 
+      // 2. Measure actual heard speech vs ghost context
+      const charIdx = this.lastSpokenCharIndex || 0;
+      const full = this.currentPlayingChunk ? this.currentPlayingChunk.text : this.assistantGeneratedText;
+      const heard = full ? full.slice(0, Math.max(charIdx, 20)) : '';
+      const unheard = full ? full.slice(Math.max(charIdx, 20)) : '';
+
+      this.assistantHeardText = heard;
       this.wasInterrupted = true;
       this.interruptedContext = {
-        fullText: this.lastAssistantText || this.currentCleanText,
-        spokenText: spoken,
-        remainingText: remaining,
-        timestamp: Date.now()
+        heardText: heard,
+        unheardText: unheard,
+        fullText: full,
+        timestamp: Date.now(),
       };
-      this.currentUtterance = null;
-      this.currentCleanText = '';
 
-      this.setState('interrupted', 'Interrupted — listening to your follow-up...');
-      setTimeout(() => {
-        if (this.state === 'interrupted') {
-          this.setState('listening', 'Listening...');
+      this.currentUtterance = null;
+      this.isQueuePlaying = false;
+
+      // 3. Inform server to abort pending model stream if active
+      if (this.callApi && this.getChat) {
+        const c = this.getChat();
+        if (c && c.id) {
+          this.callApi('stop', { id: c.id }).catch(() => {});
         }
-      }, 350);
+      }
+
+      this.setState(LiveVoiceState.INTERRUPTED, 'Interrupted — listening to your follow-up…');
+
+      setTimeout(() => {
+        if (this.state === LiveVoiceState.INTERRUPTED) {
+          this.setState(LiveVoiceState.USER_SPEAKING, 'Listening to your instruction…');
+        }
+      }, 280);
 
       if (!byUserSpeech) {
         this.resumeListeningAfterResponse();
       }
     }
   }
+
+  // --- State Machine Dispatch ---
 
   setState(newState, statusMessage = '') {
     this.state = newState;
@@ -612,12 +859,16 @@ export class VoiceManager {
       this.onStateChange({
         state: this.state,
         mode: this.mode,
+        turnPatience: this.turnPatience,
         isHardMuted: this.isHardMuted,
         isPttHolding: this.isPttHolding,
         voiceProfile: this.voiceProfile,
         activeAgentId: this.activeAgentId,
         ttsEnabled: this.ttsEnabled,
-        statusMessage: this.statusMessage
+        liveTranslation: this.liveTranslation,
+        translationTargetLang: this.translationTargetLang,
+        statusMessage: this.statusMessage,
+        micVolume: this.micVolume,
       });
     }
   }

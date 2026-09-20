@@ -38,6 +38,8 @@ async function generateLocalResponse(prompt, messages, options = {}) {
 
   if (clinicalContext) {
     fullAnswer = `### Clinical Reference Assessment (Local)\n\n${clinicalContext}\n\n**Guidance & Application:**\nBased on established long-term care clinical protocols, ensure thorough documentation in the electronic health record (EHR) and follow interdisciplinary team (IDT) notification procedures.\n\n*Note: Local reference answer compiled offline on this PC without cloud transmission.*`;
+  } else if (/\b(sbar|handoff|shift report|nurse handoff)\b/i.test(lower)) {
+    fullAnswer = `### Structured SBAR Communication Report (Local)\n\n**S — Situation:**\n${p}\n\n**B — Background:**\nReview baseline status, current diagnoses, recent medication adjustments, and advance directives.\n\n**A — Assessment:**\n- Current vitals, pain level, and functional change compared to resident baseline.\n- Relevant diagnostic findings or acute symptom timeline.\n\n**R — Recommendation:**\n- Specific orders requested (e.g., diagnostic workup, medication review, stat assessment).\n- Interim monitoring frequency and IDT/family notification schedule.\n\n*(Compiled locally using standardized long-term care SBAR protocols)*`;
   } else if (/email|draft|write to|memo|notice/i.test(lower)) {
     fullAnswer = `**Subject:** Update regarding: ${p.slice(0, 50)}\n\nDear Team,\n\nI am writing to follow up on the following matter:\n\n${p}\n\nPlease review the details above and let me know if any adjustments are needed. Thank you for your continued dedication.\n\nBest regards,\nClinical & Operations Team\n\n*(Drafted locally by Private AI without external API requests)*`;
   } else if (/to-?do|task|reminder|follow-?up/i.test(lower)) {

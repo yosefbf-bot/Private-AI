@@ -101,7 +101,22 @@ class OpenAIClient {
     if (provider === 'anthropic') return ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'];
     if (provider === 'groq') return ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
     if (provider === 'deepseek') return ['deepseek-chat', 'deepseek-reasoner'];
-    if (provider === 'custom') return ['llama3.2', 'mistral', 'qwen2.5', 'custom'];
+    if (provider === 'custom') {
+      try {
+        const ep = (settings.customEndpoint || 'http://localhost:11434/v1').replace(/\/+$/, '');
+        const r = await this.fetcher(ep + '/models', {
+          headers: this.headers(key, settings, 'custom'),
+          signal,
+          redirect: "error"
+        });
+        if (r.ok) {
+          const data = await r.json();
+          const list = (data.data || data.models || []).map(m => m.id || m.name).filter(Boolean);
+          if (list.length > 0) return list.sort();
+        }
+      } catch {}
+      return ['llama3.2', 'mistral', 'qwen2.5', 'custom'];
+    }
     if (!key) throw fail("KEY");
     const r = await this.fetcher(ENDPOINT + "/models", {
       headers: this.headers(key, settings, 'openai'),
@@ -114,6 +129,39 @@ class OpenAIClient {
       .filter((x) => typeof x === "string" && /^[\w.:-]{1,101}$/.test(x))
       .sort();
   }
+  async createRealtimeSession(key, settings = {}) {
+    if (!key) throw fail("KEY");
+    if (settings.hipaa && !settings.approved) throw fail("POLICY");
+    const r = await this.fetcher(ENDPOINT + "/realtime/sessions", {
+      method: "POST",
+      headers: this.headers(key, settings, 'openai'),
+      body: JSON.stringify({
+        model: settings.realtimeModel || "gpt-4o-realtime-preview-2024-12-17",
+        voice: settings.voice || "verse",
+        turn_detection: settings.turnDetection === "patient" ? {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 1200
+        } : settings.turnDetection === "fast" ? {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 200,
+          silence_duration_ms: 450
+        } : {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 750
+        }
+      })
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw apiError(r.status, err);
+    }
+    return await r.json();
+  }
   headers(key, s, provider = 'openai') {
     if (provider === 'ollama') {
       return { 'Content-Type': 'application/json' };
@@ -125,10 +173,10 @@ class OpenAIClient {
         'Content-Type': 'application/json'
       };
     }
-    const h = {
-      Authorization: "Bearer " + key,
-      "Content-Type": "application/json",
-    };
+    const h = { "Content-Type": "application/json" };
+    if (key) {
+      h.Authorization = "Bearer " + key;
+    }
     if (provider === 'openai') {
       if (s.org) h["OpenAI-Organization"] = s.org;
       if (s.projectId) h["OpenAI-Project"] = s.projectId;
@@ -183,7 +231,10 @@ class OpenAIClient {
         const { getRAMProfile } = require('./ram-profile.cjs');
         const ram = getRAMProfile();
         body.keep_alive = ram.keepAlive;
-        body.options = { num_thread: ram.threadBudget };
+        body.options = {
+          num_thread: ram.threadBudget,
+          num_ctx: Math.min(settings.localContext || 4096, ram.availableGB < 2.5 ? 2048 : 8192)
+        };
       }
       serialized = JSON.stringify(body);
     } else {
@@ -208,6 +259,13 @@ class OpenAIClient {
         try {
           data = await r.json();
         } catch {}
+        if (provider === 'ollama') {
+          const targetModel = settings.model || 'qwen2.5:1.5b';
+          const errMsg = data?.error || (r.status === 404 ? `Model "${targetModel}" is not installed in Ollama. In terminal, run: ollama run ${targetModel}` : `Ollama returned error ${r.status}`);
+          const err = new Error(errMsg);
+          err.code = 'OLLAMA_ERROR';
+          throw err;
+        }
         throw apiError(r.status, data);
       }
       if (!r.body) throw fail("API");

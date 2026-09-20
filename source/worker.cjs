@@ -327,7 +327,7 @@ class WorkerManager {
             isStatus &&
             stat.isFile() &&
             stat.size < 10000 &&
-            age > (c.settings().retentionDays || 90) * 86400000
+            age > (c.settings().retentionDays || 100) * 86400000
           ) {
             const envelope = JSON.parse(fs.readFileSync(file));
             if (

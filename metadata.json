@@ -1,6 +1,6 @@
 {
   "name": "Private AI",
-  "description": "Private local AI assistant with document reasoning, multi-turn chat, task scheduling, and secure local workspace management.",
+  "description": "Private local AI assistant with SNF clinical surveillance command center, document reasoning, multi-turn chat, task scheduling, and secure local workspace management.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

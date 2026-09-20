@@ -8,9 +8,9 @@
       content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
     />
     <title>Private AI</title>
-    <meta name="description" content="Private local AI assistant with document reasoning, multi-turn chat, task scheduling, and secure local workspace management." />
+    <meta name="description" content="Private local AI assistant with SNF clinical surveillance command center, document reasoning, multi-turn chat, task scheduling, and secure local workspace management." />
     <meta property="og:title" content="Private AI" />
-    <meta property="og:description" content="Private local AI assistant with document reasoning, multi-turn chat, task scheduling, and secure local workspace management." />
+    <meta property="og:description" content="Private local AI assistant with SNF clinical surveillance command center, document reasoning, multi-turn chat, task scheduling, and secure local workspace management." />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -25,6 +25,9 @@
         ><button class="nav" data-act="temporary">◌ Temporary chat</button>
         <button class="nav voice-sidebar-item" data-act="voice-toggle" id="voice-sidebar-btn" title="Toggle First-Class Voice Mode (Ctrl+Shift+V)">
           🎙 Voice Mode <span class="voice-badge" id="voice-sidebar-badge">Ready</span>
+        </button>
+        <button class="nav snf-sidebar-item" data-act="view" data-view="snf" id="snf-sidebar-btn" title="Open SNF Command Center & Clinical Surveillance">
+          🏥 SNF Surveillance <span class="snf-sidebar-badge" id="snf-sidebar-badge">0 Alerts</span>
         </button>
         <nav>
           <button class="nav" data-act="view" data-view="projects">
@@ -61,6 +64,18 @@
         </footer>
       </aside>
       <main>
+        <div id="universal-alert-bar" class="universal-alert-bar" role="region" aria-label="Clinical Surveillance Summary">
+          <div class="alert-bar-left">
+            <span class="alert-bar-pill crit" id="bar-crit-pill">🔴 CRITICAL <strong id="bar-crit-num">0</strong></span>
+            <span class="alert-bar-pill high" id="bar-high-pill">🟠 HIGH <strong id="bar-high-num">0</strong></span>
+            <span class="alert-bar-pill review" id="bar-review-pill">🟡 REVIEW <strong id="bar-review-num">0</strong></span>
+            <span class="alert-bar-critical-banner" id="bar-crit-banner" hidden>⚠️ CRITICAL CLINICAL ITEMS REQUIRE REVIEW</span>
+          </div>
+          <div class="alert-bar-right">
+            <span class="alert-bar-pcc-status" id="bar-pcc-freshness">PCC Data Current Through: Checking…</span>
+            <button type="button" class="alert-bar-btn" data-act="view" data-view="snf" title="Open SNF Command Center">Open Command Center →</button>
+          </div>
+        </div>
         <header id="topbar">
           <div>
             <strong id="view-title">New chat</strong
@@ -70,7 +85,7 @@
         </header>
         <div id="notice" hidden></div>
         <div id="resource-status" role="status" aria-live="polite"></div>
-        <section id="voice-hud" class="voice-hud" hidden aria-label="Private AI Voice Controller">
+        <section id="voice-hud" class="voice-hud" hidden aria-label="Private AI Live Voice Controller">
           <div class="voice-hud-header">
             <div class="voice-status-block">
               <div class="voice-indicator-badge" id="voice-indicator-badge">
@@ -81,6 +96,12 @@
                 <button type="button" class="voice-tab active" data-voice-mode="handsfree" title="Hands-free conversational turn-taking">Hands-Free</button>
                 <button type="button" class="voice-tab" data-voice-mode="ptt" title="Push-to-Talk (Hold Spacebar)">Push-to-Talk</button>
                 <button type="button" class="voice-tab" data-voice-mode="always" title="Always Listening mode">Always Listening</button>
+              </div>
+              <div class="voice-patience-tabs" id="voice-patience-tabs" title="Turn taking pause sensitivity">
+                <span class="voice-patience-label">Patience:</span>
+                <button type="button" class="voice-patience-btn" data-patience="patient" title="Waits longer for pauses and mid-sentence thoughts">Patient</button>
+                <button type="button" class="voice-patience-btn active" data-patience="normal" title="Natural conversational pause">Normal</button>
+                <button type="button" class="voice-patience-btn" data-patience="fast" title="Quick snappy responses">Fast</button>
               </div>
             </div>
             <div class="voice-header-actions">
@@ -93,7 +114,11 @@
 
           <div class="voice-hud-body">
             <div class="voice-visualizer-container">
-              <canvas id="voice-visualizer" class="voice-visualizer-canvas" width="460" height="40" aria-label="Microphone activity visualizer"></canvas>
+              <div class="voice-orb" id="voice-orb" title="Live conversational audio orb">
+                <div class="voice-orb-core"></div>
+                <div class="voice-orb-glow"></div>
+              </div>
+              <canvas id="voice-visualizer" class="voice-visualizer-canvas" width="400" height="40" aria-label="Microphone activity visualizer"></canvas>
               <div class="voice-ptt-container" id="voice-ptt-container" hidden>
                 <button type="button" class="voice-ptt-disc" id="voice-ptt-disc">
                   <span class="voice-ptt-disc-icon">🎙</span>
@@ -113,7 +138,7 @@
             <div class="voice-controls-bar">
               <div class="voice-control-group">
                 <label class="voice-control-label">
-                  Route to Agent
+                  Route to Agent / Brain
                   <select id="voice-agent-select" class="voice-select" aria-label="Select routing agent">
                     <option value="">Default Assistant (Standard Router)</option>
                   </select>
@@ -136,6 +161,24 @@
                     <option value="1.3">1.3x Quick</option>
                   </select>
                 </label>
+                <label class="voice-control-label voice-translation-control">
+                  <span>Live Translation</span>
+                  <div class="voice-translation-row">
+                    <input type="checkbox" id="voice-translate-toggle" title="Enable live spoken translation">
+                    <select id="voice-translate-lang" class="voice-select" aria-label="Target translation language">
+                      <option value="Spanish" selected>Spanish</option>
+                      <option value="French">French</option>
+                      <option value="German">German</option>
+                      <option value="Hebrew">Hebrew</option>
+                      <option value="Chinese">Chinese (Mandarin)</option>
+                      <option value="Japanese">Japanese</option>
+                      <option value="Arabic">Arabic</option>
+                      <option value="Russian">Russian</option>
+                      <option value="Portuguese">Portuguese</option>
+                      <option value="Italian">Italian</option>
+                    </select>
+                  </div>
+                </label>
               </div>
               <div class="voice-control-buttons">
                 <button type="button" class="voice-interrupt-btn" id="voice-interrupt-btn" title="Interrupt assistant voice response">■ Interrupt / Barge-in</button>
@@ -147,7 +190,7 @@
             </div>
             <div class="voice-compliance-notice" id="voice-compliance-notice">
               <span class="voice-shield-icon">🔒</span>
-              <span><strong>HIPAA &amp; Zero-Cloud Compliance:</strong> Audio processing and text-to-speech are performed on-device. No audio data or voice biometric telemetry is sent to any cloud API or external service.</span>
+              <span><strong>Full-Duplex Zero-Cloud Architecture:</strong> Real-time microphone audio processing, turn detection, and local voice synthesis operate on-device with zero voice telemetry or cloud retention.</span>
             </div>
           </div>
         </section>
@@ -179,6 +222,7 @@
                 ＋</button
               ><label class="web-option"
                 ><input id="web" type="checkbox" /> Web search</label
+              ><span id="response-time-est" class="response-time-est" title="Estimated response duration based on active model, context length, and tools">⏱ Est. ~2s</span
               ><span id="compose-status"></span
               ><button id="send" class="primary">Send ↑</button
               ><button id="stop" class="secondary" hidden>Stop ■</button>

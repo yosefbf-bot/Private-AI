@@ -5,6 +5,7 @@ import {createHybridUI} from "./hybrid.mjs";
 import { marked } from "./vendor/marked.mjs";
 import { createAccessUI } from "./access.mjs";
 import { VoiceManager } from "./voice.mjs";
+import { createSNFUI } from "./snf-ui.mjs";
 const $ = (id) => document.getElementById(id),
   esc = (v) =>
     String(v ?? "").replace(
@@ -26,6 +27,7 @@ let state,
   editing = null,
   toastTimer,
   streamTimer;
+const snfUI = createSNFUI({ api, toast, esc, renderPage });
 const formatOptions =
   '<option value="">Save as…</option>' +
   ["docx", "pdf", "xlsx", "csv", "md", "txt"]
@@ -51,17 +53,29 @@ async function refresh() {
   updateTop();
   populateVoiceAgents();
 }
-function renderSidebar() {
-  const updated=new Date(state.buildInfo?.updatedAt||'');
-  $('last-updated').textContent='Last updated: '+(Number.isNaN(updated.getTime())?'unavailable':updated.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}));
-  const query = $("search").value.toLowerCase();
-  $("history").innerHTML = state.chats
-    .filter((c) => !c.archived && c.title.toLowerCase().includes(query))
+function renderChatHistory() {
+  if (!state) return;
+  const query = ($("search")?.value || "").toLowerCase();
+  $("history").innerHTML = (state.chats || [])
+    .filter((c) => !c.archived && (!query || c.title.toLowerCase().includes(query)))
     .map(
       (c) =>
         `<button class="chat-item ${chat?.id === c.id ? "active" : ""}" data-act="chat" data-id="${c.id}">${esc(c.title)}</button>`,
     )
     .join("");
+}
+function renderSidebar() {
+  const snfEnabled = state.settings.snfEnabled !== false;
+  const alertBar = $("universal-alert-bar");
+  if (alertBar) alertBar.style.display = snfEnabled ? "" : "none";
+  const snfNavBtn = $("snf-sidebar-btn");
+  if (snfNavBtn) snfNavBtn.style.display = snfEnabled ? "" : "none";
+  if (snfEnabled) {
+    snfUI?.updateUniversalAlertBar(state.snfAlerts);
+  }
+  const updated=new Date(state.buildInfo?.updatedAt||'');
+  $('last-updated').textContent='Last updated: '+(Number.isNaN(updated.getTime())?'unavailable':updated.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}));
+  renderChatHistory();
   document
     .querySelectorAll("[data-view]")
     .forEach((el) => el.classList.toggle("active", el.dataset.view === view));
@@ -73,6 +87,7 @@ function updateTop() {
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
   const names = {
     chat: chat?.title || "New chat",
+    snf: "🏥 SNF Clinical Surveillance Command Center",
     projects: "Projects",
     agents: "Agents",
     schedules: "Scheduled tasks",
@@ -120,8 +135,11 @@ function updateTop() {
   $("notice").innerHTML =
     'Finish your API and privacy setup before sending. <button data-act="view" data-view="settings">Open Settings</button>';
 }
-const md = (text) =>
-  DOMPurify.sanitize(marked.parse(text || ""), {
+const _mdCache = new Map();
+const md = (text) => {
+  if (!text) return "";
+  if (_mdCache.has(text)) return _mdCache.get(text);
+  const result = DOMPurify.sanitize(marked.parse(text), {
     FORBID_TAGS: [
       "img",
       "iframe",
@@ -138,10 +156,174 @@ const md = (text) =>
     FORBID_ATTR: ["style", "src", "srcset", "id"],
     ALLOW_DATA_ATTR: false,
   });
+  if (_mdCache.size > 200) {
+    const firstKey = _mdCache.keys().next().value;
+    _mdCache.delete(firstKey);
+  }
+  _mdCache.set(text, result);
+  return result;
+};
+function attachCodeCopyButtons() {
+  const content = $("content");
+  if (!content) return;
+  for (const pre of content.querySelectorAll(".message-body pre")) {
+    if (pre.querySelector(".code-copy-btn")) continue;
+    const btn = document.createElement("button");
+    btn.className = "code-copy-btn";
+    btn.type = "button";
+    btn.textContent = "Copy";
+    btn.title = "Copy code to clipboard";
+    btn.onclick = async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const code = pre.querySelector("code")?.innerText || pre.innerText;
+      try {
+        await api("copy", { text: code });
+        btn.textContent = "✓ Copied";
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.textContent = "Copy";
+          btn.classList.remove("copied");
+        }, 2000);
+      } catch {
+        btn.textContent = "Failed";
+      }
+    };
+    pre.appendChild(btn);
+  }
+}
+let responseTimer = null;
+let responseStartTime = null;
+
+function estimateResponseTime(promptText = "", options = {}) {
+  const s = state?.settings || {};
+  const provider = s.provider || (state?.keySaved ? "openai" : "local");
+  const model = s.model || "";
+  const reasoning = s.reasoning || "default";
+  const web = options.web ?? ($("web")?.checked ?? false);
+  const filesCount = options.filesCount ?? (pending?.length || 0);
+  const chars = (promptText || "").length;
+
+  let baseMin = 1.0;
+  let baseMax = 2.6;
+
+  if (provider === "groq") {
+    baseMin = 0.5;
+    baseMax = 1.4;
+  } else if (provider === "gemini") {
+    baseMin = 0.8;
+    baseMax = 2.0;
+  } else if (provider === "local" || provider === "ollama") {
+    baseMin = 1.2;
+    baseMax = 2.8;
+  } else if (provider === "anthropic") {
+    baseMin = 1.8;
+    baseMax = 4.0;
+  } else if (provider === "deepseek") {
+    baseMin = 2.0;
+    baseMax = 4.8;
+  } else if (provider === "openai") {
+    if (model.includes("mini")) {
+      baseMin = 0.8;
+      baseMax = 1.8;
+    } else if (model.includes("o1") || model.includes("o3")) {
+      baseMin = 3.5;
+      baseMax = 8.5;
+    } else {
+      baseMin = 1.5;
+      baseMax = 3.4;
+    }
+  }
+
+  if (reasoning === "xhigh" || reasoning === "high") {
+    baseMin += 2.0;
+    baseMax += 5.0;
+  } else if (reasoning === "medium") {
+    baseMin += 0.8;
+    baseMax += 2.0;
+  }
+
+  if (web) {
+    baseMin += 1.0;
+    baseMax += 2.2;
+  }
+
+  if (filesCount > 0) {
+    baseMin += 0.3 * filesCount;
+    baseMax += 0.9 * filesCount;
+  }
+
+  if (chars > 1200) {
+    const extra = Math.min(2.5, Math.floor(chars / 1200) * 0.4);
+    baseMin += extra;
+    baseMax += extra * 1.3;
+  }
+
+  const minFormatted = (Math.round(baseMin * 10) / 10).toFixed(1);
+  const maxFormatted = (Math.round(baseMax * 10) / 10).toFixed(1);
+
+  return {
+    min: Number(minFormatted),
+    max: Number(maxFormatted),
+    label: `~${minFormatted}–${maxFormatted}s`
+  };
+}
+
+function updateResponseTimeEstimate() {
+  const el = $("response-time-est");
+  if (!el) return;
+  const promptVal = $("prompt")?.value || "";
+  const est = estimateResponseTime(promptVal);
+  if (!sending) {
+    el.textContent = `⏱ Est. ${est.label}`;
+    el.title = `Estimated response duration for ${state?.settings?.provider || 'local'} (${state?.settings?.model || 'default'}): ${est.min}s to ${est.max}s based on prompt size, reasoning level, and active tools`;
+  }
+}
+
+function startResponseTimer(est) {
+  responseStartTime = Date.now();
+  const statusEl = $("compose-status");
+  const estEl = $("response-time-est");
+  if (estEl) estEl.classList.add("generating");
+
+  if (responseTimer) clearInterval(responseTimer);
+  responseTimer = setInterval(() => {
+    if (!sending) {
+      clearInterval(responseTimer);
+      return;
+    }
+    const elapsed = ((Date.now() - responseStartTime) / 1000).toFixed(1);
+    if (statusEl) {
+      statusEl.textContent = `⏱ Responding... ${elapsed}s (${est.label})`;
+    }
+    if (estEl) {
+      estEl.textContent = `⏱ ${elapsed}s / ${est.label}`;
+    }
+  }, 100);
+}
+
+function stopResponseTimer() {
+  if (responseTimer) {
+    clearInterval(responseTimer);
+    responseTimer = null;
+  }
+  const estEl = $("response-time-est");
+  if (estEl) estEl.classList.remove("generating");
+  updateResponseTimeEstimate();
+}
+
+function autoResizePrompt() {
+  const p = $("prompt");
+  if (!p) return;
+  p.style.height = "auto";
+  const h = Math.min(Math.max(p.scrollHeight, 44), 220);
+  p.style.height = `${h}px`;
+}
 function renderChat() {
   view = "chat";
   updateTop();
   renderSidebar();
+  updateResponseTimeEstimate();
   if (!chat || !chat.messages.length) {
     $("content").innerHTML =
       `<div class="welcome"><img src="icon.png" alt=""><h1>What would you like to work on?</h1><p>Chat, review documents, and prepare reports.<br>Your history stays on this PC.</p><div class="suggestions"><button data-act="suggest" data-text="Help me draft a clear, professional report."><b>Draft a report</b><span>Turn notes into something ready to share</span></button><button data-act="attach"><b>Review a document</b><span>Attach a PDF, Word, or Excel file</span></button><button data-act="suggest" data-text="Help me compare the information in my attached files."><b>Compare information</b><span>Find differences and useful details</span></button><button data-act="view" data-view="schedules"><b>Prepare a scheduled report</b><span>Let a Worker PC handle recurring work</span></button></div></div>`;
@@ -152,7 +334,7 @@ function renderChat() {
     chat.messages
       .map(
         (m, i) =>
-          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? '<div class="message-label"><img src="icon.png" alt="">Private AI</div>' : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body)}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}${m.processing.localReliability!==null&&m.processing.localReliability!==undefined?" · Local score before escalation: "+m.processing.localReliability:""}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div>` : ""}${m.usage ? `<div class="usage">${m.usage.inputTokens.toLocaleString()} input · ${m.usage.outputTokens.toLocaleString()} OpenAI output tokens</div>` : ""}</article>`,
+          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body)}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}${m.processing.localReliability!==null&&m.processing.localReliability!==undefined?" · Local score before escalation: "+m.processing.localReliability:""}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div>` : ""}${m.usage ? `<div class="usage">${m.usage.inputTokens.toLocaleString()} input · ${m.usage.outputTokens.toLocaleString()} OpenAI output tokens</div>` : ""}</article>`,
       )
       .join("") +
     "</div>";
@@ -160,6 +342,7 @@ function renderChat() {
     const route=chat.messages[Number(article.dataset.index)]?.processing?.routing,details=article.querySelector('.usage details');
     if(route&&details){const info=document.createElement('p');info.textContent=`Local tier recommended: ${route.recommendedTier||'none'}; used: ${route.selectedTier||'none'}. ${route.attempts.map(a=>`${a.tier} ${a.phase}: ${a.status}${a.code?' ('+a.code+')':''}`).join(' → ')}. ${route.notice||''}`;details.appendChild(info);}
   }
+  attachCodeCopyButtons();
   if (sending)
     $("content")
       .querySelector(".message:last-child .message-body")
@@ -199,6 +382,7 @@ async function newChat(temporary = false, project = null) {
   pending = [];
   editing = null;
   $("prompt").value = "";
+  autoResizePrompt();
   renderAttachments();
   await refresh();
   renderChat();
@@ -212,6 +396,7 @@ async function openChat(id) {
   if (chat?.temporary) await api("endTemporary", { id: chat.id });
   chat = await api("chat", { id });
   $("prompt").value=chat.draft||"";
+  autoResizePrompt();
   pending = [];
   editing = null;
   renderAttachments();
@@ -260,12 +445,21 @@ async function send(regenerate = false) {
   chat.messages.push({ role: "assistant", text: "" });
   renderChat();
   $("prompt").value = "";
+  autoResizePrompt();
   pending = [];
   renderAttachments();
+  const promptForEst = prompt || (regenerate ? (chat.messages.filter(m => m.role === "user").slice(-1)[0]?.text || "") : "");
+  const est = estimateResponseTime(promptForEst, { web: args.web, filesCount: args.fileIds.length });
+  const sendStart = Date.now();
+  startResponseTimer(est);
   try {
     $("task-forward").value = "default";
     const result = await api("send", args);
     chat = result.chat;
+    const lastMsg = chat?.messages?.at(-1);
+    if (lastMsg && lastMsg.role === "assistant" && !lastMsg.durationMs) {
+      lastMsg.durationMs = Date.now() - sendStart;
+    }
     if (result.omitted)
       toast(
         "Older messages were left out of this request to keep usage bounded. They remain in your history.",
@@ -277,13 +471,20 @@ async function send(regenerate = false) {
       chat = await api("chat", { id: chat.id });
     } catch {}
   } finally {
+    stopResponseTimer();
+    const elapsedSec = ((Date.now() - sendStart) / 1000).toFixed(1);
     sending = false;
     editing = null;
     $("send").hidden = false;
     $("stop").hidden = true;
     $("prompt").disabled = false;
     $("attach").disabled = false;
-    $("compose-status").textContent = "";
+    $("compose-status").textContent = `✓ Response in ${elapsedSec}s`;
+    setTimeout(() => {
+      if ($("compose-status") && $("compose-status").textContent.startsWith("✓")) {
+        $("compose-status").textContent = "";
+      }
+    }, 4500);
     await refresh().catch(() => {});
     if (view === "chat") renderChat();
     $("content").scrollTop = $("content").scrollHeight;
@@ -328,6 +529,7 @@ window.privateAI.onEvent((event) => {
             180;
           el.innerHTML = md(responseLayout(chat.messages.at(-1).text).body);
           el.classList.add("streaming");
+          attachCodeCopyButtons();
           if (nearBottom) $("content").scrollTop = $("content").scrollHeight;
         }
       }, 45);
@@ -558,7 +760,7 @@ function settingsHTML() {
   )}${field("Custom retention in days", "customRetention", s.retentionDays || 90, "number")}</div><p>Cleanup covers expired local history, working files, memories, and job records. It does not delete your original documents or final saved reports.</p><button class="secondary" data-act="cleanup">Run retention cleanup now</button></section>
   <div class="button-row"><button class="primary" data-act="save-settings">Save settings</button><button class="secondary" data-act="new">Start chatting</button></div>
   <section class="section"><h2>Browser Companion</h2><p>Ask beside your webpage. Pages are read only after you explicitly include a page and send your request.</p><button class="secondary" data-act="connect-chrome">Set up browser companion</button><details><summary>Browser installation steps</summary><p>Click the setup button above. For Chrome or Brave, open chrome://extensions; for Edge, open edge://extensions. Enable Developer mode, click Load unpacked, and select the folder that opens. For Firefox, open about:debugging#/runtime/this-firefox, click Load Temporary Add-on, and choose manifest.json in the firefox subfolder. Temporary Firefox installation lasts until Firefox restarts; permanent installation needs Mozilla signing. Pin Private AI Companion. If your organization blocks extension installation, it needs to approve the extension.</p><button class="secondary" data-act="disconnect-chrome">Disconnect browser companions</button></details></section>
-  <section class="section"><h2>Custom instructions</h2>${textarea("Instructions used across chats", "customInstructions", s.customInstructions||"")}<p>Project instructions are added for the current project.</p><button data-act="chat-archives">Manage archived chats</button></section><section class="section"><h2>Memory</h2><label class="check"><input name="memoryEnabled" type="checkbox" ${s.memoryEnabled ? "checked" : ""}> Use the memories I explicitly save</label><p>Memory is off by default. Private AI never silently creates permanent memory from chats.</p><button class="secondary" data-act="view" data-view="memory">Review saved memories</button></section><section class="section"><h2>To-Do &amp; Follow-Up Reminders</h2><label class="check"><input name="autoReminders" type="checkbox" ${s.autoReminders !== false ? "checked" : ""}> Remind me automatically on pending follow-ups</label><p>Private AI monitors follow-up dates and deadlines extracted from Outlook emails or manual to-dos, notifying you on this PC when a task is due.</p><button class="secondary" data-act="view" data-view="todos">View To-Do list &amp; reminders</button></section>
+  <section class="section"><h2>Custom instructions</h2>${textarea("Instructions used across chats", "customInstructions", s.customInstructions||"")}<p>Project instructions are added for the current project.</p><button data-act="chat-archives">Manage archived chats</button></section><section class="section"><h2>Memory</h2><label class="check"><input name="memoryEnabled" type="checkbox" ${s.memoryEnabled ? "checked" : ""}> Use the memories I explicitly save</label><p>Memory is off by default. Private AI never silently creates permanent memory from chats.</p><button class="secondary" data-act="view" data-view="memory">Review saved memories</button></section><section class="section"><h2>To-Do &amp; Follow-Up Reminders</h2><label class="check"><input name="autoReminders" type="checkbox" ${s.autoReminders !== false ? "checked" : ""}> Remind me automatically on pending follow-ups</label><p>Private AI monitors follow-up dates and deadlines extracted from Outlook emails or manual to-dos, notifying you on this PC when a task is due.</p><button class="secondary" data-act="view" data-view="todos">View To-Do list &amp; reminders</button></section><section class="section clinical-surveillance-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h2 style="margin:0;display:flex;align-items:center;gap:8px;">🏥 Clinical Surveillance &amp; SNF Module <span class="clinical-status-badge ${s.snfEnabled !== false ? 'active' : 'disabled'}">${s.snfEnabled !== false ? '● ACTIVE' : '○ DISABLED'}</span></h2><label class="clinical-toggle-switch" title="Toggle Clinical Surveillance"><input name="snfEnabled" type="checkbox" ${s.snfEnabled !== false ? "checked" : ""}><span class="clinical-toggle-slider"></span></label></div><p style="margin-top:6px;">Continuous safety surveillance of PointClickCare daily orders, admissions, eMAR exceptions, and behavior logs. Surfaces new psychotropics, missing indications, PRN 14-day limits, and persistent clinical alerts. <strong>When turned off, all clinical surveillance banners, sidebar navigation, and healthcare features are completely hidden for a clean, distraction-free assistant.</strong></p>${s.snfEnabled !== false ? '<div style="margin-top:14px;"><button class="secondary" data-act="view" data-view="snf">Open SNF Command Center</button></div>' : ''}</section>
   <details class="section"><summary>More settings and privacy tools</summary><div class="fields">${select(
     "Reasoning effort",
     "reasoning",
@@ -594,7 +796,8 @@ function initVoice() {
   const canvas = $("voice-visualizer");
 
   voiceManager = new VoiceManager({
-    onSend: async ({ prompt, rawVoiceText, agentId }) => {
+    callApi: api,
+    onSend: async ({ prompt, rawVoiceText, agentId, onStreamChunk }) => {
       if (sending) return { text: "" };
       if (view !== "chat" || !chat) {
         if (!chat) await newChat();
@@ -631,11 +834,21 @@ function initVoice() {
       pending = [];
       renderAttachments();
 
+      const voiceEst = estimateResponseTime(prompt, { web: args.web, filesCount: args.fileIds.length });
+      const vStart = Date.now();
+      const hint = $("voice-transcript-hint");
+      if (hint) hint.textContent = `Generating response... (est. ${voiceEst.label})`;
+
       try {
         const result = await api("send", args);
         chat = result.chat;
-        renderChat();
+        const vElapsed = Date.now() - vStart;
         const lastMsg = chat.messages[chat.messages.length - 1];
+        if (lastMsg && lastMsg.role === "assistant" && !lastMsg.durationMs) {
+          lastMsg.durationMs = vElapsed;
+        }
+        if (hint) hint.textContent = `Response in ${(vElapsed / 1000).toFixed(1)}s`;
+        renderChat();
         return {
           text: lastMsg && lastMsg.role === "assistant" ? lastMsg.text : "",
         };
@@ -720,6 +933,31 @@ function initVoice() {
       voiceManager.setMode(mode);
     };
   });
+
+  // Turn Patience controls
+  document.querySelectorAll(".voice-patience-btn").forEach((btn) => {
+    btn.onclick = () => {
+      const patience = btn.dataset.patience;
+      document
+        .querySelectorAll(".voice-patience-btn")
+        .forEach((b) => b.classList.toggle("active", b === btn));
+      voiceManager.setTurnPatience(patience);
+    };
+  });
+
+  // Live Translation controls
+  const transToggle = $("voice-translate-toggle");
+  if (transToggle) {
+    transToggle.onchange = () => {
+      voiceManager.liveTranslation = transToggle.checked;
+    };
+  }
+  const transLang = $("voice-translate-lang");
+  if (transLang) {
+    transLang.onchange = () => {
+      voiceManager.translationTargetLang = transLang.value;
+    };
+  }
 
   const pttDisc = $("voice-ptt-disc");
   if (pttDisc) {
@@ -813,6 +1051,11 @@ function updateVoiceUIState(vState) {
   const muteBtn = $("voice-hard-mute-btn");
   const muteLabel = $("voice-mute-label");
   const sideBadge = $("voice-sidebar-badge");
+  const orb = $("voice-orb");
+
+  if (orb) {
+    orb.className = "voice-orb " + (vState.isHardMuted ? "muted" : vState.state);
+  }
 
   if (!badge || !text) return;
 
@@ -836,18 +1079,23 @@ function updateVoiceUIState(vState) {
     }
     const stateLabels = {
       idle: "READY",
+      connecting: "CONNECTING…",
       listening:
         vState.mode === "always" ? "ALWAYS LISTENING" : "LISTENING",
-      processing: "ROUTING TO AI…",
+      user_speaking: "HEARING SPEECH…",
+      turn_evaluation: "PAUSE DETECTED…",
+      thinking: "ROUTING TO AI…",
       speaking: "SPEAKING (BARGE-IN ACTIVE)",
+      interrupted: "INTERRUPTED",
+      tool_running: "EXECUTING TOOL…",
       muted: "MUTED",
     };
     text.textContent = stateLabels[vState.state] || "READY";
     if (sideBadge) {
       sideBadge.textContent =
-        vState.state === "listening" ? "Listening" : "Ready";
+        vState.state === "listening" || vState.state === "user_speaking" ? "Listening" : "Ready";
       sideBadge.className =
-        "voice-badge " + (vState.state === "listening" ? "listening" : "");
+        "voice-badge " + (vState.state === "listening" || vState.state === "user_speaking" ? "listening" : "");
     }
   }
 }
@@ -887,9 +1135,17 @@ async function init() {
   }
 }
 function renderPage(name) {
+  if (name === "snf" && state.settings.snfEnabled === false) {
+    renderChat();
+    return;
+  }
   view = name;
   updateTop();
   renderSidebar();
+  if (name === "snf") {
+    snfUI.render($("content"));
+    return;
+  }
   if(name==="messaging"||name==="browser"){const ui=name==="messaging"?messagingUI:browserUI;$("content").innerHTML="<p>Loading…</p>";ui.html().then(html=>{if(view===name)$("content").innerHTML='<p class="error-note">Primary-PC safety: visible browser actions and Outlook access require manual interruption approval. WhatsApp replies may run unattended only in conversations explicitly granted that permission; Disable all writing blocks every WhatsApp send. The account WhatsApp connection can remain open for local reasoning; report-browser sessions still reserve the browser lane. Separate profiles do not guarantee focus isolation.</p>'+html;}).catch(e=>toast(e.message));return;}
   if(name==="processing"||name==="usage"){$("content").innerHTML=hybridUI[name]();return;}
   if(name==="guide"){renderGuide();return;}
@@ -919,8 +1175,10 @@ function renderPage(name) {
       button: "New agent",
       action: "agent-new",
       items: state.agents,
-      card: (a) =>
-        `<h3>${esc(a.name)}</h3><p>${esc(a.prompt.slice(0, 250))}</p><div class="button-row"><button class="primary" data-act="agent-run" data-id="${a.id}">Run report</button><button data-act="agent-edit" data-id="${a.id}">Edit</button><button class="danger" data-act="delete-item" data-kind="agent" data-id="${a.id}">Delete</button></div>`,
+      card: (a) => {
+        const est = estimateResponseTime(a.prompt, { filesCount: (a.fileIds || []).length });
+        return `<h3>${esc(a.name)} <span class="pill" style="font-weight: 500; font-size: 11px;" title="Estimated execution time based on current model and prompt complexity">⏱ Est. ~${est.label}</span></h3><p>${esc(a.prompt.slice(0, 250))}</p><div class="button-row"><button class="primary" data-act="agent-run" data-id="${a.id}">Run report</button><button data-act="agent-edit" data-id="${a.id}">Edit</button><button class="danger" data-act="delete-item" data-kind="agent" data-id="${a.id}">Delete</button></div>`;
+      },
     },
     schedules: {
       title: "Have reports ready for you",
@@ -977,8 +1235,10 @@ function jobsHTML() {
     state.jobs
       .slice(0, 30)
       .map(
-        (j) =>
-          `<div class="card"><h3>${esc(j.title || "Report")} <span class="pill status-${esc(j.status)}">${esc(j.status)}</span></h3><p>${j.started ? new Date(j.started).toLocaleString() : "Waiting for a Worker / resource slot"}${j.error ? " · " + esc(j.error) : ""}</p><p>${esc(j.reason||'')}</p>${j.step?`<p>Saved step: ${esc(j.step)}</p>`:""}${j.recoverable&&j.status==="failed"?`<button data-act="job-resume" data-id="${j.id}">Review &amp; resume report</button> <button data-act="discard-recovery" data-id="${j.id}">Discard saved recovery data</button>`:""}${j.output ? `<button class="secondary" data-act="job-open" data-path="${esc(j.output)}">Open report</button>` : ""}${j.resultText&&!j.recoverable&&j.status==="failed" ? `<button class="secondary" data-act="retry-export" data-id="${j.id}">Save completed answer as DOCX</button>` : ""}${['running','waiting','paused'].includes(j.status) ? `<button data-act="job-stop" data-id="${j.id}">Stop</button>` : ""}</div>`,
+        (j) => {
+          const duration = j.durationMs ? `${(j.durationMs / 1000).toFixed(1)}s` : (j.ended && j.started ? `${((new Date(j.ended) - new Date(j.started)) / 1000).toFixed(1)}s` : null);
+          return `<div class="card"><h3>${esc(j.title || "Report")} <span class="pill status-${esc(j.status)}">${esc(j.status)}</span>${duration ? ` <span class="pill" style="font-weight: 500; font-size: 11px;">⏱ ${duration}</span>` : ''}</h3><p>${j.started ? new Date(j.started).toLocaleString() : "Waiting for a Worker / resource slot"}${j.error ? " · " + esc(j.error) : ""}</p><p>${esc(j.reason||'')}</p>${j.step?`<p>Saved step: ${esc(j.step)}</p>`:""}${j.recoverable&&j.status==="failed"?`<button data-act="job-resume" data-id="${j.id}">Review &amp; resume report</button> <button data-act="discard-recovery" data-id="${j.id}">Discard saved recovery data</button>`:""}${j.output ? `<button class="secondary" data-act="job-open" data-path="${esc(j.output)}">Open report</button>` : ""}${j.resultText&&!j.recoverable&&j.status==="failed" ? `<button class="secondary" data-act="retry-export" data-id="${j.id}">Save completed answer as DOCX</button>` : ""}${['running','waiting','paused'].includes(j.status) ? `<button data-act="job-stop" data-id="${j.id}">Stop</button>` : ""}</div>`;
+        }
       )
       .join("") || "<p>No jobs yet.</p>"
   }</section>`;
@@ -1142,8 +1402,13 @@ async function editTodo(id) {
 async function runAgent(id) {
   const a = state.agents.find((a) => a.id === id);
   if (!a) return;
+  const est = estimateResponseTime(a.prompt, { filesCount: (a.fileIds || []).length });
   const r = await form(
     "Run " + a.name,
+    `<div style="margin-bottom: 12px; padding: 8px 12px; background: rgba(37, 99, 235, 0.08); border-radius: 6px; font-size: 12.5px; color: #1e40af; display: flex; align-items: center; gap: 6px;">
+      <span>⏱</span>
+      <span><strong>Estimated Bot Duration:</strong> ~${esc(est.label)} (${esc(est.note)})</span>
+    </div>` +
     select(
       "Run on",
       "target",
@@ -1162,15 +1427,15 @@ async function runAgent(id) {
     await api("runJob", { ...a, title: a.name, target: r.target || null });
     toast(
       r.target
-        ? "Job queued for the selected Worker."
-        : "Report started. You can keep chatting.",
+        ? `Job queued for selected Worker (est. ~${est.label}).`
+        : `Report started (est. ~${est.label}). You can keep chatting.`,
     );
     await refresh();
     renderPage("worker");
   }
 }
 $("search").addEventListener("input", () => {
-  if (state) renderSidebar();
+  if (state) renderChatHistory();
 });
 $("send").onclick = () => send().catch((e) => toast(e.message));
 $("stop").onclick = () => {
@@ -1178,7 +1443,13 @@ $("stop").onclick = () => {
 };
 $("attach").onclick = () => attach().catch((e) => toast(e.message));
 let draftTimer;
-$("prompt").addEventListener('input',()=>{clearTimeout(draftTimer);if(!chat||chat.temporary||sending)return;const id=chat.id,value=$('prompt').value;draftTimer=setTimeout(()=>api('saveDraft',{id,text:value}).catch(()=>{}),700);});
+$("prompt").addEventListener('input',()=>{
+  autoResizePrompt();
+  clearTimeout(draftTimer);
+  if(!chat||chat.temporary||sending)return;
+  const id=chat.id,value=$('prompt').value;
+  draftTimer=setTimeout(()=>api('saveDraft',{id,text:value}).catch(()=>{}),700);
+});
 $("prompt").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
@@ -1189,6 +1460,10 @@ document.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.key.toLowerCase() === "k") {
     e.preventDefault();
     newChat().catch((x) => toast(x.message));
+  }
+  if (e.key === "Escape" && sending && chat) {
+    e.preventDefault();
+    api("stop", { id: chat.id }).catch((x) => toast(x.message));
   }
 });
 document.addEventListener("change", async (e) => {
@@ -1216,6 +1491,30 @@ document.addEventListener("change", async (e) => {
       toast(x.message);
     }
     return;
+  }
+  if (e.target.name === "snfEnabled") {
+    try {
+      const enabled = e.target.checked;
+      await api("settings", { snfEnabled: enabled });
+      await refresh();
+      if (!enabled) {
+        snfUI?.updateUniversalAlertBar({ critical: 0, high: 0, review: 0, totalUnresolved: 0 });
+        if (view === "snf") renderChat();
+        toast("Clinical Surveillance disabled. SNF elements hidden.");
+      } else {
+        toast("Clinical Surveillance enabled.");
+        api("snfDashboard").then(m => {
+          if (m?.alerts) snfUI?.updateUniversalAlertBar(m.alerts);
+        }).catch(() => {});
+      }
+      renderPage("settings");
+    } catch (x) {
+      toast(x.message);
+    }
+    return;
+  }
+  if (e.target.id === "web") {
+    updateResponseTimeEstimate();
   }
   if (e.target.matches("[data-export]") && e.target.value) {
     try {
@@ -1668,6 +1967,7 @@ async function saveSettings() {
     customInstructions: val("customInstructions").value,
     memoryEnabled: val("memoryEnabled").checked,
     autoReminders: val("autoReminders") ? val("autoReminders").checked : true,
+    snfEnabled: val("snfEnabled") ? val("snfEnabled").checked : (state.settings.snfEnabled !== false),
     reasoning: val("reasoning").value,
     maxOutput: Number(val("maxOutput").value),
     lockMinutes: Number(val("lockMinutes").value),
@@ -1675,6 +1975,9 @@ async function saveSettings() {
     projectId: val("projectId") ? val("projectId").value.trim() : "",
   });
   await refresh();
+  if (state.settings.snfEnabled === false && view === "snf") {
+    renderChat();
+  }
 }
 document.addEventListener("dragover", (e) => {
   e.preventDefault();

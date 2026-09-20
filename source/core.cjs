@@ -27,9 +27,9 @@ const DEFAULTS = {
   hipaa: true,
   approved: false,
   autoReminders: true,
-  retentionDays: 90,
+  retentionDays: 100,
   memoryEnabled: false,
-  memoryDays: 90,
+  memoryDays: 100,
   model: "",
   reasoning: "default",
   maxOutput: 4096,
@@ -39,6 +39,7 @@ const DEFAULTS = {
   workerEnabled: false,
   workerPaused: false,
   lockMinutes: 15,
+  snfEnabled: true,
   org: "",
   projectId: "",
 };
@@ -79,6 +80,15 @@ class Core {
       });
     this.stability = new (require("./stability.cjs").Stability)(this);
     this.stability.start();
+    this.snf = new (require("./snf-command-center.cjs").SNFCommandCenter)({
+      store: this.store,
+      root: this.root,
+    });
+    try {
+      if (this.store.count("snf_resident") === 0) {
+        this.snf.seedRealisticPCCDataset().catch(() => {});
+      }
+    } catch {}
     this.reminderTimer = setInterval(() => {
       try { this.checkReminders(); } catch {}
     }, 30000);
@@ -164,6 +174,7 @@ class Core {
       })(),
       todos: this.store.list("todo"),
       schedules: this.store.list("schedule"),
+      snfAlerts: (s.snfEnabled !== false && this.snf) ? this.snf.getAlertSummary() : null,
       jobs: this.store.project("job",({recoveryInput,checkpoint,savedAnswer,...j})=>({...j,recoverable:!!recoveryInput&&!j.remote,step:checkpoint?.phase||null})),
       worker: {
         id: this.identity().id,
@@ -239,6 +250,7 @@ class Core {
     if (s.workspace && s.workspace !== current.workspace) workspace(s.workspace, this.root);
     if(s.workProfile==="work")s.resourceMode="balanced";
     if (s.role === "primary") s.workerEnabled = false;
+    if (input.snfEnabled !== undefined) s.snfEnabled = Boolean(input.snfEnabled);
     this.store.put("settings", "main", s);
     if(!cloudAllowed(s)) for(const controller of this.requests.values()) controller.abort();
     this.store.audit("settings");
@@ -298,14 +310,22 @@ class Core {
     if (prov === "ollama") {
       try {
         const ep = (this.settings().ollamaEndpoint || 'http://127.0.0.1:11434').replace(/\/+$/, '');
-        const r = await this.client.fetcher(ep + '/api/tags', { signal: AbortSignal.timeout(2500) });
+        const r = await this.client.fetcher(ep + '/api/tags', { signal: AbortSignal.timeout(3000) });
         if (r.ok) {
           const data = await r.json();
-          const count = Array.isArray(data.models) ? data.models.length : 0;
-          return { ok: true, note: `Ollama is connected on localhost:11434 (${count} model${count === 1 ? '' : 's'} available).` };
+          const models = Array.isArray(data.models) ? data.models.map(m => m.name).filter(Boolean) : [];
+          const count = models.length;
+          const { getRAMProfile } = require('./ram-profile.cjs');
+          const ram = getRAMProfile({ freeBytes: this.resources?.memory?.() });
+          const rec = ram.recommendedModels?.[0] || 'qwen2.5:1.5b';
+          const hasRec = models.some(m => m.startsWith(rec.split(':')[0]));
+          if (count === 0) {
+            return { ok: true, note: `Ollama is connected at ${ep}, but no models are installed yet. Run "ollama run ${rec}" in your terminal to download your recommended model.` };
+          }
+          return { ok: true, note: `Ollama connected (${count} model${count === 1 ? '' : 's'}: ${models.slice(0, 3).join(', ')}${count > 3 ? '...' : ''}). ${hasRec ? 'Recommended model ready.' : `Tip: run "ollama run ${rec}" for your hardware profile.`}` };
         }
       } catch {
-        return { ok: false, note: "Could not reach Ollama at localhost:11434. Ensure Ollama is running." };
+        return { ok: false, note: `Could not reach Ollama at ${(this.settings().ollamaEndpoint || 'http://127.0.0.1:11434')}. Ensure Ollama is running.` };
       }
     }
     this.canSend(this.settings().hipaa, true);
@@ -314,6 +334,7 @@ class Core {
     if (prov === "anthropic" && !s.model) s.model = "claude-3-7-sonnet-20250219";
     if (prov === "groq" && !s.model) s.model = "llama-3.3-70b-versatile";
     if (prov === "deepseek" && !s.model) s.model = "deepseek-chat";
+    if (prov === "custom" && !s.model) s.model = "llama3.2";
     const r = await this.client.generate(
       this.key(prov),
       s,
@@ -329,10 +350,55 @@ class Core {
     if (!cloud) return;
     const provider = s.provider || (this.key("openai") ? "openai" : "local");
     if (provider === "local" || provider === "ollama") return;
+    if (provider === "custom" && !this.key(provider) && /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.|10\.)/i.test(s.customEndpoint || '')) return;
     if (!cloudAllowed(s)) throw fail("LOCAL_ONLY");
     if (hipaa && !s.approved) throw fail("SETUP");
     if (!s.model) throw fail("MODEL");
-    if (!this.key(provider)) throw fail("KEY");
+    if (provider !== "custom" && !this.key(provider)) throw fail("KEY");
+  }
+  async createLiveSession(options = {}) {
+    this.assertUnlocked();
+    const s = this.settings();
+    const provider = s.provider || (this.key("openai") ? "openai" : "local");
+    if (provider === "openai" && this.key("openai") && cloudAllowed(s)) {
+      try {
+        const session = await this.client.createRealtimeSession(this.key("openai"), {
+          ...s,
+          turnDetection: options.turnDetection || "normal",
+          voice: options.voice || "verse"
+        });
+        return {
+          ok: true,
+          provider: "openai-realtime",
+          session,
+          config: {
+            turnDetection: options.turnDetection || "normal",
+            liveTranslation: options.liveTranslation || false,
+            targetLanguage: options.targetLanguage || "Spanish"
+          }
+        };
+      } catch (err) {
+        return {
+          ok: true,
+          provider: "local-full-duplex",
+          fallbackReason: err.message,
+          config: {
+            turnDetection: options.turnDetection || "normal",
+            liveTranslation: options.liveTranslation || false,
+            targetLanguage: options.targetLanguage || "Spanish"
+          }
+        };
+      }
+    }
+    return {
+      ok: true,
+      provider: "local-full-duplex",
+      config: {
+        turnDetection: options.turnDetection || "normal",
+        liveTranslation: options.liveTranslation || false,
+        targetLanguage: options.targetLanguage || "Spanish"
+      }
+    };
   }
   createChat({ temporary = false, project = null } = {}) {
     this.assertUnlocked();
@@ -660,7 +726,8 @@ class Core {
     this.saveChat(c);
     const ctrl = controller;
     this.requests.set(chatId, ctrl);
-    const answer = { role: "assistant", text: "", time: Date.now() };
+    const startTime = Date.now();
+    const answer = { role: "assistant", text: "", time: startTime };
     c.messages.push(answer);
     try {
       const result = await this.router.generate(
@@ -678,12 +745,13 @@ class Core {
           },
         },
       );
+      answer.durationMs = Date.now() - startTime;
       answer.usage = result.usage;
       answer.processing={provider:result.provider,model:result.model,reason:result.reason,reliability:result.reliability,localReliability:result.localReliability,meter:result.meter,routing:result.routing};
       answer.incomplete = result.incomplete;
       this.store.audit("request", {
         ...result.usage,
-        durationMs: result.durationMs,
+        durationMs: answer.durationMs,
       });
     } catch (e) {
       answer.error = safeError(e);
@@ -719,14 +787,23 @@ class Core {
     return deferred;
   }
   performCleanup() {
-    const result = this.store.cleanup(this.settings().retentionDays);
+    const days = this.settings().retentionDays || 100;
+    const result = this.store.cleanup(days);
+    if (this.snf) {
+      try {
+        const snfResult = this.snf.cleanup(days);
+        result.snf = snfResult;
+      } catch (err) {
+        console.error("SNF cleanup failed:", err);
+      }
+    }
     try {
       Object.assign(result, this.worker.cleanup());
     } catch {
       result.sharedCleanupDeferred = true;
     }
     if (
-      Object.values(result).some((v) => v > 0) ||
+      Object.values(result).some((v) => (typeof v === "number" && v > 0) || (typeof v === "object" && v?.total > 0)) ||
       this.store.get("maintenance", "backupCleanup")?.deferred
     )
       result.backupsDeferred = this.purgeBackups();
@@ -736,7 +813,7 @@ class Core {
     this.assertUnlocked();
     return this.performCleanup();
   }
-  async exportChat(id, format, index = null) {
+  async exportChat(id, format = "pdf", index = null) {
     this.assertUnlocked();
     const c = this.chat(id),
       root = this.settings().workspace;
@@ -759,7 +836,7 @@ class Core {
     const p = c.project ? this.store.get("project", c.project) : null;
     const out = await exportFile(root, {
       content,
-      format,
+      format: format || "pdf",
       title: c.title,
       subfolder: p?.outputFolder || "Exports",
     });
@@ -772,7 +849,7 @@ class Core {
     text(j.prompt, 30000);
     text(j.title || j.name || "Report", 100);
     if (
-      !["md", "txt", "pdf", "docx", "xlsx", "csv"].includes(j.format || "docx")
+      !["md", "txt", "pdf", "docx", "xlsx", "csv"].includes(j.format || "pdf")
     )
       throw fail("INVALID");
     if (j.files && (!Array.isArray(j.files) || j.files.length > 6))
@@ -799,12 +876,12 @@ class Core {
       id: uuid(),
       title: text(input.title || input.name || "Report", 100),
       prompt: text(input.prompt, 30000),
-      format: input.format || "docx",
+      format: input.format || "pdf",
       hipaa: this.settings().hipaa || input.hipaa === true,
       web: input.web === true,
       files: [],
       created: Date.now(),
-      expiresAt: Date.now() + (this.settings().retentionDays || 90) * 86400000,
+      expiresAt: Date.now() + (this.settings().retentionDays || 100) * 86400000,
     };
     if (input.fileIds) {
       if (!Array.isArray(input.fileIds) || input.fileIds.length > 6)
@@ -969,7 +1046,7 @@ class Core {
       }
       if(!out)out = await exportFile(root, {
         content: answer.text,
-        format: j.format || "docx",
+        format: j.format || "pdf",
         jobId: j.id,
         onPrepared: (intent)=>{checkpoint.exportIntent=intent;saveStep("export prepared");},
       });
@@ -1018,7 +1095,7 @@ class Core {
       id: isId(input.id) ? input.id : uuid(),
       name: text(input.name, 100),
       prompt: text(input.prompt, 30000),
-      format: input.format || "docx",
+      format: input.format || "pdf",
       fileIds: input.fileIds || [],
       hipaa:
         this.settings().hipaa ||
@@ -1094,7 +1171,7 @@ class Core {
       id: isId(input.id) ? input.id : uuid(),
       name: text(input.name, 100),
       prompt: input.prompt,
-      format: input.format || "docx",
+      format: input.format || "pdf",
       fileIds: input.fileIds || [],
       ...schedule,
       enabled: input.enabled !== false,
