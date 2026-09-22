@@ -581,7 +581,7 @@ class SNFCommandCenter {
 
   getFeedStatus() {
     return this._getCached('feedStatus', () => {
-      const data = this.store.get('config', this.feedStatusKey);
+      const data = this.store.get('config', this.feedStatusKey) || {};
       const settings = this.getSettings();
       const staleHours = settings.staleThresholdHours || 18;
       const now = Date.now();
@@ -2159,6 +2159,14 @@ class SNFCommandCenter {
     });
   }
 
+  getMedChanges() {
+    return this.getMedicationChangesList();
+  }
+
+  getPersistentAlerts() {
+    return this.store.list('snf_alert') || [];
+  }
+
   getPsychWatchData() {
     return this._getCached('psychWatch', () => {
       const metrics = this.getDashboardMetrics();
@@ -2567,10 +2575,82 @@ class SNFCommandCenter {
     return this.getRetentionStatus();
   }
 
+  generateQuarterlyReport() {
+    const metrics = this.getDashboardMetrics();
+    const qm = metrics.qmWatch;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
+    const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    let report = `# SNF CLINICAL SURVEILLANCE — QUARTERLY REPORT SUMMARY\n`;
+    report += `**Quarter**: Q${currentQuarter} ${currentYear} | **Generated**: ${dateStr} | **Surveillance Engine**: ${metrics.feedStatus.isSurveillanceComplete ? 'Active & Verified' : 'Exceptions Flagged'}\n\n`;
+
+    report += `## 1. Facility Clinical Summary & Census Distribution\n`;
+    report += `- **Total Active Census**: ${metrics.totalCensus} residents\n`;
+    report += `- **Medicare Part A (Med A)**: ${metrics.medACensus || 0} residents\n`;
+    report += `- **Medicaid / Managed Care (Med B)**: ${metrics.medBCensus || 0} residents\n`;
+    report += `- **Long-Stay Census (≥101 days)**: ${qm.longStayDenominator} residents\n`;
+    report += `- **Data Ingestion Status**: ${metrics.feedStatus.receivedFeedsCount}/16 PointClickCare feeds active (${metrics.feedStatus.dataCurrentThroughFormatted})\n\n`;
+
+    report += `## 2. Quality Measure (QM) Exposure & Antipsychotic Surveillance (CMS F758)\n`;
+    report += `- **Estimated QM Antipsychotic Rate**: **${qm.estimatedRatePercentage}%**\n`;
+    report += `- **Potential Numerator Count**: ${qm.potentialNumeratorCount} long-stay residents receiving antipsychotics\n`;
+    report += `- **Identified CMS Exclusions**: ${qm.knownExclusionsCount} (Schizophrenia, Tourette's, Huntington's)\n`;
+    report += `- **Exclusions Requiring Chart Verification**: ${qm.possibleExclusionsToVerifyCount} residents\n`;
+    report += `- **Facility-Wide Antipsychotic Prevalence**: ${metrics.antipsychoticResidentsCount} residents (${metrics.antipsychoticRate}%)\n\n`;
+
+    report += `## 3. Psychotropic Medication Stewardship & Compliance Audit\n`;
+    const pw = metrics.psychWatchCard;
+    report += `- **Active Antipsychotic Residents**: ${pw.antipsychoticResidents}\n`;
+    report += `- **New Starts within Past 24 Hours**: ${pw.newAPs24h}\n`;
+    report += `- **Documentation / Indication Reviews Required**: ${pw.documentationReview}\n`;
+    report += `- **Gradual Dose Reduction (GDR) Reviews Due**: ${pw.gdrReview}\n`;
+    report += `- **PRN 14-Day Limit Deadlines Approaching/Exceeded**: ${pw.prnDeadlines}\n\n`;
+
+    report += `## 4. Adverse Medication Changes & High-Alert Monitoring\n`;
+    const allMedChanges = this.getMedChanges();
+    const highAlertChanges = allMedChanges.filter(m => m.isHighAlert);
+    report += `- **Total Tracked Medication Changes**: ${allMedChanges.length}\n`;
+    report += `- **High-Alert Med Changes**: ${highAlertChanges.length} (Insulin, Anticoagulants, Opioids, Sedatives)\n`;
+    if (highAlertChanges.length > 0) {
+      report += `\n### Notable High-Alert Orders:\n`;
+      for (const h of highAlertChanges.slice(0, 8)) {
+        report += `- **${h.residentName}** (Rm ${h.room || 'N/A'}): ${h.medication} ${h.dosage || ''} - *${h.changeType}* (${h.orderDate || 'Recent'})\n`;
+      }
+    }
+    report += `\n`;
+
+    report += `## 5. Persistent Clinical Alerts & Safety Lifecycle\n`;
+    const alerts = this.getPersistentAlerts();
+    const unresolved = alerts.filter(a => a.status !== 'resolved');
+    const crit = unresolved.filter(a => a.severity === 'critical');
+    const high = unresolved.filter(a => a.severity === 'high');
+    const rev = unresolved.filter(a => a.severity === 'review');
+    report += `- **Total Active Alerts**: ${unresolved.length} (${crit.length} Critical, ${high.length} High, ${rev.length} Review)\n`;
+    if (crit.length > 0) {
+      report += `\n### Critical Exceptions Requiring Review:\n`;
+      for (const c of crit) {
+        report += `- 🔴 **[${c.residentName || 'FACILITY'}] ${c.title}**: ${c.message}\n`;
+      }
+    }
+    report += `\n`;
+
+    report += `## 6. Retention Policy & Data Governance Verification\n`;
+    report += `*Operational Notice: Supplemental surveillance and clinical analytics only. Raw PointClickCare feeds are held read-only for 100 days for quarterly audits. Derived analytical reports and quarterly PDF summaries are archived for 200 days.*\n`;
+
+    return report;
+  }
+
   async exportReportPDF(type, query, workspacePath) {
     let title = "Clinical Surveillance Report";
     let markdown = "";
-    if (type === "morning") {
+    if (type === "quarterly" || type === "qm" || type === "quarter") {
+      const now = new Date();
+      const q = Math.floor(now.getMonth() / 3) + 1;
+      title = `Quarterly Clinical Surveillance Summary - Q${q} ${now.getFullYear()}`;
+      markdown = this.generateQuarterlyReport();
+    } else if (type === "morning") {
       title = `Morning Clinical Surveillance Brief - ${new Date().toLocaleDateString()}`;
       markdown = this.generateMorningBrief();
     } else if (type === "timeline") {

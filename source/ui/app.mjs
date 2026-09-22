@@ -119,6 +119,7 @@ function updateTop() {
   $("top-actions").innerHTML =
     `<button class="primary" data-act="pause-worker">${state.settings.workerPaused?'Resume background work':'Pause background work'}</button>` +
     `<button data-act="view" data-view="health">Health &amp; recovery</button>` +
+    `<button data-act="shortcuts" class="shortcuts-help-btn" id="shortcuts-help-btn" title="Keyboard Shortcuts (?)">? Shortcuts</button>` +
     `<span class="badge ${hipaa ? "" : "public"}">${hipaa ? "HIPAA mode" : "Public mode"}</span>` +
     (view === "chat" && chat
       ? `${chat.temporary ? '<button data-act="save-temp">Save chat</button>' : '<button data-act="rename">Rename</button>'}<button data-act="delete-chat" title="Delete chat">Delete</button>`
@@ -639,6 +640,284 @@ function healthHTML(){
     </div>
   </section>
   <section class="section"><h2>Resources</h2><p>${esc(h.availableRAMGB)} GB available of ${esc(h.totalRAMGB)} GB RAM · App process: ${esc(h.appMemoryMB)} MB</p><p>Brain: ${esc(state.localBrain?.model)} — ${esc(state.localBrain?.state)}. Model cooldown: ${esc(h.modelCooldownSeconds)} seconds.</p><p>Background: ${esc(r.background?.state)} — ${esc(r.background?.reason)}</p><div class="fields"><label class="field">PC use profile<select name="workProfile"><option value="work" ${s.workProfile==='work'?'selected':''}>Work — balanced CPU</option><option value="away" ${s.workProfile==='away'?'selected':''}>Away — configured CPU setting</option></select></label>${field('Keep free RAM (MB)','ramReserveMB',s.ramReserveMB,'number')}${field('RAM recovery delay (seconds)','ramRecoverySeconds',s.ramRecoverySeconds,'number')}${field('Keep loaded brain for follow-ups (minutes; 0 = Small first)','keepBrainMinutes',s.keepBrainMinutes,'number')}</div><label class="check"><input type="checkbox" name="sectionedReports" ${s.sectionedReports?'checked':''}> Allow section-by-section processing for oversized report jobs (up to 12 sections; additional inference and possible API charges)</label><p>Away does not enable jobs, allow cloud use, or approve desktop input. After sleep or an unclean exit, resume background work manually. Windows peak working-set readings can increase later RAM budgets; they never lower the existing estimate. Other RAM observations reflect system changes.</p><button data-act="health-save">Save stability settings</button> <button data-act="health-refresh">Refresh health</button> <button data-act="health-ack">Acknowledge startup notice</button></section><section class="section"><h2>Diagnostics</h2><p>No prompts, document contents, credentials, file paths, or device names are included. Review the saved technical report before sharing it.</p><button data-act="self-check">Run local checks</button> <button data-act="diagnostics">Export diagnostics</button><p>Recent technical events: ${esc((h.events||[]).map(e=>e.event).join(', ')||'None this session')}</p></section>${jobsHTML()}</div>`;}
+// ============================================================================
+// KEYBOARD SHORTCUTS MANAGER
+// ============================================================================
+const DEFAULT_SHORTCUTS = [
+  { id: "newChat", label: "New Chat", defaultKey: "Ctrl+K", desc: "Start a fresh chat conversation" },
+  { id: "voiceToggle", label: "Voice Mode", defaultKey: "Ctrl+Shift+V", desc: "Toggle hands-free / push-to-talk voice assistant" },
+  { id: "sendPrompt", label: "Send Message", defaultKey: "Enter", desc: "Send prompt composer input to Private AI" },
+  { id: "multiline", label: "New Line in Composer", defaultKey: "Shift+Enter", desc: "Insert a new line into the prompt without sending" },
+  { id: "stopOrClose", label: "Stop Response / Close Modal", defaultKey: "Escape", desc: "Interrupt generation or dismiss voice/dialog modals" },
+  { id: "showShortcuts", label: "Keyboard Shortcuts Help", defaultKey: "?", desc: "Display this shortcuts reference modal" }
+];
+
+function getShortcuts() {
+  try {
+    const raw = localStorage.getItem("private_ai_shortcuts");
+    if (!raw) return DEFAULT_SHORTCUTS;
+    const custom = JSON.parse(raw);
+    return DEFAULT_SHORTCUTS.map(def => {
+      const match = custom.find(c => c.id === def.id);
+      return match ? { ...def, ...match } : def;
+    });
+  } catch {
+    return DEFAULT_SHORTCUTS;
+  }
+}
+
+function saveShortcuts(shortcuts) {
+  try {
+    localStorage.setItem("private_ai_shortcuts", JSON.stringify(shortcuts));
+  } catch (e) {
+    console.warn("Failed to save shortcuts:", e);
+  }
+}
+
+function matchShortcut(e, shortcutId) {
+  const shortcuts = getShortcuts();
+  const sc = shortcuts.find(s => s.id === shortcutId);
+  if (!sc || sc.enabled === false) return false;
+  
+  const keyStr = (sc.currentKey || sc.defaultKey || "").toLowerCase();
+  const parts = keyStr.split("+").map(p => p.trim());
+  
+  const reqCtrl = parts.includes("ctrl") || parts.includes("cmd");
+  const reqShift = parts.includes("shift");
+  const reqAlt = parts.includes("alt");
+  const mainKey = parts.filter(p => !["ctrl", "cmd", "shift", "alt"].includes(p))[0];
+  
+  const ctrlPressed = e.ctrlKey || e.metaKey;
+  if (Boolean(reqCtrl) !== Boolean(ctrlPressed)) return false;
+  if (Boolean(reqShift) !== Boolean(e.shiftKey)) return false;
+  if (Boolean(reqAlt) !== Boolean(e.altKey)) return false;
+  
+  if (!mainKey) return false;
+  if (mainKey === "?" && (e.key === "?" || (e.shiftKey && e.key === "/"))) return true;
+  if (mainKey === "escape" && e.key === "Escape") return true;
+  if (mainKey === "enter" && e.key === "Enter") return true;
+  if (mainKey === "space" && (e.code === "Space" || e.key === " ")) return true;
+  return e.key.toLowerCase() === mainKey.toLowerCase();
+}
+
+async function showShortcutsModal() {
+  const shortcuts = getShortcuts();
+  const html = `
+    <div class="shortcuts-modal-container">
+      <p style="margin-top:0; margin-bottom:14px; font-size:13px; color:var(--text-muted, #64748b);">
+        View and manage keyboard shortcuts. Enable or adjust key combinations to match your workflow.
+      </p>
+      <div class="shortcuts-list" style="display:flex; flex-direction:column; gap:8px; max-height:55vh; overflow-y:auto; padding-right:4px;">
+        ${shortcuts.map((sc) => `
+          <div class="shortcut-row" style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--bg-subtle, rgba(0,0,0,0.02)); border:1px solid var(--border-color, #e2e8f0); border-radius:6px;">
+            <div style="flex:1; margin-right:12px;">
+              <div style="font-weight:600; font-size:13px; display:flex; align-items:center; gap:8px;">
+                <span>${esc(sc.label)}</span>
+                <span class="shortcut-kbd-badge">${esc(sc.currentKey || sc.defaultKey)}</span>
+              </div>
+              <div style="font-size:12px; color:var(--text-muted, #64748b); margin-top:2px;">${esc(sc.desc)}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label style="display:flex; align-items:center; gap:4px; font-size:12px; margin:0; cursor:pointer;">
+                <input type="checkbox" name="enabled_${sc.id}" ${sc.enabled !== false ? 'checked' : ''}>
+                Enabled
+              </label>
+              <input type="text" name="key_${sc.id}" value="${esc(sc.currentKey || sc.defaultKey)}" style="width:115px; padding:4px 8px; font-size:12px; font-family:monospace; text-align:center; border:1px solid var(--border-color, #cbd5e1); border-radius:4px;" title="Format: e.g. Ctrl+K, Ctrl+Shift+V, Enter, Escape">
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" class="secondary" id="shortcuts-reset-btn" style="font-size:12px;">↺ Reset to Defaults</button>
+        <span style="font-size:11px; color:var(--text-muted, #64748b);">Format: Ctrl, Shift, Alt + Key</span>
+      </div>
+    </div>
+  `;
+
+  const d = $("modal");
+  $("modal-title").textContent = "⌨️ Keyboard Shortcuts";
+  $("modal-content").innerHTML = html;
+  $("modal-submit").textContent = "Save Shortcuts";
+  $("modal-cancel").textContent = "Close";
+
+  const resetBtn = $("modal-content").querySelector("#shortcuts-reset-btn");
+  if (resetBtn) {
+    resetBtn.onclick = () => {
+      localStorage.removeItem("private_ai_shortcuts");
+      showShortcutsModal();
+    };
+  }
+
+  return new Promise((resolve) => {
+    const close = () => {
+      d.close();
+      resolve(null);
+    };
+    $("modal-form").onsubmit = (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const updated = shortcuts.map(sc => {
+        const keyVal = (fd.get(`key_${sc.id}`) || sc.defaultKey).toString().trim();
+        const enabled = fd.get(`enabled_${sc.id}`) !== null;
+        return {
+          ...sc,
+          currentKey: keyVal,
+          enabled
+        };
+      });
+      saveShortcuts(updated);
+      toast("Keyboard shortcuts saved.");
+      close();
+    };
+    $("modal-cancel").onclick = close;
+    d.oncancel = (e) => {
+      e.preventDefault();
+      close();
+    };
+    d.showModal();
+  });
+}
+
+// ============================================================================
+// BACKGROUND AUTOSAVE (2-minute interval to conserve resources)
+// ============================================================================
+const AUTOSAVE_STORAGE_KEY = "private_ai_chat_autosave";
+const AUTOSAVE_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes (resource conservation)
+let autosaveTimer = null;
+
+function autosaveChatState() {
+  try {
+    const promptVal = $("prompt")?.value || "";
+    if (!chat && !promptVal.trim()) return;
+
+    const payload = {
+      chatId: chat?.id || null,
+      title: chat?.title || "Active chat",
+      messages: chat?.messages ? [...chat.messages] : [],
+      prompt: promptVal,
+      temporary: Boolean(chat?.temporary),
+      savedAt: Date.now(),
+      savedTimeFormatted: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    localStorage.setItem(AUTOSAVE_STORAGE_KEY, JSON.stringify(payload));
+
+    const composeStatus = $("compose-status");
+    if (composeStatus && view === "chat" && !sending) {
+      composeStatus.textContent = `Autosaved (${payload.savedTimeFormatted})`;
+      setTimeout(() => {
+        if (composeStatus.textContent.startsWith("Autosaved")) {
+          composeStatus.textContent = "";
+        }
+      }, 3000);
+    }
+  } catch (err) {
+    console.warn("Autosave notice:", err);
+  }
+}
+
+function restoreAutosavedStateIfNeeded() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if ($("prompt") && !$("prompt").value.trim() && data.prompt && data.prompt.trim()) {
+      if (Date.now() - data.savedAt < 24 * 60 * 60 * 1000) {
+        $("prompt").value = data.prompt;
+        autoResizePrompt();
+        const composeStatus = $("compose-status");
+        if (composeStatus) {
+          composeStatus.textContent = `Restored autosaved draft (${data.savedTimeFormatted || ''})`;
+          setTimeout(() => {
+            if (composeStatus.textContent.startsWith("Restored")) {
+              composeStatus.textContent = "";
+            }
+          }, 4000);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to check autosave restoration:", err);
+  }
+}
+
+function initAutosave() {
+  if (autosaveTimer) clearInterval(autosaveTimer);
+  autosaveTimer = setInterval(autosaveChatState, AUTOSAVE_INTERVAL_MS);
+  window.addEventListener("beforeunload", autosaveChatState);
+  restoreAutosavedStateIfNeeded();
+}
+
+// ============================================================================
+// VOICE-TO-TEXT TRANSCRIPTS LOGGING & REVIEW
+// ============================================================================
+const VOICE_TRANSCRIPTS_KEY = "private_ai_voice_transcripts";
+
+function getVoiceTranscripts() {
+  try {
+    const raw = localStorage.getItem(VOICE_TRANSCRIPTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function logVoiceTranscript({ text, mode = "Voice Mode" }) {
+  if (!text || !text.trim()) return;
+  try {
+    const list = getVoiceTranscripts();
+    const entry = {
+      id: "vt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+      text: text.trim(),
+      timestamp: Date.now(),
+      dateStr: new Date().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      mode: mode || "Voice Mode",
+      wordCount: text.trim().split(/\s+/).filter(Boolean).length
+    };
+    list.unshift(entry);
+    if (list.length > 100) list.length = 100;
+    localStorage.setItem(VOICE_TRANSCRIPTS_KEY, JSON.stringify(list));
+    return entry;
+  } catch (err) {
+    console.warn("Voice transcript logging notice:", err);
+  }
+}
+
+function renderVoiceTranscriptsList() {
+  const transcripts = getVoiceTranscripts();
+  if (!transcripts.length) {
+    return `
+      <div class="voice-transcript-empty" style="padding:24px; background:var(--bg-subtle, rgba(0,0,0,0.02)); border:1px dashed var(--border-color, #cbd5e1); border-radius:8px; text-align:center; color:#64748b; font-size:13px;">
+        <p style="margin:0 0 4px 0; font-weight:600; color:var(--text-color, #334155);">No voice transcripts recorded yet</p>
+        <span style="font-size:12px;">Transcripts from live Voice Mode (<kbd>Ctrl+Shift+V</kbd>) or speech dictations will automatically appear here for clinical and conversational review.</span>
+      </div>
+    `;
+  }
+  return `
+    <div class="voice-transcripts-items" style="display:flex; flex-direction:column; gap:10px; max-height:480px; overflow-y:auto; padding-right:4px;">
+      ${transcripts.map(t => `
+        <div class="voice-transcript-card" style="border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px 14px; background:var(--card-bg, #fff); box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px; color:#64748b;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:600;">🎙 ${esc(t.mode)}</span>
+              <span><strong>${esc(t.dateStr)}</strong></span>
+              <span>· ${t.wordCount} words</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="secondary" style="padding:3px 8px; font-size:11px;" data-act="copy-transcript" data-id="${esc(t.id)}">📋 Copy</button>
+              <button type="button" class="secondary" style="padding:3px 8px; font-size:11px;" data-act="use-transcript" data-id="${esc(t.id)}">💬 Insert in Chat</button>
+              <button type="button" class="danger" style="padding:3px 8px; font-size:11px;" data-act="delete-transcript" data-id="${esc(t.id)}">✕</button>
+            </div>
+          </div>
+          <div style="font-size:13.5px; line-height:1.6; color:var(--text-color, #1e293b); word-break:break-word;">
+            ${esc(t.text)}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 function settingsHTML() {
   const s = state.settings;
   const currentProvider = s.provider || (state.keySaved ? "openai" : "local");
@@ -763,6 +1042,26 @@ function settingsHTML() {
   <div class="button-row"><button class="primary" data-act="save-settings">Save settings</button><button class="secondary" data-act="new">Start chatting</button></div>
   <section class="section"><h2>Browser Companion</h2><p>Ask beside your webpage. Pages are read only after you explicitly include a page and send your request.</p><button class="secondary" data-act="connect-chrome">Set up browser companion</button><details><summary>Browser installation steps</summary><p>Click the setup button above. For Chrome or Brave, open chrome://extensions; for Edge, open edge://extensions. Enable Developer mode, click Load unpacked, and select the folder that opens. For Firefox, open about:debugging#/runtime/this-firefox, click Load Temporary Add-on, and choose manifest.json in the firefox subfolder. Temporary Firefox installation lasts until Firefox restarts; permanent installation needs Mozilla signing. Pin Private AI Companion. If your organization blocks extension installation, it needs to approve the extension.</p><button class="secondary" data-act="disconnect-chrome">Disconnect browser companions</button></details></section>
   <section class="section"><h2>Custom instructions</h2>${textarea("Instructions used across chats", "customInstructions", s.customInstructions||"")}<p>Project instructions are added for the current project.</p><button data-act="chat-archives">Manage archived chats</button></section><section class="section"><h2>Memory</h2><label class="check"><input name="memoryEnabled" type="checkbox" ${s.memoryEnabled ? "checked" : ""}> Use the memories I explicitly save</label><p>Memory is off by default. Private AI never silently creates permanent memory from chats.</p><button class="secondary" data-act="view" data-view="memory">Review saved memories</button></section><section class="section"><h2>To-Do &amp; Follow-Up Reminders</h2><label class="check"><input name="autoReminders" type="checkbox" ${s.autoReminders !== false ? "checked" : ""}> Remind me automatically on pending follow-ups</label><p>Private AI monitors follow-up dates and deadlines extracted from Outlook emails or manual to-dos, notifying you on this PC when a task is due.</p><button class="secondary" data-act="view" data-view="todos">View To-Do list &amp; reminders</button></section><section class="section clinical-surveillance-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h2 style="margin:0;display:flex;align-items:center;gap:8px;">🏥 Clinical Surveillance &amp; SNF Module <span class="clinical-status-badge ${s.snfEnabled !== false ? 'active' : 'disabled'}">${s.snfEnabled !== false ? '● ACTIVE' : '○ DISABLED'}</span></h2><label class="clinical-toggle-switch" title="Toggle Clinical Surveillance"><input name="snfEnabled" type="checkbox" ${s.snfEnabled !== false ? "checked" : ""}><span class="clinical-toggle-slider"></span></label></div><p style="margin-top:6px;">Continuous safety surveillance of PointClickCare daily orders, admissions, eMAR exceptions, and behavior logs. Surfaces new psychotropics, missing indications, PRN 14-day limits, and persistent clinical alerts. <strong>When turned off, all clinical surveillance banners, sidebar navigation, and healthcare features are completely hidden for a clean, distraction-free assistant.</strong></p>${s.snfEnabled !== false ? '<div style="margin-top:14px;"><button class="secondary" data-act="view" data-view="snf">Open SNF Command Center</button></div>' : ''}</section>
+  <section class="section voice-transcripts-section" id="voice-transcripts-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h2 style="margin:0;display:flex;align-items:center;gap:8px;">🎙 View Voice Transcripts</h2>
+      <div style="display:flex;gap:8px;">
+        <button class="secondary" type="button" data-act="copy-all-voice-transcripts" title="Copy all voice transcripts to clipboard">📋 Copy All</button>
+        <button class="secondary" type="button" data-act="clear-all-voice-transcripts" title="Clear voice transcript history">🗑 Clear History</button>
+      </div>
+    </div>
+    <p>Review the history of recent voice-to-text speech inputs and conversational dictations for clinical, administrative, and documentation review.</p>
+    <div id="voice-transcripts-container">
+      ${renderVoiceTranscriptsList()}
+    </div>
+  </section>
+  <section class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h2 style="margin:0;display:flex;align-items:center;gap:8px;">⌨ Keyboard Shortcuts</h2>
+      <button class="secondary" type="button" data-act="shortcuts">Manage Shortcuts</button>
+    </div>
+    <p>Quickly trigger actions across Private AI using keyboard shortcuts like <kbd>Ctrl+K</kbd> for new chat, <kbd>Ctrl+Shift+V</kbd> for voice mode, or <kbd>?</kbd> for help.</p>
+  </section>
   <details class="section"><summary>More settings and privacy tools</summary><div class="fields">${select(
     "Reasoning effort",
     "reasoning",
@@ -824,6 +1123,11 @@ function initVoice() {
         editIndex: null,
         regenerate: false,
       };
+
+      logVoiceTranscript({
+        text: rawVoiceText,
+        mode: voiceManager?.mode === "ptt" ? "Push-to-Talk" : voiceManager?.mode === "always" ? "Always Listening" : "Hands-Free"
+      });
 
       chat.messages.push({
         role: "user",
@@ -1127,6 +1431,7 @@ async function init() {
   try {
     await refresh();
     initVoice();
+    initAutosave();
     const isLocal = state.settings.provider === "local" || (!state.keySaved && state.settings.provider !== "openai");
     if (!isLocal && !state.settings.localModelPath && (!state.keySaved || !state.settings.model)) {
       view = "processing";
@@ -1453,19 +1758,42 @@ $("prompt").addEventListener('input',()=>{
   draftTimer=setTimeout(()=>api('saveDraft',{id,text:value}).catch(()=>{}),700);
 });
 $("prompt").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+  if (matchShortcut(e, "sendPrompt") || (e.key === "Enter" && !e.shiftKey && !e.isComposing)) {
     e.preventDefault();
     send().catch((e) => toast(e.message));
   }
 });
 document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey && e.key.toLowerCase() === "k") {
+  const isInput = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+
+  if (matchShortcut(e, "newChat") || (e.ctrlKey && e.key.toLowerCase() === "k")) {
     e.preventDefault();
     newChat().catch((x) => toast(x.message));
+    return;
   }
-  if (e.key === "Escape" && sending && chat) {
+  if (matchShortcut(e, "voiceToggle")) {
     e.preventDefault();
-    api("stop", { id: chat.id }).catch((x) => toast(x.message));
+    toggleVoiceHud();
+    return;
+  }
+  if (!isInput && (matchShortcut(e, "showShortcuts") || e.key === "?")) {
+    e.preventDefault();
+    showShortcutsModal();
+    return;
+  }
+  if (matchShortcut(e, "stopOrClose") || e.key === "Escape") {
+    if ($("modal")?.open) {
+      $("modal-cancel")?.click();
+      return;
+    }
+    if (voiceHudOpen) {
+      toggleVoiceHud(false);
+      return;
+    }
+    if (sending && chat) {
+      e.preventDefault();
+      api("stop", { id: chat.id }).catch((x) => toast(x.message));
+    }
   }
 });
 document.addEventListener("change", async (e) => {
@@ -1555,6 +1883,64 @@ document.addEventListener("click", async (e) => {
       return;
     }
     switch (act) {
+      case "shortcuts":
+        await showShortcutsModal();
+        break;
+      case "copy-all-voice-transcripts": {
+        const allTranscripts = getVoiceTranscripts();
+        if (!allTranscripts.length) {
+          toast("No voice transcripts to copy.");
+          break;
+        }
+        const combined = allTranscripts.map(t => `[${t.dateStr}] (${t.mode})\n${t.text}`).join("\n\n---\n\n");
+        await navigator.clipboard.writeText(combined);
+        toast("All voice transcripts copied to clipboard.");
+        break;
+      }
+      case "clear-all-voice-transcripts": {
+        if (await confirmAction("Clear Voice Transcripts?", "This will remove all recent voice-to-text input logs from your local device.", "Clear")) {
+          localStorage.removeItem(VOICE_TRANSCRIPTS_KEY);
+          toast("Voice transcript history cleared.");
+          const container = $("voice-transcripts-container");
+          if (container) container.innerHTML = renderVoiceTranscriptsList();
+        }
+        break;
+      }
+      case "copy-transcript": {
+        const listToCopy = getVoiceTranscripts();
+        const itemToCopy = listToCopy.find(t => t.id === id);
+        if (itemToCopy) {
+          await navigator.clipboard.writeText(itemToCopy.text);
+          toast("Voice transcript copied.");
+        }
+        break;
+      }
+      case "use-transcript": {
+        const listToUse = getVoiceTranscripts();
+        const itemToUse = listToUse.find(t => t.id === id);
+        if (itemToUse) {
+          if (view !== "chat" || !chat) {
+            if (!chat) await newChat();
+            else {
+              view = "chat";
+              renderChat();
+            }
+          }
+          $("prompt").value = ($("prompt").value ? $("prompt").value + "\n" : "") + itemToUse.text;
+          autoResizePrompt();
+          $("prompt").focus();
+          toast("Transcript inserted into prompt.");
+        }
+        break;
+      }
+      case "delete-transcript": {
+        const listAfterDel = getVoiceTranscripts().filter(t => t.id !== id);
+        localStorage.setItem(VOICE_TRANSCRIPTS_KEY, JSON.stringify(listAfterDel));
+        toast("Transcript removed.");
+        const containerDel = $("voice-transcripts-container");
+        if (containerDel) containerDel.innerHTML = renderVoiceTranscriptsList();
+        break;
+      }
       case "voice-toggle":
         toggleVoiceHud();
         break;

@@ -138,6 +138,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
           <div class="snf-header-actions">
             <button class="primary" id="snf-btn-run-rules" title="Re-evaluate all clinical rules on current dataset">⚡ Run Surveillance Engine</button>
             <button class="secondary" id="snf-btn-morning-brief">📋 Daily Morning Brief</button>
+            <button class="secondary snf-pdf-export-btn" id="snf-btn-quarterly-pdf" title="Generate formatted quarterly report summaries on demand (PDF)">📄 PDF Export</button>
             <button class="secondary" id="snf-btn-reload-feed" title="Reload realistic 15-resident PCC sample data">↺ Reload Sample Feed</button>
           </div>
         </div>
@@ -1022,6 +1023,10 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
               <em>Note:</em> Dementia with behavioral disturbance alone is <strong>NOT</strong> an exclusion.
               Surveyors prioritize facilities where antipsychotics are prescribed without documented, exclusionary neuropsychiatric conditions.
             </p>
+            <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
+              <button class="primary" id="btn-export-qm-quarterly-pdf">📄 Generate Formatted Quarterly Report Summary (PDF)</button>
+              <span style="font-size:12px; color:var(--text-muted, #64748b);">On-demand quarterly compliance &amp; QM summary export</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1388,6 +1393,37 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
           btnExportPsychPdf.textContent = '📄 Export Psychotropic Surveillance (PDF)';
         }
       });
+    }
+
+    // Quarterly Report PDF Export handlers (Header button & QM tab button)
+    const handleQuarterlyExport = async (btn) => {
+      const origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Generating Quarterly PDF…';
+      try {
+        const res = await api('snfExportPDF', { type: 'quarterly' });
+        if (res?.relative) {
+          window.location.href = '/api/download?file=' + encodeURIComponent(res.relative);
+          toast('Quarterly Report Summary PDF generated and saved to Reports.');
+        } else {
+          toast('Quarterly Report Summary created.');
+        }
+      } catch (e) {
+        toast('Quarterly PDF export failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    };
+
+    const btnQuarterlyHeader = container.querySelector('#snf-btn-quarterly-pdf');
+    if (btnQuarterlyHeader) {
+      btnQuarterlyHeader.addEventListener('click', () => handleQuarterlyExport(btnQuarterlyHeader));
+    }
+
+    const btnQuarterlyQm = container.querySelector('#btn-export-qm-quarterly-pdf');
+    if (btnQuarterlyQm) {
+      btnQuarterlyQm.addEventListener('click', () => handleQuarterlyExport(btnQuarterlyQm));
     }
 
     const btnSnfCleanup = container.querySelector('#btn-snf-cleanup');

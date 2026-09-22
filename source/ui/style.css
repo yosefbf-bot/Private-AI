@@ -2888,6 +2888,50 @@ summary {
   transform: translateX(22px);
 }
 
+/* Keyboard Shortcuts Modal & Help Button */
+.shortcuts-help-btn {
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.shortcuts-modal-container {
+  min-width: 460px;
+  max-width: 100%;
+}
+.shortcut-row {
+  transition: background 0.15s ease;
+}
+.shortcut-row:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.shortcut-kbd-badge {
+  display: inline-block;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #e2e8f0;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.06);
+}
+
+/* Voice Transcripts in Settings */
+.voice-transcripts-section {
+  margin-top: 24px;
+}
+.voice-transcript-card {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.voice-transcript-card:hover {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+.voice-transcript-empty {
+  transition: border-color 0.2s;
+}
+
+
 
 
 
