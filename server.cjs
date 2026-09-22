@@ -156,7 +156,7 @@ async function dispatch(op, data = {}) {
       return core.stop(data.id);
     case "exportChat": {
       const index = Number.isInteger(data.index) ? data.index : null;
-      return await core.exportChat(data.id, data.format, index);
+      return await core.exportChat(data.id, data.format || "pdf", index);
     }
     case "saveDraft":
       return core.saveDraft(data.id, data.text);
@@ -205,7 +205,7 @@ async function dispatch(op, data = {}) {
     case "runJob":
       return core.submitJob(data);
     case "retryExport":
-      return await core.retryExport(data.id, data.format || "docx");
+      return await core.retryExport(data.id, data.format || "pdf");
     case "cleanup":
       return core.cleanup();
     case "diagnostics":
@@ -372,6 +372,16 @@ async function dispatch(op, data = {}) {
       return await core.snf.seedRealisticPCCDataset();
     case "snfIngest":
       return await core.snf.ingestReports(data.reports || [], data.user || "Clinical User");
+    case "snfRetentionCleanup":
+      return core.snf ? core.snf.cleanup(core.snf.getSettings().retentionDays || 100) : { total: 0 };
+    case "snfRetentionStatus":
+      return core.snf ? core.snf.getRetentionStatus() : {};
+    case "snfExportPDF":
+      if (!core.snf) throw fail("INVALID");
+      return await core.snf.exportReportPDF(data.type, data.query, core.settings().workspace);
+    case "snfSaveSettings":
+      if (!core.snf) throw fail("INVALID");
+      return core.snf.saveSettings(data.settings || {});
     default:
       throw fail("INVALID");
   }

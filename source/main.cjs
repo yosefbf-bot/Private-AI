@@ -841,12 +841,24 @@ async function dispatch(
       return core.snf ? core.snf.getMedicationChangesList() : [];
     case "snfPsychWatch":
       return core.snf ? core.snf.getPsychWatchData() : {};
+    case "snfPCCReports":
+      return core.snf ? core.snf.getPCCReportCatalog() : [];
     case "snfRunRules":
       return await core.snf.runRulesEngine(data.user || "Clinical User");
     case "snfSeedData":
       return await core.snf.seedRealisticPCCDataset();
     case "snfIngest":
       return await core.snf.ingestReports(data.reports || [], data.user || "Clinical User");
+    case "snfRetentionCleanup":
+      return core.snf ? core.snf.cleanup(core.snf.getSettings().retentionDays || 100) : { total: 0 };
+    case "snfRetentionStatus":
+      return core.snf ? core.snf.getRetentionStatus() : {};
+    case "snfExportPDF":
+      if (!core.snf) throw fail("INVALID");
+      return await core.snf.exportReportPDF(data.type, data.query, core.settings().workspace);
+    case "snfSaveSettings":
+      if (!core.snf) throw fail("INVALID");
+      return core.snf.saveSettings(data.settings || {});
     default:
       throw fail("INVALID");
   }

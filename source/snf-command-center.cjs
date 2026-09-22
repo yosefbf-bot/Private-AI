@@ -489,11 +489,43 @@ class SNFCommandCenter {
     this._cache.clear();
   }
 
+  _tx(fn) {
+    return typeof this.store.transaction === 'function' ? this.store.transaction(fn) : fn();
+  }
+
+  _safeISO(d, fallback) {
+    const fb = fallback || new Date().toISOString();
+    if (!d) return fb;
+    const parsed = new Date(d);
+    return isNaN(parsed.getTime()) ? fb : parsed.toISOString();
+  }
+
+  _safeDateString(d, fallback) {
+    const fb = fallback || new Date().toISOString().slice(0, 10);
+    if (!d) return fb;
+    const parsed = new Date(d);
+    return isNaN(parsed.getTime()) ? fb : parsed.toISOString().slice(0, 10);
+  }
+
+  _extractResidentId(r) {
+    if (!r || typeof r !== 'object') return null;
+    const raw = r.residentId ?? r.pccId ?? r.id ?? r.resident_id ?? r.Resident_ID ?? r['Resident ID'] ?? r.ResidentId ?? r.name ?? r.residentName ?? r.Resident_Name ?? r['Resident Name'];
+    if (raw === undefined || raw === null) return null;
+    const s = String(raw).trim();
+    return s && s !== 'undefined' && s !== 'null' ? s : null;
+  }
+
   ensureInitialized() {
     // Initialize default facility surveillance settings
     if (!this.store.get('config', this.settingsKey)) {
       this.store.put('config', this.settingsKey, {
         facilityName: 'SNF Healthcare Center',
+        emrPlatform: 'PointClickCare (PCC)',
+        emrReadOnly: true,
+        retentionDays: 100,
+        retentionReportsDays: 200,
+        isSupplementalOnly: true,
+        regulatoryNotice: "Supplemental operational surveillance & clinical analytics only. Exempt from CMS 42 CFR § 483 / HIPAA 6-year archival. Raw EMR data is immutable and held for 100 days for quarterly audits; resulted analytical reports are held for 200 days.",
         staleThresholdHours: 18,
         behaviorLookbackDays: 10,
         prnWarningDays: 10,
@@ -622,130 +654,150 @@ class SNFCommandCenter {
     const feedStatus = this.store.get('config', this.feedStatusKey) || { feeds: {} };
     const validationErrors = [];
 
+    if (!Array.isArray(reportPayloads)) {
+      return {
+        success: false,
+        totalRecords: 0,
+        importTime,
+        results: [],
+        validationErrors: ['Invalid input: reportPayloads must be an array of report objects.']
+      };
+    }
+
     // Track previous day active counts for anomaly detection
     const prevCensusCount = this.store.count('snf_resident');
     let importedCensusCount = 0;
 
-    for (const report of reportPayloads) {
-      const { type, filename, rows = [], rawText = '', date = new Date().toISOString() } = report;
-      const reportDate = Date.parse(date) || importTime;
-      const normalizedType = this._mapReportNameToFeedType(type || filename);
+    this._tx(() => {
+      for (const report of reportPayloads) {
+        if (!report || typeof report !== 'object') continue;
+        const reportTypeVal = report.type || report.reportType || report.feedType || report.name;
+        const { filename, rows = [], rawText = '', date = new Date().toISOString() } = report;
+        const safeRows = Array.isArray(rows) ? rows.filter(r => r && typeof r === 'object') : [];
+        const reportDate = Date.parse(date) || importTime;
+        const normalizedType = this._mapReportNameToFeedType(reportTypeVal || filename);
+        const type = normalizedType;
 
-      try {
-        let count = 0;
-        switch (normalizedType) {
-          case 'census':
-          case 'adt':
-            count = this._processCensus(rows, filename, reportDate, importTime);
-            importedCensusCount = count;
-            break;
-          case 'admissions':
-            count = this._processAdmissions(rows, filename, reportDate, importTime);
-            break;
-          case 'transfers':
-            count = this._processTransfers(rows, filename, reportDate, importTime);
-            break;
-          case 'clinical24':
-            count = this._processClinical24(rows, filename, reportDate, importTime);
-            break;
-          case 'orders':
-          case 'med_changes':
-            count = this._processOrderChanges(rows, filename, reportDate, importTime);
-            break;
-          case 'med_profile':
-            count = this._processMedProfile(rows, filename, reportDate, importTime);
-            break;
-          case 'emar_exceptions':
-            count = this._processEmarExceptions(rows, filename, reportDate, importTime);
-            break;
-          case 'diagnoses':
-            count = this._processDiagnoses(rows, filename, reportDate, importTime);
-            break;
-          case 'behaviors':
-            count = this._processBehaviors(rows, filename, reportDate, importTime);
-            break;
-          case 'falls':
-            count = this._processFalls(rows, filename, reportDate, importTime);
-            break;
-          case 'infections':
-            count = this._processInfections(rows, filename, reportDate, importTime);
-            break;
-          case 'wounds':
-            count = this._processWounds(rows, filename, reportDate, importTime);
-            break;
-          case 'labs':
-            count = this._processLabs(rows, filename, reportDate, importTime);
-            break;
-          case 'progress_notes':
-            count = this._processProgressNotes(rows, filename, reportDate, importTime);
-            break;
-          case 'gdr_tracker':
-            count = this._processGDR(rows, filename, reportDate, importTime);
-            break;
-          default:
-            count = rows.length;
-            break;
+        try {
+          let count = 0;
+          switch (normalizedType) {
+            case 'census':
+            case 'adt':
+              count = this._processCensus(safeRows, filename, reportDate, importTime);
+              importedCensusCount = count;
+              break;
+            case 'admissions':
+              count = this._processAdmissions(safeRows, filename, reportDate, importTime);
+              break;
+            case 'transfers':
+              count = this._processTransfers(safeRows, filename, reportDate, importTime);
+              break;
+            case 'clinical24':
+              count = this._processClinical24(safeRows, filename, reportDate, importTime);
+              break;
+            case 'orders':
+            case 'med_changes':
+              count = this._processOrderChanges(safeRows, filename, reportDate, importTime);
+              break;
+            case 'med_profile':
+              count = this._processMedProfile(safeRows, filename, reportDate, importTime);
+              break;
+            case 'emar_exceptions':
+              count = this._processEmarExceptions(safeRows, filename, reportDate, importTime);
+              break;
+            case 'diagnoses':
+              count = this._processDiagnoses(safeRows, filename, reportDate, importTime);
+              break;
+            case 'behaviors':
+              count = this._processBehaviors(safeRows, filename, reportDate, importTime);
+              break;
+            case 'falls':
+              count = this._processFalls(safeRows, filename, reportDate, importTime);
+              break;
+            case 'infections':
+              count = this._processInfections(safeRows, filename, reportDate, importTime);
+              break;
+            case 'wounds':
+              count = this._processWounds(safeRows, filename, reportDate, importTime);
+              break;
+            case 'labs':
+              count = this._processLabs(safeRows, filename, reportDate, importTime);
+              break;
+            case 'progress_notes':
+              count = this._processProgressNotes(safeRows, filename, reportDate, importTime);
+              break;
+            case 'gdr_tracker':
+              count = this._processGDR(safeRows, filename, reportDate, importTime);
+              break;
+            default:
+              count = safeRows.length;
+              break;
+          }
+
+          feedStatus.feeds[type] = {
+            id: type,
+            name: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.name || type,
+            critical: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.critical || false,
+            lastReceived: importTime,
+            lastRecordCount: count,
+            filename,
+            status: 'ok',
+            error: null
+          };
+
+          results.push({ type, count, filename, status: 'success' });
+        } catch (err) {
+          const errorMsg = `Parser failed on ${type}: ${err.message}`;
+          validationErrors.push(errorMsg);
+          feedStatus.feeds[type] = {
+            id: type,
+            name: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.name || type,
+            critical: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.critical || false,
+            lastReceived: importTime,
+            lastRecordCount: 0,
+            filename,
+            status: 'error',
+            error: errorMsg
+          };
+          results.push({ type, count: 0, filename, status: 'error', error: errorMsg });
         }
-
-        feedStatus.feeds[type] = {
-          id: type,
-          name: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.name || type,
-          critical: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.critical || false,
-          lastReceived: importTime,
-          lastRecordCount: count,
-          filename,
-          status: 'ok',
-          error: null
-        };
-
-        results.push({ type, count, filename, status: 'success' });
-      } catch (err) {
-        const errorMsg = `Parser failed on ${type}: ${err.message}`;
-        validationErrors.push(errorMsg);
-        feedStatus.feeds[type] = {
-          id: type,
-          name: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.name || type,
-          critical: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.critical || false,
-          lastReceived: importTime,
-          lastRecordCount: 0,
-          filename,
-          status: 'error',
-          error: errorMsg
-        };
-        results.push({ type, count: 0, filename, status: 'error', error: errorMsg });
       }
-    }
 
-    // Anomaly Detection: Unexpected resident count drop
-    if (prevCensusCount > 20 && importedCensusCount > 0 && importedCensusCount < prevCensusCount * 0.5) {
-      const anomalyMsg = `Unexpected resident count change (Previous: ${prevCensusCount}, Today: ${importedCensusCount}). Active surveillance may be incomplete.`;
-      validationErrors.push(anomalyMsg);
-      this._createAlert({
-        code: 'DATA-001',
-        severity: 'critical',
-        title: 'DATA VALIDATION FAILURE',
-        message: anomalyMsg,
-        residentId: null,
-        residentName: 'FACILITY-WIDE',
-        sources: [{ sourceReport: 'Census / ADT', reportDateTime: new Date(importTime).toISOString(), originalRow: 'System Summary' }],
-        whyFlagged: [
-          `Previous verified active census was ${prevCensusCount} residents.`,
-          `Today's imported census feed contained only ${importedCensusCount} residents (>50% drop).`,
-          'Automated safety rules mandate flagging data anomalies immediately.'
-        ]
-      });
-    }
+      // Anomaly Detection: Unexpected resident count drop
+      if (prevCensusCount > 20 && importedCensusCount > 0 && importedCensusCount < prevCensusCount * 0.5) {
+        const anomalyMsg = `Unexpected resident count change (Previous: ${prevCensusCount}, Today: ${importedCensusCount}). Active surveillance may be incomplete.`;
+        validationErrors.push(anomalyMsg);
+        this._createAlert({
+          code: 'DATA-001',
+          severity: 'critical',
+          title: 'DATA VALIDATION FAILURE',
+          message: anomalyMsg,
+          residentId: null,
+          residentName: 'FACILITY-WIDE',
+          sources: [{ sourceReport: 'Census / ADT', reportDateTime: new Date(importTime).toISOString(), originalRow: 'System Summary' }],
+          whyFlagged: [
+            `Previous verified active census was ${prevCensusCount} residents.`,
+            `Today's imported census feed contained only ${importedCensusCount} residents (>50% drop).`,
+            'Automated safety rules mandate flagging data anomalies immediately.'
+          ]
+        });
+      }
 
-    feedStatus.lastSuccessfulCycle = importTime;
-    feedStatus.dataCurrentThrough = importTime;
-    feedStatus.validationErrors = validationErrors;
-    this.store.put('config', this.feedStatusKey, feedStatus);
+      feedStatus.lastSuccessfulCycle = importTime;
+      feedStatus.dataCurrentThrough = importTime;
+      feedStatus.validationErrors = validationErrors;
+      this.store.put('config', this.feedStatusKey, feedStatus);
+    });
+
+    this._invalidateCache();
 
     // Run deterministic rules engine across imported dataset
     await this.runRulesEngine(user);
 
+    const totalRecords = results.reduce((acc, r) => acc + (r.count || 0), 0);
     return {
       success: true,
+      totalRecords,
       importTime,
       results,
       validationErrors
@@ -758,16 +810,16 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const residentId = String(r.residentId || r.pccId || r.id || r.name).trim();
+      const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const existing = this.store.get('snf_resident', residentId) || {};
       const resident = {
         id: residentId,
         pccId: r.pccId || residentId,
-        name: r.name || r.residentName || 'Unknown Resident',
+        name: r.name || r.residentName || 'Resident ' + residentId,
         room: r.room || r.bed || existing.room || 'Unassigned',
         unit: r.unit || r.station || existing.unit || 'Main',
-        admissionDate: r.admissionDate || existing.admissionDate || new Date(reportDate).toISOString().slice(0, 10),
+        admissionDate: this._safeDateString(r.admissionDate || existing.admissionDate, this._safeDateString(reportDate)),
         prescriber: r.prescriber || r.physician || existing.prescriber || 'Attending MD',
         status: r.status || 'Active',
         stayType: r.stayType || existing.stayType || 'long_stay', // 'short_stay' | 'long_stay'
@@ -786,13 +838,14 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `adm-${reportDate}-${i}`;
-      const residentId = String(r.residentId || r.pccId || r.name).trim();
       this.store.put('snf_admission', id, {
         id,
         residentId,
-        residentName: r.name || r.residentName,
-        admissionDate: r.admissionDate || new Date(reportDate).toISOString().slice(0, 10),
+        residentName: r.name || r.residentName || residentId,
+        admissionDate: this._safeDateString(r.admissionDate, this._safeDateString(reportDate)),
         admittedFrom: r.admittedFrom || r.hospital || 'Hospital',
         primaryDiagnosis: r.primaryDiagnosis || r.admitDiagnosis || 'Post-Acute Care',
         prescriber: r.prescriber || r.physician,
@@ -810,16 +863,17 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `trans-${reportDate}-${i}`;
-      const residentId = String(r.residentId || r.pccId || r.name).trim();
       this.store.put('snf_transfer', id, {
         id,
         residentId,
-        residentName: r.name || r.residentName,
+        residentName: r.name || r.residentName || residentId,
         type: r.type || 'Transfer Out', // 'Transfer Out' | 'Return'
         hospital: r.hospital || r.destination || 'Acute Care Medical Center',
         reason: r.reason || 'Acute Change in Condition',
-        eventDate: r.eventDate || new Date(reportDate).toISOString().slice(0, 10),
+        eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -834,18 +888,19 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `clin24-${reportDate}-${i}`;
-      const residentId = String(r.residentId || r.pccId || r.name).trim();
       this.store.put('snf_clinical24', id, {
         id,
         residentId,
-        residentName: r.name || r.residentName,
+        residentName: r.name || r.residentName || residentId,
         shift: r.shift || '24-Hour',
         summary: r.summary || r.notes || r.event || 'Change in condition noted',
         vitalSigns: r.vitals || null,
         providerNotified: !!r.providerNotified,
         familyNotified: !!r.familyNotified,
-        eventDate: r.eventDate || new Date(reportDate).toISOString().slice(0, 10),
+        eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -860,7 +915,7 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const residentId = String(r.residentId || r.pccId || r.name).trim();
+      const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const drugName = r.medication || r.drugName || r.order || '';
       const identified = identifyMedication(drugName);
@@ -869,7 +924,7 @@ class SNFCommandCenter {
       const order = {
         id: orderId,
         residentId,
-        residentName: r.residentName || r.name,
+        residentName: r.residentName || r.name || residentId,
         drugName,
         genericName: identified.matchedGeneric || r.genericName || drugName,
         brandName: r.brandName || drugName,
@@ -881,8 +936,8 @@ class SNFCommandCenter {
         route: r.route || 'Oral',
         frequency: r.frequency || 'Daily',
         isPRN: !!(r.prn || (r.frequency && /prn|as needed/i.test(r.frequency))),
-        startDate: r.startDate || new Date(reportDate).toISOString().slice(0, 10),
-        endDate: r.endDate || null,
+        startDate: this._safeDateString(r.startDate, this._safeDateString(reportDate)),
+        endDate: r.endDate ? this._safeDateString(r.endDate) : null,
         prescriber: r.prescriber || r.physician || 'Attending MD',
         indication: r.indication || r.diagnosis || null,
         status: r.status || 'Active',
@@ -902,7 +957,8 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const residentId = String(r.residentId || r.pccId || r.name).trim();
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const drugName = r.medication || r.drugName || '';
       const identified = identifyMedication(drugName);
       const changeId = r.id || `chg-${reportDate}-${i}`;
@@ -910,7 +966,7 @@ class SNFCommandCenter {
       const changeRecord = {
         id: changeId,
         residentId,
-        residentName: r.residentName || r.name,
+        residentName: r.residentName || r.name || residentId,
         drugName,
         genericName: identified.matchedGeneric || drugName,
         drugClass: identified.drugClass,
@@ -923,7 +979,7 @@ class SNFCommandCenter {
         frequency: r.frequency,
         isPRN: !!(r.prn || (r.frequency && /prn/i.test(r.frequency))),
         prescriber: r.prescriber || r.physician,
-        orderDate: r.orderDate || new Date(reportDate).toISOString().slice(0, 10),
+        orderDate: this._safeDateString(r.orderDate, this._safeDateString(reportDate)),
         indication: r.indication || null,
         rationale: r.rationale || r.reason || null,
         sourceReport,
@@ -971,17 +1027,19 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `emar-${reportDate}-${i}`;
       this.store.put('snf_emar_exception', id, {
         id,
-        residentId: String(r.residentId || r.pccId || r.name).trim(),
-        residentName: r.residentName || r.name,
+        residentId,
+        residentName: r.residentName || r.name || residentId,
         medication: r.medication || r.drugName,
         scheduledTime: r.scheduledTime || '09:00',
         exceptionType: r.exceptionType || r.status || 'Omitted', // 'Refused' | 'Omitted' | 'Not Available' | 'Held'
         reason: r.reason || 'Resident refused',
         nurse: r.nurse || r.administeredBy || 'RN Staff',
-        eventDate: r.eventDate || new Date(reportDate).toISOString().slice(0, 10),
+        eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -996,7 +1054,8 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const residentId = String(r.residentId || r.pccId || r.name).trim();
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const desc = r.description || r.diagnosis || r.name || '';
       const code = r.icd10 || r.code || '';
       const id = r.id || `diag-${residentId}-${(code || desc).toLowerCase().replace(/[^a-z0-9]/g, '')}`;
@@ -1007,10 +1066,10 @@ class SNFCommandCenter {
       this.store.put('snf_diagnosis', id, {
         id,
         residentId,
-        residentName: r.residentName || r.name,
+        residentName: r.residentName || r.name || residentId,
         icd10: code,
         description: desc,
-        onsetDate: r.onsetDate || r.startDate || new Date(reportDate).toISOString().slice(0, 10),
+        onsetDate: this._safeDateString(r.onsetDate || r.startDate, this._safeDateString(reportDate)),
         isPsychiatric,
         isSchizophrenia: /schizophrenia|schizoaffective/i.test(desc) || /^F20/i.test(code),
         status: r.status || 'Active',
@@ -1028,19 +1087,20 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const residentId = String(r.residentId || r.pccId || r.name).trim();
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `beh-${reportDate}-${i}`;
       this.store.put('snf_behavior', id, {
         id,
         residentId,
-        residentName: r.residentName || r.name,
+        residentName: r.residentName || r.name || residentId,
         targetSymptom: r.targetSymptom || r.behavior || 'Physical Aggression',
         severity: r.severity || 'Moderate', // 'Mild' | 'Moderate' | 'Severe'
         triggers: r.triggers || r.circumstances || 'ADL Care Caregiving approach',
         interventionsAttempted: r.interventionsAttempted || r.interventions || 'Redirection offered',
         effectiveness: r.effectiveness || 'Partially Effective',
         adverseEffects: r.adverseEffects || 'None observed',
-        eventDate: r.eventDate || new Date(reportDate).toISOString().slice(0, 10),
+        eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -1055,16 +1115,18 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `fall-${reportDate}-${i}`;
       this.store.put('snf_fall', id, {
         id,
-        residentId: String(r.residentId || r.pccId || r.name).trim(),
-        residentName: r.residentName || r.name,
+        residentId,
+        residentName: r.residentName || r.name || residentId,
         location: r.location || 'Resident Bedroom',
         injuryLevel: r.injuryLevel || 'None', // 'None' | 'Minor' | 'Major'
         witnessed: !!r.witnessed,
         neuroChecksDone: r.neuroChecksDone !== false,
-        eventDate: r.eventDate || new Date(reportDate).toISOString().slice(0, 10),
+        eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -1079,14 +1141,16 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `inf-${reportDate}-${i}`;
       this.store.put('snf_infection', id, {
         id,
-        residentId: String(r.residentId || r.pccId || r.name).trim(),
-        residentName: r.residentName || r.name,
+        residentId,
+        residentName: r.residentName || r.name || residentId,
         infectionType: r.infectionType || 'UTI', // 'UTI' | 'Respiratory' | 'Skin' | 'GI'
         antibiotic: r.antibiotic || null,
-        startDate: r.startDate || new Date(reportDate).toISOString().slice(0, 10),
+        startDate: this._safeDateString(r.startDate, this._safeDateString(reportDate)),
         mcGeerCriteriaMet: r.mcGeerCriteriaMet !== false,
         sourceReport,
         reportDate,
@@ -1102,17 +1166,19 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `wnd-${reportDate}-${i}`;
       this.store.put('snf_wound', id, {
         id,
-        residentId: String(r.residentId || r.pccId || r.name).trim(),
-        residentName: r.residentName || r.name,
+        residentId,
+        residentName: r.residentName || r.name || residentId,
         woundType: r.woundType || 'Pressure Injury',
         stage: r.stage || 'Stage 2',
         site: r.site || 'Sacrum',
         acquired: r.acquired || 'In-House', // 'In-House' | 'On Admission'
         treatment: r.treatment || 'Hydrocolloid dressing',
-        assessmentDate: r.assessmentDate || new Date(reportDate).toISOString().slice(0, 10),
+        assessmentDate: this._safeDateString(r.assessmentDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -1127,17 +1193,19 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `lab-${reportDate}-${i}`;
       this.store.put('snf_lab', id, {
         id,
-        residentId: String(r.residentId || r.pccId || r.name).trim(),
-        residentName: r.residentName || r.name,
+        residentId,
+        residentName: r.residentName || r.name || residentId,
         testName: r.testName || r.lab || 'BMP',
         result: r.result || 'Normal',
         abnormal: !!r.abnormal,
         criticalValue: !!r.criticalValue,
         followUpStatus: r.followUpStatus || (r.criticalValue ? 'Pending MD Review' : 'Reviewed'),
-        collectedDate: r.collectedDate || new Date(reportDate).toISOString().slice(0, 10),
+        collectedDate: this._safeDateString(r.collectedDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -1152,15 +1220,17 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `note-${reportDate}-${i}`;
       this.store.put('snf_progress_note', id, {
         id,
-        residentId: String(r.residentId || r.pccId || r.name).trim(),
-        residentName: r.residentName || r.name,
+        residentId,
+        residentName: r.residentName || r.name || residentId,
         noteType: r.noteType || 'Nursing Note', // 'Nursing' | 'Physician' | 'Psychiatry' | 'Social Service'
         author: r.author || 'Staff',
         text: r.text || r.summary || '',
-        noteDate: r.noteDate || new Date(reportDate).toISOString().slice(0, 10),
+        noteDate: this._safeDateString(r.noteDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -1175,11 +1245,13 @@ class SNFCommandCenter {
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      const residentId = this._extractResidentId(r);
+      if (!residentId) continue;
       const id = r.id || `gdr-${reportDate}-${i}`;
       this.store.put('snf_gdr', id, {
         id,
-        residentId: String(r.residentId || r.pccId || r.name).trim(),
-        residentName: r.residentName || r.name,
+        residentId,
+        residentName: r.residentName || r.name || residentId,
         medication: r.medication,
         lastGDRDate: r.lastGDRDate || null,
         result: r.result || 'Pending', // 'Success' | 'Relapsed/Reverted' | 'Contraindicated' | 'Pending'
@@ -1215,8 +1287,9 @@ class SNFCommandCenter {
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
     const lookbackMs = (settings.behaviorLookbackDays || 10) * 24 * 60 * 60 * 1000;
 
-    // RULE 0: FAIL-SAFE SURVEILLANCE INTEGRITY
-    if (!feedStatus.isSurveillanceComplete) {
+    this._tx(() => {
+      // RULE 0: FAIL-SAFE SURVEILLANCE INTEGRITY
+      if (!feedStatus.isSurveillanceComplete) {
       if (feedStatus.isStale) {
         this._createAlert({
           code: 'STALE-001',
@@ -1295,7 +1368,7 @@ class SNFCommandCenter {
           residentId: chg.residentId,
           residentName: chg.residentName,
           drug: chg.drugName,
-          sources: [{ sourceReport: chg.sourceReport || 'Medication Order Changes', reportDateTime: new Date(chg.reportDate).toISOString(), originalRow: chg.originalRow || 1 }],
+          sources: [{ sourceReport: chg.sourceReport || 'Medication Order Changes', reportDateTime: this._safeISO(chg.reportDate), originalRow: chg.originalRow || 1 }],
           whyFlagged: [
             `Medication order appeared as a newly started order in the last 24-48 hours.`,
             `Drug class classified as: ${chg.drugClass}.`,
@@ -1335,7 +1408,7 @@ class SNFCommandCenter {
             residentName,
             residentRoom,
             drug: drugName,
-            sources: [{ sourceReport: ap.sourceReport || 'Medication Order Changes', reportDateTime: new Date(ap.reportDate).toISOString(), originalRow: ap.originalRow || 1 }],
+            sources: [{ sourceReport: ap.sourceReport || 'Medication Order Changes', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 }],
             whyFlagged: [
               `Newly ordered antipsychotic detected on active medication snapshot.`,
               `Start Date: ${ap.startDate} (Prescribed by: ${ap.prescriber}).`,
@@ -1362,7 +1435,7 @@ class SNFCommandCenter {
             residentRoom,
             drug: drugName,
             sources: [
-              { sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: new Date(ap.reportDate).toISOString(), originalRow: ap.originalRow || 1 },
+              { sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 },
               { sourceReport: 'Active Diagnosis Report', reportDateTime: new Date().toISOString(), originalRow: 'Search completed' }
             ],
             whyFlagged: [
@@ -1392,8 +1465,8 @@ class SNFCommandCenter {
             residentRoom,
             drug: drugName,
             sources: [
-              { sourceReport: recentSchizophrenia.sourceReport || 'Active Diagnoses', reportDateTime: new Date(recentSchizophrenia.reportDate).toISOString(), originalRow: recentSchizophrenia.originalRow || 1 },
-              { sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: new Date(ap.reportDate).toISOString(), originalRow: ap.originalRow || 1 }
+              { sourceReport: recentSchizophrenia.sourceReport || 'Active Diagnoses', reportDateTime: this._safeISO(recentSchizophrenia.reportDate), originalRow: recentSchizophrenia.originalRow || 1 },
+              { sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 }
             ],
             whyFlagged: [
               `Diagnosis of ${recentSchizophrenia.description} first appeared in records on ${recentSchizophrenia.onsetDate}.`,
@@ -1419,7 +1492,7 @@ class SNFCommandCenter {
             residentRoom,
             drug: drugName,
             sources: [
-              { sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: new Date(ap.reportDate).toISOString(), originalRow: ap.originalRow || 1 },
+              { sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 },
               { sourceReport: 'Behavior Monitoring Report', reportDateTime: new Date().toISOString(), originalRow: 'Search completed' }
             ],
             whyFlagged: [
@@ -1449,7 +1522,7 @@ class SNFCommandCenter {
               residentRoom,
               drug: drugName,
               sources: [
-                { sourceReport: lastBeh.sourceReport || 'Behavior Monitoring Report', reportDateTime: new Date(lastBeh.reportDate).toISOString(), originalRow: lastBeh.originalRow || 1 }
+                { sourceReport: lastBeh.sourceReport || 'Behavior Monitoring Report', reportDateTime: this._safeISO(lastBeh.reportDate), originalRow: lastBeh.originalRow || 1 }
               ],
               whyFlagged: [
                 `Resident receives scheduled psychotropic for target behaviors.`,
@@ -1511,7 +1584,7 @@ class SNFCommandCenter {
               residentName,
               residentRoom,
               drug: drugName,
-              sources: [{ sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: new Date(ap.reportDate).toISOString(), originalRow: ap.originalRow || 1 }],
+              sources: [{ sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 }],
               whyFlagged: [
                 `Order start date: ${ap.startDate}. Current day of order: Day ${prnDays}.`,
                 `CMS 42 CFR 483.45(e) requires that PRN psychotropic medications be limited to 14 days maximum.`,
@@ -1545,7 +1618,9 @@ class SNFCommandCenter {
     }
 
     // SYNC WITH OPEN ISSUES ENGINE
-    this._syncOpenIssues();
+      this._syncOpenIssues();
+    });
+
     this._invalidateCache();
 
     return true;
@@ -1603,6 +1678,10 @@ class SNFCommandCenter {
 
     this.store.put('snf_alert', alertId, newAlert);
     return newAlert;
+  }
+
+  getActiveAlerts() {
+    return this.store.list('snf_alert').filter(a => a.status !== 'resolved' && a.status !== 'dismissed');
   }
 
   acknowledgeAlert(alertId, user = 'Clinician') {
@@ -1852,7 +1931,8 @@ class SNFCommandCenter {
   // --- MORNING ADMINISTRATOR BRIEF GENERATOR (/morning) ---
 
   generateMorningBrief() {
-    const metrics = this.getDashboardMetrics();
+    return this._getCached('morningBrief', () => {
+      const metrics = this.getDashboardMetrics();
     const alerts = this.store.list('snf_alert');
     const unresolved = alerts.filter(a => a.status !== 'resolved');
     const criticalAlerts = unresolved.filter(a => a.severity === 'critical');
@@ -1949,103 +2029,118 @@ class SNFCommandCenter {
     brief += `\n---\n*Report generated deterministically by Private AI SNF Command Center. Traceable to PointClickCare raw feeds.*`;
 
     return brief;
+    });
   }
 
   // --- QUICK COMMANDS DATA EXTRACTORS ---
 
   getCriticalAlertsReport() {
-    const alerts = this.store.list('snf_alert').filter(a => a.severity === 'critical' && a.status !== 'resolved');
-    if (!alerts.length) return 'No unresolved critical alerts found across verified PCC data.';
-    return `# UNRESOLVED CRITICAL CLINICAL ALERTS (${alerts.length})\n\n` +
-      alerts.map((a, i) => `### ${i + 1}. [${a.residentName} - Rm ${a.residentRoom || 'N/A'}] ${a.title}\n` +
-        `- **Message**: ${a.message}\n` +
-        `- **Drug**: ${a.drug || 'N/A'}\n` +
-        `- **Status**: ${a.status.toUpperCase()} | First Detected: ${new Date(a.firstDetected).toLocaleDateString()}\n` +
-        `- **Why Flagged**:\n${(a.whyFlagged || []).map(w => `  * ${w}`).join('\n')}\n` +
-        `- **Source**: ${a.sources?.[0]?.sourceReport || 'PCC'} (${a.sources?.[0]?.reportDateTime || 'Recent'})\n`
-      ).join('\n');
+    return this._getCached('report_critical_alerts', () => {
+      const alerts = this.store.list('snf_alert').filter(a => a.severity === 'critical' && a.status !== 'resolved');
+      if (!alerts.length) return 'No unresolved critical alerts found across verified PCC data.';
+      return `# UNRESOLVED CRITICAL CLINICAL ALERTS (${alerts.length})\n\n` +
+        alerts.map((a, i) => `### ${i + 1}. [${a.residentName} - Rm ${a.residentRoom || 'N/A'}] ${a.title}\n` +
+          `- **Message**: ${a.message}\n` +
+          `- **Drug**: ${a.drug || 'N/A'}\n` +
+          `- **Status**: ${a.status.toUpperCase()} | First Detected: ${new Date(a.firstDetected).toLocaleDateString()}\n` +
+          `- **Why Flagged**:\n${(a.whyFlagged || []).map(w => `  * ${w}`).join('\n')}\n` +
+          `- **Source**: ${a.sources?.[0]?.sourceReport || 'PCC'} (${a.sources?.[0]?.reportDateTime || 'Recent'})\n`
+        ).join('\n');
+    });
   }
 
   getPsychWatchReport() {
-    const metrics = this.getDashboardMetrics();
-    const pw = metrics.psychWatchCard;
-    const orders = this.store.list('snf_med_order').filter(o => o.status === 'Active' && o.isAntipsychotic);
-    const alerts = this.store.list('snf_alert').filter(a => a.status !== 'resolved' && a.code.startsWith('AP-') || a.code === 'PRN-014' || a.code === 'GDR-001');
+    return this._getCached('report_psych_watch', () => {
+      const metrics = this.getDashboardMetrics();
+      const pw = metrics.psychWatchCard;
+      const orders = this.store.list('snf_med_order').filter(o => o.status === 'Active' && o.isAntipsychotic);
+      const alerts = this.store.list('snf_alert').filter(a => a.status !== 'resolved' && a.code.startsWith('AP-') || a.code === 'PRN-014' || a.code === 'GDR-001');
 
-    let out = `# PSYCH WATCH — ANTIPSYCHOTIC SURVEILLANCE\n\n`;
-    out += `**Overview Summary**: Antipsychotic Residents: **${pw.antipsychoticResidents}** | New Orders (24h): **${pw.newAPs24h}** | Doc Reviews Needed: **${pw.documentationReview}** | GDR Reviews: **${pw.gdrReview}** | PRN 14-Day Limit Deadlines: **${pw.prnDeadlines}**\n\n`;
-    out += `### Active Antipsychotic Regimens (${orders.length}):\n`;
-    for (const o of orders) {
-      out += `- **${o.residentName}** (Rm ${o.room || 'Main'}): ${o.drugName} ${o.dose}, ${o.frequency} (${o.isPRN ? 'PRN' : 'Scheduled'}) — Prescriber: ${o.prescriber} | Started: ${o.startDate}\n`;
-    }
-    out += `\n### Active Psych Watch Alerts (${alerts.length}):\n`;
-    for (const a of alerts) {
-      out += `- **[${a.severity.toUpperCase()}] ${a.residentName}**: ${a.title} — ${a.message}\n`;
-    }
-    return out;
+      let out = `# PSYCH WATCH — ANTIPSYCHOTIC SURVEILLANCE\n\n`;
+      out += `**Overview Summary**: Antipsychotic Residents: **${pw.antipsychoticResidents}** | New Orders (24h): **${pw.newAPs24h}** | Doc Reviews Needed: **${pw.documentationReview}** | GDR Reviews: **${pw.gdrReview}** | PRN 14-Day Limit Deadlines: **${pw.prnDeadlines}**\n\n`;
+      out += `### Active Antipsychotic Regimens (${orders.length}):\n`;
+      for (const o of orders) {
+        out += `- **${o.residentName}** (Rm ${o.room || 'Main'}): ${o.drugName} ${o.dose}, ${o.frequency} (${o.isPRN ? 'PRN' : 'Scheduled'}) — Prescriber: ${o.prescriber} | Started: ${o.startDate}\n`;
+      }
+      out += `\n### Active Psych Watch Alerts (${alerts.length}):\n`;
+      for (const a of alerts) {
+        out += `- **[${a.severity.toUpperCase()}] ${a.residentName}**: ${a.title} — ${a.message}\n`;
+      }
+      return out;
+    });
   }
 
   getNewMedsReport() {
-    const changes = this.store.list('snf_med_change').filter(c => c.changeType === 'New Order');
-    if (!changes.length) return 'No newly started medications found in recent order change reports.';
-    let out = `# NEW MEDICATIONS — LAST 24-48 HOURS (${changes.length})\n\n`;
-    for (const c of changes) {
-      out += `### ${c.drugName} (${c.drugClass})\n`;
-      out += `- **Resident**: ${c.residentName}\n`;
-      out += `- **Dose & Route**: ${c.newDose || 'Standard'} via ${c.route || 'Oral'}, Frequency: ${c.frequency || 'Daily'}\n`;
-      out += `- **Scheduled/PRN**: ${c.isPRN ? 'PRN' : 'Scheduled'}\n`;
-      out += `- **Prescribing Practitioner**: ${c.prescriber || 'Attending MD'}\n`;
-      out += `- **Start Date**: ${c.orderDate}\n`;
-      out += `- **Indication**: ${c.indication || 'Not specified in order'}\n`;
-      out += `- **High-Alert Status**: ${c.isHighAlert ? 'YES (Priority Surveillance)' : 'Standard'}\n`;
-      out += `- **Source**: ${c.sourceReport || 'PCC Medication Order Changes'} (Row ${c.originalRow || 1})\n\n`;
-    }
-    return out;
+    return this._getCached('report_new_meds', () => {
+      const changes = this.store.list('snf_med_change').filter(c => c.changeType === 'New Order');
+      if (!changes.length) return 'No newly started medications found in recent order change reports.';
+      let out = `# NEW MEDICATIONS — LAST 24-48 HOURS (${changes.length})\n\n`;
+      for (const c of changes) {
+        out += `### ${c.drugName} (${c.drugClass})\n`;
+        out += `- **Resident**: ${c.residentName}\n`;
+        out += `- **Dose & Route**: ${c.newDose || 'Standard'} via ${c.route || 'Oral'}, Frequency: ${c.frequency || 'Daily'}\n`;
+        out += `- **Scheduled/PRN**: ${c.isPRN ? 'PRN' : 'Scheduled'}\n`;
+        out += `- **Prescribing Practitioner**: ${c.prescriber || 'Attending MD'}\n`;
+        out += `- **Start Date**: ${c.orderDate}\n`;
+        out += `- **Indication**: ${c.indication || 'Not specified in order'}\n`;
+        out += `- **High-Alert Status**: ${c.isHighAlert ? 'YES (Priority Surveillance)' : 'Standard'}\n`;
+        out += `- **Source**: ${c.sourceReport || 'PCC Medication Order Changes'} (Row ${c.originalRow || 1})\n\n`;
+      }
+      return out;
+    });
   }
 
   getBehaviorGapsReport() {
-    const alerts = this.store.list('snf_alert').filter(a => ['AP-004', 'AP-005', 'AP-NONPHARM'].includes(a.code) && a.status !== 'resolved');
-    if (!alerts.length) return 'No behavior monitoring gaps detected across residents currently receiving psychotropics.';
-    return `# BEHAVIOR MONITORING GAPS (${alerts.length})\n\n` +
-      alerts.map(a => `- **${a.residentName}** (${a.drug || 'Psychotropic'}): ${a.title}\n  * Detail: ${a.message}\n  * Why Flagged: ${a.whyFlagged?.[0] || 'Inadequate recent monitoring entries'}`).join('\n\n');
+    return this._getCached('report_behavior_gaps', () => {
+      const alerts = this.store.list('snf_alert').filter(a => ['AP-004', 'AP-005', 'AP-NONPHARM'].includes(a.code) && a.status !== 'resolved');
+      if (!alerts.length) return 'No behavior monitoring gaps detected across residents currently receiving psychotropics.';
+      return `# BEHAVIOR MONITORING GAPS (${alerts.length})\n\n` +
+        alerts.map(a => `- **${a.residentName}** (${a.drug || 'Psychotropic'}): ${a.title}\n  * Detail: ${a.message}\n  * Why Flagged: ${a.whyFlagged?.[0] || 'Inadequate recent monitoring entries'}`).join('\n\n');
+    });
   }
 
   getDiagnosisGapsReport() {
-    const alerts = this.store.list('snf_alert').filter(a => ['AP-002', 'AP-003'].includes(a.code) && a.status !== 'resolved');
-    if (!alerts.length) return 'No diagnosis or indication mismatches currently requiring review.';
-    return `# MEDICATION / DIAGNOSIS & INDICATION REVIEW GAPS (${alerts.length})\n\n` +
-      alerts.map(a => `- **${a.residentName}** (${a.drug || 'Medication'}): ${a.title}\n  * Review Note: ${a.message}\n  * Detail: ${a.whyFlagged?.[1] || 'Supporting diagnosis was not found in records available to Private AI'}`).join('\n\n');
+    return this._getCached('report_diagnosis_gaps', () => {
+      const alerts = this.store.list('snf_alert').filter(a => ['AP-002', 'AP-003'].includes(a.code) && a.status !== 'resolved');
+      if (!alerts.length) return 'No diagnosis or indication mismatches currently requiring review.';
+      return `# MEDICATION / DIAGNOSIS & INDICATION REVIEW GAPS (${alerts.length})\n\n` +
+        alerts.map(a => `- **${a.residentName}** (${a.drug || 'Medication'}): ${a.title}\n  * Review Note: ${a.message}\n  * Detail: ${a.whyFlagged?.[1] || 'Supporting diagnosis was not found in records available to Private AI'}`).join('\n\n');
+    });
   }
 
   getGDRReport() {
-    const gdrs = this.store.list('snf_gdr');
-    const alerts = this.store.list('snf_alert').filter(a => a.code === 'GDR-001' && a.status !== 'resolved');
-    let out = `# GRADUAL DOSE REDUCTION (GDR) SURVEILLANCE\n\n`;
-    out += `**Open GDR Alerts**: ${alerts.length}\n`;
-    for (const a of alerts) {
-      out += `- **${a.residentName}** (${a.drug}): ${a.title} — ${a.message}\n`;
-    }
-    out += `\n**Tracked GDR History**:\n`;
-    for (const g of gdrs) {
-      out += `- **${g.residentName}** (${g.medication}): Last GDR: ${g.lastGDRDate || 'None'} | Result: ${g.result} | Contraindicated: ${g.isContraindicated ? 'Yes (' + g.clinicalRationale + ')' : 'No'}\n`;
-    }
-    return out;
+    return this._getCached('report_gdr', () => {
+      const gdrs = this.store.list('snf_gdr');
+      const alerts = this.store.list('snf_alert').filter(a => a.code === 'GDR-001' && a.status !== 'resolved');
+      let out = `# GRADUAL DOSE REDUCTION (GDR) SURVEILLANCE\n\n`;
+      out += `**Open GDR Alerts**: ${alerts.length}\n`;
+      for (const a of alerts) {
+        out += `- **${a.residentName}** (${a.drug}): ${a.title} — ${a.message}\n`;
+      }
+      out += `\n**Tracked GDR History**:\n`;
+      for (const g of gdrs) {
+        out += `- **${g.residentName}** (${g.medication}): Last GDR: ${g.lastGDRDate || 'None'} | Result: ${g.result} | Contraindicated: ${g.isContraindicated ? 'Yes (' + g.clinicalRationale + ')' : 'No'}\n`;
+      }
+      return out;
+    });
   }
 
   getPRN14Report() {
-    const orders = this.store.list('snf_med_order').filter(o => o.status === 'Active' && o.isAntipsychotic && o.isPRN);
-    const now = Date.now();
-    let out = `# PRN ANTIPSYCHOTIC 14-DAY TIME-LIMIT WATCH (${orders.length})\n\n`;
-    if (!orders.length) return 'No active PRN antipsychotic orders currently found.';
-    for (const o of orders) {
-      const days = Math.max(1, Math.floor((now - Date.parse(o.startDate)) / (24 * 60 * 60 * 1000)));
-      const tag = days >= 14 ? '🔴 DAY 14+ (LIMIT EXCEEDED)' : days >= 13 ? '🟠 DAY 13 (REVIEW REQ)' : days >= 10 ? '🟡 DAY 10+ (APPROACHING)' : '🟢 ACTIVE';
-      out += `### ${o.residentName}: ${o.drugName} ${o.dose} PRN — ${tag}\n`;
-      out += `- **Order Start Date**: ${o.startDate} (Elapsed Days: ${days})\n`;
-      out += `- **Prescribing Practitioner**: ${o.prescriber}\n`;
-      out += `- **CMS 14-Day Mandate**: Order cannot be renewed past Day 14 without in-person evaluation by prescribing practitioner.\n\n`;
-    }
-    return out;
+    return this._getCached('report_prn14', () => {
+      const orders = this.store.list('snf_med_order').filter(o => o.status === 'Active' && o.isAntipsychotic && o.isPRN);
+      const now = Date.now();
+      let out = `# PRN ANTIPSYCHOTIC 14-DAY TIME-LIMIT WATCH (${orders.length})\n\n`;
+      if (!orders.length) return 'No active PRN antipsychotic orders currently found.';
+      for (const o of orders) {
+        const days = Math.max(1, Math.floor((now - Date.parse(o.startDate)) / (24 * 60 * 60 * 1000)));
+        const tag = days >= 14 ? '🔴 DAY 14+ (LIMIT EXCEEDED)' : days >= 13 ? '🟠 DAY 13 (REVIEW REQ)' : days >= 10 ? '🟡 DAY 10+ (APPROACHING)' : '🟢 ACTIVE';
+        out += `### ${o.residentName}: ${o.drugName} ${o.dose} PRN — ${tag}\n`;
+        out += `- **Order Start Date**: ${o.startDate} (Elapsed Days: ${days})\n`;
+        out += `- **Prescribing Practitioner**: ${o.prescriber}\n`;
+        out += `- **CMS 14-Day Mandate**: Order cannot be renewed past Day 14 without in-person evaluation by prescribing practitioner.\n\n`;
+      }
+      return out;
+    });
   }
 
   getMedicationChangesList() {
@@ -2096,19 +2191,21 @@ class SNFCommandCenter {
   }
 
   getUnresolvedIssuesReport() {
-    const issues = this.store.list('snf_open_issue').filter(i => i.status !== 'Resolved');
-    if (!issues.length) return 'No open clinical issues are currently pending in the Open Issues Engine.';
-    let out = `# OPEN CLINICAL ISSUES (${issues.length})\n\n`;
-    for (const iss of issues) {
-      out += `### [${iss.severity.toUpperCase()}] ${iss.residentName} — ${iss.issue}\n`;
-      out += `- **Status**: ${iss.status} | **Assigned To**: ${iss.owner}\n`;
-      out += `- **First Flagged**: ${new Date(iss.firstDetected).toLocaleDateString()} | **Last Verified**: ${new Date(iss.lastDetected).toLocaleDateString()}\n`;
-      out += `- **Source**: ${iss.source}\n`;
-      out += `- **Details**: ${iss.detail}\n`;
-      if (iss.actionNote) out += `- **Latest Action Note**: ${iss.actionNote}\n`;
-      out += `\n`;
-    }
-    return out;
+    return this._getCached('report_unresolved_issues', () => {
+      const issues = this.store.list('snf_open_issue').filter(i => i.status !== 'Resolved');
+      if (!issues.length) return 'No open clinical issues are currently pending in the Open Issues Engine.';
+      let out = `# OPEN CLINICAL ISSUES (${issues.length})\n\n`;
+      for (const iss of issues) {
+        out += `### [${iss.severity.toUpperCase()}] ${iss.residentName} — ${iss.issue}\n`;
+        out += `- **Status**: ${iss.status} | **Assigned To**: ${iss.owner}\n`;
+        out += `- **First Flagged**: ${new Date(iss.firstDetected).toLocaleDateString()} | **Last Verified**: ${new Date(iss.lastDetected).toLocaleDateString()}\n`;
+        out += `- **Source**: ${iss.source}\n`;
+        out += `- **Details**: ${iss.detail}\n`;
+        if (iss.actionNote) out += `- **Latest Action Note**: ${iss.actionNote}\n`;
+        out += `\n`;
+      }
+      return out;
+    });
   }
 
   getResidentTimelineReport(residentQuery) {
@@ -2118,44 +2215,46 @@ class SNFCommandCenter {
     const target = residents.find(r => r.name.toLowerCase().includes(q) || r.id.toLowerCase() === q);
     if (!target) return `Resident "${residentQuery}" was not found in current PointClickCare census records.`;
 
-    const rid = target.id;
-    const orders = this.store.list('snf_med_order').filter(o => o.residentId === rid);
-    const diags = this.store.list('snf_diagnosis').filter(d => d.residentId === rid);
-    const behs = this.store.list('snf_behavior').filter(b => b.residentId === rid);
-    const falls = this.store.list('snf_fall').filter(f => f.residentId === rid);
-    const alerts = this.store.list('snf_alert').filter(a => a.residentId === rid);
+    return this._getCached(`report_timeline_${target.id}`, () => {
+      const rid = target.id;
+      const orders = this.store.list('snf_med_order').filter(o => o.residentId === rid);
+      const diags = this.store.list('snf_diagnosis').filter(d => d.residentId === rid);
+      const behs = this.store.list('snf_behavior').filter(b => b.residentId === rid);
+      const falls = this.store.list('snf_fall').filter(f => f.residentId === rid);
+      const alerts = this.store.list('snf_alert').filter(a => a.residentId === rid);
 
-    let out = `# CLINICAL SURVEILLANCE TIMELINE: ${target.name}\n`;
-    out += `**Room**: ${target.room} | **Unit**: ${target.unit} | **Admitted**: ${target.admissionDate} | **MD**: ${target.prescriber}\n\n`;
+      let out = `# CLINICAL SURVEILLANCE TIMELINE: ${target.name}\n`;
+      out += `**Room**: ${target.room} | **Unit**: ${target.unit} | **Admitted**: ${target.admissionDate} | **MD**: ${target.prescriber}\n\n`;
 
-    out += `### Active Medications (${orders.length}):\n`;
-    for (const o of orders) {
-      out += `- **${o.drugName}** (${o.dose}, ${o.frequency}) — ${o.isAntipsychotic ? '⚠️ ANTIPSYCHOTIC' : o.drugClass} [Started: ${o.startDate}]\n`;
-    }
-
-    out += `\n### Documented Diagnoses (${diags.length}):\n`;
-    for (const d of diags) {
-      out += `- **${d.description}** (${d.icd10 || 'No code'}) — Onset: ${d.onsetDate || 'Historical'}\n`;
-    }
-
-    out += `\n### Behavior & Incident History:\n`;
-    if (!behs.length && !falls.length) {
-      out += `- No behavior events or falls logged in imported records.\n`;
-    } else {
-      for (const b of behs) {
-        out += `- **Behavior (${b.eventDate})**: ${b.targetSymptom} (Severity: ${b.severity}) — Intervention: ${b.interventionsAttempted}\n`;
+      out += `### Active Medications (${orders.length}):\n`;
+      for (const o of orders) {
+        out += `- **${o.drugName}** (${o.dose}, ${o.frequency}) — ${o.isAntipsychotic ? '⚠️ ANTIPSYCHOTIC' : o.drugClass} [Started: ${o.startDate}]\n`;
       }
-      for (const f of falls) {
-        out += `- **Fall (${f.eventDate})**: Location: ${f.location}, Injury: ${f.injuryLevel}\n`;
+
+      out += `\n### Documented Diagnoses (${diags.length}):\n`;
+      for (const d of diags) {
+        out += `- **${d.description}** (${d.icd10 || 'No code'}) — Onset: ${d.onsetDate || 'Historical'}\n`;
       }
-    }
 
-    out += `\n### Active Surveillance Alerts (${alerts.length}):\n`;
-    for (const a of alerts) {
-      out += `- **[${a.severity.toUpperCase()}] ${a.title}**: ${a.message} (Status: ${a.status.toUpperCase()})\n`;
-    }
+      out += `\n### Behavior & Incident History:\n`;
+      if (!behs.length && !falls.length) {
+        out += `- No behavior events or falls logged in imported records.\n`;
+      } else {
+        for (const b of behs) {
+          out += `- **Behavior (${b.eventDate})**: ${b.targetSymptom} (Severity: ${b.severity}) — Intervention: ${b.interventionsAttempted}\n`;
+        }
+        for (const f of falls) {
+          out += `- **Fall (${f.eventDate})**: Location: ${f.location}, Injury: ${f.injuryLevel}\n`;
+        }
+      }
 
-    return out;
+      out += `\n### Active Surveillance Alerts (${alerts.length}):\n`;
+      for (const a of alerts) {
+        out += `- **[${a.severity.toUpperCase()}] ${a.title}**: ${a.message} (Status: ${a.status.toUpperCase()})\n`;
+      }
+
+      return out;
+    });
   }
 
   // --- SEED SAMPLE PCC DATASET FOR OUT-OF-THE-BOX VALIDATION ---
@@ -2306,6 +2405,214 @@ class SNFCommandCenter {
 
   getPCCReportCatalog() {
     return PCC_REPORT_CATALOG;
+  }
+
+  assertEmrReadOnly(kind) {
+    const rawKinds = [
+      'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
+      'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
+      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer'
+    ];
+    if (rawKinds.includes(kind)) {
+      throw new Error(`EMR data (${kind}) is strictly read-only and immutable. In accordance with clinical governance, raw EMR surveillance records cannot be edited or altered.`);
+    }
+  }
+
+  cleanup(retentionDays = 100, now = Date.now()) {
+    const rawCutoff = now - retentionDays * 86400000;
+    const counts = {
+      rawEmrRecords: 0,
+      dischargedResidents: 0,
+      resolvedAlerts: 0,
+      resolvedIssues: 0,
+      total: 0
+    };
+
+    // 1. Raw EMR data feeds (held for 100 days for quarterly audits)
+    const rawKinds = [
+      'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
+      'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
+      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer'
+    ];
+
+    this._tx(() => {
+      for (const kind of rawKinds) {
+        const records = this.store.list(kind);
+        for (const rec of records) {
+          const time = rec.importTimestamp ||
+                       (rec.reportDate ? Date.parse(rec.reportDate) : null) ||
+                       (rec.eventDate ? Date.parse(rec.eventDate) : null) ||
+                       rec.timestamp ||
+                       rec.updated;
+          if (time && time < rawCutoff) {
+            this.store.delete(kind, rec.id);
+            counts.rawEmrRecords++;
+          }
+        }
+      }
+
+      // 2. Discharged residents (100 days standard cycle following discharge)
+      const residents = this.store.list('snf_resident');
+      for (const res of residents) {
+        const isDischarged = res.status === 'Discharged' || res.dischargeDate;
+        if (isDischarged) {
+          const dischargeTime = res.dischargeDate ? Date.parse(res.dischargeDate) : (res.updated || res.importTimestamp);
+          if (dischargeTime && dischargeTime < rawCutoff) {
+            this.store.delete('snf_resident', res.id);
+            counts.dischargedResidents++;
+          }
+        }
+      }
+
+      // 3. Resolved clinical alerts & flags (100 days retention from resolution)
+      const alerts = this.store.list('snf_alert');
+      for (const alert of alerts) {
+        if (alert.status === 'resolved' || alert.status === 'dismissed') {
+          const resolvedTime = alert.resolvedAt || alert.updated || alert.timestamp;
+          if (resolvedTime && resolvedTime < rawCutoff) {
+            this.store.delete('snf_alert', alert.id);
+            counts.resolvedAlerts++;
+          }
+        }
+      }
+
+      // 4. Resolved open issues (100 days retention from resolution)
+      const issues = this.store.list('snf_open_issue');
+      for (const issue of issues) {
+        if (issue.status === 'Resolved' || issue.status === 'Closed') {
+          const resolvedTime = issue.resolvedAt || issue.updated;
+          if (resolvedTime && resolvedTime < rawCutoff) {
+            this.store.delete('snf_open_issue', issue.id);
+            counts.resolvedIssues++;
+          }
+        }
+      }
+
+      // 5. Analytical reports and results (held for additional 100 days = 200 days total)
+      const reportCutoff = now - (retentionDays + 100) * 86400000;
+      const cachedReports = this.store.list('snf_report_cache');
+      counts.reportsPurged = 0;
+      for (const rep of cachedReports) {
+        const repTime = rep.generatedAt || rep.timestamp || rep.updated;
+        if (repTime && repTime < reportCutoff) {
+          this.store.delete('snf_report_cache', rep.id);
+          counts.reportsPurged++;
+        }
+      }
+    });
+
+    counts.total = counts.rawEmrRecords + counts.dischargedResidents + counts.resolvedAlerts + counts.resolvedIssues + counts.reportsPurged;
+
+    if (counts.total > 0) {
+      this._invalidateCache();
+      this.store.audit('snf_retention_cleanup', counts);
+    }
+
+    return counts;
+  }
+
+  cleanupOldData(retentionDays = 100, now = Date.now()) {
+    const counts = this.cleanup(retentionDays, now);
+    return {
+      success: true,
+      rawRecordsPurged: counts.rawEmrRecords,
+      dischargedResidentsPurged: counts.dischargedResidents,
+      resolvedAlertsPurged: counts.resolvedAlerts,
+      resolvedIssuesPurged: counts.resolvedIssues,
+      reportsPurged: counts.reportsPurged || 0,
+      totalPurged: counts.total
+    };
+  }
+
+  getRetentionStatus() {
+    const settings = this.getSettings();
+    const retentionDays = this.core?.settings()?.retentionDays || 100;
+
+    const alerts = this.store.list('snf_alert');
+    const resolvedAlerts = alerts.filter(a => a.status === 'resolved' || a.status === 'dismissed').length;
+    const activeAlerts = alerts.filter(a => a.status !== 'resolved' && a.status !== 'dismissed').length;
+
+    const residents = this.store.list('snf_resident');
+    const activeCensus = residents.filter(r => r.status !== 'Discharged' && !r.dischargeDate).length;
+    const dischargedCensus = residents.filter(r => r.status === 'Discharged' || r.dischargeDate).length;
+
+    const rawKinds = [
+      'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
+      'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
+      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer'
+    ];
+    let totalRawRecords = 0;
+    for (const kind of rawKinds) {
+      totalRawRecords += this.store.list(kind).length;
+    }
+
+    return {
+      emrPlatform: settings.emrPlatform || 'PointClickCare (PCC)',
+      emrReadOnly: true,
+      rawRetentionDays: retentionDays,
+      reportRetentionDays: retentionDays + 100, // 200 days total
+      resolvedAlertsRetentionDays: retentionDays,
+      dischargedResidentsRetentionDays: retentionDays,
+      activeCensus,
+      dischargedCensus,
+      activeAlerts,
+      resolvedAlerts,
+      totalRawRecords,
+      isSupplementalOnly: true,
+      regulatoryNotice: "Supplemental operational surveillance & clinical analytics only. Exempt from CMS 42 CFR § 483 / HIPAA 6-year archival. Raw EMR data is immutable and held for 100 days for quarterly audits; resulted analytical reports are held for 200 days."
+    };
+  }
+
+  getAuditRetentionSummary() {
+    return this.getRetentionStatus();
+  }
+
+  async exportReportPDF(type, query, workspacePath) {
+    let title = "Clinical Surveillance Report";
+    let markdown = "";
+    if (type === "morning") {
+      title = `Morning Clinical Surveillance Brief - ${new Date().toLocaleDateString()}`;
+      markdown = this.generateMorningBrief();
+    } else if (type === "timeline") {
+      title = `Resident Longitudinal Surveillance Timeline - ${query || 'Resident'}`;
+      markdown = this.getResidentTimelineReport(query);
+    } else if (type === "psych") {
+      title = `Psychotropic Medication Surveillance Audit - ${new Date().toLocaleDateString()}`;
+      markdown = this.getPsychWatchReport();
+    } else if (type === "critical") {
+      title = `Critical Clinical Alerts Report - ${new Date().toLocaleDateString()}`;
+      markdown = this.getCriticalAlertsReport();
+    } else if (type === "newmeds" || type === "meds") {
+      title = `New Medications Surveillance Report - ${new Date().toLocaleDateString()}`;
+      markdown = this.getNewMedsReport();
+    } else if (type === "behaviorgaps" || type === "behaviors") {
+      title = `Behavior Monitoring Gaps Report - ${new Date().toLocaleDateString()}`;
+      markdown = this.getBehaviorGapsReport();
+    } else if (type === "diagnosisgaps" || type === "diagnoses") {
+      title = `Diagnosis Documentation Gaps Report - ${new Date().toLocaleDateString()}`;
+      markdown = this.getDiagnosisGapsReport();
+    } else if (type === "gdr") {
+      title = `Gradual Dose Reduction (GDR) Audit Report - ${new Date().toLocaleDateString()}`;
+      markdown = this.getGDRReport();
+    } else if (type === "prn14" || type === "prn") {
+      title = `PRN 14-Day Limit Compliance Report - ${new Date().toLocaleDateString()}`;
+      markdown = this.getPRN14Report();
+    } else if (type === "issues") {
+      title = `Open Clinical Issues Report - ${new Date().toLocaleDateString()}`;
+      markdown = this.getUnresolvedIssuesReport();
+    } else {
+      title = `Clinical Surveillance Summary - ${new Date().toLocaleDateString()}`;
+      markdown = this.generateMorningBrief();
+    }
+
+    const { exportFile } = require('./files.cjs');
+    const out = await exportFile(workspacePath, {
+      content: markdown || "# Clinical Surveillance Report\n\nNo active surveillance records found.",
+      format: "pdf",
+      title,
+      subfolder: "Reports"
+    });
+    return out;
   }
 }
 

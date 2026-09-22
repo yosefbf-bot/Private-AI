@@ -262,6 +262,9 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
           <button class="snf-tab ${activeTab === 'resident' ? 'active' : ''}" data-tab="resident">
             🔍 Resident Investigation
           </button>
+          <button class="snf-tab ${activeTab === 'retention' ? 'active' : ''}" data-tab="retention">
+            🛡️ Retention &amp; EMR Policy
+          </button>
         </div>
 
         <!-- TAB CONTENT AREA -->
@@ -298,6 +301,9 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     }
     if (activeTab === 'resident') {
       return renderResidentTab();
+    }
+    if (activeTab === 'retention') {
+      return renderRetentionTab(metrics);
     }
     return '';
   }
@@ -572,6 +578,9 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
               <span class="val">${ap.prnDeadlines}</span>
               <span class="lbl">PRN 14-Day Limit Deadlines</span>
             </div>
+          </div>
+          <div style="margin-top: 14px;">
+            <button class="secondary" id="btn-export-psych-pdf">📄 Export Psychotropic Surveillance (PDF)</button>
           </div>
         </div>
 
@@ -905,9 +914,10 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             high-alert psychotropic surveillance, and persistent unmissable clinical alerts.
           </p>
           <div class="reports-action-bar">
-            <button class="primary" id="btn-refresh-brief">🔄 Refresh Morning Brief</button>
+            <button class="primary" id="btn-export-brief-pdf">📄 Download Morning Brief (PDF)</button>
+            <button class="secondary" id="btn-refresh-brief">🔄 Refresh Brief</button>
             <button class="secondary" id="btn-copy-brief">📋 Copy to Clipboard</button>
-            <button class="secondary" id="btn-print-brief">🖨️ Print / Export Brief</button>
+            <button class="secondary" id="btn-print-brief">🖨️ Print Brief</button>
           </div>
         </div>
 
@@ -1066,6 +1076,107 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             </tbody>
           </table>
         `}
+      </div>
+    `;
+  }
+
+  // ==========================================
+  // TAB 9: RETENTION & EMR GOVERNANCE
+  // ==========================================
+  function renderRetentionTab(metrics) {
+    const settings = metrics.settings || {};
+    const emrPlatform = settings.emrPlatform || 'PointClickCare (PCC)';
+
+    return `
+      <div class="retention-pane">
+        <div class="reports-header" style="margin-bottom:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h2 style="margin:0 0 6px 0;">🛡️ Surveillance Data Retention &amp; EMR Policy</h2>
+              <p style="margin:0; color:#475569; max-width:760px;">
+                Formal operational governance and data lifecycle management for SNF clinical surveillance, predictive triage, and decision support.
+              </p>
+            </div>
+            <button class="primary" id="btn-snf-cleanup">🧹 Run Surveillance Retention Cleanup Now</button>
+          </div>
+        </div>
+
+        <!-- 1. REGULATORY SCOPE & NON-EHR NOTICE -->
+        <div class="card" style="border-left:4px solid #0284c7; background:#f0f9ff; padding:18px; margin-bottom:18px; border-radius:8px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <span style="font-size:20px;">ℹ️</span>
+            <h3 style="margin:0; font-size:16px; color:#0369a1;">Supplemental Analytics Only · Regulatory Storage Notice</h3>
+          </div>
+          <p style="margin:0 0 8px 0; font-size:14px; color:#0f172a; line-height:1.5;">
+            This application operates strictly as a <strong>supplemental clinical surveillance and decision-support instrument</strong>. It is <strong>NOT</strong> an official Designated Record Set or Electronic Health Record (EHR).
+          </p>
+          <p style="margin:0; font-size:13px; color:#334155; line-height:1.5;">
+            By administrative governance, this operational analytics tool is <strong>exempt from CMS 42 CFR § 483 long-term medical record retention rules and the HIPAA 6-year archival mandate</strong>. Surveillance data is managed under a rolling operational retention schedule designed specifically for quarterly clinical audits without permanent data accumulation.
+          </p>
+        </div>
+
+        <!-- 2. READ-ONLY EMR DATA GUARANTEE -->
+        <div class="card" style="border-left:4px solid #059669; background:#ecfdf5; padding:18px; margin-bottom:18px; border-radius:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:20px;">🔒</span>
+              <h3 style="margin:0; font-size:16px; color:#047857;">Immutable Read-Only EMR Feeds</h3>
+            </div>
+            <span class="pill" style="background:#059669; color:#fff; font-weight:600; font-size:12px;">READ-ONLY ENFORCED</span>
+          </div>
+          <p style="margin:0 0 8px 0; font-size:14px; color:#0f172a; line-height:1.5;">
+            Active EMR Platform Source: <strong>${esc(emrPlatform)}</strong> (Configurable for PointClickCare, MatrixCare, Netsmart, Epic, etc.).
+          </p>
+          <p style="margin:0; font-size:13px; color:#334155; line-height:1.5;">
+            EMR data is strictly <strong>read-only and immutable</strong>. The surveillance engine performs parse-and-index operations only. No EMR records, physician orders, administration logs, or clinical narratives can ever be edited, altered, or overwritten within this application.
+          </p>
+        </div>
+
+        <!-- 3. TIERED RETENTION SCHEDULE GRID -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:20px;">
+          <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#fff;">
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:#64748b; margin-bottom:4px;">EMR Feeds &amp; Raw Data</div>
+            <div style="font-size:28px; font-weight:700; color:#0f172a; margin-bottom:6px;">100 Days</div>
+            <p style="font-size:13px; color:#475569; margin:0; line-height:1.5;">
+              Held for 100 days so facility QAPI committees and clinical teams can perform complete <strong>90-day quarterly audits</strong> (with a 10-day buffer) before automatic purging.
+            </p>
+          </div>
+
+          <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#fff;">
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:#64748b; margin-bottom:4px;">Resulted Reports &amp; Analytics</div>
+            <div style="font-size:28px; font-weight:700; color:#0284c7; margin-bottom:6px;">200 Days</div>
+            <p style="font-size:13px; color:#475569; margin:0; line-height:1.5;">
+              Saved PDF reports and analytics derived from raw feeds receive an <strong>additional 100 days</strong> of retention (total 200 days) to support multi-quarter trend comparisons.
+            </p>
+          </div>
+
+          <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#fff;">
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:#64748b; margin-bottom:4px;">Resolved Alerts &amp; Flags</div>
+            <div style="font-size:28px; font-weight:700; color:#059669; margin-bottom:6px;">100 Days</div>
+            <p style="font-size:13px; color:#475569; margin:0; line-height:1.5;">
+              Clinical alerts and issues that have been verified, signed off, or resolved are retained for 100 days post-resolution. <strong>Unresolved alerts remain active indefinitely</strong>.
+            </p>
+          </div>
+
+          <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#fff;">
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:#64748b; margin-bottom:4px;">Discharged Residents</div>
+            <div style="font-size:28px; font-weight:700; color:#475569; margin-bottom:6px;">100 Days</div>
+            <p style="font-size:13px; color:#475569; margin:0; line-height:1.5;">
+              Residents who have been discharged follow the standard 100-day rolling cycle from their discharge date, keeping the surveillance roster focused on active census.
+            </p>
+          </div>
+        </div>
+
+        <!-- 4. LIVE AUDIT & STATUS METRICS -->
+        <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#f8fafc;">
+          <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:600; color:#334155;">Active Surveillance Census &amp; Retention Diagnostics</h4>
+          <div style="display:flex; flex-wrap:wrap; gap:24px; font-size:13px;">
+            <div><span style="color:#64748b;">Active Census:</span> <strong>${metrics.totalCensus || 0} residents</strong></div>
+            <div><span style="color:#64748b;">Active Alerts Under Surveillance:</span> <strong class="text-crit">${metrics.alertsSummary?.totalUnresolved || 0}</strong></div>
+            <div><span style="color:#64748b;">Resolved Alerts on Hold:</span> <strong class="text-ok">${metrics.alertsSummary?.resolved || 0}</strong></div>
+            <div><span style="color:#64748b;">Export Format:</span> <strong>PDF (Portable Document Format)</strong></div>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -1239,6 +1350,66 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     }
 
     // Morning brief tab buttons
+    const btnExportBriefPdf = container.querySelector('#btn-export-brief-pdf');
+    if (btnExportBriefPdf) {
+      btnExportBriefPdf.addEventListener('click', async () => {
+        btnExportBriefPdf.disabled = true;
+        btnExportBriefPdf.textContent = 'Generating PDF…';
+        try {
+          const res = await api('snfExportPDF', { type: 'morning' });
+          if (res?.relative) {
+            window.location.href = '/api/download?file=' + encodeURIComponent(res.relative);
+            toast('Morning Brief PDF generated and saved to Reports.');
+          }
+        } catch (e) {
+          toast('Export failed: ' + e.message);
+        } finally {
+          btnExportBriefPdf.disabled = false;
+          btnExportBriefPdf.textContent = '📄 Download Morning Brief (PDF)';
+        }
+      });
+    }
+
+    const btnExportPsychPdf = container.querySelector('#btn-export-psych-pdf');
+    if (btnExportPsychPdf) {
+      btnExportPsychPdf.addEventListener('click', async () => {
+        btnExportPsychPdf.disabled = true;
+        btnExportPsychPdf.textContent = 'Generating PDF…';
+        try {
+          const res = await api('snfExportPDF', { type: 'psych' });
+          if (res?.relative) {
+            window.location.href = '/api/download?file=' + encodeURIComponent(res.relative);
+            toast('Psychotropic Surveillance PDF generated and saved to Reports.');
+          }
+        } catch (e) {
+          toast('Export failed: ' + e.message);
+        } finally {
+          btnExportPsychPdf.disabled = false;
+          btnExportPsychPdf.textContent = '📄 Export Psychotropic Surveillance (PDF)';
+        }
+      });
+    }
+
+    const btnSnfCleanup = container.querySelector('#btn-snf-cleanup');
+    if (btnSnfCleanup) {
+      btnSnfCleanup.addEventListener('click', async () => {
+        btnSnfCleanup.disabled = true;
+        btnSnfCleanup.textContent = 'Running Cleanup…';
+        try {
+          const res = await api('snfRetentionCleanup');
+          const total = res.total || 0;
+          toast(`Retention cleanup complete: pruned ${total} expired record(s) (>100d).`);
+          await loadData();
+          renderHTML(container);
+        } catch (e) {
+          toast('Cleanup failed: ' + e.message);
+        } finally {
+          btnSnfCleanup.disabled = false;
+          btnSnfCleanup.textContent = '🧹 Run Surveillance Retention Cleanup Now';
+        }
+      });
+    }
+
     const btnRefreshBrief = container.querySelector('#btn-refresh-brief');
     if (btnRefreshBrief) {
       btnRefreshBrief.addEventListener('click', async () => {
@@ -1405,10 +1576,32 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
       const out = container.querySelector('#resident-timeline-results');
       if (out) {
         out.innerHTML = `
+          <div style="margin-bottom: 12px; display:flex; gap:8px;">
+            <button class="primary" id="btn-export-timeline-pdf">📄 Download Timeline (PDF)</button>
+          </div>
           <div class="resident-timeline-box">
             <pre class="timeline-pre">${esc(currentResidentTimeline)}</pre>
           </div>
         `;
+        const btnPdf = out.querySelector('#btn-export-timeline-pdf');
+        if (btnPdf) {
+          btnPdf.addEventListener('click', async () => {
+            btnPdf.disabled = true;
+            btnPdf.textContent = 'Generating PDF…';
+            try {
+              const resPdf = await api('snfExportPDF', { type: 'timeline', query: query.trim() });
+              if (resPdf?.relative) {
+                window.location.href = '/api/download?file=' + encodeURIComponent(resPdf.relative);
+                toast('Resident Timeline PDF generated and saved to Reports.');
+              }
+            } catch (err) {
+              toast('Export failed: ' + err.message);
+            } finally {
+              btnPdf.disabled = false;
+              btnPdf.textContent = '📄 Download Timeline (PDF)';
+            }
+          });
+        }
       }
     } catch (e) {
       toast('Failed to load resident timeline: ' + e.message);

@@ -156,4 +156,161 @@ test('SNF Clinical Surveillance - Core Engine & Rules Test Suite', async (t) => 
     assert(qapiResp, 'Should intercept /qapi');
     assert(qapiResp.text.includes('QAPI'));
   });
+
+  await t.test('100-Day Retention Cycle & Audit Summary', async () => {
+    const summary = snf.getAuditRetentionSummary();
+    assert.strictEqual(summary.rawRetentionDays, 100, 'Raw data must be held for 100 days default');
+    assert.strictEqual(summary.reportRetentionDays, 200, 'Report data must be held for 200 days (100 days raw + 100 days results)');
+    assert.strictEqual(summary.resolvedAlertsRetentionDays, 100, 'Resolved alerts must follow 100-day cycle');
+    assert.strictEqual(summary.dischargedResidentsRetentionDays, 100, 'Discharged residents must follow 100-day cycle');
+    assert.strictEqual(summary.emrReadOnly, true, 'EMR data must be strictly read-only');
+    assert(summary.regulatoryNotice.includes('100 days'), 'Notice must state 100-day retention period');
+
+    // Test cleanup of data older than 100 days
+    const now = Date.now();
+    const oldTimestamp = now - (105 * 24 * 60 * 60 * 1000); // 105 days old
+
+    store.put('snf_med_order', 'old-order-1', {
+      id: 'old-order-1',
+      residentId: 'RES-OLD',
+      drugName: 'Old Med',
+      importTimestamp: oldTimestamp
+    });
+
+    store.put('snf_alert', 'old-resolved-alert', {
+      id: 'old-resolved-alert',
+      residentId: 'RES-OLD',
+      status: 'resolved',
+      resolvedAt: oldTimestamp
+    });
+
+    store.put('snf_alert', 'recent-resolved-alert', {
+      id: 'recent-resolved-alert',
+      residentId: 'RES-RECENT',
+      status: 'resolved',
+      resolvedAt: now - (50 * 24 * 60 * 60 * 1000)
+    });
+
+    store.put('snf_resident', 'old-discharged-res', {
+      id: 'old-discharged-res',
+      name: 'Old Resident',
+      status: 'Discharged',
+      dischargeDate: new Date(oldTimestamp).toISOString()
+    });
+
+    store.put('snf_report_cache', 'old-report', {
+      id: 'old-report',
+      reportType: 'audit',
+      generatedAt: now - (205 * 24 * 60 * 60 * 1000) // 205 days old
+    });
+
+    store.put('snf_report_cache', 'retained-report', {
+      id: 'retained-report',
+      reportType: 'audit',
+      generatedAt: now - (150 * 24 * 60 * 60 * 1000) // 150 days old (< 200 days)
+    });
+
+    const cleanupRes = snf.cleanupOldData();
+    assert.strictEqual(cleanupRes.success, true);
+    assert(cleanupRes.rawRecordsPurged >= 1, 'Should purge old raw med order');
+    assert(cleanupRes.resolvedAlertsPurged >= 1, 'Should purge old resolved alert');
+    assert(cleanupRes.dischargedResidentsPurged >= 1, 'Should purge old discharged resident');
+    assert(cleanupRes.reportsPurged >= 1, 'Should purge old report older than 200 days');
+
+    assert.strictEqual(store.get('snf_med_order', 'old-order-1'), null, 'Old order should be deleted');
+    assert.strictEqual(store.get('snf_alert', 'old-resolved-alert'), null, 'Old resolved alert should be deleted');
+    assert.notStrictEqual(store.get('snf_alert', 'recent-resolved-alert'), null, 'Recent resolved alert should remain');
+    assert.strictEqual(store.get('snf_report_cache', 'old-report'), null, 'Report > 200 days should be deleted');
+    assert.notStrictEqual(store.get('snf_report_cache', 'retained-report'), null, 'Report < 200 days must be preserved');
+  });
+
+  await t.test('System Hardening & Fuzz Testing: Malformed Inputs, Dates, and Async Rollbacks', async () => {
+    // 1. Ingestion of non-array or invalid report payloads
+    const invalidIngest = await snf.ingestReports(null);
+    assert.strictEqual(invalidIngest.success, false);
+    assert.strictEqual(invalidIngest.totalRecords, 0);
+
+    const nonArrayIngest = await snf.ingestReports({ not: 'an array' });
+    assert.strictEqual(nonArrayIngest.success, false);
+
+    // 2. Ingestion of report with corrupted rows, missing IDs, and malformed dates
+    const malformedReport = {
+      reportType: 'Order Changes',
+      reportDate: 'not-a-valid-date-string-###',
+      rows: [
+        null,
+        undefined,
+        "string-row-not-an-object",
+        42,
+        {}, // completely empty row (no resident id)
+        { residentId: null, drugName: 'No ID Drug' },
+        { residentId: 'RES-VALID', drugName: 'Valid Drug', orderDate: 'corrupt-date-999', startDate: undefined },
+        { Resident_ID: 'RES-FALLBACK-ID', Drug_Description: 'Fallback Drug', Order_Date: null }
+      ]
+    };
+
+    const resilientIngest = await snf.ingestReports([malformedReport]);
+    assert.strictEqual(resilientIngest.success, true);
+    assert(resilientIngest.totalRecords >= 2, 'Should gracefully process rows with valid/extractable IDs');
+
+    // 3. Rules Engine Resilience against malformed resident data
+    store.put('snf_resident', 'res-corrupt', {
+      id: 'res-corrupt',
+      name: 'Corrupt Resident',
+      room: null,
+      status: 'Active'
+    });
+
+    store.put('snf_med_order', 'corrupt-med-1', {
+      id: 'corrupt-med-1',
+      residentId: 'res-corrupt',
+      drugName: 'Haldol 5mg',
+      isAntipsychotic: true,
+      startDate: 'invalid-date-string',
+      reportDate: 'totally-bogus-date',
+      importTimestamp: NaN,
+      status: 'Active'
+    });
+
+    // Run rules engine - must not throw RangeError (toISOString) or crash
+    assert.doesNotThrow(() => {
+      snf.runRulesEngine();
+    });
+
+    // 4. Async Transaction Rollback Safety
+    const beforeCount = store.count('snf_resident');
+    let caughtError = false;
+    try {
+      await store.transaction(async () => {
+        store.put('snf_resident', 'res-temp-rollback', { id: 'res-temp-rollback', name: 'Rollback Me' });
+        throw new Error('Simulated async database failure during batch transaction');
+      });
+    } catch (err) {
+      caughtError = true;
+      assert(err.message.includes('Simulated async database failure'));
+    }
+    assert.strictEqual(caughtError, true, 'Transaction error must be rethrown');
+    assert.strictEqual(store.count('snf_resident'), beforeCount, 'Record count must remain identical after async transaction rollback');
+    assert.strictEqual(store.get('snf_resident', 'res-temp-rollback'), null, 'Rolled-back record must not exist in store');
+
+    // 5. Memoization Cache Invalidation
+    const timeline1 = snf.getResidentTimelineReport('Vance');
+    assert(timeline1.includes('Eleanor Vance'));
+    const timeline2 = snf.getResidentTimelineReport('Vance');
+    assert.strictEqual(timeline1, timeline2, 'Cached timeline should return identical report');
+
+    // Invalidate cache and verify fresh generation
+    snf._invalidateCache();
+    const timeline3 = snf.getResidentTimelineReport('Vance');
+    assert(timeline3.includes('Eleanor Vance'));
+
+    // 6. EMR Read-Only Verification
+    const medBefore = store.get('snf_med_order', 'corrupt-med-1');
+    const alerts = snf.getActiveAlerts();
+    if (alerts.length > 0) {
+      snf.acknowledgeAlert(alerts[0].id, 'Nurse User', 'Reviewed');
+    }
+    const medAfter = store.get('snf_med_order', 'corrupt-med-1');
+    assert.deepStrictEqual(medBefore, medAfter, 'Raw EMR records must remain strictly unmodified');
+  });
 });

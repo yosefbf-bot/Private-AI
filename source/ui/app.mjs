@@ -30,7 +30,7 @@ let state,
 const snfUI = createSNFUI({ api, toast, esc, renderPage });
 const formatOptions =
   '<option value="">Save as…</option>' +
-  ["docx", "pdf", "xlsx", "csv", "md", "txt"]
+  ["pdf", "docx", "xlsx", "csv", "md", "txt"]
     .map((f) => `<option value="${f}">${f.toUpperCase()}</option>`)
     .join("");
 async function api(op, data = {}) {
@@ -749,15 +749,17 @@ function settingsHTML() {
       ["30", "30 days"],
       ["60", "60 days"],
       ["90", "90 days"],
+      ["100", "100 days (Default - 90-day quarterly audits)"],
       ["180", "180 days"],
+      ["200", "200 days (Tiered report retention)"],
       ["365", "365 days"],
       ["0", "Keep indefinitely"],
       ["custom", "Custom"],
     ],
-    ["7", "30", "60", "90", "180", "365", "0"].includes(String(s.retentionDays))
+    ["7", "30", "60", "90", "100", "180", "200", "365", "0"].includes(String(s.retentionDays))
       ? s.retentionDays
       : "custom",
-  )}${field("Custom retention in days", "customRetention", s.retentionDays || 90, "number")}</div><p>Cleanup covers expired local history, working files, memories, and job records. It does not delete your original documents or final saved reports.</p><button class="secondary" data-act="cleanup">Run retention cleanup now</button></section>
+  )}${field("Custom retention in days", "customRetention", s.retentionDays || 100, "number")}</div><p>Cleanup covers expired local history, working files, memories, and job records (held 100 days; exported reports held an additional 100 days). It does not delete your original documents.</p><button class="secondary" data-act="cleanup">Run retention cleanup now</button></section>
   <div class="button-row"><button class="primary" data-act="save-settings">Save settings</button><button class="secondary" data-act="new">Start chatting</button></div>
   <section class="section"><h2>Browser Companion</h2><p>Ask beside your webpage. Pages are read only after you explicitly include a page and send your request.</p><button class="secondary" data-act="connect-chrome">Set up browser companion</button><details><summary>Browser installation steps</summary><p>Click the setup button above. For Chrome or Brave, open chrome://extensions; for Edge, open edge://extensions. Enable Developer mode, click Load unpacked, and select the folder that opens. For Firefox, open about:debugging#/runtime/this-firefox, click Load Temporary Add-on, and choose manifest.json in the firefox subfolder. Temporary Firefox installation lasts until Firefox restarts; permanent installation needs Mozilla signing. Pin Private AI Companion. If your organization blocks extension installation, it needs to approve the extension.</p><button class="secondary" data-act="disconnect-chrome">Disconnect browser companions</button></details></section>
   <section class="section"><h2>Custom instructions</h2>${textarea("Instructions used across chats", "customInstructions", s.customInstructions||"")}<p>Project instructions are added for the current project.</p><button data-act="chat-archives">Manage archived chats</button></section><section class="section"><h2>Memory</h2><label class="check"><input name="memoryEnabled" type="checkbox" ${s.memoryEnabled ? "checked" : ""}> Use the memories I explicitly save</label><p>Memory is off by default. Private AI never silently creates permanent memory from chats.</p><button class="secondary" data-act="view" data-view="memory">Review saved memories</button></section><section class="section"><h2>To-Do &amp; Follow-Up Reminders</h2><label class="check"><input name="autoReminders" type="checkbox" ${s.autoReminders !== false ? "checked" : ""}> Remind me automatically on pending follow-ups</label><p>Private AI monitors follow-up dates and deadlines extracted from Outlook emails or manual to-dos, notifying you on this PC when a task is due.</p><button class="secondary" data-act="view" data-view="todos">View To-Do list &amp; reminders</button></section><section class="section clinical-surveillance-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h2 style="margin:0;display:flex;align-items:center;gap:8px;">🏥 Clinical Surveillance &amp; SNF Module <span class="clinical-status-badge ${s.snfEnabled !== false ? 'active' : 'disabled'}">${s.snfEnabled !== false ? '● ACTIVE' : '○ DISABLED'}</span></h2><label class="clinical-toggle-switch" title="Toggle Clinical Surveillance"><input name="snfEnabled" type="checkbox" ${s.snfEnabled !== false ? "checked" : ""}><span class="clinical-toggle-slider"></span></label></div><p style="margin-top:6px;">Continuous safety surveillance of PointClickCare daily orders, admissions, eMAR exceptions, and behavior logs. Surfaces new psychotropics, missing indications, PRN 14-day limits, and persistent clinical alerts. <strong>When turned off, all clinical surveillance banners, sidebar navigation, and healthcare features are completely hidden for a clean, distraction-free assistant.</strong></p>${s.snfEnabled !== false ? '<div style="margin-top:14px;"><button class="secondary" data-act="view" data-view="snf">Open SNF Command Center</button></div>' : ''}</section>
@@ -1237,7 +1239,7 @@ function jobsHTML() {
       .map(
         (j) => {
           const duration = j.durationMs ? `${(j.durationMs / 1000).toFixed(1)}s` : (j.ended && j.started ? `${((new Date(j.ended) - new Date(j.started)) / 1000).toFixed(1)}s` : null);
-          return `<div class="card"><h3>${esc(j.title || "Report")} <span class="pill status-${esc(j.status)}">${esc(j.status)}</span>${duration ? ` <span class="pill" style="font-weight: 500; font-size: 11px;">⏱ ${duration}</span>` : ''}</h3><p>${j.started ? new Date(j.started).toLocaleString() : "Waiting for a Worker / resource slot"}${j.error ? " · " + esc(j.error) : ""}</p><p>${esc(j.reason||'')}</p>${j.step?`<p>Saved step: ${esc(j.step)}</p>`:""}${j.recoverable&&j.status==="failed"?`<button data-act="job-resume" data-id="${j.id}">Review &amp; resume report</button> <button data-act="discard-recovery" data-id="${j.id}">Discard saved recovery data</button>`:""}${j.output ? `<button class="secondary" data-act="job-open" data-path="${esc(j.output)}">Open report</button>` : ""}${j.resultText&&!j.recoverable&&j.status==="failed" ? `<button class="secondary" data-act="retry-export" data-id="${j.id}">Save completed answer as DOCX</button>` : ""}${['running','waiting','paused'].includes(j.status) ? `<button data-act="job-stop" data-id="${j.id}">Stop</button>` : ""}</div>`;
+          return `<div class="card"><h3>${esc(j.title || "Report")} <span class="pill status-${esc(j.status)}">${esc(j.status)}</span>${duration ? ` <span class="pill" style="font-weight: 500; font-size: 11px;">⏱ ${duration}</span>` : ''}</h3><p>${j.started ? new Date(j.started).toLocaleString() : "Waiting for a Worker / resource slot"}${j.error ? " · " + esc(j.error) : ""}</p><p>${esc(j.reason||'')}</p>${j.step?`<p>Saved step: ${esc(j.step)}</p>`:""}${j.recoverable&&j.status==="failed"?`<button data-act="job-resume" data-id="${j.id}">Review &amp; resume report</button> <button data-act="discard-recovery" data-id="${j.id}">Discard saved recovery data</button>`:""}${j.output ? `<button class="secondary" data-act="job-open" data-path="${esc(j.output)}">Open report</button>` : ""}${j.resultText&&!j.recoverable&&j.status==="failed" ? `<button class="secondary" data-act="retry-export" data-id="${j.id}">Save completed answer as PDF</button>` : ""}${['running','waiting','paused'].includes(j.status) ? `<button data-act="job-stop" data-id="${j.id}">Stop</button>` : ""}</div>`;
         }
       )
       .join("") || "<p>No jobs yet.</p>"
@@ -1323,11 +1325,11 @@ async function editTask(type, id) {
       select(
         "Save report as",
         "format",
-        ["docx", "pdf", "xlsx", "csv", "md", "txt"].map((x) => [
+        ["pdf", "docx", "xlsx", "csv", "md", "txt"].map((x) => [
           x,
           x.toUpperCase(),
         ]),
-        a.format || "docx",
+        a.format || "pdf",
       ) +
       fileChecks(a.fileIds) +
       (type === "schedule"
@@ -1926,7 +1928,7 @@ document.addEventListener("click", async (e) => {
         toast("Stop requested.");
         break;
       case "retry-export":
-        await api("retryExport", { id, format: "docx" });
+        await api("retryExport", { id, format: "pdf" });
         await refresh();
         renderPage("worker");
         break;

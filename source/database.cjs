@@ -37,15 +37,65 @@ const META = {
 class Store {
   constructor(file, cipher) {
     this.cipher = cipher;
+    this._stmts = new Map();
     this.db = new DatabaseSync(file);
     try {
       this.db.exec(
-        "PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA secure_delete=ON; PRAGMA synchronous=FULL; PRAGMA temp_store=MEMORY;",
+        "PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA secure_delete=ON; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-32000; PRAGMA mmap_size=67108864;",
       );
       this.migrate();
-      if(Object.values(this.db.prepare("PRAGMA quick_check(1)").get())[0]!=="ok")throw fail("STORAGE");
+      this.db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_records_kind_updated ON records(kind, updated DESC); CREATE INDEX IF NOT EXISTS idx_meta_kind_updated ON record_meta(kind, updated DESC);",
+      );
+      let check = Object.values(this.db.prepare("PRAGMA quick_check(1)").get())[0];
+      if (check !== "ok") {
+        try {
+          this.db.exec("REINDEX;");
+          check = Object.values(this.db.prepare("PRAGMA quick_check(1)").get())[0];
+        } catch {}
+      }
+      if (check !== "ok") throw fail("STORAGE");
     } catch (e) {
       this.db.close();
+      throw e;
+    }
+  }
+  _stmt(sql) {
+    let stmt = this._stmts.get(sql);
+    if (!stmt) {
+      stmt = this.db.prepare(sql);
+      this._stmts.set(sql, stmt);
+    }
+    return stmt;
+  }
+  transaction(fn) {
+    if (this.db.isTransaction) {
+      return fn();
+    }
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const res = fn();
+      if (res && typeof res.then === "function") {
+        return Promise.resolve(res)
+          .then((val) => {
+            if (this.db && this.db.isTransaction) {
+              this.db.exec("COMMIT");
+            }
+            return val;
+          })
+          .catch((err) => {
+            if (this.db && this.db.isTransaction) {
+              this.db.exec("ROLLBACK");
+            }
+            throw err;
+          });
+      }
+      this.db.exec("COMMIT");
+      return res;
+    } catch (e) {
+      if (this.db && this.db.isTransaction) {
+        this.db.exec("ROLLBACK");
+      }
       throw e;
     }
   }
@@ -88,17 +138,15 @@ class Store {
     const transaction = !!META[kind] && !this.db.isTransaction;
     if (transaction) this.db.exec("BEGIN IMMEDIATE");
     try {
-      this.db
-        .prepare(
-          "INSERT INTO records VALUES(?,?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET updated=excluded.updated,expires=excluded.expires,payload=excluded.payload",
-        )
-        .run(
-          kind,
-          id,
-          updated,
-          expires,
-          this.cipher.seal(value, kind + ":" + id),
-        );
+      this._stmt(
+        "INSERT INTO records VALUES(?,?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET updated=excluded.updated,expires=excluded.expires,payload=excluded.payload",
+      ).run(
+        kind,
+        id,
+        updated,
+        expires,
+        this.cipher.seal(value, kind + ":" + id),
+      );
       if (META[kind]) this.putMeta(kind, id, value, updated);
       if (transaction) this.db.exec("COMMIT");
       return value;
@@ -111,63 +159,81 @@ class Store {
     const summary = Object.fromEntries(
       META[kind].map((k) => [k, k === "id" ? id : value[k]]),
     );
-    this.db
-      .prepare(
-        "INSERT INTO record_meta VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET updated=excluded.updated,payload=excluded.payload",
-      )
-      .run(
-        kind,
-        id,
-        updated,
-        this.cipher.seal(summary, "meta:" + kind + ":" + id),
-      );
+    this._stmt(
+      "INSERT INTO record_meta VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET updated=excluded.updated,payload=excluded.payload",
+    ).run(
+      kind,
+      id,
+      updated,
+      this.cipher.seal(summary, "meta:" + kind + ":" + id),
+    );
   }
   summaries(kind) {
     if (!META[kind]) throw fail("INVALID");
-    return this.db
-      .prepare(
-        "SELECT id,payload FROM record_meta WHERE kind=? ORDER BY updated DESC",
-      )
+    return this._stmt(
+      "SELECT id,payload FROM record_meta WHERE kind=? ORDER BY updated DESC",
+    )
       .all(kind)
       .map((r) => this.cipher.open(r.payload, "meta:" + kind + ":" + r.id));
   }
   get(kind, id) {
-    const r = this.db
-      .prepare("SELECT * FROM records WHERE kind=? AND id=?")
-      .get(kind, id);
+    const r = this._stmt("SELECT * FROM records WHERE kind=? AND id=?").get(
+      kind,
+      id,
+    );
     return r ? this.cipher.open(r.payload, kind + ":" + id) : null;
   }
-  project(kind,select) {
-    const result=[];
-    for(const r of this.db.prepare("SELECT id,payload FROM records WHERE kind=? ORDER BY updated DESC").iterate(kind))result.push(select({...this.cipher.open(r.payload,kind+":"+r.id),id:r.id}));
+  project(kind, select) {
+    const result = [];
+    for (const r of this._stmt(
+      "SELECT id,payload FROM records WHERE kind=? ORDER BY updated DESC",
+    ).iterate(kind))
+      result.push(
+        select({ ...this.cipher.open(r.payload, kind + ":" + r.id), id: r.id }),
+      );
     return result;
   }
-  count(kind){return this.db.prepare("SELECT COUNT(*) AS n FROM records WHERE kind=?").get(kind).n;}
+  count(kind) {
+    return this._stmt("SELECT COUNT(*) AS n FROM records WHERE kind=?").get(
+      kind,
+    ).n;
+  }
   list(kind) {
-    return this.db
-      .prepare("SELECT * FROM records WHERE kind=? ORDER BY updated DESC")
+    return this._stmt(
+      "SELECT * FROM records WHERE kind=? ORDER BY updated DESC",
+    )
       .all(kind)
       .map((r) => ({
         ...this.cipher.open(r.payload, kind + ":" + r.id),
         id: r.id,
       }));
   }
-  recent(kind,limit=200) {
-    if(!Number.isSafeInteger(limit)||limit<1||limit>1000)throw fail('INVALID');
-    return this.db.prepare('SELECT id,payload FROM records WHERE kind=? AND (expires IS NULL OR expires>?) ORDER BY updated DESC LIMIT ?').all(kind,Date.now(),limit).map(r=>({...this.cipher.open(r.payload,kind+':'+r.id),id:r.id}));
+  recent(kind, limit = 200) {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
+      throw fail("INVALID");
+    return this._stmt(
+      "SELECT id,payload FROM records WHERE kind=? AND (expires IS NULL OR expires>?) ORDER BY updated DESC LIMIT ?",
+    )
+      .all(kind, Date.now(), limit)
+      .map((r) => ({
+        ...this.cipher.open(r.payload, kind + ":" + r.id),
+        id: r.id,
+      }));
   }
-  deleteKind(kind){if(kind!=='messageIn')throw fail('INVALID');this.db.prepare('DELETE FROM records WHERE kind=?').run(kind);}
+  deleteKind(kind) {
+    if (kind !== "messageIn") throw fail("INVALID");
+    this._stmt("DELETE FROM records WHERE kind=?").run(kind);
+  }
   delete(kind, id) {
     const transaction = !!META[kind] && !this.db.isTransaction;
     if (transaction) this.db.exec("BEGIN IMMEDIATE");
     try {
-      this.db
-        .prepare("DELETE FROM records WHERE kind=? AND id=?")
-        .run(kind, id);
+      this._stmt("DELETE FROM records WHERE kind=? AND id=?").run(kind, id);
       if (META[kind])
-        this.db
-          .prepare("DELETE FROM record_meta WHERE kind=? AND id=?")
-          .run(kind, id);
+        this._stmt("DELETE FROM record_meta WHERE kind=? AND id=?").run(
+          kind,
+          id,
+        );
       if (transaction) this.db.exec("COMMIT");
     } catch (e) {
       if (transaction) this.db.exec("ROLLBACK");
@@ -176,11 +242,10 @@ class Store {
   }
   claim(id) {
     try {
-      this.db.prepare("INSERT INTO claims VALUES(?,?)").run(id, Date.now());
+      this._stmt("INSERT INTO claims VALUES(?,?)").run(id, Date.now());
       return true;
     } catch (e) {
-      if (this.db.prepare("SELECT id FROM claims WHERE id=?").get(id))
-        return false;
+      if (this._stmt("SELECT id FROM claims WHERE id=?").get(id)) return false;
       throw e;
     }
   }
@@ -229,8 +294,10 @@ class Store {
     return true;
   }
   cleanup(days, now = Date.now()) {
-    const counts = { chats: 0, files: 0, memory: 0, jobs: 0, usage: 0, messages: 0 };
+    const counts = { chats: 0, files: 0, memory: 0, jobs: 0, usage: 0, messages: 0, reports: 0 };
     const cutoff = days ? now - days * 86400000 : null;
+    // Reports and results from raw data are held for an additional 100 days (e.g., 100 + 100 = 200 days default)
+    const reportCutoff = days ? now - (days + 100) * 86400000 : null;
     this.db.exec("BEGIN IMMEDIATE");
     let committed = false;
     try {
@@ -238,19 +305,31 @@ class Store {
         for (const r of this.db
           .prepare("SELECT id,updated,expires FROM records WHERE kind=?")
           .all(kind)) {
-          const value = kind === "job" ? this.get(kind, r.id) : null;
-          if (kind === "job" && ["queued", "running", "waiting", "paused"].includes(value.status))
+          const value = (kind === "job" || kind === "file") ? this.get(kind, r.id) : null;
+          if (kind === "job" && ["queued", "running", "waiting", "paused"].includes(value?.status))
             continue;
+
+          let targetCutoff = cutoff;
+          const isReportFile = kind === "file" && (value?.subfolder === "Reports" || value?.isReport || value?.ext === ".pdf" || value?.name?.endsWith(".pdf") || value?.name?.includes("Report"));
+          const isReportJob = kind === "job" && (value?.output?.includes("Reports") || value?.format === "pdf" || value?.title?.toLowerCase().includes("report"));
+          if (isReportFile || isReportJob) {
+            targetCutoff = reportCutoff;
+          }
+
           if (
             (r.expires && r.expires <= now) ||
-            (cutoff && kind !== "memory" && r.updated < cutoff)
+            (targetCutoff && kind !== "memory" && r.updated < targetCutoff)
           ) {
             this.delete(kind, r.id);
-            counts[
-              { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages" }[
-                kind
-              ]
-            ]++;
+            if (isReportFile || isReportJob) {
+              counts.reports++;
+            } else {
+              counts[
+                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages" }[
+                  kind
+                ]
+              ]++;
+            }
           }
         }
       this.db.exec("COMMIT");
@@ -272,6 +351,7 @@ class Store {
   }
   close() {
     if (this.db) {
+      this._stmts.clear();
       this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
       this.db.close();
       this.db = null;

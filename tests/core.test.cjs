@@ -5,10 +5,10 @@ const fs = require("node:fs"),
 const { fixture } = require("./helpers.cjs");
 const { Store } = require("../source/database.cjs");
 const { uuid } = require("../source/security.cjs");
-test("HIPAA and 90-day retention are defaults; no automatic memory", (t) => {
+test("HIPAA and 100-day retention are defaults; no automatic memory", (t) => {
   const { core } = fixture(t);
   assert.equal(core.settings().hipaa, true);
-  assert.equal(core.settings().retentionDays, 90);
+  assert.equal(core.settings().retentionDays, 100);
   assert.equal(core.settings().memoryEnabled, false);
 });
 test("Chat save, stream, close, and reopen preserve content", async (t) => {
@@ -135,7 +135,7 @@ test("Schema migration preserves existing encrypted chat and settings", (t) => {
   core.store.close();
   core.store = new Store(path.join(root, "privateai.db"), cipher);
   assert.equal(core.chat(c.id).title, "Before upgrade");
-  assert.equal(core.settings().retentionDays, 90);
+  assert.equal(core.settings().retentionDays, 100);
   assert.equal(
     core.store.db.prepare("PRAGMA user_version").get().user_version,
     3,
