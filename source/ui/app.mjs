@@ -1,3 +1,6 @@
+import {migrateLegacyStorage} from "./legacy-storage.mjs";
+import {createTodayUI} from "./snf/today.mjs";
+import {createImportCenter} from "./snf/import-center.mjs";
 import {responseLayout} from "./response-layout.mjs";
 import {createMessagingUI} from "./messaging.mjs";
 import {createBrowserUI} from "./browser-recipes.mjs";
@@ -27,6 +30,8 @@ let state,
   editing = null,
   toastTimer,
   streamTimer;
+const todayUI=createTodayUI({api,esc,toast,refresh,renderPage});
+const importUI=createImportCenter({api,esc,toast});
 const snfUI = createSNFUI({ api, toast, esc, renderPage });
 const formatOptions =
   '<option value="">Save as…</option>' +
@@ -49,8 +54,11 @@ function toast(message) {
 }
 async function refresh() {
   state = await api("summary");
+  document.body.classList.toggle("advanced",state.settings.uiAdvanced===true);
+  voiceTranscriptCache=state.voiceTranscripts||[];
   renderSidebar();
   updateTop();
+  const banner=$("development-mode-banner"); if(banner){banner.hidden=!state.developmentMode;banner.textContent=state.modeLabel||"";}
   populateVoiceAgents();
 }
 function renderChatHistory() {
@@ -67,12 +75,10 @@ function renderChatHistory() {
 function renderSidebar() {
   const snfEnabled = state.settings.snfEnabled !== false;
   const alertBar = $("universal-alert-bar");
-  if (alertBar) alertBar.style.display = snfEnabled ? "" : "none";
+  if (alertBar) alertBar.style.display = snfEnabled || state.snfAlerts?.critical > 0 ? "" : "none";
   const snfNavBtn = $("snf-sidebar-btn");
   if (snfNavBtn) snfNavBtn.style.display = snfEnabled ? "" : "none";
-  if (snfEnabled) {
-    snfUI?.updateUniversalAlertBar(state.snfAlerts);
-  }
+  snfUI?.updateUniversalAlertBar(state.snfAlerts);
   const updated=new Date(state.buildInfo?.updatedAt||'');
   $('last-updated').textContent='Last updated: '+(Number.isNaN(updated.getTime())?'unavailable':updated.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}));
   renderChatHistory();
@@ -86,6 +92,8 @@ function updateTop() {
   const ramPart=ram?`Hardware RAM: ${ram.totalGB} GB (${ram.availableGB} GB Free · ${ram.statusBadge}) · `:``;
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
   const names = {
+    today: "Today",
+    pcc: "PCC Import Center",
     chat: chat?.title || "New chat",
     snf: "🏥 SNF Clinical Surveillance Command Center",
     projects: "Projects",
@@ -99,16 +107,7 @@ function updateTop() {
     memory: "Memory",health:"Health & recovery",guide:"User guide",
   };
   $("view-title").textContent = names[view] || "Private AI";
-  const provNames = {
-    local: "Local Assistant",
-    ollama: "Ollama (Local)",
-    gemini: "Gemini",
-    anthropic: "Claude",
-    openai: "OpenAI",
-    deepseek: "DeepSeek",
-    groq: "Groq",
-    custom: "Custom Server"
-  };
+  const provNames = Object.fromEntries(Object.values(state.providers || {}).map(p => [p.id, p.name]));
   const modeName = ({"smart-hybrid":"Smart Hybrid","local-first":"Local First","cloud-first":"Cloud First","local-only":"Local Only"}[state.settings.processingMode] || "Smart Hybrid");
   const activeProv = state.settings.provider || (state.keySaved ? "openai" : "local");
   $("model-label").textContent = `${modeName} · ${provNames[activeProv] || activeProv}`;
@@ -335,7 +334,7 @@ function renderChat() {
     chat.messages
       .map(
         (m, i) =>
-          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body)}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}${m.processing.localReliability!==null&&m.processing.localReliability!==undefined?" · Local score before escalation: "+m.processing.localReliability:""}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div>` : ""}${m.usage ? `<div class="usage">${m.usage.inputTokens.toLocaleString()} input · ${m.usage.outputTokens.toLocaleString()} OpenAI output tokens</div>` : ""}</article>`,
+          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration advanced-only ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body)}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<details class="response-details"><summary>Details</summary><div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}${m.processing.localReliability!==null&&m.processing.localReliability!==undefined?" · Local score before escalation: "+m.processing.localReliability:""}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div></details>` : ""}${m.usage ? `<details class="response-details"><summary>Token usage</summary><div class="usage">${m.usage.inputTokens.toLocaleString()} input · ${m.usage.outputTokens.toLocaleString()} output tokens</div></details>` : ""}</article>`,
       )
       .join("") +
     "</div>";
@@ -618,7 +617,7 @@ async function confirmAction(title, message, button = "Continue") {
 }
 function healthHTML(){
   const h=state.health||{},s=state.settings,r=state.resources||{};
-  const ram=state.ramProfile||h.ramProfile||{totalGB:h.totalRAMGB||16,availableGB:h.availableRAMGB||3,profile:'conservative',statusBadge:'Conservative Mode (Compact Models)',description:'Host RAM is conserved for background clinical apps.',tierCap:'medium',keepAlive:'0s',threadBudget:4,recommendedModels:['qwen2.5:1.5b','llama3.2:1b']};
+  const ram=state.ramProfile||h.ramProfile||{totalGB:h.totalRAMGB||16,availableGB:h.availableRAMGB||3,profile:'conservative',statusBadge:'Conservative Mode (Compact Models)',description:'Host RAM is conserved for background clinical apps.',tierCap:'medium',keepAlive:'0s',threadBudget:4,recommendedModels:state.providers?.ollama?.ramModels?.conservative||[]};
   return `<div class="page"><h1>Health &amp; recovery</h1><p>Private AI ${esc(h.version)} · ${h.safeStartup?'Safe startup after an unclean exit. Background work is paused.':'Startup state recorded.'}</p>
   <section class="section">
     <h2>Hardware Memory &amp; Upgrade Awareness</h2>
@@ -635,7 +634,7 @@ function healthHTML(){
         <div>• <strong>Optimal Local Models:</strong> ${esc((ram.recommendedModels||[]).join(', '))}</div>
       </div>
       <p style="margin-top:10px; font-size:12px; color:var(--text-muted, #555); background:rgba(37,99,235,0.08); padding:10px 14px; border-radius:6px; border:1px solid rgba(37,99,235,0.18)">
-        <strong>Zero-Touch Upgrade Guarantee:</strong> Private AI reads host physical RAM and real-time available headroom dynamically. When you install your additional 16 GB of RAM (bringing the machine to 32 GB), Private AI will instantly detect the expanded memory on startup and automatically unlock 7B/8B model tiers, boost threads, and extend warm-cache retention without requiring any manual setup or changes.
+        <strong>RAM detection:</strong> Private AI checks installed and available RAM on startup. Model eligibility also depends on current memory pressure, configured limits and the installed runtime; review settings after a hardware change.
       </p>
     </div>
   </section>
@@ -785,67 +784,13 @@ const AUTOSAVE_STORAGE_KEY = "private_ai_chat_autosave";
 const AUTOSAVE_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes (resource conservation)
 let autosaveTimer = null;
 
-function autosaveChatState() {
-  try {
-    const promptVal = $("prompt")?.value || "";
-    if (!chat && !promptVal.trim()) return;
-
-    const payload = {
-      chatId: chat?.id || null,
-      title: chat?.title || "Active chat",
-      messages: chat?.messages ? [...chat.messages] : [],
-      prompt: promptVal,
-      temporary: Boolean(chat?.temporary),
-      savedAt: Date.now(),
-      savedTimeFormatted: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    localStorage.setItem(AUTOSAVE_STORAGE_KEY, JSON.stringify(payload));
-
-    const composeStatus = $("compose-status");
-    if (composeStatus && view === "chat" && !sending) {
-      composeStatus.textContent = `Autosaved (${payload.savedTimeFormatted})`;
-      setTimeout(() => {
-        if (composeStatus.textContent.startsWith("Autosaved")) {
-          composeStatus.textContent = "";
-        }
-      }, 3000);
-    }
-  } catch (err) {
-    console.warn("Autosave notice:", err);
-  }
+async function autosaveChatState(){
+  if(chat&&!chat.temporary) await api('saveDraft',{id:chat.id,text:$('prompt')?.value||''}).catch(()=>{});
 }
-
-function restoreAutosavedStateIfNeeded() {
-  try {
-    const raw = localStorage.getItem(AUTOSAVE_STORAGE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    if ($("prompt") && !$("prompt").value.trim() && data.prompt && data.prompt.trim()) {
-      if (Date.now() - data.savedAt < 24 * 60 * 60 * 1000) {
-        $("prompt").value = data.prompt;
-        autoResizePrompt();
-        const composeStatus = $("compose-status");
-        if (composeStatus) {
-          composeStatus.textContent = `Restored autosaved draft (${data.savedTimeFormatted || ''})`;
-          setTimeout(() => {
-            if (composeStatus.textContent.startsWith("Restored")) {
-              composeStatus.textContent = "";
-            }
-          }, 4000);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Failed to check autosave restoration:", err);
-  }
-}
-
-function initAutosave() {
-  if (autosaveTimer) clearInterval(autosaveTimer);
-  autosaveTimer = setInterval(autosaveChatState, AUTOSAVE_INTERVAL_MS);
-  window.addEventListener("beforeunload", autosaveChatState);
-  restoreAutosavedStateIfNeeded();
+function initAutosave(){
+  // Drafts already use encrypted Store through saveDraft; remove unsafe legacy copies.
+  // Legacy recovery is completed by migrateLegacyStorage during init.
+  if(autosaveTimer)clearInterval(autosaveTimer);
 }
 
 // ============================================================================
@@ -853,34 +798,11 @@ function initAutosave() {
 // ============================================================================
 const VOICE_TRANSCRIPTS_KEY = "private_ai_voice_transcripts";
 
-function getVoiceTranscripts() {
-  try {
-    const raw = localStorage.getItem(VOICE_TRANSCRIPTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function logVoiceTranscript({ text, mode = "Voice Mode" }) {
-  if (!text || !text.trim()) return;
-  try {
-    const list = getVoiceTranscripts();
-    const entry = {
-      id: "vt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
-      text: text.trim(),
-      timestamp: Date.now(),
-      dateStr: new Date().toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      mode: mode || "Voice Mode",
-      wordCount: text.trim().split(/\s+/).filter(Boolean).length
-    };
-    list.unshift(entry);
-    if (list.length > 100) list.length = 100;
-    localStorage.setItem(VOICE_TRANSCRIPTS_KEY, JSON.stringify(list));
-    return entry;
-  } catch (err) {
-    console.warn("Voice transcript logging notice:", err);
-  }
+let voiceTranscriptCache=[];
+function getVoiceTranscripts(){return voiceTranscriptCache.map(t=>({...t,dateStr:new Date(t.timestamp).toLocaleString(),wordCount:t.text.split(/\s+/).length}));}
+function logVoiceTranscript({text,mode='Voice Mode'}){
+  if(!text?.trim()||chat?.temporary)return;
+  api('voiceTranscriptSave',{text,mode}).then(entry=>{if(entry)voiceTranscriptCache.unshift(entry);}).catch(e=>toast(e.message));
 }
 
 function renderVoiceTranscriptsList() {
@@ -921,16 +843,8 @@ function renderVoiceTranscriptsList() {
 function settingsHTML() {
   const s = state.settings;
   const currentProvider = s.provider || (state.keySaved ? "openai" : "local");
-  const provs = state.providers || {
-    local: { name: "Local Assistant (No API Key)", description: "Runs 100% on this PC with zero cloud API keys, zero network data transmission, and zero subscription or token costs.", models: ["local-knowledge-engine", "local-clinical-engine", "local-rules-engine"] },
-    ollama: { name: "Ollama (Local Daemon)", description: "Connects to your local Ollama daemon (http://127.0.0.1:11434). 100% offline, zero API keys, and includes automated memory unloading (keep_alive) to protect your PC RAM.", models: ["qwen2.5:1.5b", "llama3.2:1b", "llama3.2:3b", "qwen2.5:3b", "qwen2.5:7b", "deepseek-r1:1.5b", "deepseek-r1:7b"] },
-    gemini: { name: "Google Gemini", description: "Google AI Studio API key (starts with AIzaSy...). Ultra-fast reasoning and multimodal capabilities.", models: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"] },
-    anthropic: { name: "Anthropic Claude", description: "Anthropic API key (starts with sk-ant-...). Exceptional nuanced reasoning and clinical safety analysis.", models: ["claude-3-7-sonnet-20250219", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"] },
-    openai: { name: "OpenAI", description: "OpenAI API key (starts with sk-...). GPT-4o, o3-mini, and advanced reasoning models.", models: ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "gpt-4-turbo"] },
-    deepseek: { name: "DeepSeek", description: "DeepSeek API key (starts with sk-...). Cost-effective high-capability reasoning and chat models.", models: ["deepseek-chat", "deepseek-reasoner"] },
-    groq: { name: "Groq", description: "Groq Cloud API key (starts with gsk_...). Ultra-low latency LPU inference.", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"] },
-    custom: { name: "Custom / OpenAI-Compatible", description: "Connect to any OpenAI-compatible API endpoint, local Ollama/LM Studio server, or OpenRouter gateway.", models: ["llama3.2", "mistral", "qwen2.5", "custom"] }
-  };
+  const provs = state.providers;
+  if (!provs) return `<div class="page error-note">Provider registry unavailable. Reload the application.</div>`;
   const activeProv = provs[currentProvider] || provs.local;
   const hasKey = currentProvider === "local" || currentProvider === "ollama" ? true : !!(state.savedProviders && state.savedProviders[currentProvider]);
 
@@ -963,7 +877,7 @@ function settingsHTML() {
         <div style="background:var(--bg-subtle, rgba(0,0,0,0.03)); border-radius:6px; padding:8px 12px; margin:8px 0; font-size:13px; line-height:1.5;">
           <strong>Hardware RAM State:</strong> ${esc(ram.totalGB)} GB Installed (${esc(ram.availableGB)} GB Free) · <span class="badge ${ram.profile==='expanded'?'success':ram.profile==='balanced'?'info':'warning'}">${esc(ram.statusBadge)}</span><br>
           Auto unloader: <code>keep_alive: ${esc(ram.keepAlive)}</code> | Threads: <code>${esc(ram.threadBudget)}</code> | Safe tier: <code>${esc(ram.tierCap?.toUpperCase())}</code><br>
-          <span style="font-size:12px; color:var(--text-muted, #666);">Zero-touch upgrade: When you install your additional 16 GB of RAM, Private AI will automatically detect 32 GB on next boot, raising tier caps and keeping models warm in cache with zero configuration required.</span>
+          <span style="font-size:12px; color:var(--text-muted, #666);">RAM is detected at startup to adjust model size limits and memory retention. Recheck inference after a hardware change.</span>
         </div>
         ${field("Ollama Daemon URL", "ollamaEndpoint", s.ollamaEndpoint || "http://127.0.0.1:11434", "text", "Default: http://127.0.0.1:11434")}
         <div class="button-row">
@@ -972,9 +886,9 @@ function settingsHTML() {
         </div>
       </div>
       <label class="field">Active Ollama Model
-        <input name="model" list="model-list" value="${esc(s.model || (ram.profile === 'expanded' ? 'qwen2.5:7b' : 'qwen2.5:1.5b'))}" placeholder="e.g. qwen2.5:1.5b, llama3.2:1b, llama3.2:3b, qwen2.5:7b">
+        <input name="model" list="model-list" value="${esc(s.model || ram.recommendedModels?.[0] || activeProv.defaultModel || '')}" placeholder="Load installed models or enter an installed model ID">
         <datalist id="model-list">${(activeProv.models || []).map(m => `<option value="${esc(m)}"></option>`).join("")}</datalist>
-        <small>${ram.profile === 'expanded' ? 'High RAM detected: 7B and 8B models (e.g. qwen2.5:7b, llama3.1:8b) run smoothly with extended memory retention.' : 'Conservative mode active: compact models (e.g. <strong>qwen2.5:1.5b</strong> or <strong>llama3.2:1b</strong>) run with zero post-task memory footprint.'}</small>
+        <small>Suggested model sizes reflect available RAM; installed models and performance must be checked on this PC.</small>
       </label>
     `;
   } else if (currentProvider === "custom") {
@@ -990,7 +904,7 @@ function settingsHTML() {
         </div>
       </div>
       <label class="field">Model
-        <input name="model" list="model-list" value="${esc(s.model || 'llama3.2')}" placeholder="e.g. llama3.2, mistral, qwen2.5">
+        <input name="model" list="model-list" value="${esc(s.model || activeProv.defaultModel || '')}" placeholder="Model ID configured on this server">
         <datalist id="model-list">${(activeProv.models || []).map(m => `<option value="${esc(m)}"></option>`).join("")}</datalist>
         <small>Enter the model name hosted by your local or remote server.</small>
       </label>
@@ -1000,7 +914,7 @@ function settingsHTML() {
     const keyHint = currentProvider === 'gemini' ? 'Google AI Studio key (starts with AIzaSy...)' : currentProvider === 'anthropic' ? 'Anthropic key (starts with sk-ant-...)' : currentProvider === 'groq' ? 'Groq key (starts with gsk_...)' : 'API key (starts with sk-...)';
     providerSection = `
       <div class="provider-box">
-        <div class="provider-badge ${hasKey ? 'success' : 'warning'}">${hasKey ? '✓ ' + esc(activeProv.name) + ' key is saved securely with Windows encryption' : 'No API key currently saved for ' + esc(activeProv.name)}</div>
+        <div class="provider-badge ${hasKey ? 'success' : 'warning'}">${hasKey ? '✓ ' + esc(activeProv.name) + (state.developmentMode ? ' key is saved in the development vault (not DPAPI)' : ' key is saved in the desktop encrypted vault') : 'No API key currently saved for ' + esc(activeProv.name)}</div>
         <p class="provider-desc">${esc(activeProv.description)}</p>
         ${field("API key", "apiKey", "", "password", keyHint)}
         <div class="button-row">
@@ -1018,9 +932,9 @@ function settingsHTML() {
     `;
   }
 
-  return `<div class="page"><h1>Make Private AI yours</h1><p class="subtitle">Set up once, then open Private AI and start working.</p><section class="section"><h2>1. AI Provider &amp; API Key Configuration</h2><p>You can run Private AI completely locally on this PC without an API key or subscription, or connect an API key for Google Gemini, Anthropic Claude, OpenAI, DeepSeek, Groq, or custom endpoints.</p><label class="field">Selected AI Provider<select name="provider" id="provider-select"><option value="local" ${currentProvider==='local'?'selected':''}>Local Assistant (No API Key Required) — 100% on this PC</option><option value="ollama" ${currentProvider==='ollama'?'selected':''}>Ollama (Local Daemon at localhost:11434) — No Key Needed</option><option value="gemini" ${currentProvider==='gemini'?'selected':''}>Google Gemini (Google AI Studio Key: AIzaSy...)</option><option value="anthropic" ${currentProvider==='anthropic'?'selected':''}>Anthropic Claude (API Key: sk-ant-...)</option><option value="openai" ${currentProvider==='openai'?'selected':''}>OpenAI (API Key: sk-...)</option><option value="deepseek" ${currentProvider==='deepseek'?'selected':''}>DeepSeek (API Key: sk-...)</option><option value="groq" ${currentProvider==='groq'?'selected':''}>Groq (Ultra-Fast LPU Key: gsk_...)</option><option value="custom" ${currentProvider==='custom'?'selected':''}>Custom / OpenAI-Compatible (Ollama, LM Studio, vLLM, OpenRouter)</option></select></label>${providerSection}</section>
+  return `<div class="page"><h1>Make Private AI yours</h1><label class="check"><input name="uiAdvanced" type="checkbox" ${s.uiAdvanced ? "checked" : ""}> Advanced response details</label><p class="subtitle">Set up once, then open Private AI and start working.</p><section class="section"><h2>1. AI Provider &amp; API Key Configuration</h2><p>You can run Private AI completely locally on this PC without an API key or subscription, or connect an API key for Google Gemini, Anthropic Claude, OpenAI, DeepSeek, Groq, or custom endpoints.</p><label class="field">Selected AI Provider<select name="provider" id="provider-select">${Object.values(provs).map(p=>`<option value="${esc(p.id)}" ${currentProvider===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>${providerSection}</section>
   <section class="section"><h2>2. Choose where reports are saved</h2><p>Choose a normal folder or your approved ShareSync folder. You can change it later.</p><div class="path-display">${esc(s.workspace || "No work folder selected")}</div><div class="button-row"><button class="primary" data-act="choose-workspace">Choose folder</button><button class="secondary" data-act="open-workspace">Open folder</button></div><p>Finished reports stay here until you remove them. Private history, keys, and settings stay on this PC.</p></section>
-  <section class="section"><h2>3. Privacy and retention</h2><label class="check"><input name="hipaa" type="checkbox" ${s.hipaa ? "checked" : ""}> HIPAA mode</label><p>PHI use requires your organization’s approved devices and policies, an applicable OpenAI BAA, and approved API retention and endpoint configuration. This switch does not verify or establish compliance.</p><label class="check"><input name="approved" type="checkbox" ${s.approved ? "checked" : ""}> I confirm that my organization has approved this API project, its BAA and retention configuration, and these devices for the information I will use.</label><div class="fields">${select(
+  <section class="section"><h2>3. Privacy and retention</h2><label class="check"><input name="hipaa" type="checkbox" ${s.hipaa ? "checked" : ""}> HIPAA mode</label><p>PHI use requires your organization’s approved devices and policies, an applicable OpenAI BAA, and approved API retention and endpoint configuration. This switch does not verify or establish compliance.</p><label class="check"><input name="approved" type="checkbox" ${s.approved ? "checked" : ""}> Approved for this organization’s configured HIPAA workflow. I confirm organizational/contractual approval of this provider, endpoint, project, credentials and retention settings. Save configuration changes first, then approve the saved configuration.</label><div class="fields">${select(
     "Keep local chat history",
     "retentionDays",
     [
@@ -1432,11 +1346,13 @@ async function init() {
     await refresh();
     initVoice();
     initAutosave();
+    await migrateLegacyStorage(api,localStorage,AUTOSAVE_STORAGE_KEY,VOICE_TRANSCRIPTS_KEY);
     const isLocal = state.settings.provider === "local" || (!state.keySaved && state.settings.provider !== "openai");
+    if (state.settings.snfEnabled!==false) {renderPage("today");return;}
     if (!isLocal && !state.settings.localModelPath && (!state.keySaved || !state.settings.model)) {
       view = "processing";
       renderPage(view);
-    } else renderChat();
+    } else if(state.settings.snfEnabled!==false) renderPage("today"); else renderChat();
   } catch (e) {
     if (view !== "locked") toast(e.message);
   }
@@ -1449,6 +1365,10 @@ function renderPage(name) {
   view = name;
   updateTop();
   renderSidebar();
+  if (["today","pcc"].includes(name)) {
+    $("content").innerHTML="<p>Loading…</p>";
+    (name==="today"?todayUI:importUI).render($("content")).catch(e=>toast(e.message));return;
+  }
   if (name === "snf") {
     snfUI.render($("content"));
     return;
@@ -1800,16 +1720,7 @@ document.addEventListener("change", async (e) => {
   if (e.target.name === "provider") {
     try {
       const selected = e.target.value;
-      const defModels = {
-        local: "local-knowledge-engine",
-        ollama: "qwen2.5:1.5b",
-        gemini: "gemini-2.5-flash",
-        anthropic: "claude-3-7-sonnet-20250219",
-        openai: "gpt-4o",
-        deepseek: "deepseek-chat",
-        groq: "llama-3.3-70b-versatile",
-        custom: "llama3.2"
-      };
+      const defModels = Object.fromEntries(Object.entries(state.providers).map(([id,p])=>[id,p.defaultModel]));
       await api("settings", {
         provider: selected,
         model: defModels[selected] || state.settings.model
@@ -1828,13 +1739,13 @@ document.addEventListener("change", async (e) => {
       await api("settings", { snfEnabled: enabled });
       await refresh();
       if (!enabled) {
-        snfUI?.updateUniversalAlertBar({ critical: 0, high: 0, review: 0, totalUnresolved: 0 });
+        snfUI?.updateUniversalAlertBar(state.snfAlerts);
         if (view === "snf") renderChat();
-        toast("Clinical Surveillance disabled. SNF elements hidden.");
+        toast("Clinical navigation disabled. Unresolved critical alerts remain visible.");
       } else {
         toast("Clinical Surveillance enabled.");
         api("snfDashboard").then(m => {
-          if (m?.alerts) snfUI?.updateUniversalAlertBar(m.alerts);
+          if (m?.productionAlerts) snfUI?.updateUniversalAlertBar(m.productionAlerts);
         }).catch(() => {});
       }
       renderPage("settings");
@@ -1899,6 +1810,7 @@ document.addEventListener("click", async (e) => {
       }
       case "clear-all-voice-transcripts": {
         if (await confirmAction("Clear Voice Transcripts?", "This will remove all recent voice-to-text input logs from your local device.", "Clear")) {
+          await api("voiceTranscriptClear"); voiceTranscriptCache=[];
           localStorage.removeItem(VOICE_TRANSCRIPTS_KEY);
           toast("Voice transcript history cleared.");
           const container = $("voice-transcripts-container");
@@ -1935,7 +1847,7 @@ document.addEventListener("click", async (e) => {
       }
       case "delete-transcript": {
         const listAfterDel = getVoiceTranscripts().filter(t => t.id !== id);
-        localStorage.setItem(VOICE_TRANSCRIPTS_KEY, JSON.stringify(listAfterDel));
+        await api("voiceTranscriptDelete",{id}); voiceTranscriptCache=listAfterDel;
         toast("Transcript removed.");
         const containerDel = $("voice-transcripts-container");
         if (containerDel) containerDel.innerHTML = renderVoiceTranscriptsList();
@@ -1955,6 +1867,11 @@ document.addEventListener("click", async (e) => {
         break;
       case "chat":
         await openChat(id);
+        break;
+      case "production-today":
+        await api("snfDemo", {mode:"production"});
+        await refresh();
+        renderPage("today");
         break;
       case "view":
         if (!state) break;
@@ -2348,6 +2265,7 @@ async function saveSettings() {
     model: val("model").value.trim(),
     hipaa,
     approved: val("approved").checked,
+    uiAdvanced: !!val("uiAdvanced")?.checked,
     publicModeConfirmed,
     retentionDays: Number(
       days === "custom" ? val("customRetention").value : days,
@@ -2412,3 +2330,4 @@ setInterval(() => {
       .catch(() => {});
 }, 30000);
 init();
+

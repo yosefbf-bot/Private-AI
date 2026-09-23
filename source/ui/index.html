@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <div id="development-mode-banner" hidden role="alert"></div>
     <div id="app">
       <aside id="sidebar">
         <div id="sidebar-body">
@@ -26,6 +27,8 @@
         <button class="nav voice-sidebar-item" data-act="voice-toggle" id="voice-sidebar-btn" title="Toggle First-Class Voice Mode (Ctrl+Shift+V)">
           🎙 Voice Mode <span class="voice-badge" id="voice-sidebar-badge">Ready</span>
         </button>
+        <button class="nav" data-act="view" data-view="today">Today</button>
+        <button class="nav" data-act="view" data-view="pcc">PCC Import Center</button>
         <button class="nav snf-sidebar-item" data-act="view" data-view="snf" id="snf-sidebar-btn" title="Open SNF Command Center & Clinical Surveillance">
           🏥 SNF Surveillance <span class="snf-sidebar-badge" id="snf-sidebar-badge">0 Alerts</span>
         </button>
@@ -73,7 +76,7 @@
           </div>
           <div class="alert-bar-right">
             <span class="alert-bar-pcc-status" id="bar-pcc-freshness">PCC Data Current Through: Checking…</span>
-            <button type="button" class="alert-bar-btn" data-act="view" data-view="snf" title="Open SNF Command Center">Open Command Center →</button>
+            <button type="button" class="alert-bar-btn" data-act="production-today" title="Review production clinical alerts">Review production alerts →</button>
           </div>
         </div>
         <header id="topbar">
@@ -252,3 +255,4 @@
     <script type="module" src="app.mjs"></script>
   </body>
 </html>
+

@@ -2937,3 +2937,12 @@ summary {
 
 
 
+
+
+#development-mode-banner { background:#9f241f;color:white;padding:10px;text-align:center;font-weight:700;position:fixed;top:0;left:0;right:0;z-index:9999; }
+body:has(#development-mode-banner:not([hidden])) { padding-top:42px; }
+.today-brief {white-space:pre-wrap;font:inherit;line-height:1.6;}
+.today-page .card {margin:10px 0;} .today-page details pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:500px;overflow:auto;}
+.response-details {font-size:12px;color:var(--muted,#64748b);margin-top:6px;}
+.advanced-only {display:none;} body.advanced .advanced-only {display:inline;}
+.severity-medium {border-left:4px solid #d97706;} .severity-informational {border-left:4px solid #2563eb;}

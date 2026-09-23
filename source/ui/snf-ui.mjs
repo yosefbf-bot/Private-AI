@@ -34,9 +34,9 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     if (revEl) revEl.textContent = alertsSummary.review || 0;
 
     if (bannerEl) {
-      if (alertsSummary.criticalUnacknowledged > 0) {
+      if (alertsSummary.critical > 0) {
         bannerEl.hidden = false;
-        bannerEl.textContent = `⚠️ ${alertsSummary.criticalUnacknowledged} CRITICAL CLINICAL ITEM(S) REQUIRE IMMEDIATE REVIEW`;
+        bannerEl.textContent = `⚠️ ${alertsSummary.critical} CRITICAL CLINICAL ITEM(S) REQUIRE IMMEDIATE REVIEW`;
       } else {
         bannerEl.hidden = true;
       }
@@ -44,7 +44,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
     if (freshEl && alertsSummary.feedStatus) {
       const fs = alertsSummary.feedStatus;
-      freshEl.textContent = `PCC Current: ${fs.dataCurrentThroughFormatted} (${fs.isSurveillanceComplete ? '✅ Verified' : '⚠️ Feed Alert'})`;
+      freshEl.textContent = `PCC Current: ${fs.dataCurrentThroughFormatted} (${fs.isSurveillanceComplete ? 'Feeds current' : '⚠️ Feed Alert'})`;
       freshEl.className = 'alert-bar-pcc-status ' + (fs.isSurveillanceComplete ? 'status-ok' : 'status-warn');
     }
 
@@ -71,8 +71,8 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
       currentMedChanges = medChanges || [];
       currentPsychWatch = psychWatch || {};
       currentPCCReports = pccReports || [];
-      if (metrics?.alerts) {
-        updateUniversalAlertBar(metrics.alerts);
+      if (metrics?.productionAlerts) {
+        updateUniversalAlertBar(metrics.productionAlerts);
       }
     } catch (e) {
       toast('Failed to load SNF surveillance data: ' + e.message);
@@ -105,7 +105,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     } else if (alertSeverityFilter === 'high') {
       filteredAlerts = filteredAlerts.filter(a => a.severity === 'high' && a.status !== 'resolved');
     } else if (alertSeverityFilter === 'review') {
-      filteredAlerts = filteredAlerts.filter(a => a.severity === 'review' && a.status !== 'resolved');
+      filteredAlerts = filteredAlerts.filter(a => a.severity === 'medium' && a.status !== 'resolved');
     }
 
     if (alertSearchQuery.trim()) {
@@ -122,6 +122,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
     container.innerHTML = `
       <div class="page snf-page">
+        ${m.demo ? '<p class="error-note" role="alert">DEMO DATA — NOT FOR CLINICAL USE</p>' : ''}
         <!-- HEADER -->
         <div class="snf-header">
           <div class="snf-header-titles">
@@ -132,14 +133,14 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
               </span>
             </div>
             <p class="snf-subtitle">
-              Continuous read-only surveillance for PointClickCare exports · Fail-safe monitoring · F-Tag F758 compliance &amp; persistent alert lifecycle
+              Continuous read-only surveillance for PointClickCare exports · Feed validation · human review &amp; persistent alert lifecycle
             </p>
           </div>
           <div class="snf-header-actions">
             <button class="primary" id="snf-btn-run-rules" title="Re-evaluate all clinical rules on current dataset">⚡ Run Surveillance Engine</button>
             <button class="secondary" id="snf-btn-morning-brief">📋 Daily Morning Brief</button>
             <button class="secondary snf-pdf-export-btn" id="snf-btn-quarterly-pdf" title="Generate formatted quarterly report summaries on demand (PDF)">📄 PDF Export</button>
-            <button class="secondary" id="snf-btn-reload-feed" title="Reload realistic 15-resident PCC sample data">↺ Reload Sample Feed</button>
+            <button class="secondary" data-act="view" data-view="today">Today / Demo workspace</button><button class="secondary" data-act="view" data-view="pcc">PCC Import Center</button>
           </div>
         </div>
 
@@ -173,7 +174,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             <div class="step-num">3</div>
             <div class="step-body">
               <div class="step-title">Psych Watch</div>
-              <div class="step-sub">${m.antipsychoticResidentsCount} on APs · F758</div>
+              <div class="step-sub">${m.antipsychoticResidentsCount} on APs · Review required</div>
             </div>
           </div>
           <div class="pipeline-arrow">➔</div>
@@ -541,7 +542,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
   }
 
   // ==========================================
-  // TAB 3: PSYCH WATCH & F758
+  // TAB 3: PSYCH WATCH
   // ==========================================
   function renderPsychWatchTab(metrics) {
     const ap = metrics.antipsychoticMetrics;
@@ -553,7 +554,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
       <div class="psychwatch-pane">
         <div class="psychwatch-summary-card">
           <h2>Permanent Psychotropic Watch Dashboard</h2>
-          <p>Continuous monitoring under CMS F-Tag F758 (Unnecessary Medications / Psychotropic Drugs) and NYS DOH 10 NYCRR 415.12.</p>
+          <p>Supplemental screening of imported records. Rule sources, versions and evidence are available on each finding; clinical review is required.</p>
           <div class="psych-summary-stats">
             <div class="psych-stat">
               <span class="val">${metrics.antipsychoticResidentsCount}</span>
@@ -587,37 +588,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
         <!-- FOCUSED SURVEILLANCE MODULES -->
         <div class="psych-modules-grid">
-          <!-- 1. NEW STARTS & SCHIZOPHRENIA WATCH -->
-          <div class="psych-module-card">
-            <h4>
-              <span>🚨 Schizophrenia &amp; New AP Surveillance</span>
-              <span class="badge-rule">AP-002 / AP-004</span>
-            </h4>
-            <p>Monitors new antipsychotic starts and flags newly coded schizophrenia diagnoses appearing after antipsychotic orders.</p>
-            <div style="font-size:12.5px; line-height:1.5;">
-              <div style="padding:8px; background:#fff7ed; border-left:3px solid #ea580c; border-radius:4px; margin-bottom:8px;">
-                <strong>Dorothy Zimmerman (Rm 204B)</strong>:
-                <div>Started Olanzapine 5mg on Day 2. Schizophrenia diagnosis code F20.9 was subsequently added to profile.</div>
-                <div style="margin-top:4px;"><strong class="text-high">Surveillance Flag:</strong> Retrospective diagnosis review recommended prior to MDS transmission.</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 2. MISSING INDICATION & DIAGNOSIS REVIEW -->
-          <div class="psych-module-card">
-            <h4>
-              <span>⚠️ Missing Indication / Mismatch</span>
-              <span class="badge-rule">AP-001</span>
-            </h4>
-            <p>Antipsychotics prescribed without an approved CMS psychotic or neuropsychiatric diagnosis.</p>
-            <div style="font-size:12.5px; line-height:1.5;">
-              <div style="padding:8px; background:#fef2f2; border-left:3px solid #dc2626; border-radius:4px; margin-bottom:8px;">
-                <strong>Eleanor Vance (Rm 101A)</strong>:
-                <div>Quetiapine 25mg order lists indication "Agitation". Profile has Major Depressive Disorder, but lacks approved psychotic disorder.</div>
-                <div style="margin-top:4px;"><strong class="text-crit">F-Tag Risk:</strong> F758 Unnecessary Psychotropic Medication citation vulnerability.</div>
-              </div>
-            </div>
-          </div>
+          <div class="psych-module-card"><h4>Diagnosis / behavior documentation review</h4><p>Review the current alert list and imported source evidence. Missing documentation in an import does not prove documentation is absent from PCC.</p></div>
 
           <!-- 3. PRN 14-DAY LIMIT COUNTDOWN -->
           <div class="psych-module-card">
@@ -625,7 +596,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
               <span>⏱️ PRN 14-Day Limit Watch</span>
               <span class="badge-rule">PRN-014</span>
             </h4>
-            <p>CMS 42 CFR 483.45(e) mandates PRN psychotropics are limited to 14 days without an in-person physician re-evaluation.</p>
+            <p>Review PRN antipsychotic duration and prescriber evaluation before renewal under 42 CFR 483.45(e)(5).</p>
             ${prnWatch.length ? prnWatch.map(p => `
               <div class="prn-meter-card">
                 <div class="prn-meter-header">
@@ -660,7 +631,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
                 <div>${esc(g.medication)} · Last GDR: ${g.lastGDRDate ? new Date(g.lastGDRDate).toLocaleDateString() : 'None documented'}</div>
                 <div style="color:#64748b; margin-top:2px;">Rationale: ${esc(g.clinicalRationale || 'No clinical rationale recorded.')}</div>
               </div>
-            `).join('') : '<p>All active psychotropics have current GDR reviews or contraindications.</p>'}
+            `).join('') : '<p>No GDR tracking records found in imported data. Review PCC and data health before drawing conclusions.</p>'}
           </div>
         </div>
 
@@ -977,8 +948,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
         <div class="qm-card">
           <h2>CMS 2026 Quality Measure Surveillance: Antipsychotic Use (Long Stay)</h2>
           <p class="qm-desc">
-            Percent of Long-Stay Residents Who Received an Antipsychotic Medication (CMS MDS 3.0 / QM specifications).
-            Calculates your true current clinical exposure and flags unconfirmed exclusions before state survey or MDS submission.
+            ${esc(qm.note)}
           </p>
 
           <div class="qm-score-display">
@@ -996,7 +966,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
                 <strong class="text-crit">${qm.potentialNumeratorCount}</strong>
               </div>
               <div class="qm-row">
-                <span>Documented Known Exclusions:</span>
+                <span>Imported diagnoses requiring exclusion review:</span>
                 <strong class="text-ok">${qm.knownExclusionsCount}</strong>
               </div>
               <div class="qm-row">
@@ -1196,7 +1166,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
           <h2>Resident Clinical Surveillance Timeline</h2>
           <p>Search any resident by name or room to view their aggregated clinical orders, psychotropic history, and surveillance alerts.</p>
           <div class="resident-search-bar">
-            <input type="search" id="snf-resident-input" placeholder="Enter resident name (e.g. Eleanor Vance, Arthur Pendelton, Dorothy Zimmerman)..." value="${esc(residentSearchQuery)}" />
+            <input type="search" id="snf-resident-input" placeholder="Enter resident name or ID..." value="${esc(residentSearchQuery)}" />
             <button class="primary" id="snf-btn-search-resident">Search Timeline</button>
           </div>
         </div>
@@ -1316,26 +1286,6 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
         } finally {
           btnRunRules.disabled = false;
           btnRunRules.textContent = '⚡ Run Surveillance Engine';
-        }
-      });
-    }
-
-    const btnReloadFeed = container.querySelector('#snf-btn-reload-feed');
-    if (btnReloadFeed) {
-      btnReloadFeed.addEventListener('click', async () => {
-        if (!confirm('Reload sample PointClickCare feeds? This will populate realistic 15-resident clinical surveillance data.')) return;
-        btnReloadFeed.disabled = true;
-        btnReloadFeed.textContent = 'Reloading…';
-        try {
-          await api('snfSeedData');
-          toast('PointClickCare demo dataset refreshed.');
-          await loadData();
-          renderHTML(container);
-        } catch (e) {
-          toast('Error reloading feed: ' + e.message);
-        } finally {
-          btnReloadFeed.disabled = false;
-          btnReloadFeed.textContent = '↺ Reload Sample Feed';
         }
       });
     }
@@ -1650,3 +1600,4 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     refresh: loadData
   };
 }
+
