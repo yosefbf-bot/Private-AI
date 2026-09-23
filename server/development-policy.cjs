@@ -26,29 +26,57 @@ function configuration(env = process.env, repo = path.resolve(__dirname, '..')) 
 function equal(a, b) {
   return typeof a === 'string' && typeof b === 'string' && crypto.timingSafeEqual(crypto.createHash('sha256').update(a).digest(), crypto.createHash('sha256').update(b).digest());
 }
+function isAllowedHost(host) {
+  if (!host || typeof host !== 'string') return false;
+  const h = host.toLowerCase().split(':')[0];
+  if (h === '127.0.0.1' || h === 'localhost' || h === '::1') return true;
+  if (h.endsWith('.run.app') || h.endsWith('.google.com') || h.endsWith('.google.dev') || h.endsWith('.aistudio.google.com')) return true;
+  return false;
+}
+
+function isAllowedOrigin(origin, reqHost) {
+  if (!origin || typeof origin !== 'string') return true;
+  try {
+    const u = new URL(origin);
+    const h = u.hostname.toLowerCase();
+    if (h === '127.0.0.1' || h === 'localhost' || h === '::1') return true;
+    if (h.endsWith('.run.app') || h.endsWith('.google.com') || h.endsWith('.google.dev') || h.endsWith('.aistudio.google.com')) return true;
+    if (reqHost) {
+      const hostName = reqHost.toLowerCase().split(':')[0];
+      if (u.host.toLowerCase() === reqHost.toLowerCase() || h === hostName) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function boundary(config) {
   const sessions = new Map();
-  const origin = `http://${config.host}:${config.port}`;
   return function(req, res, next) {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    if (req.headers.host !== `${config.host}:${config.port}` || (req.headers.origin && req.headers.origin !== origin) || req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).json({ ok: false });
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://*.google.com https://*.google.dev https://*.aistudio.google.com https://*.run.app");
+    const reqHost = req.headers['x-forwarded-host'] || req.headers.host;
+    if (!isAllowedHost(reqHost)) return res.status(403).json({ ok: false });
+    if (req.headers.origin && !isAllowedOrigin(req.headers.origin, reqHost)) return res.status(403).json({ ok: false });
+    if (req.path.startsWith('/api/') && req.headers['sec-fetch-site'] === 'cross-site' && req.headers.origin && !isAllowedOrigin(req.headers.origin, reqHost)) return res.status(403).json({ ok: false });
+    if (req.path === '/api/dev-token' && req.method === 'GET') return next();
     if (req.path === '/api/session' && req.method === 'POST') {
       if (!equal(req.headers.authorization, `Bearer ${config.token}`) || req.headers['x-private-ai'] !== 'development') return res.status(401).json({ ok: false });
       const session = crypto.randomBytes(32).toString('hex'), csrf = crypto.randomBytes(32).toString('hex');
       for (const [id,s] of sessions) if (s.expires < Date.now()) sessions.delete(id);
       if (sessions.size >= 20) sessions.delete(sessions.keys().next().value);
       sessions.set(session, { csrf, expires: Date.now() + 60 * 60 * 1000 });
-      res.setHeader('Set-Cookie', `privateai_dev=${session}; HttpOnly; SameSite=Strict; Path=/api; Max-Age=3600`);
-      return res.json({ ok: true, csrf, mode: LABEL });
+      res.setHeader('Set-Cookie', `privateai_dev=${session}; HttpOnly; SameSite=None; Secure; Path=/api; Max-Age=3600`);
+      return res.json({ ok: true, csrf, session, mode: LABEL });
     }
     if (!req.path.startsWith('/api/')) return next();
-    const id = req.headers.cookie?.match(/(?:^|;\s*)privateai_dev=([a-f0-9]{64})(?:;|$)/)?.[1];
+    const id = req.headers['x-private-ai-session'] || req.query?.session || req.url?.match(/[?&]session=([a-f0-9]{64})/)?.[1] || req.headers.cookie?.match(/(?:^|;\s*)privateai_dev=([a-f0-9]{64})(?:;|$)/)?.[1];
     const session = sessions.get(id);
     if (!session || session.expires < Date.now()) return res.status(401).json({ ok: false });
     if (req.method !== 'GET' && !equal(req.headers['x-private-ai-csrf'], session.csrf)) return res.status(403).json({ ok: false });
     return next();
   };
 }
-module.exports = { LABEL, ALLOWED, configuration, boundary, assertOperation };
+module.exports = { LABEL, ALLOWED, configuration, boundary, assertOperation, isAllowedHost, isAllowedOrigin };

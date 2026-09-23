@@ -3,17 +3,53 @@
   if (window.privateAI) return; // Electron preload remains authoritative.
   const listeners = new Set();
   let csrf = '';
+  let sessionToken = '';
   const ready = (async () => {
-    const token = window.prompt('Development / Demo Mode — Not for PHI. Enter the local development access token:');
-    const response = await fetch('/api/session', { method: 'POST', headers: { Authorization: 'Bearer ' + (token || ''), 'X-Private-AI': 'development' } });
-    if (!response.ok) throw Error('Development authentication failed. Reload to try again.');
-    csrf = (await response.json()).csrf;
+    let token = window.__PRIVATE_AI_DEV_TOKEN__ || '';
+    if (!token && typeof window !== 'undefined' && window.location?.search) {
+      try {
+        const p = new URLSearchParams(window.location.search);
+        token = p.get('token') || '';
+      } catch {}
+    }
+    if (!token && typeof sessionStorage !== 'undefined') {
+      try { token = sessionStorage.getItem('privateai_dev_token') || ''; } catch {}
+    }
+    if (!token) {
+      try {
+        const res = await fetch('/api/dev-token');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.token) token = data.token;
+        }
+      } catch {}
+    }
+    if (!token) {
+      try {
+        token = window.prompt('Development / Demo Mode — Not for PHI. Enter the local development access token:') || '';
+      } catch {}
+    }
+    if (token && typeof sessionStorage !== 'undefined') {
+      try { sessionStorage.setItem('privateai_dev_token', token); } catch {}
+    }
+    const response = await fetch('/api/session', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + (token || ''), 'X-Private-AI': 'development' }
+    });
+    if (!response.ok) {
+      console.error('Development authentication failed: status', response.status);
+      throw Error('Development authentication failed. Reload to try again.');
+    }
+    const authData = await response.json();
+    csrf = authData.csrf;
+    sessionToken = authData.session || '';
     connectSSE();
   })();
 
   function connectSSE() {
     try {
-      const es = new EventSource("/api/events");
+      const sseUrl = "/api/events" + (sessionToken ? "?session=" + encodeURIComponent(sessionToken) : "");
+      const es = new EventSource(sseUrl);
       es.onmessage = (e) => {
         try {
           const ev = JSON.parse(e.data);
@@ -56,9 +92,11 @@
           return { ok: true, result: true };
         }
 
+        const callHeaders = { "Content-Type": "application/json", "X-Private-AI-CSRF": csrf };
+        if (sessionToken) callHeaders["X-Private-AI-Session"] = sessionToken;
         const res = await fetch("/api/call", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-Private-AI-CSRF": csrf },
+          headers: callHeaders,
           body: JSON.stringify({ op, data }),
         });
         const json = await res.json();

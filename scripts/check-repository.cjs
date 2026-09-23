@@ -12,7 +12,23 @@ function inspect(file, content = '') {
   return issues;
 }
 function check() {
-  const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
+  let files;
+  try {
+    files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
+  } catch {
+    const path = require('node:path');
+    function walk(dir) {
+      const out = [];
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name === '.git') continue;
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) out.push(...walk(p));
+        else out.push(p.replace(/^[./]+/, ''));
+      }
+      return out;
+    }
+    files = walk('.');
+  }
   const issues = files.flatMap(file => inspect(file, fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '').map(reason => `${file}: ${reason}`));
   if (issues.length) throw new Error(issues.join('\n'));
   console.log(`Repository policy passed (${files.length} tracked files).`);

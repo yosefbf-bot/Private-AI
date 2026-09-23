@@ -23,6 +23,41 @@ const { ModelManager } = require("./source/model-manager.cjs");
 const { BrowserWorker, validateRecipe } = require("./source/browser-worker.cjs");
 const { MessagingBridge } = require("./source/messaging.cjs");
 
+// Initialize development configuration with secure local defaults if not passed via process.env
+if (!process.env.PRIVATE_AI_DEV_TOKEN) {
+  const envFile = path.resolve(__dirname, ".env");
+  if (fs.existsSync(envFile)) {
+    try {
+      const content = fs.readFileSync(envFile, "utf8");
+      for (const line of content.split(/\r?\n/)) {
+        const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)?$/);
+        if (m && m[1] && m[2] !== undefined && !process.env[m[1]]) {
+          process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
+        }
+      }
+    } catch {}
+  }
+}
+
+if (!process.env.PRIVATE_AI_DEV_TOKEN || process.env.PRIVATE_AI_DEV_TOKEN.length < 32) {
+  const devToken = crypto.randomBytes(32).toString("hex");
+  process.env.PRIVATE_AI_DEV_TOKEN = devToken;
+  const envFile = path.resolve(__dirname, ".env");
+  try {
+    let currentEnv = fs.existsSync(envFile) ? fs.readFileSync(envFile, "utf8") : "";
+    if (/PRIVATE_AI_DEV_TOKEN=/.test(currentEnv)) {
+      currentEnv = currentEnv.replace(/PRIVATE_AI_DEV_TOKEN=.*/, `PRIVATE_AI_DEV_TOKEN=${devToken}`);
+    } else {
+      currentEnv = (currentEnv ? currentEnv.trimEnd() + "\n" : "") + `PRIVATE_AI_DEV_TOKEN=${devToken}\n`;
+    }
+    fs.writeFileSync(envFile, currentEnv, { mode: 0o600 });
+  } catch {}
+}
+
+if (!process.env.PRIVATE_AI_DEV_DATA) {
+  process.env.PRIVATE_AI_DEV_DATA = path.join(os.homedir(), ".privateai-development");
+}
+
 const devPolicy = require("./server/development-policy.cjs");
 const config = devPolicy.configuration();
 const PORT = config.port;
@@ -381,15 +416,41 @@ app.get("/api/download", (req, res) => {
   return res.status(403).json({ ok: false, error: safeError(fail("POLICY")) });
 });
 
+app.get("/api/dev-token", (req, res) => {
+  const reqHost = req.headers['x-forwarded-host'] || req.headers.host;
+  if (!devPolicy.isAllowedHost(reqHost)) return res.status(403).json({ ok: false });
+  if (req.headers.origin && !devPolicy.isAllowedOrigin(req.headers.origin, reqHost)) return res.status(403).json({ ok: false });
+  return res.json({ ok: true, token: config.token });
+});
+
 // Serve UI assets
 const uiPath = path.join(__dirname, "source", "ui");
-app.use(express.static(uiPath));
+
+// Serve index.html with development session bootstrapping
+function sendAppHtml(res) {
+  try {
+    let html = fs.readFileSync(path.join(uiPath, "index.html"), "utf8");
+    const script = `<script>window.__PRIVATE_AI_DEV_TOKEN__ = ${JSON.stringify(config.token)};</script>`;
+    html = html.replace("</head>", `${script}</head>`);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  } catch {
+    res.sendFile(path.join(uiPath, "index.html"));
+  }
+}
+
+app.get(["/", "/index.html"], (_req, res) => {
+  sendAppHtml(res);
+});
+
+app.use(express.static(uiPath, { index: false }));
 
 // Fallback to index.html
 app.use((_req, res) => {
-  res.sendFile(path.join(uiPath, "index.html"));
+  sendAppHtml(res);
 });
 
 app.listen(PORT, config.host, () => {
   console.log(`${devPolicy.LABEL}: http://127.0.0.1:${PORT}`);
+  console.log(`Development Access Token: ${config.token}`);
 });

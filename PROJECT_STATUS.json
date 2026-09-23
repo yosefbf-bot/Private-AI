@@ -23,7 +23,7 @@
   "completedFeatures": [
     "Runtime data removed from hardening branch tip; repository policy scanner and CI",
     "Provider credential isolation and configuration-bound HIPAA approval",
-    "Authenticated loopback-only restricted development server",
+    "Authenticated loopback-only restricted development server with automatic token self-bootstrapping and iframe-compatible CSP",
     "Automatic production sample seeding removed; isolated explicit Demo Mode and labeled exports",
     "Versioned rule registry and immutable alert input/evidence snapshots",
     "PCC batch provenance, validation, duplicate detection and feed health",

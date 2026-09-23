@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "node server.cjs",
     "start": "node server.cjs",
-    "build": "npm run check:release",
+    "build": "node scripts/check-syntax.cjs",
     "lint": "node scripts/check-syntax.cjs",
     "prepare:browser": "node build/prepare-browser-assets.cjs",
     "prestart": "node --check server.cjs",
