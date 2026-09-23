@@ -84,11 +84,6 @@ class Core {
       store: this.store,
       root: this.root,
     });
-    try {
-      if (this.store.count("snf_resident") === 0) {
-        this.snf.seedRealisticPCCDataset().catch(() => {});
-      }
-    } catch {}
     this.reminderTimer = setInterval(() => {
       try { this.checkReminders(); } catch {}
     }, 30000);
@@ -97,7 +92,9 @@ class Core {
     store.audit("startup");
   }
   settings() {
-    return { ...DEFAULTS, ...this.store.get("settings", "main") };
+    const s = { ...DEFAULTS, ...this.store.get("settings", "main") };
+    s.approved = require("./provider-policy.cjs").approved(s, this.store.get("secret", s.provider)?.key);
+    return s;
   }
   identity() {
     return this.store.get("identity", "self");
@@ -134,7 +131,7 @@ class Core {
       folders: this.store.list("folder"),
       outlook: this.store.get("access", "outlook") || {},
       maintenance: this.store.get("maintenance", "backupCleanup") || {},
-      keySaved: !!(this.key(this.settings().provider) || this.key("openai")),
+      keySaved: !!this.key(this.settings().provider),
       activeProvider: this.settings().provider || (this.key("openai") ? "openai" : "local"),
       savedProviders: {
         local: true,
@@ -242,17 +239,22 @@ class Core {
           throw fail("INVALID");
         s[k] = input[k];
       }
-    if (
-      (s.org !== current.org || s.projectId !== current.projectId) &&
-      current.approved
-    )
-      s.approved = false;
+    const policy = require('./provider-policy.cjs');
+    const key = this.key(s.provider);
+    const changed = policy.fingerprint(current, this.key(current.provider)) !== policy.fingerprint(s, key);
+    if (changed || input.approved === false) delete s.providerApproval;
+    // Material changes always require a subsequent explicit approval action.
+    if (input.approved === true && !changed && s.provider === 'openai' && key) {
+      s.providerApproval = { fingerprint: policy.fingerprint(s, key), policyVersion: policy.POLICY_VERSION,
+        organizationConfirmed: true, approvedAt: Date.now() };
+    }
+    s.approved = policy.approved(s, key);
     if (s.workspace && s.workspace !== current.workspace) workspace(s.workspace, this.root);
     if(s.workProfile==="work")s.resourceMode="balanced";
     if (s.role === "primary") s.workerEnabled = false;
     if (input.snfEnabled !== undefined) s.snfEnabled = Boolean(input.snfEnabled);
     this.store.put("settings", "main", s);
-    if(!cloudAllowed(s)) for(const controller of this.requests.values()) controller.abort();
+    if(changed || input.approved === false || !cloudAllowed(s)) for(const controller of this.requests.values()) controller.abort();
     this.store.audit("settings");
     return s;
   }
@@ -263,11 +265,12 @@ class Core {
     const { validateKeyForProvider } = require("./providers.cjs");
     validateKeyForProvider(key, prov);
     this.store.put("secret", prov, { key });
-    if (prov === "openai" || key.startsWith("sk-")) {
-      this.store.put("secret", "openai", { key });
-    }
     const current = this.settings();
-    this.store.put("settings", "main", { ...current, provider: prov, approved: false });
+    if (prov === current.provider) {
+      delete current.providerApproval;
+      this.store.put("settings", "main", { ...current, approved: false });
+      for (const controller of this.requests.values()) controller.abort();
+    }
     this.store.audit("key_saved");
     return true;
   }
@@ -275,13 +278,18 @@ class Core {
     this.assertUnlocked();
     const prov = provider || this.settings().provider || "openai";
     this.store.delete("secret", prov);
-    if (prov === "openai") this.store.delete("secret", "openai");
+    if (!Object.hasOwn(require("./providers.cjs").PROVIDERS, prov)) throw fail("INVALID");
+    if (prov === this.settings().provider) {
+      const current = this.settings(); delete current.providerApproval;
+      this.store.put("settings", "main", { ...current, approved: false });
+      for (const controller of this.requests.values()) controller.abort();
+    }
     this.store.audit("key_deleted");
     return true;
   }
   key(provider) {
     const prov = provider || this.settings().provider || "openai";
-    return this.store.get("secret", prov)?.key || (prov === "openai" ? this.store.get("secret", "openai")?.key : null);
+    return this.store.get("secret", prov)?.key || null;
   }
   async models(provider) {
     this.assertUnlocked();
@@ -330,11 +338,6 @@ class Core {
     }
     this.canSend(this.settings().hipaa, true);
     const s = { ...this.settings(), provider: prov, maxOutput: 256 };
-    if (prov === "gemini" && !s.model) s.model = "gemini-2.5-flash";
-    if (prov === "anthropic" && !s.model) s.model = "claude-3-7-sonnet-20250219";
-    if (prov === "groq" && !s.model) s.model = "llama-3.3-70b-versatile";
-    if (prov === "deepseek" && !s.model) s.model = "deepseek-chat";
-    if (prov === "custom" && !s.model) s.model = "llama3.2";
     const r = await this.client.generate(
       this.key(prov),
       s,
@@ -349,10 +352,8 @@ class Core {
     const s = this.settings();
     if (!cloud) return;
     const provider = s.provider || (this.key("openai") ? "openai" : "local");
+    require('./provider-policy.cjs').assertProviderPolicy({ ...s, hipaa: hipaa || s.hipaa }, this.key(provider));
     if (provider === "local" || provider === "ollama") return;
-    if (provider === "custom" && !this.key(provider) && /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.|10\.)/i.test(s.customEndpoint || '')) return;
-    if (!cloudAllowed(s)) throw fail("LOCAL_ONLY");
-    if (hipaa && !s.approved) throw fail("SETUP");
     if (!s.model) throw fail("MODEL");
     if (provider !== "custom" && !this.key(provider)) throw fail("KEY");
   }
@@ -1261,3 +1262,4 @@ class Core {
   }
 }
 module.exports = { Core, DEFAULTS };
+

@@ -33,9 +33,9 @@ function fixture(t, client) {
   core.saveKey("sk-synthetic-NOT-A-REAL-KEY");
   core.saveSettings({
     model: "test-model",
-    approved: true,
     workspace: path.join(dir, "ShareSync Reports"),
   });
+  core.saveSettings({ approved: true });
   t.after(() => {
     if (core.store.db) core.close();
     fs.rmSync(dir, { recursive: true, force: true });
@@ -43,3 +43,4 @@ function fixture(t, client) {
   return { core, dir, root, cipher, calls };
 }
 module.exports = { fixture };
+

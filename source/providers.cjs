@@ -130,16 +130,8 @@ const PROVIDERS = {
   }
 };
 
-function detectProviderFromKey(key) {
-  if (!key || typeof key !== 'string') return 'openai';
-  const k = key.trim();
-  if (k.startsWith('AIza')) return 'gemini';
-  if (k.startsWith('sk-ant-')) return 'anthropic';
-  if (k.startsWith('gsk_')) return 'groq';
-  return 'openai';
-}
-
 function validateKeyForProvider(key, provider = 'openai') {
+  if (!Object.hasOwn(PROVIDERS, provider)) throw fail('INVALID');
   if (provider === 'local' || provider === 'ollama') return true;
   if (typeof key !== 'string' || !key.trim()) throw fail('INVALID');
   if (/\s/.test(key)) throw fail('INVALID');
@@ -152,6 +144,29 @@ function validateKeyForProvider(key, provider = 'openai') {
 
 module.exports = {
   PROVIDERS,
-  detectProviderFromKey,
   validateKeyForProvider
 };
+
+
+// Authoritative provider/model metadata. Model IDs are configured suggestions,
+// not a promise of availability; provider errors are surfaced without fallback.
+for (const provider of Object.values(PROVIDERS)) {
+  provider.classification = ['local', 'ollama'].includes(provider.id) ? 'local' : 'cloud';
+  provider.authentication = provider.id === 'anthropic' ? 'x-api-key' : provider.requiresKey ? 'bearer' : 'optional';
+  provider.streaming = provider.id !== 'local';
+  provider.tools = provider.id === 'openai' ? ['web-search-public-mode'] : [];
+  provider.healthcarePolicy = provider.id === 'openai' ? 'organization-approval-required' : provider.classification === 'local' ? 'local-device-policy-required' : 'not-enabled-in-hipaa-mode';
+}
+function endpointFor(id, settings = {}) {
+  if (!Object.hasOwn(PROVIDERS, id)) throw fail('INVALID');
+  if (id === 'local') return '';
+  const raw = id === 'custom' ? settings.customEndpoint || PROVIDERS.custom.defaultEndpoint : id === 'ollama' ? settings.ollamaEndpoint || PROVIDERS.ollama.defaultEndpoint : PROVIDERS[id].defaultEndpoint;
+  let url;
+  try { url = new URL(raw); } catch { throw fail('INVALID'); }
+  if (url.username || url.password || url.search || url.hash) throw fail('POLICY');
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if (id === 'ollama' && !loopback) throw fail('POLICY');
+  if (url.protocol !== 'https:' && !(loopback && url.protocol === 'http:')) throw fail('POLICY');
+  return url.href.replace(/\/+$/, '');
+}
+module.exports.endpointFor = endpointFor;
