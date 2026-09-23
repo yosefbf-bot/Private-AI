@@ -2272,6 +2272,7 @@ class SNFCommandCenter {
   }
 
   async seedRealisticPCCDataset() {
+    if (this.demoMode !== true) throw fail("POLICY");
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -2706,3 +2707,4 @@ module.exports = {
   NON_PHARM_INTERVENTIONS,
   identifyMedication
 };
+
