@@ -138,3 +138,41 @@ When receiving a new prompt from the user in this repository:
 3. **Maintain dual desktop/web compatibility**: Ensure any client-side calls route through `api(op, data)` or `window.privateAI.call(op, data)`.
 4. **Never bypass encryption or HIPAA constraints**: Any persistent entity must go through `this.store.put(kind, id, record)`.
 5. **Run tests** and verify zero regressions.
+
+---
+
+## 7. Web Container & Cross-AI Handshake Protocol (ChatGPT & Google Gemini)
+
+### Incident & Bug History (Why the Dev Server Failed):
+1. **Binary Vault Key Git Corruption**:
+   - `app-data/vault.key` was checked in under `* text=auto` in `.gitattributes`. Git converted binary bytes into UTF-8 replacement characters (`\uFFFD`), expanding the key to 54 bytes.
+   - `Cipher` strictly requires a 32-byte buffer (`crypto.randomBytes(32)`). Any other length throws `fail("ENCRYPTION")`, killing `server.cjs` on startup.
+   - **Fix Applied**: `server.cjs` now validates that `vault.key` is exactly 32 bytes (regenerating a fresh 32-byte key if corrupted or missing), and safely handles old database rotation if a database was encrypted under an unrecoverable key. `.gitattributes` now locks `*.key`, `*.db`, `*.db-*` as `binary`.
+2. **Broken Desktop Lifecycle Scripts in `package.json`**:
+   - `package.json` had `"prestart": "node build/prepare-browser-assets.cjs"`, but `build/` was not in git, causing `npm start` to immediately fail with `MODULE_NOT_FOUND`.
+   - **Fix Applied**: Removed missing build hooks and Windows-only optional native dependencies (`@napi-rs/canvas-win32-x64-msvc`).
+3. **Retention Timestamp Boundary in `source/database.cjs`**:
+   - `cleanup()` used strict inequality `r.updated < targetCutoff`, causing records at the boundary timestamp to be skipped in sub-millisecond test runs.
+   - **Fix Applied**: Updated to `r.updated <= targetCutoff`.
+
+### System Instructions for ChatGPT (OpenAI):
+```markdown
+You are working on Private AI 3.0 (yosefbf-bot/Private-AI-OG-google-version).
+1. RUNTIME: Node.js 22 with native `node:sqlite`. Express server runs on port 3000 via `node server.cjs`.
+2. NEVER commit raw binary files (`vault.key`, `*.db`) as text. In `.gitattributes`, `*.key` and `*.db*` must remain `binary`.
+3. NEVER assume Windows DPAPI is available when in web mode (`server.cjs`). `server.cjs` uses a local 32-byte `vault.key` with AES-256-GCM.
+4. DO NOT add `prestart` or `build` scripts that depend on local desktop files or dotnet (`desktop-helper/`).
+5. DUAL CLIENT: Maintain compatibility with both `@google/genai` (via `GEMINI_API_KEY`) and OpenAI (via `OPENAI_API_KEY`) in `server/unified-client.cjs`.
+6. VERIFICATION: Always run `npm test` (`node --test tests/*.test.cjs`). All 235+ tests must pass.
+```
+
+### System Instructions for Google (Gemini / AI Studio):
+```markdown
+You are working on Private AI 3.0 (yosefbf-bot/Private-AI-OG-google-version).
+1. SERVER ENTRYPOINT: AI Studio must run `npm run dev` (`node server.cjs`) on `0.0.0.0:3000`.
+2. DATABASE: Uses Node 22 built-in `node:sqlite` (synchronous WAL mode). Do not swap for external ORMs or SQLite packages.
+3. VAULT KEY & ENCRYPTION: `source/security.cjs` requires a 32-byte buffer. If `vault.key` is missing or invalid, generate with `crypto.randomBytes(32)` with mode `0o600`.
+4. API CALLS: Frontend routes through `/api/call` (RPC) and `/api/events` (SSE). Do not write direct backend calls in `source/ui/app.mjs`.
+5. MODEL FALLBACK: Server-side Gemini calls use `@google/genai` (`GoogleGenAI`) with streaming `ai.models.generateContentStream`.
+6. CLEANUP & HEALTH: Always verify `GET /api/health` returns `{ ok: true, status: 'ready' }` after code changes.
+```

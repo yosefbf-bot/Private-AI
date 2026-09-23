@@ -38,17 +38,45 @@ fs.mkdirSync(localRoot, { recursive: true });
 fs.mkdirSync(workspaceDir, { recursive: true });
 fs.mkdirSync(tempDir, { recursive: true });
 
-// Initialize secure vault key
+// Initialize secure vault key (32 bytes required for AES-256)
 const vaultKeyFile = path.join(localRoot, "vault.key");
-let vaultKey;
+let vaultKey = null;
 if (fs.existsSync(vaultKeyFile)) {
-  vaultKey = fs.readFileSync(vaultKeyFile);
-} else {
+  try {
+    const loaded = fs.readFileSync(vaultKeyFile);
+    if (Buffer.isBuffer(loaded) && loaded.length === 32) {
+      vaultKey = loaded;
+    }
+  } catch {}
+}
+if (!vaultKey) {
   vaultKey = crypto.randomBytes(32);
   fs.writeFileSync(vaultKeyFile, vaultKey, { mode: 0o600 });
 }
 const cipher = new Cipher(vaultKey);
-const store = new Store(path.join(localRoot, "privateai.db"), cipher);
+
+const dbFile = path.join(localRoot, "privateai.db");
+let store;
+try {
+  store = new Store(dbFile, cipher);
+  if (store.count("records") > 0) {
+    store.get("settings", "main");
+  }
+} catch (e) {
+  console.warn("Could not open existing database with key, initializing clean store:", e.message);
+  try {
+    store?.close();
+  } catch {}
+  try {
+    if (fs.existsSync(dbFile)) {
+      fs.renameSync(dbFile, `${dbFile}.bak-${Date.now()}`);
+    }
+    for (const ext of ["-wal", "-shm"]) {
+      if (fs.existsSync(dbFile + ext)) fs.unlinkSync(dbFile + ext);
+    }
+  } catch {}
+  store = new Store(dbFile, cipher);
+}
 const client = new UnifiedClient();
 
 // Real-time Server-Sent Events (SSE)
