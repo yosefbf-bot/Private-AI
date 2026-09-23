@@ -34,6 +34,7 @@ build/screenshots/
 build/browser/
 build/desktop-helper/
 build/local-runtime/
+build/runtime-work/
 desktop-helper/bin/
 desktop-helper/obj/
 coverage/
