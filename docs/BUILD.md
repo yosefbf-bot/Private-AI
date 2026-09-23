@@ -1,4 +1,4 @@
-> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
 
 For the current packaging repair, follow [BUILD_REPAIR_2.1.6.md](BUILD_REPAIR_2.1.6.md). The older build notes below are retained for reference.
 

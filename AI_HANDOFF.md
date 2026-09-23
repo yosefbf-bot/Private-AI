@@ -26,3 +26,6 @@ Inspect code/history, implement a bounded change, run tests, review the diff, co
 
 ## Verification
 `npm ci --ignore-scripts`; `npm test`; `npm run test:hardening`; `npm run check:repository`; `npm run lint`; `npm run check:release`. Report every failure. Required Windows packaging assets are missing; no test may skip that problem. Actual Windows install/upgrade, vault, local inference and feature execution evidence at the artifact SHA are required before release readiness. Consult `docs/HARDENING_BASELINE.md` and the final verification notes.
+
+## Current hardening evidence
+Read docs/HARDENING_REVIEW.md before assessing this PR. The verified source passed 280 Linux tests; Windows release, dependency remediation, browser visual acceptance, and independent clinical review remain blocked or pending. Do not infer readiness from a source feature or a historical manual. The feature branch is the ChatGPT workstream; review from an independent branch/tool and leave main unchanged until integration is explicitly approved.

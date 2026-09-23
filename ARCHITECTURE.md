@@ -25,3 +25,11 @@ Imports must retain source dates and batch/row provenance; import time does not 
 
 ## Release boundary
 The source contains Windows packaging references but lacks scripts/NSIS/icon/runtime/helper inputs listed in `scripts/release-manifest.json`. Structural PE and evidence helpers were reconstructed with tests, not recovered from a proven release. `npm run check:release` is an intentional failing gate until these inputs exist. No Windows executable/installer or release has been produced or validated by this hardening task.
+
+## Clinical modules and administrator flow
+`source/snf/index.cjs` dispatches desktop/development clinical RPCs to the selected workspace. `demo.cjs` wraps the encrypted store with a `demo:` namespace; production automation and global alert counts remain tied to the live store. `import/batch-manager.cjs`, `validation.cjs`, `provenance.cjs`, and `feed-health.cjs` govern mapped batches, immutable original rows, source dates, rollback, duplicates and feed health. `rules/registry.cjs`, `engine.cjs`, and `evidence.cjs` produce versioned evaluation snapshots; `alerts/lifecycle.cjs` records operational transitions and audit history. `retention.cjs` pins unresolved evidence while purging expired unreferenced import history.
+
+`source/ui/snf/today.mjs` is the administrator landing view; `import-center.mjs` handles CSV mapping and batch review. The larger SNF UI remains available for drill-down. Provider/cost/routing details are collapsed in normal chat. See docs/HARDENING_REVIEW.md for implementation versus acceptance boundaries.
+
+## Voice and browser data
+`voice-history.cjs` stores transcripts as encrypted records with retention and deletion; temporary conversations do not create voice history. `source/ui/legacy-storage.mjs` migrates older plaintext draft/transcript copies and removes them only after backend persistence (or deliberate temporary-data discard). Browser speech recognition is disabled under HIPAA/Local Only because the browser may send audio to a remote service. This does not supply a new offline speech engine.

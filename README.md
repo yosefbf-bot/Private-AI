@@ -12,3 +12,5 @@ The development web adapter requires `PRIVATE_AI_DEV_TOKEN` (random, at least 32
 Do not delete installed `%LOCALAPPDATA%\PrivateAI2` data or vaults. No installed-data rotation, history rewriting, or production merge occurs automatically. See [exposure remediation](docs/EXPOSED_RUNTIME_DATA.md).
 
 Historical release notes and manuals are not current release evidence. Future work is in [ROADMAP.md](ROADMAP.md).
+
+See [hardening verification and review notes](docs/HARDENING_REVIEW.md) for the 280-test result, security/clinical limits, dependency findings, missing build inputs and unverified Windows/UI acceptance.

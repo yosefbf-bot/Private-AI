@@ -14,6 +14,6 @@ Confirmed blockers:
 - Development HTTP server binds 0.0.0.0, automatically approves resources/cloud, and exposes broad RPC operations without request authentication.
 - No build directory exists. Package scripts reference missing browser preparation, Windows packaging, after-pack, NSIS include, icon, helper/runtime assets.
 - Release tests skip when their modules are absent. npm run build is a success-printing placeholder.
-- Initial Linux Node 24 test invocation did not yield a complete aggregate result; document import/export tests failed with absent dependencies. This is not a passing baseline. Dependency install and a bounded per-file rerun will be recorded in the final verification report.
+- Initial Linux Node 24 test invocation did not yield a complete aggregate result; document import/export tests failed with absent dependencies. After dependency installation, the pinned baseline was rerun with bounded concurrency: 253 total, 251 passed, 0 failed, 2 release tests skipped by existing logic. See HARDENING_REVIEW.md for final results and limits.
 
 No Windows application, installer, uninstaller, or actual model-inference execution has been performed. No release readiness is claimed.
