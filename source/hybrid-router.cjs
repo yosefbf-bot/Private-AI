@@ -58,7 +58,7 @@ class HybridRouter {
   this.core.canSend(s.hipaa,true);
   if(localWorkTokens)this.meter.record({provider:'local',model:'Local assessment / answer attempts',localTokens:localWorkTokens,reason:'local_work_before_cloud'},s);
   try{
-   const call=()=>{const current=this.core.settings();const policy=require('./provider-policy.cjs');if(policy.fingerprint(s,key)!==policy.fingerprint(current,this.core.key(current.provider)))throw fail('POLICY');if(!cloudAllowed(current))throw fail('LOCAL_ONLY');this.core.canSend(s.hipaa||current.hipaa,true);if(current.hipaa&&options.web)throw fail('POLICY');return this.core.client.generate(key,{...s,provider:activeProvider,hipaa:s.hipaa||current.hipaa,processingMode:current.processingMode,allowCloud:current.allowCloud},messages,options);};
+   const call=()=>{const current=this.core.settings();if(!cloudAllowed(current))throw fail('LOCAL_ONLY');const policy=require('./provider-policy.cjs');if(policy.fingerprint(s,key)!==policy.fingerprint(current,this.core.key(current.provider)))throw fail('POLICY');this.core.canSend(s.hipaa||current.hipaa,true);if(current.hipaa&&options.web)throw fail('POLICY');return this.core.client.generate(key,{...s,provider:activeProvider,hipaa:s.hipaa||current.hipaa,processingMode:current.processingMode,allowCloud:current.allowCloud},messages,options);};
    const r=this.core.resources?await this.core.resources.withAI(call):await call();
    const row={...r,provider:activeProvider,model:s.model||r.model,reason,routing:localRouting,localReliability:localEvidence?.score??null,reliability:{score:null,label:'Review required',reasons:['Cloud output has not been independently verified.']}};
    row.meter=this.meter.record(row,s);return row;

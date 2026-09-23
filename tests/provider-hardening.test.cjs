@@ -43,3 +43,14 @@ test('API ignores key prefixes when selecting the explicitly configured provider
 test('production initializes without synthetic clinical records',t=>{
  const {core}=fixture(t);assert.equal(core.store.count('snf_resident'),0);assert.equal(core.store.count('snf_med_order'),0);
 });
+
+test('cloud model inventory is fetched with the selected provider and unavailable inventory fails visibly',async()=>{
+ for(const provider of ['openai','gemini','anthropic','groq','deepseek','custom']){
+  const calls=[];const c=new OpenAIClient(async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify({data:[{id:'synthetic-available-model'}]}));});
+  assert.deepEqual(await c.models(key('sk-'),{provider,hipaa:false}),['synthetic-available-model']);
+  assert.equal(calls[0].url,require('../source/providers.cjs').endpointFor(provider,{})+'/models');
+  assert.equal(calls[0].options.redirect,'error');
+ }
+ const c=new OpenAIClient(async()=>new Response('{}',{status:404}));
+ await assert.rejects(c.models(key('sk-'),{provider:'gemini',hipaa:false}),{code:'MODEL'});
+});

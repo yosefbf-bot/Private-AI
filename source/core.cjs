@@ -111,6 +111,7 @@ class Core {
     const s = this.settings();
     return {
       settings: s,
+      voiceTranscripts: this.store.list("voice_transcript"),
       resources: this.resources.snapshot(),
       health: this.stability.snapshot(),
       ramProfile: require('./ram-profile.cjs').getRAMProfile(),
@@ -171,7 +172,7 @@ class Core {
       })(),
       todos: this.store.list("todo"),
       schedules: this.store.list("schedule"),
-      snfAlerts: (s.snfEnabled !== false && this.snf) ? this.snf.getAlertSummary() : null,
+      snfAlerts: this.snf ? this.snf.getAlertSummary() : null,
       jobs: this.store.project("job",({recoveryInput,checkpoint,savedAnswer,...j})=>({...j,recoverable:!!recoveryInput&&!j.remote,step:checkpoint?.phase||null})),
       worker: {
         id: this.identity().id,
@@ -221,6 +222,7 @@ class Core {
       "memoryEnabled",
       "workerEnabled",
       "workerPaused",
+      "uiAdvanced",
     ])
       if (input[k] !== undefined) {
         if (typeof input[k] !== "boolean") throw fail("INVALID");
@@ -325,7 +327,7 @@ class Core {
           const count = models.length;
           const { getRAMProfile } = require('./ram-profile.cjs');
           const ram = getRAMProfile({ freeBytes: this.resources?.memory?.() });
-          const rec = ram.recommendedModels?.[0] || 'qwen2.5:1.5b';
+          const rec = ram.recommendedModels?.[0] || require('./providers.cjs').PROVIDERS.ollama.defaultModel;
           const hasRec = models.some(m => m.startsWith(rec.split(':')[0]));
           if (count === 0) {
             return { ok: true, note: `Ollama is connected at ${ep}, but no models are installed yet. Run "ollama run ${rec}" in your terminal to download your recommended model.` };
@@ -352,6 +354,7 @@ class Core {
     const s = this.settings();
     if (!cloud) return;
     const provider = s.provider || (this.key("openai") ? "openai" : "local");
+    if (hipaa && provider === "openai" && !s.approved) throw fail("SETUP");
     require('./provider-policy.cjs').assertProviderPolicy({ ...s, hipaa: hipaa || s.hipaa }, this.key(provider));
     if (provider === "local" || provider === "ollama") return;
     if (!s.model) throw fail("MODEL");
@@ -792,7 +795,7 @@ class Core {
     const result = this.store.cleanup(days);
     if (this.snf) {
       try {
-        const snfResult = this.snf.cleanup(days);
+        const snfResult = this.snf.cleanup(this.snf.getSettings().retentionDays || 100);
         result.snf = snfResult;
       } catch (err) {
         console.error("SNF cleanup failed:", err);
@@ -1211,7 +1214,7 @@ class Core {
       health: this.stability.snapshot(),
       resources: this.resources.snapshot(),
       databaseSchema: this.store.db.prepare("PRAGMA user_version").get().user_version,
-      upgrade: {dataSchemaCompatibleWith: "2.1.3–2.1.6", runtimeReplaced: false},
+      upgrade: {supportedSchemaVersions: [1, 2, 3], windowsUpgradeVerified: false, runtimeReplaced: false},
       processingMode: this.settings().processingMode,
       cloudAllowed: this.settings().processingMode !== "local-only" && this.settings().allowCloud,
       localStartup: this.router.local?.lastError || null,

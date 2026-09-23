@@ -352,6 +352,7 @@ async function dispatch(
   }
   core.assertUnlocked();
   if (op !== "summary") core.touch();
+  if (op.startsWith("voiceTranscript")) return require("./voice-history.cjs").dispatch(core,op,data);
   if (op.startsWith("snf")) return require("./snf/index.cjs").dispatch(core,op,data);
   switch (op) {
     case "userGuide": return require('./app-guide.cjs').guide;
@@ -897,19 +898,11 @@ if (!isNative && !app.requestSingleInstanceLock()) {
         cache: false,
       });
       const client = new (require("./api.cjs").OpenAIClient)((url, options) => {
-        const isAllowedAiEndpoint = (u) => {
-          try {
-            const p = new URL(u);
-            const host = p.hostname.toLowerCase();
-            if (["api.openai.com", "generativelanguage.googleapis.com", "api.anthropic.com", "api.deepseek.com", "api.groq.com", "openrouter.ai"].includes(host) && p.protocol === "https:") return true;
-            if ((host === "localhost" || host === "127.0.0.1") && (p.protocol === "http:" || p.protocol === "https:")) return true;
-            return false;
-          } catch {
-            return false;
-          }
-        };
-        if (!isAllowedAiEndpoint(url)) throw fail("POLICY");
-        if(core&&!cloudAllowed(core.settings()))throw fail("LOCAL_ONLY");
+        const policy=require('./providers.cjs');
+        const settings=core?.settings()||{provider:'openai'};
+        const target=new URL(url), expected=new URL(policy.endpointFor(settings.provider||'openai',settings));
+        if(target.origin!==expected.origin||target.username||target.password)throw fail('POLICY');
+        if(!['local','ollama'].includes(settings.provider)&&!cloudAllowed(settings))throw fail('LOCAL_ONLY');
         return apiSession.fetch(url, {
           ...options,
           cache: "no-store",

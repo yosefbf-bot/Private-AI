@@ -80,9 +80,12 @@ test("API client only sends requests to HTTPS OpenAI and denies redirects", asyn
       'data: {"type":"response.output_text.delta","delta":"Hello"}\n\ndata: {"type":"response.completed","response":{"usage":{"input_tokens":7,"output_tokens":2}}}\n\n',
     );
   });
+  const policy = require("../source/provider-policy.cjs");
+  const settings = { provider: "openai", model: "test-model", hipaa: true };
+  settings.providerApproval = { fingerprint: policy.fingerprint(settings,"sk-fake"), policyVersion: policy.POLICY_VERSION, organizationConfirmed:true };
   const r = await client.generate(
     "sk-fake",
-    { model: "test-model", hipaa: true },
+    settings,
     [{ role: "user", content: "test" }],
   );
   assert.equal(r.text, "Hello");
@@ -153,3 +156,4 @@ test("Unexpected exceptions are redacted", () => {
     false,
   );
 });
+

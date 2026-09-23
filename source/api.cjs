@@ -89,37 +89,16 @@ class OpenAIClient {
       } catch {}
       throw fail('LOCAL_UNAVAILABLE');
     }
-    if (['gemini', 'anthropic', 'groq', 'deepseek'].includes(provider)) return PROVIDERS[provider].models;
-
-
-
-    if (provider === 'custom') {
-      try {
-        const ep = endpointFor('custom', settings);
-        const r = await this.fetcher(ep + '/models', {
-          headers: this.headers(key, settings, 'custom'),
-          signal,
-          redirect: "error"
-        });
-        if (r.ok) {
-          const data = await r.json();
-          const list = (data.data || data.models || []).map(m => m.id || m.name).filter(Boolean);
-          if (list.length > 0) return list.sort();
-        }
-      } catch {}
-      throw fail('MODEL');
-    }
-    if (!key) throw fail("KEY");
-    const r = await this.fetcher(ENDPOINT + "/models", {
-      headers: this.headers(key, settings, 'openai'),
-      signal,
-      redirect: "error",
+    if (PROVIDERS[provider].requiresKey && !key) throw fail("KEY");
+    const r = await this.fetcher(endpointFor(provider, settings) + "/models", {
+      headers: this.headers(key, settings, provider), signal, redirect: "error",
     });
     if (!r.ok) throw apiError(r.status, {});
-    return (await r.json()).data
-      .map((m) => m.id)
-      .filter((x) => typeof x === "string" && /^[\w.:-]{1,101}$/.test(x))
-      .sort();
+    const data = await r.json();
+    const list = (data.data || data.models || []).map(m => m.id || m.name)
+      .filter(x => typeof x === 'string' && /^[\w./:-]{1,200}$/.test(x)).sort();
+    if (!list.length) throw fail('MODEL');
+    return list;
   }
   async createRealtimeSession(key, settings = {}) {
     if (!key) throw fail("KEY");
@@ -132,7 +111,7 @@ class OpenAIClient {
       redirect: "error",
       headers: this.headers(key, settings, 'openai'),
       body: JSON.stringify({
-        model: settings.realtimeModel || "gpt-4o-realtime-preview-2024-12-17",
+        model: settings.realtimeModel || PROVIDERS.openai.realtimeModels[0],
         voice: settings.voice || "verse",
         turn_detection: settings.turnDetection === "patient" ? {
           type: "server_vad",
