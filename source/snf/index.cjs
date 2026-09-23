@@ -7,9 +7,10 @@ async function dispatch(core,op,data={}){
  switch(op){
  case 'snfDemo':return workspace.set(data);
  case 'snfToday':return require('./reports/today.cjs').today(snf);
+ case 'snfImportSchema':return Object.keys(require('./import/batch-manager.cjs').PARSERS).filter(t=>t!=='adt');
  case 'snfImports':return snf.store.list('snf_import_batch');
  case 'snfAlertEvidence':{const alert=snf.store.get('snf_alert',data.alertId);if(!alert)throw fail('INVALID');return (alert.evaluationHistory||[]).map(id=>snf.store.get('snf_rule_evaluation',id)).filter(Boolean);}
- case 'snfDashboard':return {...snf.getDashboardMetrics(),demo:snf.demoMode};
+ case 'snfDashboard':return {...snf.getDashboardMetrics(),demo:snf.demoMode,developmentMode:!!core.developmentMode,productionAlerts:core.snf.getAlertSummary()};
  case 'snfAlerts':return snf.store.list('snf_alert').filter(a=>(!data.unresolvedOnly||a.status!=='resolved')&&(!data.severity||a.severity===data.severity)).map(a=>operational(a));
  case 'snfUpdateAlert':return snf.updateAlert(data.alertId,data.patch,data.user);
  case 'snfAcknowledgeAlert':return snf.acknowledgeAlert(data.alertId,data.user);

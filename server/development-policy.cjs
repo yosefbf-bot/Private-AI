@@ -2,9 +2,10 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
 const os = require('node:os');
+const fs = require('node:fs');
 const { fail } = require('../source/security.cjs');
 const LABEL = 'Development / Demo Mode — Not for PHI';
-const ALLOWED = new Set(['userGuide','summary','createChat','chat','archiveChat','renameChat','deleteChat','endTemporary','saveTemporary','send','stop','saveDraft','settings','saveKey','deleteKey','models','testConnection','localStatus','usageSummary','activity','snfDemo','snfToday','snfImports','snfDashboard','snfAlerts','snfAcknowledgeAlert','snfAssignAlert','snfResolveAlert','snfUpdateAlert','snfAlertEvidence','snfOpenIssues','snfMorningBrief','snfResidentTimeline','snfFeedStatus','snfMedChanges','snfPsychWatch','snfPCCReports','snfRunRules']);
+const ALLOWED = new Set(['userGuide','summary','createChat','chat','archiveChat','renameChat','deleteChat','endTemporary','saveTemporary','send','stop','saveDraft','voiceTranscriptSave','voiceTranscriptDelete','voiceTranscriptClear','settings','saveKey','deleteKey','models','testConnection','localStatus','usageSummary','activity','snfDemo','snfToday','snfImports','snfImportSchema','snfDashboard','snfAlerts','snfAcknowledgeAlert','snfAssignAlert','snfResolveAlert','snfUpdateAlert','snfAlertEvidence','snfOpenIssues','snfMorningBrief','snfResidentTimeline','snfFeedStatus','snfMedChanges','snfPsychWatch','snfPCCReports','snfRunRules']);
 function assertOperation(op, data) {
   if (!ALLOWED.has(op)) throw fail('POLICY');
   if (op === 'settings' && Object.keys(data).some(k => !['provider','model','hipaa','publicModeConfirmed','approved','customEndpoint','ollamaEndpoint','processingMode','allowCloud','org','projectId'].includes(k))) throw fail('POLICY');
@@ -13,8 +14,12 @@ function assertOperation(op, data) {
 function configuration(env = process.env, repo = path.resolve(__dirname, '..')) {
   if (env.PRIVATE_AI_HOST && env.PRIVATE_AI_HOST !== '127.0.0.1') throw Error('Development server requires 127.0.0.1. Network deployment is unsupported.');
   if (typeof env.PRIVATE_AI_DEV_TOKEN !== 'string' || env.PRIVATE_AI_DEV_TOKEN.length < 32) throw Error('Set PRIVATE_AI_DEV_TOKEN to a randomly generated access token of at least 32 characters. Development only; never use PHI.');
-  const root = path.resolve(env.PRIVATE_AI_DEV_DATA || path.join(os.homedir(), '.privateai-development'));
-  const relative = path.relative(repo, root);
+  if (env.PRIVATE_AI_DEV_DATA && !path.isAbsolute(env.PRIVATE_AI_DEV_DATA)) throw Error('Development data requires an absolute path.');
+  const requested = path.resolve(env.PRIVATE_AI_DEV_DATA || path.join(os.homedir(), '.privateai-development'));
+  let ancestor = requested;
+  while (!fs.existsSync(ancestor)) ancestor = path.dirname(ancestor);
+  const root = path.resolve(fs.realpathSync(ancestor), path.relative(ancestor, requested));
+  const relative = path.relative(fs.realpathSync(repo), root);
   if (!relative || (!relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative))) throw Error('Development data must be outside the source repository.');
   return { host: '127.0.0.1', port: 3000, root, token: env.PRIVATE_AI_DEV_TOKEN };
 }

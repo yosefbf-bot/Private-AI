@@ -34,8 +34,8 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Initialize persistent directories
-const localRoot = config.root;
-const workspaceDir = path.join(localRoot, "workspace");
+const localRoot = path.join(config.root, "private-data");
+const workspaceDir = path.join(config.root, "workspace");
 const tempDir = path.join(localRoot, "uploads");
 
 fs.mkdirSync(localRoot, { recursive: true, mode: 0o700 });
@@ -46,6 +46,7 @@ fs.mkdirSync(tempDir, { recursive: true, mode: 0o700 });
 const vaultKeyFile = path.join(localRoot, "vault.key");
 let vaultKey;
 if (fs.existsSync(vaultKeyFile)) {
+  if (fs.lstatSync(vaultKeyFile).isSymbolicLink()) throw fail("ENCRYPTION");
   vaultKey = fs.readFileSync(vaultKeyFile);
 } else {
   vaultKey = crypto.randomBytes(32);
@@ -119,6 +120,7 @@ async function dispatch(op, data = {}) {
   if (typeof op !== "string" || !data || typeof data !== "object" || Array.isArray(data)) throw fail("INVALID");
   devPolicy.assertOperation(op, data);
   core.assertUnlocked();
+  if (op.startsWith("voiceTranscript")) return require("./source/voice-history.cjs").dispatch(core,op,data);
   if (op.startsWith("snf")) return require("./source/snf/index.cjs").dispatch(core,op,data);
   switch (op) {
     case "userGuide":
@@ -391,4 +393,3 @@ app.use((_req, res) => {
 app.listen(PORT, config.host, () => {
   console.log(`${devPolicy.LABEL}: http://127.0.0.1:${PORT}`);
 });
-

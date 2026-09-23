@@ -39,26 +39,7 @@
       call: async (op, data = {}) => {
         await ready;
         if (op === "pickFiles") {
-          return new Promise((resolve) => {
-            const input = document.createElement("input");
-            input.type = "file";
-            input.multiple = true;
-            input.accept =
-              ".eml,.msg,.ics,.pdf,.docx,.xlsx,.csv,.txt,.md,.png,.jpg,.jpeg,.webp";
-            input.onchange = async () => {
-              if (!input.files || input.files.length === 0) {
-                return resolve({ ok: true, result: [] });
-              }
-              const res = await window.privateAI.dropFiles(
-                [...input.files],
-                data.chatId,
-                data.temporaryChat
-              );
-              resolve(res);
-            };
-            input.oncancel = () => resolve({ ok: true, result: [] });
-            input.click();
-          });
+          return {ok:false,error:{code:'POLICY',message:'Development / Demo Mode — file uploads are disabled. Not for PHI.'}};
         }
 
         if (op === "copy" && data?.text) {
@@ -69,7 +50,9 @@
         }
 
         if (op === "openLink" && data?.url) {
-          window.open(data.url, "_blank", "noopener,noreferrer");
+          const url = new URL(data.url);
+          if (!['https:', 'http:'].includes(url.protocol)) return {ok:false,error:{code:'POLICY',message:'Unsupported link protocol'}};
+          window.open(url.href, "_blank", "noopener,noreferrer");
           return { ok: true, result: true };
         }
 
@@ -108,35 +91,7 @@
       },
 
       dropFiles: async (files, chatId, temporary) => {
-        try {
-          const filePayloads = await Promise.all(
-            files.map(
-              (f) =>
-                new Promise((resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onload = () =>
-                    resolve({
-                      name: f.name,
-                      base64: reader.result.split(",")[1] || "",
-                    });
-                  reader.onerror = reject;
-                  reader.readAsDataURL(f);
-                })
-            )
-          );
-          const res = await fetch("/api/drop", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Private-AI-CSRF": csrf },
-            body: JSON.stringify({
-              files: filePayloads,
-              chatId,
-              temporary,
-            }),
-          });
-          return await res.json();
-        } catch (e) {
-          return { ok: false, error: { code: "FILE", message: e.message } };
-        }
+        return {ok:false,error:{code:'POLICY',message:'Development / Demo Mode — file uploads are disabled. Not for PHI.'}};
       },
 
       onEvent: (cb) => {

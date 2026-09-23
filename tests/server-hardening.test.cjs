@@ -22,3 +22,11 @@ test('development boundary rejects hostile origins, unauthenticated RPC, missing
  assert.equal(run('/api/events','GET',{cookie}),true);
  assert.equal(run('/api/call','POST',{cookie,'x-private-ai-csrf':csrf,host:'evil.example'}),false);
 });
+
+test('development data cannot reach the repository through a symlink or relative path',t=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'privateai-path-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const link=path.join(dir,'alias');fs.symlinkSync(process.cwd(),link,process.platform==='win32'?'junction':'dir');
+ assert.throws(()=>configuration({...env,PRIVATE_AI_DEV_DATA:path.join(link,'data')}));
+ assert.throws(()=>configuration({...env,PRIVATE_AI_DEV_DATA:'relative-data'}));
+});
