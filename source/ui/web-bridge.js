@@ -1,6 +1,15 @@
 (function () {
   "use strict";
+  if (window.privateAI) return; // Electron preload remains authoritative.
   const listeners = new Set();
+  let csrf = '';
+  const ready = (async () => {
+    const token = window.prompt('Development / Demo Mode — Not for PHI. Enter the local development access token:');
+    const response = await fetch('/api/session', { method: 'POST', headers: { Authorization: 'Bearer ' + (token || ''), 'X-Private-AI': 'development' } });
+    if (!response.ok) throw Error('Development authentication failed. Reload to try again.');
+    csrf = (await response.json()).csrf;
+    connectSSE();
+  })();
 
   function connectSSE() {
     try {
@@ -26,10 +35,9 @@
   }
 
   if (typeof window !== "undefined") {
-    connectSSE();
-
     window.privateAI = {
       call: async (op, data = {}) => {
+        await ready;
         if (op === "pickFiles") {
           return new Promise((resolve) => {
             const input = document.createElement("input");
@@ -67,7 +75,7 @@
 
         const res = await fetch("/api/call", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Private-AI-CSRF": csrf },
           body: JSON.stringify({ op, data }),
         });
         const json = await res.json();
@@ -118,7 +126,7 @@
           );
           const res = await fetch("/api/drop", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "X-Private-AI-CSRF": csrf },
             body: JSON.stringify({
               files: filePayloads,
               chatId,
@@ -138,3 +146,4 @@
     };
   }
 })();
+
