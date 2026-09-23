@@ -46,3 +46,32 @@ test('missing clinical fields remain unknown and old medication is not newly sta
 test('parser failure rolls back the report and records a failed batch',async t=>{
  const {core}=fixture(t);core.snf._processCensus=function(){this.store.put('snf_resident','rollback',{id:'rollback'});throw Error('synthetic');};const r=await core.snf.ingestReports([census()]);assert.equal(r.success,false);assert.equal(core.store.count('snf_resident'),0);assert.equal(core.store.count('snf_import_row'),0);assert.equal(core.store.count('snf_import_batch'),1);
 });
+
+test('demo PDF contains a visible demo label and uses its separate export folder',async t=>{
+ const {core}=fixture(t);const work=forCore(core);await work.set({mode:'demo'});
+ const file=await work.current().exportReportPDF('morning','',core.settings().workspace);
+ assert.match(file.relative,/^Demo-Reports/);
+ const parsed=await require('../source/files.cjs').processFile({op:'extract',ext:'.pdf',bytes:require('node:fs').readFileSync(file.path)});
+ assert.match(parsed.text,/DEMO DATA/);assert.match(parsed.text,/NOT FOR CLINICAL USE/);
+ assert.equal(core.store.count('snf_resident'),0);
+});
+test('retention prunes expired batches but pins unresolved alert evidence, including snoozed alerts',async t=>{
+ const {core}=fixture(t);await core.snf.ingestReports([census(),medication()]);
+ const alert=core.store.list('snf_alert').find(a=>a.code==='AP-002');
+ core.snf.updateAlert(alert.id,{status:'snoozed',snoozedUntil:Date.now()+3600000,note:'Await clinical review'},'Synthetic reviewer');
+ core.store.put('snf_import_batch','unreferenced',{id:'unreferenced',importTime:Date.now()-200*86400000});
+ core.snf.cleanup(100,Date.now()+200*86400000);
+ assert.equal(core.store.get('snf_import_batch','unreferenced'),null);
+ const evidence=core.store.get('snf_rule_evaluation',alert.evaluationId);assert.ok(evidence);
+ for(const source of evidence.sources){if(source.rowId)assert.ok(core.store.get('snf_import_row',source.rowId));if(source.batchId)assert.ok(core.store.get('snf_import_batch',source.batchId));}
+ assert.equal(core.store.get('snf_alert',alert.id).status,'snoozed');
+});
+
+test('production critical summary remains visible in demo mode and with clinical navigation disabled',async t=>{
+ const {core}=fixture(t);await core.snf.ingestReports([census(),medication()]);
+ const critical=core.summary().snfAlerts.critical;assert.ok(critical>0);
+ core.saveSettings({snfEnabled:false});await forCore(core).set({mode:'demo'});
+ assert.equal(core.summary().snfAlerts.critical,critical);
+ const dashboard=await require('../source/snf/index.cjs').dispatch(core,'snfDashboard');
+ assert.equal(dashboard.demo,true);assert.equal(dashboard.productionAlerts.critical,critical);
+});

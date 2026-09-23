@@ -24,7 +24,7 @@ async function ingestReports(reports,user='Operator'){
    this._batchContext={batchId:batch.id,reportId:item.id,fileHash,filename,type,reportDate:checked.reportDate,rows:checked.accepted};
    this.store.db.exec('SAVEPOINT snf_report');
    try{
-    for(const row of checked.accepted)this.store.put('snf_import_row',item.id+':'+row.index,{id:item.id+':'+row.index,batchId:batch.id,reportId:item.id,sourceFile:filename,reportDate:checked.reportDate,residentId:row.residentId,sourceRow:row.index,originalData:row.row,demo:!!this.demoMode});
+    for(const row of checked.accepted)this.store.put('snf_import_row',item.id+':'+row.index,{id:item.id+':'+row.index,batchId:batch.id,reportId:item.id,sourceFile:filename,reportDate:checked.reportDate,residentId:row.residentId,sourceRow:row.index,importTimestamp:batch.importTime,originalData:row.row,demo:!!this.demoMode});
     item.acceptedRows=this[PARSERS[type]](checked.accepted.map(r=>({...r.row,residentId:r.residentId})),filename,checked.reportDate,batch.importTime);
     item.status=item.rejectedRows?'partial':'success';
     this.store.db.exec('RELEASE snf_report');

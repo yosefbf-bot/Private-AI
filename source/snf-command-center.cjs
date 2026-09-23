@@ -1089,7 +1089,7 @@ class SNFCommandCenter {
     const prnDeadlines = unresolvedAlerts.filter(a => a.code === 'PRN-014').length;
     const newPsychDiags = unresolvedAlerts.filter(a => a.code === 'AP-003').length;
 
-    // CMS Quality Measure Watch (2026 Long-Stay Antipsychotic Measure Model)
+    // Exploratory imported-data ratio; not an implementation of the official CMS measure.
     // Label: "Estimated QM Exposure"
     const longStayResidents = residents.filter(r => r.stayType === 'long_stay');
     const potentialNumerator = [];
@@ -1255,7 +1255,7 @@ class SNFCommandCenter {
     brief += `### New Medications & Psych Watch Overview\n`;
     const pw = metrics.psychWatchCard;
     brief += `**Psych Watch Metrics**: Antipsychotic Residents: **${pw.antipsychoticResidents}** | New (24h): **${pw.newAPs24h}** | Doc Reviews: **${pw.documentationReview}** | GDR Reviews: **${pw.gdrReview}** | PRN 14-Day Deadlines: **${pw.prnDeadlines}**\n`;
-    brief += `**Estimated QM Exposure**: **${metrics.qmWatch.estimatedRatePercentage}%** (${metrics.qmWatch.potentialNumeratorCount} of ${metrics.qmWatch.longStayDenominator} long-stay residents; ${metrics.qmWatch.knownExclusionsCount} known exclusions)\n\n`;
+    brief += `**Estimated QM Exposure**: **${metrics.qmWatch.estimatedRatePercentage}%** (${metrics.qmWatch.potentialNumeratorCount} of ${metrics.qmWatch.longStayDenominator} long-stay residents; ${metrics.qmWatch.knownExclusionsCount} diagnosis exclusion candidates requiring verification)\n\n`;
 
     // 5. INCIDENTS, INFECTIONS & EXCEPTIONS
     brief += `### Incidents, Infections & eMAR Exceptions\n`;
@@ -1672,7 +1672,8 @@ class SNFCommandCenter {
     const rawKinds = [
       'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
       'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
-      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer'
+      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer',
+      'snf_psych_review', 'snf_pharmacist_review', 'snf_weight', 'snf_care_plan'
     ];
     if (rawKinds.includes(kind)) {
       throw new Error(`EMR data (${kind}) is strictly read-only and immutable. In accordance with clinical governance, raw EMR surveillance records cannot be edited or altered.`);
@@ -1680,7 +1681,10 @@ class SNFCommandCenter {
   }
 
   cleanup(retentionDays = 100, now = Date.now()) {
+    if (!Number.isFinite(retentionDays) || retentionDays < 1 || retentionDays > 3650) throw new Error('Invalid retention period');
     const rawCutoff = now - retentionDays * 86400000;
+    const {retainedEvidence, pruneEvidence} = require('./snf/retention.cjs');
+    const keep = retainedEvidence(this.store, rawCutoff);
     const counts = {
       rawEmrRecords: 0,
       dischargedResidents: 0,
@@ -1693,7 +1697,8 @@ class SNFCommandCenter {
     const rawKinds = [
       'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
       'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
-      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer'
+      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer',
+      'snf_psych_review', 'snf_pharmacist_review', 'snf_weight', 'snf_care_plan'
     ];
 
     this._tx(() => {
@@ -1705,7 +1710,7 @@ class SNFCommandCenter {
                        (rec.eventDate ? Date.parse(rec.eventDate) : null) ||
                        rec.timestamp ||
                        rec.updated;
-          if (time && time < rawCutoff) {
+          if (time && time < rawCutoff && !keep.rows.has(rec.provenance?.rowId)) {
             this.store.delete(kind, rec.id);
             counts.rawEmrRecords++;
           }
@@ -1718,7 +1723,7 @@ class SNFCommandCenter {
         const isDischarged = res.status === 'Discharged' || res.dischargeDate;
         if (isDischarged) {
           const dischargeTime = res.dischargeDate ? Date.parse(res.dischargeDate) : (res.updated || res.importTimestamp);
-          if (dischargeTime && dischargeTime < rawCutoff) {
+          if (dischargeTime && dischargeTime < rawCutoff && !keep.residents.has(res.id)) {
             this.store.delete('snf_resident', res.id);
             counts.dischargedResidents++;
           }
@@ -1762,7 +1767,8 @@ class SNFCommandCenter {
       }
     });
 
-    counts.total = counts.rawEmrRecords + counts.dischargedResidents + counts.resolvedAlerts + counts.resolvedIssues + counts.reportsPurged;
+    counts.evidenceRecordsPurged = pruneEvidence(this.store, rawCutoff, keep);
+    counts.total = counts.evidenceRecordsPurged + counts.rawEmrRecords + counts.dischargedResidents + counts.resolvedAlerts + counts.resolvedIssues + counts.reportsPurged;
 
     if (counts.total > 0) {
       this._invalidateCache();
@@ -1787,7 +1793,7 @@ class SNFCommandCenter {
 
   getRetentionStatus() {
     const settings = this.getSettings();
-    const retentionDays = this.core?.settings()?.retentionDays || 100;
+    const retentionDays = settings.retentionDays || 100;
 
     const alerts = this.store.list('snf_alert');
     const resolvedAlerts = alerts.filter(a => a.status === 'resolved' || a.status === 'dismissed').length;
@@ -1800,7 +1806,8 @@ class SNFCommandCenter {
     const rawKinds = [
       'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
       'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
-      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer'
+      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer',
+      'snf_psych_review', 'snf_pharmacist_review', 'snf_weight', 'snf_care_plan'
     ];
     let totalRawRecords = 0;
     for (const kind of rawKinds) {
@@ -1846,10 +1853,10 @@ class SNFCommandCenter {
     report += `- **Long-Stay Census (≥101 days)**: ${qm.longStayDenominator} residents\n`;
     report += `- **Data Ingestion Status**: ${metrics.feedStatus.receivedFeedsCount}/16 PointClickCare feeds active (${metrics.feedStatus.dataCurrentThroughFormatted})\n\n`;
 
-    report += `## 2. Quality Measure (QM) Exposure & Antipsychotic Surveillance (CMS F758)\n`;
+    report += `## 2. Exploratory QM Estimate & Antipsychotic Surveillance — Human Review Required\n`;
     report += `- **Estimated QM Antipsychotic Rate**: **${qm.estimatedRatePercentage}%**\n`;
     report += `- **Potential Numerator Count**: ${qm.potentialNumeratorCount} long-stay residents receiving antipsychotics\n`;
-    report += `- **Identified CMS Exclusions**: ${qm.knownExclusionsCount} (Schizophrenia, Tourette's, Huntington's)\n`;
+    report += `- **Imported diagnosis exclusion candidates — verify independently**: ${qm.knownExclusionsCount} (Schizophrenia, Tourette's, Huntington's)\n`;
     report += `- **Exclusions Requiring Chart Verification**: ${qm.possibleExclusionsToVerifyCount} residents\n`;
     report += `- **Facility-Wide Antipsychotic Prevalence**: ${metrics.antipsychoticResidentsCount} residents (${metrics.antipsychoticRate}%)\n\n`;
 

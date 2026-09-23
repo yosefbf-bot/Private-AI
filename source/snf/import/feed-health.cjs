@@ -1,7 +1,8 @@
 'use strict';
 function getFeedStatus(){
  const data=this.store.get('config',this.feedStatusKey)||{feeds:{}};
- const now=Date.now(),daily=(this.getSettings().staleThresholdHours||18)*3600000;
+ const hours=Number(this.getSettings().staleThresholdHours);
+ const now=Date.now(),daily=(Number.isFinite(hours)&&hours>=1&&hours<=168?hours:18)*3600000;
  const feeds=Object.fromEntries(Object.entries(data.feeds||{}).map(([id,feed])=>{
   const limit=['psych_report'].includes(id)?7*86400000:['pharmacist_review','gdr_tracker','care_plans'].includes(id)?31*86400000:daily;
   const stale=!Number.isFinite(feed.reportDate)||now-feed.reportDate>limit;
