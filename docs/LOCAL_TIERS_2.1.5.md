@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.5 — automatic local brain tiers
 
 This extends 2.1.4. Existing Windows runtimes, security/retention behavior, manual Chrome capture, task coordination, interference warnings, ShareSync outputs, and model downloads are retained.
@@ -53,3 +55,4 @@ The release packaging step runs the full automated test suite and records its ex
 Windows application/updater execution and actual Small/Extra High model inference were not run here. Routing tests use synthetic model responses, so they verify orchestration rather than real-model judgment quality. The Windows engine/dependency files are reused byte-for-byte from 2.1.3; prior Windows validation records are historical. Model compatibility is based on the existing Qwen3 runtime architecture, not a new Windows inference claim.
 
 The 2.1.4 interference gate is unchanged: unattended browser actions, Outlook session access, desktop writes/launches, and WhatsApp replies remain deferred for manual approval. This upgrade does not add arbitrary autonomous desktop control or change permissions.
+

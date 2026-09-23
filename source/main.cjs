@@ -352,6 +352,8 @@ async function dispatch(
   }
   core.assertUnlocked();
   if (op !== "summary") core.touch();
+  if (op.startsWith("voiceTranscript")) return require("./voice-history.cjs").dispatch(core,op,data);
+  if (op.startsWith("snf")) return require("./snf/index.cjs").dispatch(core,op,data);
   switch (op) {
     case "userGuide": return require('./app-guide.cjs').guide;
     case "discardRecovery": return core.discardRecovery(data.id);
@@ -815,50 +817,6 @@ async function dispatch(
       await shell.openExternal(url.href);
       return true;
     }
-    case "snfDashboard":
-      return core.snf ? core.snf.getDashboardMetrics() : { error: "Not initialized" };
-    case "snfAlerts": {
-      let alerts = core.store.list("snf_alert");
-      if (data.unresolvedOnly) alerts = alerts.filter((a) => a.status !== "resolved");
-      if (data.severity) alerts = alerts.filter((a) => a.severity === data.severity);
-      return alerts;
-    }
-    case "snfAcknowledgeAlert":
-      return core.snf.acknowledgeAlert(data.alertId, data.user || "Clinical User");
-    case "snfAssignAlert":
-      return core.snf.assignAlert(data.alertId, data.assignedTo, data.user || "Clinical User", data.note || "");
-    case "snfResolveAlert":
-      return core.snf.resolveAlert(data.alertId, data.resolutionStatus, data.note || "", data.user || "Clinical User");
-    case "snfOpenIssues":
-      return core.store.list("snf_open_issue");
-    case "snfMorningBrief":
-      return { text: core.snf.generateMorningBrief() };
-    case "snfResidentTimeline":
-      return { text: core.snf.getResidentTimelineReport(data.query) };
-    case "snfFeedStatus":
-      return core.snf.getFeedStatus();
-    case "snfMedChanges":
-      return core.snf ? core.snf.getMedicationChangesList() : [];
-    case "snfPsychWatch":
-      return core.snf ? core.snf.getPsychWatchData() : {};
-    case "snfPCCReports":
-      return core.snf ? core.snf.getPCCReportCatalog() : [];
-    case "snfRunRules":
-      return await core.snf.runRulesEngine(data.user || "Clinical User");
-    case "snfSeedData":
-      return await core.snf.seedRealisticPCCDataset();
-    case "snfIngest":
-      return await core.snf.ingestReports(data.reports || [], data.user || "Clinical User");
-    case "snfRetentionCleanup":
-      return core.snf ? core.snf.cleanup(core.snf.getSettings().retentionDays || 100) : { total: 0 };
-    case "snfRetentionStatus":
-      return core.snf ? core.snf.getRetentionStatus() : {};
-    case "snfExportPDF":
-      if (!core.snf) throw fail("INVALID");
-      return await core.snf.exportReportPDF(data.type, data.query, core.settings().workspace);
-    case "snfSaveSettings":
-      if (!core.snf) throw fail("INVALID");
-      return core.snf.saveSettings(data.settings || {});
     default:
       throw fail("INVALID");
   }
@@ -940,19 +898,11 @@ if (!isNative && !app.requestSingleInstanceLock()) {
         cache: false,
       });
       const client = new (require("./api.cjs").OpenAIClient)((url, options) => {
-        const isAllowedAiEndpoint = (u) => {
-          try {
-            const p = new URL(u);
-            const host = p.hostname.toLowerCase();
-            if (["api.openai.com", "generativelanguage.googleapis.com", "api.anthropic.com", "api.deepseek.com", "api.groq.com", "openrouter.ai"].includes(host) && p.protocol === "https:") return true;
-            if ((host === "localhost" || host === "127.0.0.1") && (p.protocol === "http:" || p.protocol === "https:")) return true;
-            return false;
-          } catch {
-            return false;
-          }
-        };
-        if (!isAllowedAiEndpoint(url)) throw fail("POLICY");
-        if(core&&!cloudAllowed(core.settings()))throw fail("LOCAL_ONLY");
+        const policy=require('./providers.cjs');
+        const settings=core?.settings()||{provider:'openai'};
+        const target=new URL(url), expected=new URL(policy.endpointFor(settings.provider||'openai',settings));
+        if(target.origin!==expected.origin||target.username||target.password)throw fail('POLICY');
+        if(!['local','ollama'].includes(settings.provider)&&!cloudAllowed(settings))throw fail('LOCAL_ONLY');
         return apiSession.fetch(url, {
           ...options,
           cache: "no-store",
@@ -1124,3 +1074,4 @@ process.on("uncaughtException", () => {
   app.exit(1);
 });
 process.on("unhandledRejection", () => {try{core?.stability.incident("promise-failed");core?.stability.pause();emit({type:"jobs_changed"});}catch{}});
+

@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.1 — additional local brain
 
 Built with Llama.
@@ -31,3 +33,4 @@ A truncated or incorrect download is rejected and the partial file is removed. A
 Llama 3.2 is licensed under the Llama 3.2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
 This remains an unsigned Windows evaluation build. Live Windows use and the earlier documented integration limitations still require on-PC verification. Model weights are optional downloads, not included in the application ZIPs.
+

@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.7 — install and upgrade
 
 This is a full Windows x64 release: a regular installer and a complete portable app. Both work for first-time setup or an existing Private AI installation. The 2.1.4 code-only upgrade script is not required.
@@ -36,3 +38,4 @@ Record the version and exact error code. If the app opens, use **Health & recove
 ## Validation limits
 
 Linux automated tests and Chromium UI checks cover the app logic and presentation. The complete Windows executables, bundled dependencies, security fuses, installer payload and ZIP contents are checked structurally and against known baseline bytes. The launcher receives only icon-resource changes; executable code sections remain unchanged. Windows application, installer and uninstaller execution have not been tested here. This release is unsigned. No new actual model-inference tests were needed for these UI and documentation changes.
+

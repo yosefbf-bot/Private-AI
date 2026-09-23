@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.2 — local brain startup repair
 
 The recording exposed a real screen-refresh bug: the model-selection event called `render` instead of `renderPage`. This update fixes that event and tests the actual callback.
@@ -26,3 +28,4 @@ No DLLs are downloaded from third-party DLL sites. The app does not silently ele
 - Agent and scheduler help text now accurately says that jobs follow AI Processing settings; Local Only blocks OpenAI.
 
 This is an unsigned evaluation update. Windows-specific error handling is tested with simulated Windows exit codes. Actual Windows execution and the repair outcome on the user's PC remain to be verified. Fixing the refresh bug does not prove that all possible engine-startup failures are resolved.
+

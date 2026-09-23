@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 For the current packaging repair, follow [BUILD_REPAIR_2.1.6.md](BUILD_REPAIR_2.1.6.md). The older build notes below are retained for reference.
 
 # Reproducible build notes (developers / IT)
@@ -19,3 +21,4 @@ The Chrome manifest contains a public key solely to keep the extension ID stable
 The project is supplied for the user's evaluation and modification; third-party components retain their own licenses. Distributed runtime license files and dependency notices accompany the package. No claim of affiliation with OpenAI, Microsoft, Google, Meta, or ShareSync is made.
 
 On this Linux host, Wine's socket facility is unavailable. `build/windows-build.cjs` uses electron-builder's own binary `UninstallerReader` with its standard NSIS templates to embed the compiled uninstaller without executing Windows code. It replaces one build-time method in memory, not installed libraries or runtime code. It supports unsigned Linux builds; Windows retains the normal builder flow. Compilation and binary extraction are not a Windows installation test. Regenerate HTML/help notices with `node build/prepare-docs.cjs` before packaging.
+

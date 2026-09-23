@@ -5,7 +5,7 @@ const PROVIDERS = {
   local: {
     id: 'local',
     name: 'Local Assistant (No API Key)',
-    description: 'Runs 100% on this PC with zero cloud API keys, zero network data transmission, and zero subscription or token costs. Includes comprehensive clinical reference, task workflows, and local tools.',
+    description: 'Local tools and reasoning on this PC. Select Local Only to prohibit cloud routing; review all clinical output.',
     keyRequired: false,
     requiresKey: false,
     defaultModel: 'local-knowledge-engine',
@@ -23,6 +23,11 @@ const PROVIDERS = {
     keyRequired: false,
     requiresKey: false,
     defaultModel: 'qwen2.5:1.5b',
+    ramModels: {
+      conservative: ['qwen2.5:1.5b', 'llama3.2:1b'],
+      balanced: ['llama3.2:3b', 'qwen2.5:3b', 'qwen2.5:1.5b'],
+      expanded: ['qwen2.5:7b', 'llama3.1:8b', 'qwen2.5:3b', 'deepseek-r1:7b']
+    },
     models: [
       'qwen2.5:1.5b',
       'llama3.2:1b',
@@ -54,7 +59,7 @@ const PROVIDERS = {
   anthropic: {
     id: 'anthropic',
     name: 'Anthropic Claude',
-    description: 'Anthropic API key (starts with sk-ant-...). Exceptional nuanced reasoning and clinical safety analysis.',
+    description: 'Anthropic API key (starts with sk-ant-...). Available outside HIPAA Mode; clinical output requires human review.',
     keyRequired: true,
     requiresKey: true,
     keyPrefix: 'sk-ant-',
@@ -75,6 +80,7 @@ const PROVIDERS = {
     requiresKey: true,
     keyPrefix: 'sk-',
     defaultModel: 'gpt-4o',
+    realtimeModels: ['gpt-4o-realtime-preview-2024-12-17'],
     models: [
       'gpt-4o',
       'gpt-4o-mini',
@@ -130,16 +136,8 @@ const PROVIDERS = {
   }
 };
 
-function detectProviderFromKey(key) {
-  if (!key || typeof key !== 'string') return 'openai';
-  const k = key.trim();
-  if (k.startsWith('AIza')) return 'gemini';
-  if (k.startsWith('sk-ant-')) return 'anthropic';
-  if (k.startsWith('gsk_')) return 'groq';
-  return 'openai';
-}
-
 function validateKeyForProvider(key, provider = 'openai') {
+  if (!Object.hasOwn(PROVIDERS, provider)) throw fail('INVALID');
   if (provider === 'local' || provider === 'ollama') return true;
   if (typeof key !== 'string' || !key.trim()) throw fail('INVALID');
   if (/\s/.test(key)) throw fail('INVALID');
@@ -152,6 +150,30 @@ function validateKeyForProvider(key, provider = 'openai') {
 
 module.exports = {
   PROVIDERS,
-  detectProviderFromKey,
   validateKeyForProvider
 };
+
+
+// Authoritative provider/model metadata. Model IDs are configured suggestions,
+// not a promise of availability; provider errors are surfaced without fallback.
+for (const provider of Object.values(PROVIDERS)) {
+  provider.modelsAreSuggestions = true;
+  provider.classification = ['local', 'ollama'].includes(provider.id) ? 'local' : 'cloud';
+  provider.authentication = provider.id === 'anthropic' ? 'x-api-key' : provider.requiresKey ? 'bearer' : 'optional';
+  provider.streaming = provider.id !== 'local';
+  provider.tools = provider.id === 'openai' ? ['web-search-public-mode'] : [];
+  provider.healthcarePolicy = provider.id === 'openai' ? 'organization-approval-required' : provider.classification === 'local' ? 'local-device-policy-required' : 'not-enabled-in-hipaa-mode';
+}
+function endpointFor(id, settings = {}) {
+  if (!Object.hasOwn(PROVIDERS, id)) throw fail('INVALID');
+  if (id === 'local') return '';
+  const raw = id === 'custom' ? settings.customEndpoint || PROVIDERS.custom.defaultEndpoint : id === 'ollama' ? settings.ollamaEndpoint || PROVIDERS.ollama.defaultEndpoint : PROVIDERS[id].defaultEndpoint;
+  let url;
+  try { url = new URL(raw); } catch { throw fail('INVALID'); }
+  if (url.username || url.password || url.search || url.hash) throw fail('POLICY');
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if (id === 'ollama' && !loopback) throw fail('POLICY');
+  if (url.protocol !== 'https:' && !(loopback && url.protocol === 'http:')) throw fail('POLICY');
+  return url.href.replace(/\/+$/, '');
+}
+module.exports.endpointFor = endpointFor;

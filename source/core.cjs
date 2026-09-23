@@ -84,11 +84,6 @@ class Core {
       store: this.store,
       root: this.root,
     });
-    try {
-      if (this.store.count("snf_resident") === 0) {
-        this.snf.seedRealisticPCCDataset().catch(() => {});
-      }
-    } catch {}
     this.reminderTimer = setInterval(() => {
       try { this.checkReminders(); } catch {}
     }, 30000);
@@ -97,7 +92,9 @@ class Core {
     store.audit("startup");
   }
   settings() {
-    return { ...DEFAULTS, ...this.store.get("settings", "main") };
+    const s = { ...DEFAULTS, ...this.store.get("settings", "main") };
+    s.approved = require("./provider-policy.cjs").approved(s, this.store.get("secret", s.provider)?.key);
+    return s;
   }
   identity() {
     return this.store.get("identity", "self");
@@ -114,6 +111,7 @@ class Core {
     const s = this.settings();
     return {
       settings: s,
+      voiceTranscripts: this.store.list("voice_transcript"),
       resources: this.resources.snapshot(),
       health: this.stability.snapshot(),
       ramProfile: require('./ram-profile.cjs').getRAMProfile(),
@@ -134,7 +132,7 @@ class Core {
       folders: this.store.list("folder"),
       outlook: this.store.get("access", "outlook") || {},
       maintenance: this.store.get("maintenance", "backupCleanup") || {},
-      keySaved: !!(this.key(this.settings().provider) || this.key("openai")),
+      keySaved: !!this.key(this.settings().provider),
       activeProvider: this.settings().provider || (this.key("openai") ? "openai" : "local"),
       savedProviders: {
         local: true,
@@ -174,7 +172,7 @@ class Core {
       })(),
       todos: this.store.list("todo"),
       schedules: this.store.list("schedule"),
-      snfAlerts: (s.snfEnabled !== false && this.snf) ? this.snf.getAlertSummary() : null,
+      snfAlerts: this.snf ? this.snf.getAlertSummary() : null,
       jobs: this.store.project("job",({recoveryInput,checkpoint,savedAnswer,...j})=>({...j,recoverable:!!recoveryInput&&!j.remote,step:checkpoint?.phase||null})),
       worker: {
         id: this.identity().id,
@@ -224,6 +222,7 @@ class Core {
       "memoryEnabled",
       "workerEnabled",
       "workerPaused",
+      "uiAdvanced",
     ])
       if (input[k] !== undefined) {
         if (typeof input[k] !== "boolean") throw fail("INVALID");
@@ -242,17 +241,22 @@ class Core {
           throw fail("INVALID");
         s[k] = input[k];
       }
-    if (
-      (s.org !== current.org || s.projectId !== current.projectId) &&
-      current.approved
-    )
-      s.approved = false;
+    const policy = require('./provider-policy.cjs');
+    const key = this.key(s.provider);
+    const changed = policy.fingerprint(current, this.key(current.provider)) !== policy.fingerprint(s, key);
+    if (changed || input.approved === false) delete s.providerApproval;
+    // Material changes always require a subsequent explicit approval action.
+    if (input.approved === true && !changed && s.provider === 'openai' && key) {
+      s.providerApproval = { fingerprint: policy.fingerprint(s, key), policyVersion: policy.POLICY_VERSION,
+        organizationConfirmed: true, approvedAt: Date.now() };
+    }
+    s.approved = policy.approved(s, key);
     if (s.workspace && s.workspace !== current.workspace) workspace(s.workspace, this.root);
     if(s.workProfile==="work")s.resourceMode="balanced";
     if (s.role === "primary") s.workerEnabled = false;
     if (input.snfEnabled !== undefined) s.snfEnabled = Boolean(input.snfEnabled);
     this.store.put("settings", "main", s);
-    if(!cloudAllowed(s)) for(const controller of this.requests.values()) controller.abort();
+    if(changed || input.approved === false || !cloudAllowed(s)) for(const controller of this.requests.values()) controller.abort();
     this.store.audit("settings");
     return s;
   }
@@ -263,11 +267,12 @@ class Core {
     const { validateKeyForProvider } = require("./providers.cjs");
     validateKeyForProvider(key, prov);
     this.store.put("secret", prov, { key });
-    if (prov === "openai" || key.startsWith("sk-")) {
-      this.store.put("secret", "openai", { key });
-    }
     const current = this.settings();
-    this.store.put("settings", "main", { ...current, provider: prov, approved: false });
+    if (prov === current.provider) {
+      delete current.providerApproval;
+      this.store.put("settings", "main", { ...current, approved: false });
+      for (const controller of this.requests.values()) controller.abort();
+    }
     this.store.audit("key_saved");
     return true;
   }
@@ -275,13 +280,18 @@ class Core {
     this.assertUnlocked();
     const prov = provider || this.settings().provider || "openai";
     this.store.delete("secret", prov);
-    if (prov === "openai") this.store.delete("secret", "openai");
+    if (!Object.hasOwn(require("./providers.cjs").PROVIDERS, prov)) throw fail("INVALID");
+    if (prov === this.settings().provider) {
+      const current = this.settings(); delete current.providerApproval;
+      this.store.put("settings", "main", { ...current, approved: false });
+      for (const controller of this.requests.values()) controller.abort();
+    }
     this.store.audit("key_deleted");
     return true;
   }
   key(provider) {
     const prov = provider || this.settings().provider || "openai";
-    return this.store.get("secret", prov)?.key || (prov === "openai" ? this.store.get("secret", "openai")?.key : null);
+    return this.store.get("secret", prov)?.key || null;
   }
   async models(provider) {
     this.assertUnlocked();
@@ -317,7 +327,7 @@ class Core {
           const count = models.length;
           const { getRAMProfile } = require('./ram-profile.cjs');
           const ram = getRAMProfile({ freeBytes: this.resources?.memory?.() });
-          const rec = ram.recommendedModels?.[0] || 'qwen2.5:1.5b';
+          const rec = ram.recommendedModels?.[0] || require('./providers.cjs').PROVIDERS.ollama.defaultModel;
           const hasRec = models.some(m => m.startsWith(rec.split(':')[0]));
           if (count === 0) {
             return { ok: true, note: `Ollama is connected at ${ep}, but no models are installed yet. Run "ollama run ${rec}" in your terminal to download your recommended model.` };
@@ -330,11 +340,6 @@ class Core {
     }
     this.canSend(this.settings().hipaa, true);
     const s = { ...this.settings(), provider: prov, maxOutput: 256 };
-    if (prov === "gemini" && !s.model) s.model = "gemini-2.5-flash";
-    if (prov === "anthropic" && !s.model) s.model = "claude-3-7-sonnet-20250219";
-    if (prov === "groq" && !s.model) s.model = "llama-3.3-70b-versatile";
-    if (prov === "deepseek" && !s.model) s.model = "deepseek-chat";
-    if (prov === "custom" && !s.model) s.model = "llama3.2";
     const r = await this.client.generate(
       this.key(prov),
       s,
@@ -349,10 +354,9 @@ class Core {
     const s = this.settings();
     if (!cloud) return;
     const provider = s.provider || (this.key("openai") ? "openai" : "local");
+    if (hipaa && provider === "openai" && !s.approved) throw fail("SETUP");
+    require('./provider-policy.cjs').assertProviderPolicy({ ...s, hipaa: hipaa || s.hipaa }, this.key(provider));
     if (provider === "local" || provider === "ollama") return;
-    if (provider === "custom" && !this.key(provider) && /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.|10\.)/i.test(s.customEndpoint || '')) return;
-    if (!cloudAllowed(s)) throw fail("LOCAL_ONLY");
-    if (hipaa && !s.approved) throw fail("SETUP");
     if (!s.model) throw fail("MODEL");
     if (provider !== "custom" && !this.key(provider)) throw fail("KEY");
   }
@@ -791,7 +795,7 @@ class Core {
     const result = this.store.cleanup(days);
     if (this.snf) {
       try {
-        const snfResult = this.snf.cleanup(days);
+        const snfResult = this.snf.cleanup(this.snf.getSettings().retentionDays || 100);
         result.snf = snfResult;
       } catch (err) {
         console.error("SNF cleanup failed:", err);
@@ -1210,7 +1214,7 @@ class Core {
       health: this.stability.snapshot(),
       resources: this.resources.snapshot(),
       databaseSchema: this.store.db.prepare("PRAGMA user_version").get().user_version,
-      upgrade: {dataSchemaCompatibleWith: "2.1.3–2.1.6", runtimeReplaced: false},
+      upgrade: {supportedSchemaVersions: [1, 2, 3], windowsUpgradeVerified: false, runtimeReplaced: false},
       processingMode: this.settings().processingMode,
       cloudAllowed: this.settings().processingMode !== "local-only" && this.settings().allowCloud,
       localStartup: this.router.local?.lastError || null,
@@ -1261,3 +1265,4 @@ class Core {
   }
 }
 module.exports = { Core, DEFAULTS };
+

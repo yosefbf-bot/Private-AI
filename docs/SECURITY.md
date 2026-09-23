@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Security boundary and deployment review
 
 Reviewed 2026-09-10. This is HIPAA-oriented software, not a compliance certification or legal conclusion. Organization authorization and a documented risk assessment remain necessary. It is not a fully offline AI model.
@@ -45,3 +47,4 @@ These references describe platform capabilities, not validation or endorsement o
 ## 2.1.0 additions
 
 See HYBRID_UPGRADE.md for the extended boundary: authenticated loopback inference, optional automated WhatsApp replies, explicit background access, private browser profiles, and usage retention. The earlier manual Apps preview restrictions remain; approved Messaging commands are a separate opt-in execution channel. Browser report recipes and messaging do not grant the Chrome Companion automatic page access.
+

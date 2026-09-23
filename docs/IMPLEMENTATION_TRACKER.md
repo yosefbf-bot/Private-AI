@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Requested release implementation tracker
 
 ## Official 3.0 build authorized
@@ -150,3 +152,4 @@ All other outstanding items remain open until implemented and verified. Source w
 ## Latest scope change: mobile deferred; WhatsApp primary
 User explicitly says skip mobile for now, but include its layout in overall plans. This SUPERSEDES earlier mobile implementation scope and the pending browser/native question. Do not implement or expose a mobile service in 3.0. Include future responsive mobile companion layout/design in roadmap and ChatGPT Work handoff only.
 WhatsApp is the primary remote communication interface for jobs, tasks, status/results, and regular AI inquiries. Prioritize reliable unattended two-way replies in verified selected conversations alongside independent read-all on/off and disable-all-writing override. Remain paused until scheduled 02:15 resume.
+

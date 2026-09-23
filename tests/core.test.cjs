@@ -86,6 +86,18 @@ test("Retention removes expired local records but preserves originals and report
   assert.ok(fs.existsSync(original));
   assert.ok(fs.existsSync(report));
 });
+test("Retention includes the exact cutoff while preserving newer records", (t) => {
+  const { core } = fixture(t);
+  const now = Date.UTC(2026, 8, 23), cutoff = now - 100 * 86400000;
+  core.store.put("chat", "boundary", { id: "boundary" }, { updated: cutoff });
+  core.store.put("chat", "newer", { id: "newer" }, { updated: cutoff + 1 });
+  core.store.put("memory", "remembered", { id: "remembered" }, { updated: cutoff });
+  assert.equal(core.store.cleanup(100, now).chats, 1);
+  assert.equal(core.store.get("chat", "boundary"), null);
+  assert.ok(core.store.get("chat", "newer"));
+  assert.ok(core.store.get("memory", "remembered"));
+});
+
 test("Retention measures last saved activity, not just creation date", (t) => {
   const { core } = fixture(t),
     c = core.createChat();

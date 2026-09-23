@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Hybrid additions in 2.1.0
 
 See HYBRID_UPGRADE.md for processing modes, local inference, usage metering, browser recipes, and optional messaging. The table below describes the preserved base features; its scheduler restrictions apply to ordinary analysis prompts, while approved /report, /unread and /calendar commands can retrieve fresh data.
@@ -22,3 +24,4 @@ See HYBRID_UPGRADE.md for processing modes, local inference, usage metering, bro
 | Updates | Re-run installer / replace complete portable application files | No code signing or automatic updater; distribution requires IT review |
 
 The security-first choices above intentionally narrow automated app actions. A permission flag is not a promise that every third-party program supports accessibility or is approved for PHI.
+

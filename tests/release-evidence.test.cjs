@@ -1,9 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const modulePath = path.join(__dirname, '../build/release-evidence-gate.cjs');
-if (!fs.existsSync(modulePath)) {
-  test.skip('build/release-evidence-gate.cjs not present in workspace', () => {});
-  return;
-}
+
 const {fixture}=require('./helpers.cjs'),{verify}=require(modulePath);
 test('release gate rejects unexecuted installers and changed artifacts',t=>{
  const {dir}=fixture(t),stage=path.join(dir,'synthetic-stage');fs.mkdirSync(path.join(stage,'resources/local-runtime'),{recursive:true});
@@ -18,3 +15,4 @@ test('release gate rejects unexecuted installers and changed artifacts',t=>{
  install.windowsInstallerExecuted=true;write(config.installerEvidence,JSON.stringify(install));assert.equal(verify(config).version,app.version);
  write(config.installer,'CHANGED');assert.throws(()=>verify(config),/Installer changed/);
 });
+

@@ -1,7 +1,7 @@
 {
   "name": "private-ai-desktop",
   "productName": "Private AI",
-  "version": "3.0.0",
+  "version": "3.0.1-dev",
   "description": "Private Windows chat and an explicitly controlled Chrome companion",
   "author": "Private AI",
   "license": "UNLICENSED",
@@ -9,24 +9,79 @@
   "scripts": {
     "dev": "node server.cjs",
     "start": "node server.cjs",
-    "build": "node -e \"console.log('Build ready')\"",
-    "lint": "node --check source/main.cjs source/core.cjs server.cjs",
-    "test": "node --test tests/*.test.cjs",
+    "build": "npm run check:release",
+    "lint": "node scripts/check-syntax.cjs",
+    "prepare:browser": "node build/prepare-browser-assets.cjs",
+    "prestart": "node --check server.cjs",
+    "test": "node --test --test-concurrency=4 --test-timeout=60000 tests/*.test.cjs",
     "test:ui": "node tests/ui-check.cjs",
-    "test:messaging-ui": "node tests/messaging-ui-check.cjs"
+    "build:helper": "dotnet publish desktop-helper/PrivateAI.Access.csproj -c Release -o build/desktop-helper",
+    "build:win": "node build/windows-build.cjs",
+    "build:dir": "electron-builder --win --x64 --dir",
+    "test:messaging-ui": "node tests/messaging-ui-check.cjs",
+    "check:repository": "node scripts/check-repository.cjs",
+    "check:release": "node scripts/check-release-files.cjs",
+    "test:hardening": "node --test tests/provider-hardening.test.cjs tests/server-hardening.test.cjs tests/clinical-hardening.test.cjs tests/privacy-hardening.test.cjs",
+    "start:desktop": "electron .",
+    "test:hardening-ui": "node tests/hardening-ui-check.cjs"
   },
   "build": {
     "appId": "org.privateai.desktop",
     "productName": "Private AI",
     "executableName": "PrivateAI",
     "asar": true,
+    "asarUnpack": [
+      "node_modules/@napi-rs/canvas-win32-x64-msvc/**/*"
+    ],
+    "afterPack": "build/after-pack.cjs",
+    "beforePack": "build/prepare-browser-assets.cjs",
+    "npmRebuild": false,
+    "toolsets": {
+      "wine": "1.0.1"
+    },
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "source/**/*",
       "package.json"
-    ]
+    ],
+    "extraResources": [
+      {
+        "from": "build/desktop-helper",
+        "to": "desktop-helper"
+      },
+      {
+        "from": "chrome_extension",
+        "to": "chrome_extension"
+      },
+      {
+        "from": "docs",
+        "to": "docs"
+      },
+      {
+        "from": "build/local-runtime",
+        "to": "local-runtime"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "PrivateAI-Setup-${version}-${arch}.${ext}",
+      "icon": "build/icon.ico",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "Private AI",
+      "runAfterFinish": true,
+      "include": "build/installer.nsh"
+    }
   },
   "dependencies": {
     "@google/genai": "^2.23.0",
@@ -53,6 +108,15 @@
   "overrides": {
     "exceljs": {
       "uuid": "11.1.1"
+    },
+    "whatsapp-web.js": {
+      "puppeteer": "25.0.4"
     }
+  },
+  "optionalDependencies": {
+    "@napi-rs/canvas-win32-x64-msvc": "1.0.9"
+  },
+  "engines": {
+    "node": ">=22.23.2"
   }
 }

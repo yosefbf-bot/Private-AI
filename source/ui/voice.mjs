@@ -491,6 +491,10 @@ export class VoiceManager {
   }
 
   startListening() {
+    const policy=this.getState?.()?.settings;
+    if(policy?.hipaa || this.getChat?.()?.hipaa || policy?.processingMode==='local-only'){
+      this.setState(LiveVoiceState.ERROR,'Browser speech recognition is not approved for HIPAA or Local Only. Use typed input until an approved offline voice adapter is configured.');return;
+    }
     if (this.isHardMuted) return;
     this.interimTranscript = '';
     this.finalTranscript = '';
@@ -741,6 +745,8 @@ export class VoiceManager {
 
       const utterance = new SpeechSynthesisUtterance(cleanText);
       const voice = this.getBestVoiceForPreset(this.voiceProfile);
+      const policy=this.getState?.()?.settings;
+      if((policy?.hipaa||this.getChat?.()?.hipaa||policy?.processingMode==='local-only')&&voice?.localService!==true)return resolve();
       if (voice) utterance.voice = voice;
 
       const preset = this.voicePresets[this.voiceProfile] || this.voicePresets.nova;
@@ -873,3 +879,4 @@ export class VoiceManager {
     }
   }
 }
+

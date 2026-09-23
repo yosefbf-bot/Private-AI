@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Private AI 3.0.0 — candidate status, not an accepted official release
 
 The user has authorized work toward 3.0. The current candidate contains the implemented desktop changes, browser variants, updated documentation, and local troubleshooting. The Healthcare Knowledge Engine remains specification/design only; it is NOT present in this executable. Release scope clarification is pending. Other pending capabilities are recorded in IMPLEMENTATION_TRACKER.md; do not assume every earlier requested feature is included.
@@ -21,3 +23,4 @@ The installer is unsigned. No signing certificate/service or release hosting has
 Use build/Test-CleanWindowsInstall.ps1 on a clean Windows test environment with the expected installer, executable, and ASAR hashes. It runs the installer, validates the installed payload and application, and creates installer-evidence.json. It refuses existing Private AI installations/data. Leave the test environment available for subsequent checks. The release-evidence gate rejects missing or mismatched installer execution evidence.
 
 Do not describe a candidate ZIP, generated guide, or passing synthetic test suite as proof that the official release is finished.
+

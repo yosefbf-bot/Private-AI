@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Changes in 2.1.0
 
 Built on 2.0.1; no database reset or schema-format change. The writable-handle startup fix remains.
@@ -7,3 +9,4 @@ Added Smart Hybrid, Local First, Cloud First, and hard Local Only enforcement; d
 Fixed settings changes being unnecessarily blocked when an already-selected ShareSync folder is temporarily unavailable. Existing Chrome page capture remains explicit.
 
 Known gaps: Windows-only WhatsApp sending, attachments, continuous progress updates, automatic calendar rescheduling, broad autonomous tool planning, and site-specific workflow setup are not complete. Full live-PC acceptance remains pending. See HYBRID_UPGRADE.md for exact behavior.
+

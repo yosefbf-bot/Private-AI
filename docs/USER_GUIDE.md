@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Private AI 3.0.0 — User guide
 
 This guide is bundled with the app. Open User guide in the sidebar, or type /help in chat. Common how-to answers use local code without loading a model or calling OpenAI. Help explains features; it does not change settings or grant permissions.
@@ -301,3 +303,4 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 2. The timestamp changes when source content changes during build preparation. Opening the app does not reset it.
 
 **Keep in mind:** This is a source-build timestamp, not evidence of an automatic update or completed release validation.
+

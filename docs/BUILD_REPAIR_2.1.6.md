@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Build 2.1.6 Repair 2
 
 Use Node 24 and the pinned build tools in `build/packaging-tools/package-lock.json`. Install with `npm ci --prefix build/packaging-tools --ignore-scripts`; set NODE_PATH to that tool directory's node_modules when running the following commands.
@@ -13,3 +15,4 @@ Use Node 24 and the pinned build tools in `build/packaging-tools/package-lock.js
 The complete runtime is a build input, not embedded in the small source ZIP. The pinned NSIS tools may need network access on their first build. No models are downloaded or rebuilt. Keep generated archives outside the source tree; the source deliverable excludes node_modules, dist and temporary files.
 
 The normal application source change is confined to moving approval-handler initialization after Core construction in `source/main.cjs`. Windows native files and runtime dependencies stay unchanged. The three entry-point regression tests use real services with mocked OS/Electron boundaries; they are not Windows execution evidence.
+

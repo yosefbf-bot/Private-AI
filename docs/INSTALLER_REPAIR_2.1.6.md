@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.6 — Repair 2
 
 Repair 2 fixes the application startup error **PAI-201-SERVICES-UNKNOWN**. The automation approval handler was assigned before the core services existed. It now attaches immediately after their initialization. Repair 1's complete Windows runtime and executable integrity checks are retained.
@@ -32,3 +34,4 @@ The approval handler's checks are unchanged: an unattended, hidden, unfocused or
 Those startup tests replace Electron, Windows ACL/DPAPI calls and the named pipe transport with test doubles. They do not execute Windows binaries or display a real Electron window. Windows installation/application execution and actual local-model inference remain unverified in this Linux environment.
 
 The included Validation/Repair2 reports cover the packaged source, complete Windows binaries, installer payload and archive checks. Reports in older Validation folders are historical. The installer remains unsigned.
+

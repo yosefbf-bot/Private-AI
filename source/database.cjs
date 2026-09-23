@@ -294,14 +294,14 @@ class Store {
     return true;
   }
   cleanup(days, now = Date.now()) {
-    const counts = { chats: 0, files: 0, memory: 0, jobs: 0, usage: 0, messages: 0, reports: 0 };
+    const counts = { chats: 0, files: 0, memory: 0, jobs: 0, usage: 0, messages: 0, reports: 0, voiceTranscripts: 0 };
     const cutoff = days ? now - days * 86400000 : null;
     // Reports and results from raw data are held for an additional 100 days (e.g., 100 + 100 = 200 days default)
     const reportCutoff = days ? now - (days + 100) * 86400000 : null;
     this.db.exec("BEGIN IMMEDIATE");
     let committed = false;
     try {
-      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession"])
+      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession", "voice_transcript"])
         for (const r of this.db
           .prepare("SELECT id,updated,expires FROM records WHERE kind=?")
           .all(kind)) {
@@ -325,7 +325,7 @@ class Store {
               counts.reports++;
             } else {
               counts[
-                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages" }[
+                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages", voice_transcript: "voiceTranscripts" }[
                   kind
                 ]
               ]++;
@@ -359,3 +359,4 @@ class Store {
   }
 }
 module.exports = { Store };
+

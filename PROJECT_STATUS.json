@@ -1,0 +1,71 @@
+{
+  "version": "3.0.1-dev",
+  "authoritativeBranch": "main",
+  "developmentBranch": "chatgpt/3.0.1-hardening",
+  "lastVerifiedCommit": "e85b2b3c416d737dfe33bed44f03625ffd7935c3",
+  "releaseStatus": "blocked",
+  "desktopProductionTarget": true,
+  "webMode": "development-only",
+  "hipaaMode": true,
+  "hipaaModeMeaning": "Default policy setting; not a compliance certification",
+  "currentPriorities": [
+    "Independent security and clinical review of the draft PR",
+    "Restore missing Windows packaging inputs and validate actual artifacts",
+    "Remediate WhatsApp/Puppeteer dependency findings",
+    "Browser visual QA and representative PCC mapping validation"
+  ],
+  "knownCriticalIssues": [
+    "Historical vault/key exposure remains in other refs/history; owner remediation and credential rotation required",
+    "Seven required Windows packaging inputs missing; no actual Windows acceptance evidence",
+    "Five high-severity dependency findings in WhatsApp/Puppeteer/extract-zip chain",
+    "Legacy auto-seeded clinical data and mirrored credentials require reconciliation before live upgrade"
+  ],
+  "completedFeatures": [
+    "Runtime data removed from hardening branch tip; repository policy scanner and CI",
+    "Provider credential isolation and configuration-bound HIPAA approval",
+    "Authenticated loopback-only restricted development server",
+    "Automatic production sample seeding removed; isolated explicit Demo Mode and labeled exports",
+    "Versioned rule registry and immutable alert input/evidence snapshots",
+    "PCC batch provenance, validation, duplicate detection and feed health",
+    "Persistent alert workflow and evidence-aware retention",
+    "Shared provider transport/registry and live inventory requests",
+    "Administrator Today, PCC Import Center and response Details implemented",
+    "Encrypted voice transcript storage and legacy browser-storage migration",
+    "Required-file release gates, architecture/status/handoff and review templates"
+  ],
+  "experimentalFeatures": [
+    "SNF heuristic surveillance and exploratory QM estimate require clinical validation",
+    "Today/PCC UI needs browser visual acceptance; current Chromium cannot launch",
+    "Non-OpenAI cloud adapters available only outside HIPAA Mode; live provider acceptance pending",
+    "Remaining legacy clinical/UI monoliths need further incremental extraction"
+  ],
+  "deferredFeatures": [
+    "Production network hosting",
+    "New major platform features",
+    "PHI realtime voice approval"
+  ],
+  "lastTested": {
+    "date": "2026-09-23",
+    "platform": "linux",
+    "node": "24.19.0",
+    "command": "npm test",
+    "passed": 280,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "syntax": "passed",
+    "repositoryPolicy": "passed",
+    "dependencyAudit": "failed: 5 high",
+    "releaseManifest": "failed: missing Windows inputs",
+    "browserUI": "blocked: Chromium SIGSEGV before page execution",
+    "windowsValidation": "not performed",
+    "reviewNotes": "docs/HARDENING_REVIEW.md",
+    "githubActions": {
+      "runId": 35857211998,
+      "sourceCommit": "e85b2b3c416d737dfe33bed44f03625ffd7935c3",
+      "regression": "passed",
+      "releaseFiles": "failed",
+      "dependencies": "failed"
+    }
+  }
+}

@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.3 — validation status
 
 Evaluation build, 11 September 2026. Windows binaries were cross-packaged on Linux and have not been executed on a real Windows PC here.
@@ -36,3 +38,4 @@ The recorded model-selection event is now exercised in Chromium. A simulated sta
 ## 2.1.3 loading and runtime fix
 
 See STARTUP_FIX_2.1.3.md. The 128-test suite includes loading through maintenance, memory-pressure error preservation, cancellation before spawn, late health responses, and the recorded RAM budget. The Windows engine now includes its compiler runtime and passes transitive DLL/symbol checks. Both models passed actual inference and manual-load maintenance on Linux (startup-inference.json). Windows execution is still pending; Wine could not run because this environment disallows Unix sockets.
+

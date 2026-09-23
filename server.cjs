@@ -23,60 +23,39 @@ const { ModelManager } = require("./source/model-manager.cjs");
 const { BrowserWorker, validateRecipe } = require("./source/browser-worker.cjs");
 const { MessagingBridge } = require("./source/messaging.cjs");
 
-const PORT = 3000;
+const devPolicy = require("./server/development-policy.cjs");
+const config = devPolicy.configuration();
+const PORT = config.port;
 const app = express();
 
+app.disable("x-powered-by");
+app.use(devPolicy.boundary(config));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Initialize persistent directories
-const localRoot = path.join(__dirname, "app-data");
-const workspaceDir = path.join(__dirname, "workspace");
-const tempDir = path.join(__dirname, "uploads");
+const localRoot = path.join(config.root, "private-data");
+const workspaceDir = path.join(config.root, "workspace");
+const tempDir = path.join(localRoot, "uploads");
 
-fs.mkdirSync(localRoot, { recursive: true });
-fs.mkdirSync(workspaceDir, { recursive: true });
-fs.mkdirSync(tempDir, { recursive: true });
+fs.mkdirSync(localRoot, { recursive: true, mode: 0o700 });
+fs.mkdirSync(workspaceDir, { recursive: true, mode: 0o700 });
+fs.mkdirSync(tempDir, { recursive: true, mode: 0o700 });
 
-// Initialize secure vault key (32 bytes required for AES-256)
+// Initialize secure vault key
 const vaultKeyFile = path.join(localRoot, "vault.key");
-let vaultKey = null;
+let vaultKey;
 if (fs.existsSync(vaultKeyFile)) {
-  try {
-    const loaded = fs.readFileSync(vaultKeyFile);
-    if (Buffer.isBuffer(loaded) && loaded.length === 32) {
-      vaultKey = loaded;
-    }
-  } catch {}
-}
-if (!vaultKey) {
+  if (fs.lstatSync(vaultKeyFile).isSymbolicLink()) throw fail("ENCRYPTION");
+  vaultKey = fs.readFileSync(vaultKeyFile);
+} else {
   vaultKey = crypto.randomBytes(32);
   fs.writeFileSync(vaultKeyFile, vaultKey, { mode: 0o600 });
 }
+if (vaultKey.length !== 32 || fs.lstatSync(vaultKeyFile).isSymbolicLink()) throw fail("ENCRYPTION");
+if (process.platform !== "win32") fs.chmodSync(vaultKeyFile, 0o600);
 const cipher = new Cipher(vaultKey);
-
-const dbFile = path.join(localRoot, "privateai.db");
-let store;
-try {
-  store = new Store(dbFile, cipher);
-  if (store.count("records") > 0) {
-    store.get("settings", "main");
-  }
-} catch (e) {
-  console.warn("Could not open existing database with key, initializing clean store:", e.message);
-  try {
-    store?.close();
-  } catch {}
-  try {
-    if (fs.existsSync(dbFile)) {
-      fs.renameSync(dbFile, `${dbFile}.bak-${Date.now()}`);
-    }
-    for (const ext of ["-wal", "-shm"]) {
-      if (fs.existsSync(dbFile + ext)) fs.unlinkSync(dbFile + ext);
-    }
-  } catch {}
-  store = new Store(dbFile, cipher);
-}
+const store = new Store(path.join(localRoot, "privateai.db"), cipher);
 const client = new UnifiedClient();
 
 // Real-time Server-Sent Events (SSE)
@@ -100,27 +79,13 @@ const core = new Core({
   machine: crypto.createHash("sha256").update(os.hostname() + "|web").digest("hex"),
 });
 
-// Auto-approve background resource tasks for browser use
-core.resources.approve = async () => true;
-
-// Ensure workspace and settings are initialized
-const currentSettings = core.settings();
-const settingsUpdates = {};
-if (!currentSettings.workspace) settingsUpdates.workspace = workspaceDir;
-if (!currentSettings.approved) settingsUpdates.approved = true;
-if (process.env.GEMINI_API_KEY && (!currentSettings.model || currentSettings.model === "gpt-4o-mini")) {
-  settingsUpdates.model = "gemini-3.6-flash";
-}
-if (Object.keys(settingsUpdates).length > 0) {
-  core.saveSettings(settingsUpdates);
-}
-
-if (!core.key()) {
-  if (process.env.GEMINI_API_KEY) {
-    core.store.put("secret", "openai", { key: "gemini-managed-key" });
-  } else if (process.env.OPENAI_API_KEY) {
-    core.store.put("secret", "openai", { key: process.env.OPENAI_API_KEY });
-  }
+// Development mode never grants automation or organizational cloud approval.
+core.resources.approve = async () => false;
+core.developmentMode = true;
+core.saveSettings({ approved: false });
+if (!core.settings().workspace) core.saveSettings({ workspace: workspaceDir });
+for (const [provider, variable] of [['openai', 'OPENAI_API_KEY'], ['gemini', 'GEMINI_API_KEY']]) {
+  if (!core.key(provider) && process.env[variable]) core.saveKey(process.env[variable], provider);
 }
 
 // Initialize ModelManager
@@ -152,6 +117,11 @@ const messaging = new MessagingBridge(core);
 
 // Dispatch handler executing all core operations
 async function dispatch(op, data = {}) {
+  if (typeof op !== "string" || !data || typeof data !== "object" || Array.isArray(data)) throw fail("INVALID");
+  devPolicy.assertOperation(op, data);
+  core.assertUnlocked();
+  if (op.startsWith("voiceTranscript")) return require("./source/voice-history.cjs").dispatch(core,op,data);
+  if (op.startsWith("snf")) return require("./source/snf/index.cjs").dispatch(core,op,data);
   switch (op) {
     case "userGuide":
       return require("./source/app-guide.json");
@@ -160,7 +130,7 @@ async function dispatch(op, data = {}) {
       try {
         buildInfo = require("./source/build-info.json");
       } catch {}
-      return { ...core.summary(), autostart: false, buildInfo };
+      return { ...core.summary(), autostart: false, buildInfo, developmentMode: true, modeLabel: devPolicy.LABEL };
     }
     case "createChat":
       return core.createChat(data);
@@ -220,13 +190,13 @@ async function dispatch(op, data = {}) {
     case "settings":
       return core.saveSettings(data);
     case "saveKey":
-      return core.saveKey(data.key);
+      return core.saveKey(data.key, data.provider);
     case "deleteKey":
-      return core.deleteKey();
+      return core.deleteKey(data.provider);
     case "models":
-      return await core.models();
+      return await core.models(data.provider);
     case "testConnection":
-      return await core.testConnection();
+      return await core.testConnection(data.provider);
     case "healthAcknowledge":
       core.stability?.acknowledge();
       return true;
@@ -351,7 +321,7 @@ async function dispatch(op, data = {}) {
     }
     case "backup": {
       const folder = path.join(core.root, "backups");
-      fs.mkdirSync(folder, { recursive: true });
+      fs.mkdirSync(folder, { recursive: true, mode: 0o700 });
       const file = path.join(folder, "privateai-" + Date.now() + ".db");
       core.store.backup(file);
       return true;
@@ -366,50 +336,6 @@ async function dispatch(op, data = {}) {
           { name: "Hybrid reasoning router", status: "pass" },
         ],
       };
-    case "snfDashboard":
-      return core.snf ? core.snf.getDashboardMetrics() : { error: "Not initialized" };
-    case "snfAlerts": {
-      let alerts = core.store.list("snf_alert");
-      if (data.unresolvedOnly) alerts = alerts.filter((a) => a.status !== "resolved");
-      if (data.severity) alerts = alerts.filter((a) => a.severity === data.severity);
-      return alerts;
-    }
-    case "snfAcknowledgeAlert":
-      return core.snf.acknowledgeAlert(data.alertId, data.user || "Clinical User");
-    case "snfAssignAlert":
-      return core.snf.assignAlert(data.alertId, data.assignedTo, data.user || "Clinical User", data.note || "");
-    case "snfResolveAlert":
-      return core.snf.resolveAlert(data.alertId, data.resolutionStatus, data.note || "", data.user || "Clinical User");
-    case "snfOpenIssues":
-      return core.store.list("snf_open_issue");
-    case "snfMorningBrief":
-      return { text: core.snf.generateMorningBrief() };
-    case "snfResidentTimeline":
-      return { text: core.snf.getResidentTimelineReport(data.query) };
-    case "snfFeedStatus":
-      return core.snf ? core.snf.getFeedStatus() : { feeds: {} };
-    case "snfMedChanges":
-      return core.snf ? core.snf.getMedicationChangesList() : [];
-    case "snfPsychWatch":
-      return core.snf ? core.snf.getPsychWatchData() : {};
-    case "snfPCCReports":
-      return core.snf ? core.snf.getPCCReportCatalog() : [];
-    case "snfRunRules":
-      return await core.snf.runRulesEngine(data.user || "Clinical User");
-    case "snfSeedData":
-      return await core.snf.seedRealisticPCCDataset();
-    case "snfIngest":
-      return await core.snf.ingestReports(data.reports || [], data.user || "Clinical User");
-    case "snfRetentionCleanup":
-      return core.snf ? core.snf.cleanup(core.snf.getSettings().retentionDays || 100) : { total: 0 };
-    case "snfRetentionStatus":
-      return core.snf ? core.snf.getRetentionStatus() : {};
-    case "snfExportPDF":
-      if (!core.snf) throw fail("INVALID");
-      return await core.snf.exportReportPDF(data.type, data.query, core.settings().workspace);
-    case "snfSaveSettings":
-      if (!core.snf) throw fail("INVALID");
-      return core.snf.saveSettings(data.settings || {});
     default:
       throw fail("INVALID");
   }
@@ -447,49 +373,12 @@ app.post("/api/call", async (req, res) => {
 
 // Drop/Upload route
 app.post("/api/drop", async (req, res) => {
-  try {
-    const { files = [], chatId, temporary } = req.body || {};
-    const results = [];
-    for (const f of files) {
-      if (!f || !f.name || !f.base64) continue;
-      const cleanName = path.basename(f.name);
-      const tempFilePath = path.join(tempDir, `${Date.now()}-${cleanName}`);
-      fs.writeFileSync(tempFilePath, Buffer.from(f.base64, "base64"));
-      try {
-        const item = await core.importFile(
-          tempFilePath,
-          temporary ? chatId : null,
-          chatId || null
-        );
-        results.push(item);
-      } finally {
-        try {
-          fs.unlinkSync(tempFilePath);
-        } catch {}
-      }
-    }
-    res.json({ ok: true, result: results });
-  } catch (err) {
-    res.json({ ok: false, error: safeError(err) });
-  }
+  return res.status(403).json({ ok: false, error: safeError(fail("POLICY")) });
 });
 
 // File download route for exports
 app.get("/api/download", (req, res) => {
-  try {
-    const relative = req.query.file;
-    if (!relative || typeof relative !== "string") {
-      return res.status(400).send("Missing file query parameter");
-    }
-    const ws = core.settings().workspace;
-    const fullPath = safePath(ws, relative);
-    if (!fs.existsSync(fullPath)) {
-      return res.status(404).send("File not found");
-    }
-    res.download(fullPath, path.basename(fullPath));
-  } catch (err) {
-    res.status(500).send("Download error");
-  }
+  return res.status(403).json({ ok: false, error: safeError(fail("POLICY")) });
 });
 
 // Serve UI assets
@@ -501,6 +390,6 @@ app.use((_req, res) => {
   res.sendFile(path.join(uiPath, "index.html"));
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Private AI web server running at http://0.0.0.0:${PORT}`);
+app.listen(PORT, config.host, () => {
+  console.log(`${devPolicy.LABEL}: http://127.0.0.1:${PORT}`);
 });

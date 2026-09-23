@@ -1,0 +1,49 @@
+name: Hardening and release gates
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check:repository
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:hardening
+  release-files:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.401'
+      - name: Build Windows desktop helper
+        run: npm run build:helper
+      - name: Install Windows runtime cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y g++-mingw-w64-x86-64-posix cmake ninja-build
+      - name: Build checksum-pinned Windows inference runtime
+        run: node build/setup-runtime.cjs
+      - run: npm run check:release
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm audit --omit=dev --audit-level=high

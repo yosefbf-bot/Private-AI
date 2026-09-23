@@ -283,188 +283,15 @@ const PCC_REPORT_CATALOG = [
 ];
 
 // Medication Class Dictionary
-const MEDICATION_CLASSES = {
-  antipsychotics: {
-    name: 'Antipsychotics',
-    isHighAlert: true,
-    isPsychotropic: true,
-    isAntipsychotic: true,
-    drugs: [
-      // Second Generation (Atypical)
-      { generic: 'quetiapine', brands: ['seroquel', 'seroquel xr'] },
-      { generic: 'risperidone', brands: ['risperdal', 'perseris'] },
-      { generic: 'olanzapine', brands: ['zyprexa', 'zyprexa zydis', 'relprevv'] },
-      { generic: 'aripiprazole', brands: ['abilify', 'abilify maintena', 'aristada'] },
-      { generic: 'ziprasidone', brands: ['geodon'] },
-      { generic: 'lurasidone', brands: ['latuda'] },
-      { generic: 'brexpiprazole', brands: ['rexulti'] },
-      { generic: 'cariprazine', brands: ['vraylar'] },
-      { generic: 'paliperidone', brands: ['invega', 'invega sustenna', 'invega trinza', 'invega hafyera'] },
-      { generic: 'clozapine', brands: ['clozaril', 'fazaclo', 'versacloz'] },
-      { generic: 'lumateperone', brands: ['caplyta'] },
-      { generic: 'asenapine', brands: ['saphris', 'secuado'] },
-      { generic: 'pimavanserin', brands: ['nuplazid'] },
-      // First Generation (Typical)
-      { generic: 'haloperidol', brands: ['haldol', 'haldol decanoate'] },
-      { generic: 'chlorpromazine', brands: ['thorazine'] },
-      { generic: 'prochlorperazine', brands: ['compazine'] }, // Flag for review if ordered as psych vs antiemetic
-      { generic: 'fluphenazine', brands: ['prolixin', 'prolixin decanoate'] },
-      { generic: 'perphenazine', brands: ['trilafon'] },
-      { generic: 'thiothixene', brands: ['navane'] },
-      { generic: 'thioridazine', brands: ['mellaril'] },
-      { generic: 'trifluoperazine', brands: ['stelazine'] },
-      { generic: 'loxapine', brands: ['loxitane', 'adasuve'] },
-    ]
-  },
-  antidepressants: {
-    name: 'Antidepressants',
-    isHighAlert: false,
-    isPsychotropic: true,
-    drugs: [
-      { generic: 'sertraline', brands: ['zoloft'] },
-      { generic: 'escitalopram', brands: ['lexapro'] },
-      { generic: 'citalopram', brands: ['celexa'] },
-      { generic: 'fluoxetine', brands: ['prozac'] },
-      { generic: 'paroxetine', brands: ['paxil'] },
-      { generic: 'mirtazapine', brands: ['remeron'] },
-      { generic: 'venlafaxine', brands: ['effexor', 'effexor xr'] },
-      { generic: 'duloxetine', brands: ['cymbalta'] },
-      { generic: 'bupropion', brands: ['wellbutrin', 'wellbutrin xl', 'wellbutrin sr'] },
-      { generic: 'trazodone', brands: ['desyrel'] },
-    ]
-  },
-  anxiolytics_hypnotics: {
-    name: 'Anxiolytics & Hypnotics (Sedatives)',
-    isHighAlert: true,
-    isPsychotropic: true,
-    drugs: [
-      { generic: 'lorazepam', brands: ['ativan'] },
-      { generic: 'alprazolam', brands: ['xanax'] },
-      { generic: 'clonazepam', brands: ['klonopin'] },
-      { generic: 'diazepam', brands: ['valium'] },
-      { generic: 'temazepam', brands: ['restoril'] },
-      { generic: 'oxazepam', brands: ['serax'] },
-      { generic: 'zolpidem', brands: ['ambien', 'ambien cr'] },
-      { generic: 'eszopiclone', brands: ['lunesta'] },
-      { generic: 'zaleplon', brands: ['sonata'] },
-      { generic: 'buspirone', brands: ['buspar'] },
-      { generic: 'hydroxyzine', brands: ['vistaril', 'atarax'] },
-    ]
-  },
-  anticoagulants: {
-    name: 'Anticoagulants & Antiplatelets',
-    isHighAlert: true,
-    drugs: [
-      { generic: 'apixaban', brands: ['eliquis'] },
-      { generic: 'rivaroxaban', brands: ['xarelto'] },
-      { generic: 'warfarin', brands: ['coumadin', 'jantoven'] },
-      { generic: 'enoxaparin', brands: ['lovenox'] },
-      { generic: 'heparin', brands: ['heparin sodium'] },
-      { generic: 'dabigatran', brands: ['pradaxa'] },
-      { generic: 'clopidogrel', brands: ['plavix'] },
-    ]
-  },
-  insulins_hypoglycemics: {
-    name: 'Insulin & High-Risk Hypoglycemic Therapy',
-    isHighAlert: true,
-    drugs: [
-      { generic: 'insulin glargine', brands: ['lantus', 'basaglar', 'toujeo'] },
-      { generic: 'insulin lispro', brands: ['humalog', 'admelog'] },
-      { generic: 'insulin aspart', brands: ['novolog', 'fiasp'] },
-      { generic: 'insulin detemir', brands: ['levemir'] },
-      { generic: 'insulin regular', brands: ['humulin r', 'novolin r'] },
-      { generic: 'glipizide', brands: ['glucotrol', 'glucotrol xl'] },
-      { generic: 'glimepiride', brands: ['amaryl'] },
-      { generic: 'glyburide', brands: ['diabeta', 'micronase'] },
-    ]
-  },
-  opioids: {
-    name: 'Opioids & Controlled Pain Analgesics',
-    isHighAlert: true,
-    drugs: [
-      { generic: 'oxycodone', brands: ['roxyicodone', 'oxycontin', 'percocet'] },
-      { generic: 'hydrocodone', brands: ['norco', 'vicodin', 'lortab'] },
-      { generic: 'morphine', brands: ['ms contin', 'roxanol'] },
-      { generic: 'hydromorphone', brands: ['dilaudid'] },
-      { generic: 'fentanyl', brands: ['duragesic'] },
-      { generic: 'tramadol', brands: ['ultram'] },
-      { generic: 'methadone', brands: ['dolophine'] },
-    ]
-  },
-  antibiotics: {
-    name: 'Systemic Antibiotics & Antimicrobials',
-    isHighAlert: true,
-    drugs: [
-      { generic: 'amoxicillin/clavulanate', brands: ['augmentin'] },
-      { generic: 'amoxicillin', brands: ['amoxil'] },
-      { generic: 'ciprofloxacin', brands: ['cipro'] },
-      { generic: 'levofloxacin', brands: ['levaquin'] },
-      { generic: 'ceftriaxone', brands: ['rocephin'] },
-      { generic: 'cephalexin', brands: ['keflex'] },
-      { generic: 'cefuroxime', brands: ['ceftin'] },
-      { generic: 'sulfamethoxazole/trimethoprim', brands: ['bactrim', 'septra'] },
-      { generic: 'nitrofurantoin', brands: ['macrobid', 'macrodantin'] },
-      { generic: 'doxycycline', brands: ['vibramycin'] },
-      { generic: 'azithromycin', brands: ['zithromax', 'z-pak'] },
-      { generic: 'vancomycin', brands: ['vancocin'] },
-      { generic: 'piperacillin/tazobactam', brands: ['zosyn'] },
-    ]
-  }
-};
-
-// Target behaviors and symptoms recognized in clinical surveillance
-const TARGET_BEHAVIORS = [
-  'physical aggression', 'hitting', 'kicking', 'scratching', 'biting', 'combative',
-  'verbal aggression', 'screaming', 'cursing', 'threats', 'shouting',
-  'hallucinations', 'auditory hallucinations', 'visual hallucinations',
-  'delusions', 'paranoia', 'paranoid ideation',
-  'severe agitation', 'pacing with distress', 'repetitive verbal distress',
-  'resistance to care', 'combative with adls', 'refusing essential care with distress',
-  'self-injurious behavior', 'head banging',
-  'sexual disinhibition', 'wandering with distress', 'exit-seeking with panic'
-];
-
-// Non-pharmacological interventions recognized in clinical surveillance
-const NON_PHARM_INTERVENTIONS = [
-  'redirection', 'verbal reassurance', 'calm voice',
-  'environmental modification', 'dim lights', 'quiet room', 'noise reduction', 'change in setting',
-  'activity modification', 'music therapy', 'snack provided', 'warm beverage', 'aromatherapy',
-  'pain assessment', 'toileting assistance', 'positioning', 'walking assistance',
-  'family contact', 'photo album', '1:1 engagement', 'time away from group',
-  'sleep hygiene', 'gentle approach', 'allowing cooling off period', 'choice offered'
-];
-
-/**
- * Matches a drug name to drug classification dictionary
- */
-function identifyMedication(drugText) {
-  if (!drugText || typeof drugText !== 'string') {
-    return { isHighAlert: false, isPsychotropic: false, isAntipsychotic: false, drugClass: 'Other' };
-  }
-  const clean = drugText.toLowerCase().replace(/[^a-z0-9\s/]/g, ' ');
-  for (const [classKey, category] of Object.entries(MEDICATION_CLASSES)) {
-    for (const d of category.drugs) {
-      if (clean.includes(d.generic) || d.brands.some(b => clean.includes(b))) {
-        return {
-          matchedGeneric: d.generic,
-          drugClass: category.name,
-          classKey,
-          isHighAlert: !!category.isHighAlert,
-          isPsychotropic: !!category.isPsychotropic,
-          isAntipsychotic: !!category.isAntipsychotic,
-        };
-      }
-    }
-  }
-  return { isHighAlert: false, isPsychotropic: false, isAntipsychotic: false, drugClass: 'Standard' };
-}
+const {MEDICATION_CLASSES,TARGET_BEHAVIORS,NON_PHARM_INTERVENTIONS,identifyMedication}=require('./snf/medications/dictionary.cjs');
 
 /**
  * SNFCommandCenter Surveillance Manager
  */
 class SNFCommandCenter {
-  constructor({ store, root }) {
+  constructor({ store, root, demoMode = false }) {
     this.store = store;
+    this.demoMode = demoMode;
     this.root = root;
     this.settingsKey = 'snf_surveillance_settings';
     this.feedStatusKey = 'snf_feed_status';
@@ -472,6 +299,12 @@ class SNFCommandCenter {
     this._cache = new Map();
     this._cacheTTL = 5000;
     this.ensureInitialized();
+    if (demoMode) {
+      for (const name of Object.getOwnPropertyNames(SNFCommandCenter.prototype).filter(n=>/Report$/.test(n)||n==='generateMorningBrief')) {
+        const method=this[name].bind(this);
+        this[name]=(...args)=>{const result=method(...args);return typeof result==='string'?'DEMO DATA — NOT FOR CLINICAL USE\n\n'+result:result;};
+      }
+    }
   }
 
   _getCached(key, fn) {
@@ -525,7 +358,7 @@ class SNFCommandCenter {
         retentionDays: 100,
         retentionReportsDays: 200,
         isSupplementalOnly: true,
-        regulatoryNotice: "Supplemental operational surveillance & clinical analytics only. Exempt from CMS 42 CFR § 483 / HIPAA 6-year archival. Raw EMR data is immutable and held for 100 days for quarterly audits; resulted analytical reports are held for 200 days.",
+        regulatoryNotice: "Supplemental surveillance. Default raw retention is 100 days and derived reports 200 days; the organization must approve applicable retention and legal holds. No regulatory exemption is asserted.",
         staleThresholdHours: 18,
         behaviorLookbackDays: 10,
         prnWarningDays: 10,
@@ -579,49 +412,14 @@ class SNFCommandCenter {
     return merged;
   }
 
-  getFeedStatus() {
-    return this._getCached('feedStatus', () => {
-      const data = this.store.get('config', this.feedStatusKey) || {};
-      const settings = this.getSettings();
-      const staleHours = settings.staleThresholdHours || 18;
-      const now = Date.now();
-
-      let isStale = false;
-      let staleMessage = null;
-
-      if (!data.dataCurrentThrough) {
-        isStale = true;
-        staleMessage = 'PCC MONITORING DATA HAS NOT BEEN INITIALIZED';
-      } else {
-        const ageHours = (now - data.dataCurrentThrough) / (1000 * 60 * 60);
-        if (ageHours > staleHours) {
-          isStale = true;
-          const timeStr = new Date(data.dataCurrentThrough).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          staleMessage = `PCC MONITORING DATA IS STALE (Current through ${timeStr}, >${Math.floor(ageHours)}h ago)`;
-        }
-      }
-
-      const missingCriticalFeeds = Object.values(data.feeds || {})
-        .filter(f => f.critical && (f.status === 'missing' || f.status === 'error'));
-
-      const isSurveillanceComplete = !isStale && missingCriticalFeeds.length === 0;
-
-      return {
-        ...data,
-        isStale,
-        staleMessage,
-        isSurveillanceComplete,
-        missingCriticalFeeds,
-        dataCurrentThroughFormatted: data.dataCurrentThrough
-          ? new Date(data.dataCurrentThrough).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date(data.dataCurrentThrough).toLocaleDateString()
-          : 'Never'
-      };
-    });
-  }
+  getFeedStatus() { return require('./snf/import/feed-health.cjs').getFeedStatus.call(this); }
 
   _mapReportNameToFeedType(name) {
-    if (!name) return 'orders';
+    if (!name) return 'unknown';
+    if ([...REQUIRED_DAILY_FEEDS, ...PERIODIC_FEEDS].some(f=>f.id===name)) return name;
     const s = String(name).toLowerCase().replace(/[^a-z0-9]/g, ' ');
+    if (s.includes('pharmacist')) return 'pharmacist_review';
+    if (s.includes('psychotropic') || s.includes('psychiatric review')) return 'psych_report';
     if (s.includes('24 hr') || s.includes('24 hour') || s.includes('shift report') || s.includes('alert listing')) return 'clinical24';
     if (s.includes('action summary') || s.includes('daily census') || s.includes('midnight census') || s.includes('mds census')) return 'census';
     if (s.includes('admit discharge to from') || s.includes('transfer') || s.includes('rehospitalization')) return 'transfers';
@@ -647,162 +445,8 @@ class SNFCommandCenter {
   /**
    * Ingest a batch of PCC standardized reports
    */
-  async ingestReports(reportPayloads, user = 'System') {
-    const importTime = Date.now();
-    const results = [];
-    const settings = this.getSettings();
-    const feedStatus = this.store.get('config', this.feedStatusKey) || { feeds: {} };
-    const validationErrors = [];
-
-    if (!Array.isArray(reportPayloads)) {
-      return {
-        success: false,
-        totalRecords: 0,
-        importTime,
-        results: [],
-        validationErrors: ['Invalid input: reportPayloads must be an array of report objects.']
-      };
-    }
-
-    // Track previous day active counts for anomaly detection
-    const prevCensusCount = this.store.count('snf_resident');
-    let importedCensusCount = 0;
-
-    this._tx(() => {
-      for (const report of reportPayloads) {
-        if (!report || typeof report !== 'object') continue;
-        const reportTypeVal = report.type || report.reportType || report.feedType || report.name;
-        const { filename, rows = [], rawText = '', date = new Date().toISOString() } = report;
-        const safeRows = Array.isArray(rows) ? rows.filter(r => r && typeof r === 'object') : [];
-        const reportDate = Date.parse(date) || importTime;
-        const normalizedType = this._mapReportNameToFeedType(reportTypeVal || filename);
-        const type = normalizedType;
-
-        try {
-          let count = 0;
-          switch (normalizedType) {
-            case 'census':
-            case 'adt':
-              count = this._processCensus(safeRows, filename, reportDate, importTime);
-              importedCensusCount = count;
-              break;
-            case 'admissions':
-              count = this._processAdmissions(safeRows, filename, reportDate, importTime);
-              break;
-            case 'transfers':
-              count = this._processTransfers(safeRows, filename, reportDate, importTime);
-              break;
-            case 'clinical24':
-              count = this._processClinical24(safeRows, filename, reportDate, importTime);
-              break;
-            case 'orders':
-            case 'med_changes':
-              count = this._processOrderChanges(safeRows, filename, reportDate, importTime);
-              break;
-            case 'med_profile':
-              count = this._processMedProfile(safeRows, filename, reportDate, importTime);
-              break;
-            case 'emar_exceptions':
-              count = this._processEmarExceptions(safeRows, filename, reportDate, importTime);
-              break;
-            case 'diagnoses':
-              count = this._processDiagnoses(safeRows, filename, reportDate, importTime);
-              break;
-            case 'behaviors':
-              count = this._processBehaviors(safeRows, filename, reportDate, importTime);
-              break;
-            case 'falls':
-              count = this._processFalls(safeRows, filename, reportDate, importTime);
-              break;
-            case 'infections':
-              count = this._processInfections(safeRows, filename, reportDate, importTime);
-              break;
-            case 'wounds':
-              count = this._processWounds(safeRows, filename, reportDate, importTime);
-              break;
-            case 'labs':
-              count = this._processLabs(safeRows, filename, reportDate, importTime);
-              break;
-            case 'progress_notes':
-              count = this._processProgressNotes(safeRows, filename, reportDate, importTime);
-              break;
-            case 'gdr_tracker':
-              count = this._processGDR(safeRows, filename, reportDate, importTime);
-              break;
-            default:
-              count = safeRows.length;
-              break;
-          }
-
-          feedStatus.feeds[type] = {
-            id: type,
-            name: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.name || type,
-            critical: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.critical || false,
-            lastReceived: importTime,
-            lastRecordCount: count,
-            filename,
-            status: 'ok',
-            error: null
-          };
-
-          results.push({ type, count, filename, status: 'success' });
-        } catch (err) {
-          const errorMsg = `Parser failed on ${type}: ${err.message}`;
-          validationErrors.push(errorMsg);
-          feedStatus.feeds[type] = {
-            id: type,
-            name: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.name || type,
-            critical: REQUIRED_DAILY_FEEDS.find(f => f.id === type)?.critical || false,
-            lastReceived: importTime,
-            lastRecordCount: 0,
-            filename,
-            status: 'error',
-            error: errorMsg
-          };
-          results.push({ type, count: 0, filename, status: 'error', error: errorMsg });
-        }
-      }
-
-      // Anomaly Detection: Unexpected resident count drop
-      if (prevCensusCount > 20 && importedCensusCount > 0 && importedCensusCount < prevCensusCount * 0.5) {
-        const anomalyMsg = `Unexpected resident count change (Previous: ${prevCensusCount}, Today: ${importedCensusCount}). Active surveillance may be incomplete.`;
-        validationErrors.push(anomalyMsg);
-        this._createAlert({
-          code: 'DATA-001',
-          severity: 'critical',
-          title: 'DATA VALIDATION FAILURE',
-          message: anomalyMsg,
-          residentId: null,
-          residentName: 'FACILITY-WIDE',
-          sources: [{ sourceReport: 'Census / ADT', reportDateTime: new Date(importTime).toISOString(), originalRow: 'System Summary' }],
-          whyFlagged: [
-            `Previous verified active census was ${prevCensusCount} residents.`,
-            `Today's imported census feed contained only ${importedCensusCount} residents (>50% drop).`,
-            'Automated safety rules mandate flagging data anomalies immediately.'
-          ]
-        });
-      }
-
-      feedStatus.lastSuccessfulCycle = importTime;
-      feedStatus.dataCurrentThrough = importTime;
-      feedStatus.validationErrors = validationErrors;
-      this.store.put('config', this.feedStatusKey, feedStatus);
-    });
-
-    this._invalidateCache();
-
-    // Run deterministic rules engine across imported dataset
-    await this.runRulesEngine(user);
-
-    const totalRecords = results.reduce((acc, r) => acc + (r.count || 0), 0);
-    return {
-      success: true,
-      totalRecords,
-      importTime,
-      results,
-      validationErrors
-    };
-  }
+  async ingestReports(reports, user) { return require('./snf/import/batch-manager.cjs').ingestReports.call(this, reports, user); }
+  _writeRecord(kind, id, value) { return require('./snf/import/provenance.cjs').writeRecord.call(this, kind, id, value); }
 
   // --- REPORT PARSERS WITH TRACEABILITY ---
 
@@ -820,7 +464,7 @@ class SNFCommandCenter {
         room: r.room || r.bed || existing.room || 'Unassigned',
         unit: r.unit || r.station || existing.unit || 'Main',
         admissionDate: this._safeDateString(r.admissionDate || existing.admissionDate, this._safeDateString(reportDate)),
-        prescriber: r.prescriber || r.physician || existing.prescriber || 'Attending MD',
+        prescriber: r.prescriber || r.physician || existing.prescriber || null,
         status: r.status || 'Active',
         stayType: r.stayType || existing.stayType || 'long_stay', // 'short_stay' | 'long_stay'
         sourceReport,
@@ -828,7 +472,7 @@ class SNFCommandCenter {
         originalRow: i + 1,
         importTimestamp: importTime
       };
-      this.store.put('snf_resident', residentId, resident);
+      this._writeRecord('snf_resident', residentId, resident);
       count++;
     }
     return count;
@@ -841,7 +485,7 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `adm-${reportDate}-${i}`;
-      this.store.put('snf_admission', id, {
+      this._writeRecord('snf_admission', id, {
         id,
         residentId,
         residentName: r.name || r.residentName || residentId,
@@ -866,7 +510,7 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `trans-${reportDate}-${i}`;
-      this.store.put('snf_transfer', id, {
+      this._writeRecord('snf_transfer', id, {
         id,
         residentId,
         residentName: r.name || r.residentName || residentId,
@@ -891,7 +535,7 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `clin24-${reportDate}-${i}`;
-      this.store.put('snf_clinical24', id, {
+      this._writeRecord('snf_clinical24', id, {
         id,
         residentId,
         residentName: r.name || r.residentName || residentId,
@@ -932,13 +576,13 @@ class SNFCommandCenter {
         isHighAlert: identified.isHighAlert,
         isPsychotropic: identified.isPsychotropic,
         isAntipsychotic: identified.isAntipsychotic,
-        dose: r.dose || '1 tab',
-        route: r.route || 'Oral',
-        frequency: r.frequency || 'Daily',
+        dose: r.dose || null,
+        route: r.route || null,
+        frequency: r.frequency || null,
         isPRN: !!(r.prn || (r.frequency && /prn|as needed/i.test(r.frequency))),
-        startDate: this._safeDateString(r.startDate, this._safeDateString(reportDate)),
+        startDate: r.startDate && Number.isFinite(Date.parse(r.startDate)) ? this._safeDateString(r.startDate) : null,
         endDate: r.endDate ? this._safeDateString(r.endDate) : null,
-        prescriber: r.prescriber || r.physician || 'Attending MD',
+        prescriber: r.prescriber || r.physician || null,
         indication: r.indication || r.diagnosis || null,
         status: r.status || 'Active',
         sourceReport,
@@ -947,7 +591,7 @@ class SNFCommandCenter {
         importTimestamp: importTime
       };
 
-      this.store.put('snf_med_order', orderId, order);
+      this._writeRecord('snf_med_order', orderId, order);
       count++;
     }
     return count;
@@ -988,12 +632,12 @@ class SNFCommandCenter {
         importTimestamp: importTime
       };
 
-      this.store.put('snf_med_change', changeId, changeRecord);
+      this._writeRecord('snf_med_change', changeId, changeRecord);
 
       // Also ensure order is stored in active orders if new
       if (changeRecord.changeType === 'New Order') {
         const orderId = `ord-${residentId}-${drugName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-        this.store.put('snf_med_order', orderId, {
+        this._writeRecord('snf_med_order', orderId, {
           id: orderId,
           residentId,
           residentName: changeRecord.residentName,
@@ -1004,8 +648,8 @@ class SNFCommandCenter {
           isPsychotropic: changeRecord.isPsychotropic,
           isAntipsychotic: changeRecord.isAntipsychotic,
           dose: changeRecord.newDose,
-          route: r.route || 'Oral',
-          frequency: changeRecord.frequency || 'Daily',
+          route: r.route || null,
+          frequency: changeRecord.frequency || null,
           isPRN: changeRecord.isPRN,
           startDate: changeRecord.orderDate,
           prescriber: changeRecord.prescriber,
@@ -1030,15 +674,15 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `emar-${reportDate}-${i}`;
-      this.store.put('snf_emar_exception', id, {
+      this._writeRecord('snf_emar_exception', id, {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
         medication: r.medication || r.drugName,
-        scheduledTime: r.scheduledTime || '09:00',
+        scheduledTime: r.scheduledTime || null,
         exceptionType: r.exceptionType || r.status || 'Omitted', // 'Refused' | 'Omitted' | 'Not Available' | 'Held'
-        reason: r.reason || 'Resident refused',
-        nurse: r.nurse || r.administeredBy || 'RN Staff',
+        reason: r.reason || null,
+        nurse: r.nurse || r.administeredBy || null,
         eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
@@ -1063,7 +707,7 @@ class SNFCommandCenter {
       const isPsychiatric = /schizo|psychos|bipolar|depress|anxiety|hallucin|delusion|mood|dementia with behav|personality/i.test(desc) ||
         /^F(20|21|22|25|28|29|30|31|32|33|03\.91)/i.test(code);
 
-      this.store.put('snf_diagnosis', id, {
+      this._writeRecord('snf_diagnosis', id, {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
@@ -1090,16 +734,16 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `beh-${reportDate}-${i}`;
-      this.store.put('snf_behavior', id, {
+      this._writeRecord('snf_behavior', id, {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
-        targetSymptom: r.targetSymptom || r.behavior || 'Physical Aggression',
-        severity: r.severity || 'Moderate', // 'Mild' | 'Moderate' | 'Severe'
-        triggers: r.triggers || r.circumstances || 'ADL Care Caregiving approach',
-        interventionsAttempted: r.interventionsAttempted || r.interventions || 'Redirection offered',
-        effectiveness: r.effectiveness || 'Partially Effective',
-        adverseEffects: r.adverseEffects || 'None observed',
+        targetSymptom: r.targetSymptom || r.behavior || null,
+        severity: r.severity || null, // 'Mild' | 'Moderate' | 'Severe'
+        triggers: r.triggers || r.circumstances || null,
+        interventionsAttempted: r.interventionsAttempted || r.interventions || null,
+        effectiveness: r.effectiveness || null,
+        adverseEffects: r.adverseEffects || null,
         eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
@@ -1118,14 +762,14 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `fall-${reportDate}-${i}`;
-      this.store.put('snf_fall', id, {
+      this._writeRecord('snf_fall', id, {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
-        location: r.location || 'Resident Bedroom',
+        location: r.location || null,
         injuryLevel: r.injuryLevel || 'None', // 'None' | 'Minor' | 'Major'
         witnessed: !!r.witnessed,
-        neuroChecksDone: r.neuroChecksDone !== false,
+        neuroChecksDone: r.neuroChecksDone === true ? true : r.neuroChecksDone === false ? false : null,
         eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
@@ -1144,14 +788,14 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `inf-${reportDate}-${i}`;
-      this.store.put('snf_infection', id, {
+      this._writeRecord('snf_infection', id, {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
-        infectionType: r.infectionType || 'UTI', // 'UTI' | 'Respiratory' | 'Skin' | 'GI'
+        infectionType: r.infectionType || null, // 'UTI' | 'Respiratory' | 'Skin' | 'GI'
         antibiotic: r.antibiotic || null,
-        startDate: this._safeDateString(r.startDate, this._safeDateString(reportDate)),
-        mcGeerCriteriaMet: r.mcGeerCriteriaMet !== false,
+        startDate: r.startDate && Number.isFinite(Date.parse(r.startDate)) ? this._safeDateString(r.startDate) : null,
+        mcGeerCriteriaMet: r.mcGeerCriteriaMet === true ? true : r.mcGeerCriteriaMet === false ? false : null,
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -1169,15 +813,15 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `wnd-${reportDate}-${i}`;
-      this.store.put('snf_wound', id, {
+      this._writeRecord('snf_wound', id, {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
-        woundType: r.woundType || 'Pressure Injury',
-        stage: r.stage || 'Stage 2',
-        site: r.site || 'Sacrum',
-        acquired: r.acquired || 'In-House', // 'In-House' | 'On Admission'
-        treatment: r.treatment || 'Hydrocolloid dressing',
+        woundType: r.woundType || null,
+        stage: r.stage || null,
+        site: r.site || null,
+        acquired: r.acquired || null, // 'In-House' | 'On Admission'
+        treatment: r.treatment || null,
         assessmentDate: this._safeDateString(r.assessmentDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
@@ -1196,15 +840,15 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `lab-${reportDate}-${i}`;
-      this.store.put('snf_lab', id, {
+      this._writeRecord('snf_lab', id, {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
-        testName: r.testName || r.lab || 'BMP',
-        result: r.result || 'Normal',
+        testName: r.testName || r.lab || null,
+        result: r.result || null,
         abnormal: !!r.abnormal,
         criticalValue: !!r.criticalValue,
-        followUpStatus: r.followUpStatus || (r.criticalValue ? 'Pending MD Review' : 'Reviewed'),
+        followUpStatus: r.followUpStatus || 'Not documented',
         collectedDate: this._safeDateString(r.collectedDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
@@ -1223,7 +867,7 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `note-${reportDate}-${i}`;
-      this.store.put('snf_progress_note', id, {
+      this._writeRecord('snf_progress_note', id, {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
@@ -1248,7 +892,7 @@ class SNFCommandCenter {
       const residentId = this._extractResidentId(r);
       if (!residentId) continue;
       const id = r.id || `gdr-${reportDate}-${i}`;
-      this.store.put('snf_gdr', id, {
+      this._writeRecord('snf_gdr', id, {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
@@ -1269,366 +913,22 @@ class SNFCommandCenter {
     return count;
   }
 
+  _processSupplemental(rows, sourceReport, reportDate, importTime) {
+    const kind = {psych_report:'snf_psych_review',pharmacist_review:'snf_pharmacist_review',weights:'snf_weight',care_plans:'snf_care_plan'}[this._batchContext.type];
+    rows.forEach((row,i)=>this._writeRecord(kind, uuid(), {...row,id:uuid(),residentId:row.residentId,sourceReport,reportDate,importTimestamp:importTime,originalRow:i+1}));
+    return rows.length;
+  }
+
   // --- DETERMINISTIC CLINICAL RULES ENGINE ---
 
-  async runRulesEngine(user = 'System') {
-    const settings = this.getSettings();
-    const residents = this.store.list('snf_resident');
-    const orders = this.store.list('snf_med_order');
-    const orderChanges = this.store.list('snf_med_change');
-    const diagnoses = this.store.list('snf_diagnosis');
-    const behaviors = this.store.list('snf_behavior');
-    const notes = this.store.list('snf_progress_note');
-    const gdrs = this.store.list('snf_gdr');
-    const admissions = this.store.list('snf_admission');
-    const feedStatus = this.getFeedStatus();
-
-    const now = Date.now();
-    const oneDayAgo = now - 24 * 60 * 60 * 1000;
-    const lookbackMs = (settings.behaviorLookbackDays || 10) * 24 * 60 * 60 * 1000;
-
-    this._tx(() => {
-      // RULE 0: FAIL-SAFE SURVEILLANCE INTEGRITY
-      if (!feedStatus.isSurveillanceComplete) {
-      if (feedStatus.isStale) {
-        this._createAlert({
-          code: 'STALE-001',
-          severity: 'critical',
-          title: 'PCC MONITORING DATA IS STALE',
-          message: feedStatus.staleMessage || 'PCC report feeds have exceeded the freshness threshold.',
-          residentId: null,
-          residentName: 'FACILITY-WIDE',
-          sources: [{ sourceReport: 'Feed Monitor', reportDateTime: new Date().toISOString(), originalRow: 'Cycle Check' }],
-          whyFlagged: [
-            'Private AI fail-safe rules mandate: Missing or unverified data = ALERT, never GREEN.',
-            `Freshness limit configured at ${settings.staleThresholdHours} hours.`,
-            `Last complete cycle was received at ${feedStatus.dataCurrentThroughFormatted}.`
-          ]
-        });
-      }
-      for (const missing of feedStatus.missingCriticalFeeds) {
-        this._createAlert({
-          code: `SURV-${missing.id.toUpperCase()}`,
-          severity: 'critical',
-          title: 'SURVEILLANCE INCOMPLETE',
-          message: `${missing.name} has not been received or processed today. Surveillance is incomplete.`,
-          residentId: null,
-          residentName: 'FACILITY-WIDE',
-          sources: [{ sourceReport: missing.name, reportDateTime: new Date().toISOString(), originalRow: 'Feed Ingestion' }],
-          whyFlagged: [
-            `Required daily feed "${missing.name}" is marked missing or encountered parser errors.`,
-            'Private AI must never conclude "No critical issues detected" when monitoring feeds are missing.',
-            'Verify PointClickCare report export scheduler or download folder.'
-          ]
-        });
-      }
-    }
-
-    // Index data by resident for instant deterministic correlation
-    const resOrders = new Map();
-    for (const ord of orders) {
-      if (!resOrders.has(ord.residentId)) resOrders.set(ord.residentId, []);
-      resOrders.get(ord.residentId).push(ord);
-    }
-
-    const resDiagnoses = new Map();
-    for (const d of diagnoses) {
-      if (!resDiagnoses.has(d.residentId)) resDiagnoses.set(d.residentId, []);
-      resDiagnoses.get(d.residentId).push(d);
-    }
-
-    const resBehaviors = new Map();
-    for (const b of behaviors) {
-      if (!resBehaviors.has(b.residentId)) resBehaviors.set(b.residentId, []);
-      resBehaviors.get(b.residentId).push(b);
-    }
-
-    const resNotes = new Map();
-    for (const n of notes) {
-      if (!resNotes.has(n.residentId)) resNotes.set(n.residentId, []);
-      resNotes.get(n.residentId).push(n);
-    }
-
-    const resGDRs = new Map();
-    for (const g of gdrs) {
-      if (!resGDRs.has(g.residentId)) resGDRs.set(g.residentId, []);
-      resGDRs.get(g.residentId).push(g);
-    }
-
-    // RULE: NEW MEDICATION WATCH (Last 24 Hours)
-    for (const chg of orderChanges) {
-      const isRecent = (now - chg.importTimestamp) <= (36 * 60 * 60 * 1000);
-      if (chg.changeType === 'New Order' && isRecent) {
-        const isHighAlert = chg.isHighAlert;
-        this._createAlert({
-          code: 'MED-NEW',
-          severity: isHighAlert ? 'high' : 'review',
-          title: isHighAlert ? `HIGH-ALERT MEDICATION STARTED: ${chg.drugName.toUpperCase()}` : `NEW MEDICATION STARTED: ${chg.drugName}`,
-          message: `New order started for ${chg.drugName} (${chg.newDose || 'standard dose'}, ${chg.frequency || 'daily'}). Review indication and clinical monitoring.`,
-          residentId: chg.residentId,
-          residentName: chg.residentName,
-          drug: chg.drugName,
-          sources: [{ sourceReport: chg.sourceReport || 'Medication Order Changes', reportDateTime: this._safeISO(chg.reportDate), originalRow: chg.originalRow || 1 }],
-          whyFlagged: [
-            `Medication order appeared as a newly started order in the last 24-48 hours.`,
-            `Drug class classified as: ${chg.drugClass}.`,
-            isHighAlert ? `Facility high-alert medication policy requires prioritized clinical surveillance.` : `Standard new medication baseline review.`
-          ]
-        });
-      }
-    }
-
-    // ITERATE THROUGH ALL RESIDENTS TO RUN PSYCH WATCH & CLINICAL SURVEILLANCE
-    for (const res of residents) {
-      const residentId = res.id;
-      const residentName = res.name;
-      const residentRoom = res.room;
-      const residentOrders = resOrders.get(residentId) || [];
-      const residentDiags = resDiagnoses.get(residentId) || [];
-      const residentBehs = resBehaviors.get(residentId) || [];
-      const residentNotesList = resNotes.get(residentId) || [];
-      const residentGDRList = resGDRs.get(residentId) || [];
-
-      // Find active antipsychotics
-      const activeAPs = residentOrders.filter(o => o.status === 'Active' && o.isAntipsychotic);
-
-      for (const ap of activeAPs) {
-        const drugName = ap.drugName;
-        const startDateMs = Date.parse(ap.startDate) || now;
-        const daysOnDrug = Math.max(1, Math.floor((now - startDateMs) / (24 * 60 * 60 * 1000)));
-
-        // RULE AP-001: NEW ANTIPSYCHOTIC (Within last 48 hours)
-        if (daysOnDrug <= 2 || (now - ap.importTimestamp <= 48 * 60 * 60 * 1000)) {
-          this._createAlert({
-            code: 'AP-001',
-            severity: 'critical',
-            title: 'NEW ANTIPSYCHOTIC STARTED',
-            message: `Newly started antipsychotic order: ${drugName} (${ap.dose}, ${ap.frequency}). Prescriber: ${ap.prescriber}.`,
-            residentId,
-            residentName,
-            residentRoom,
-            drug: drugName,
-            sources: [{ sourceReport: ap.sourceReport || 'Medication Order Changes', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 }],
-            whyFlagged: [
-              `Newly ordered antipsychotic detected on active medication snapshot.`,
-              `Start Date: ${ap.startDate} (Prescribed by: ${ap.prescriber}).`,
-              `Immediate cross-check required for indication, consent, and non-pharmacological care plan.`
-            ]
-          });
-        }
-
-        // RULE AP-002: NO SUPPORTING DIAGNOSIS FOUND
-        // CMS & NY regulations require a supported clinical diagnosis
-        const hasSupportingDiag = residentDiags.some(d =>
-          /schizo|bipolar|major depress|tourette|huntington|psychosis|delusion|hallucination/i.test(d.description) ||
-          /^F(20|21|22|25|30|31|32\.3|33\.3)/i.test(d.icd10)
-        );
-
-        if (!hasSupportingDiag && !ap.indication) {
-          this._createAlert({
-            code: 'AP-002',
-            severity: 'critical',
-            title: 'ANTIPSYCHOTIC — DIAGNOSIS/INDICATION REVIEW',
-            message: 'Supporting diagnosis/indication was not found in the records currently available to Private AI.',
-            residentId,
-            residentName,
-            residentRoom,
-            drug: drugName,
-            sources: [
-              { sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 },
-              { sourceReport: 'Active Diagnosis Report', reportDateTime: new Date().toISOString(), originalRow: 'Search completed' }
-            ],
-            whyFlagged: [
-              `Active antipsychotic order for ${drugName} identified.`,
-              `Active Diagnosis Report searched: no matching psychiatric condition (e.g. Schizophrenia, Bipolar Mania, Psychotic Disorder) was identified in imported records.`,
-              `Order indication field was empty or unlinked in current PCC export.`
-            ]
-          });
-        }
-
-        // RULE AP-003: NEW DIAGNOSIS + ANTIPSYCHOTIC
-        // CMS surveyor guidance scrutinizes newly added schizophrenia diagnoses
-        const recentSchizophrenia = residentDiags.find(d => {
-          if (!d.isSchizophrenia) return false;
-          const onsetMs = Date.parse(d.onsetDate);
-          return onsetMs && (now - onsetMs <= 90 * 24 * 60 * 60 * 1000);
-        });
-
-        if (recentSchizophrenia) {
-          this._createAlert({
-            code: 'AP-003',
-            severity: 'high',
-            title: 'NEW PSYCHIATRIC DIAGNOSIS — DOCUMENTATION REVIEW',
-            message: `New diagnosis of ${recentSchizophrenia.description} (${recentSchizophrenia.icd10}) identified for resident receiving ${drugName}. Review documentation for supporting psychiatric evaluation.`,
-            residentId,
-            residentName,
-            residentRoom,
-            drug: drugName,
-            sources: [
-              { sourceReport: recentSchizophrenia.sourceReport || 'Active Diagnoses', reportDateTime: this._safeISO(recentSchizophrenia.reportDate), originalRow: recentSchizophrenia.originalRow || 1 },
-              { sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 }
-            ],
-            whyFlagged: [
-              `Diagnosis of ${recentSchizophrenia.description} first appeared in records on ${recentSchizophrenia.onsetDate}.`,
-              `CMS survey guidance specifically directs surveyors to scrutinize unsupported schizophrenia diagnoses associated with antipsychotic prescribing.`,
-              `Recommend verifying presence of comprehensive psychiatric evaluation, PASARR Level II (if applicable), and detailed clinical history in PCC.`
-            ]
-          });
-        }
-
-        // RULE AP-004: NO TARGET SYMPTOM FOUND
-        // If indication is behavioral/distress, verify that a target symptom is documented
-        const isBehaviorIndication = !hasSupportingDiag || (ap.indication && /behavior|agitat|aggression|distress|dementia/i.test(ap.indication));
-        const recentTargetBehaviors = residentBehs.filter(b => (now - Date.parse(b.eventDate)) <= lookbackMs);
-
-        if (isBehaviorIndication && recentTargetBehaviors.length === 0) {
-          this._createAlert({
-            code: 'AP-004',
-            severity: 'critical',
-            title: 'ANTIPSYCHOTIC — TARGET SYMPTOM DOCUMENTATION NOT FOUND',
-            message: `Resident receives ${drugName} for behavioral management, but no specific target symptom documentation was located in imported PCC records during the look-back window.`,
-            residentId,
-            residentName,
-            residentRoom,
-            drug: drugName,
-            sources: [
-              { sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 },
-              { sourceReport: 'Behavior Monitoring Report', reportDateTime: new Date().toISOString(), originalRow: 'Search completed' }
-            ],
-            whyFlagged: [
-              `Antipsychotic indication or usage corresponds to behavioral symptoms.`,
-              `No documented target symptoms (such as physical aggression, hallucinations, or delusions) found within configured ${settings.behaviorLookbackDays}-day lookback.`,
-              `CMS F758 requires documentation of the specific, quantifiable target symptom being treated.`
-            ]
-          });
-        }
-
-        // RULE AP-005: BEHAVIOR DOCUMENTATION GAP
-        // If resident has a documented target behavior in the past, but none recently
-        if (residentBehs.length > 0) {
-          const sortedBehs = [...residentBehs].sort((a, b) => Date.parse(b.eventDate) - Date.parse(a.eventDate));
-          const lastBeh = sortedBehs[0];
-          const lastBehDateMs = Date.parse(lastBeh.eventDate);
-          const daysSinceLastBeh = Math.floor((now - lastBehDateMs) / (24 * 60 * 60 * 1000));
-
-          if (daysSinceLastBeh > (settings.behaviorLookbackDays || 10)) {
-            this._createAlert({
-              code: 'AP-005',
-              severity: 'high',
-              title: 'BEHAVIOR MONITORING GAP',
-              message: `Medication: ${drugName}. Indication: ${ap.indication || 'Behavioral symptoms'}. Last documented target behavior found: ${daysSinceLastBeh} days ago (${lastBeh.eventDate}).`,
-              residentId,
-              residentName,
-              residentRoom,
-              drug: drugName,
-              sources: [
-                { sourceReport: lastBeh.sourceReport || 'Behavior Monitoring Report', reportDateTime: this._safeISO(lastBeh.reportDate), originalRow: lastBeh.originalRow || 1 }
-              ],
-              whyFlagged: [
-                `Resident receives scheduled psychotropic for target behaviors.`,
-                `Most recent behavior documentation identified was ${lastBeh.targetSymptom} on ${lastBeh.eventDate} (${daysSinceLastBeh} days ago).`,
-                `Exceeds facility policy look-back threshold of ${settings.behaviorLookbackDays} days without updated monitoring entries.`
-              ]
-            });
-          }
-        }
-
-        // RULE: NON-PHARMACOLOGICAL INTERVENTION WATCH
-        const hasInterventions = residentBehs.some(b => b.interventionsAttempted && b.interventionsAttempted.trim().length > 3) ||
-          residentNotesList.some(n => NON_PHARM_INTERVENTIONS.some(term => n.text.toLowerCase().includes(term)));
-
-        if (!hasInterventions && isBehaviorIndication) {
-          this._createAlert({
-            code: 'AP-NONPHARM',
-            severity: 'high',
-            title: 'NON-PHARMACOLOGICAL INTERVENTIONS NOT DOCUMENTED',
-            message: `Antipsychotic in use without documentation of prior or concurrent non-pharmacological interventions in imported records.`,
-            residentId,
-            residentName,
-            residentRoom,
-            drug: drugName,
-            sources: [
-              { sourceReport: 'Behavior & Progress Note Reports', reportDateTime: new Date().toISOString(), originalRow: 'Search completed' }
-            ],
-            whyFlagged: [
-              `CMS F758 and NY 10 NYCRR 415 require non-pharmacological interventions (redirection, environmental changes, activity modifications) to be attempted and documented.`,
-              `No structured intervention entries identified in imported behavior or nursing records.`
-            ]
-          });
-        }
-
-        // RULE: PRN ANTIPSYCHOTIC 14-DAY WATCH (Deterministic)
-        if (ap.isPRN) {
-          const prnDays = daysOnDrug;
-          let prnSeverity = null;
-          let prnTitle = null;
-
-          if (prnDays >= 14) {
-            prnSeverity = 'critical';
-            prnTitle = 'PRN ANTIPSYCHOTIC — 14-DAY ALERT (LIMIT EXCEEDED)';
-          } else if (prnDays >= 13) {
-            prnSeverity = 'high';
-            prnTitle = 'PRN ANTIPSYCHOTIC REVIEW REQUIRED (DAY 13)';
-          } else if (prnDays >= 10) {
-            prnSeverity = 'review';
-            prnTitle = 'PRN ANTIPSYCHOTIC APPROACHING 14-DAY LIMIT (DAY ' + prnDays + ')';
-          }
-
-          if (prnSeverity) {
-            this._createAlert({
-              code: 'PRN-014',
-              severity: prnSeverity,
-              title: prnTitle,
-              message: `PRN order for ${drugName} has reached Day ${prnDays}. CMS F758 mandates PRN psychotropics are limited to 14 days and cannot be renewed without new prescriber evaluation.`,
-              residentId,
-              residentName,
-              residentRoom,
-              drug: drugName,
-              sources: [{ sourceReport: ap.sourceReport || 'Active Medication Profile', reportDateTime: this._safeISO(ap.reportDate), originalRow: ap.originalRow || 1 }],
-              whyFlagged: [
-                `Order start date: ${ap.startDate}. Current day of order: Day ${prnDays}.`,
-                `CMS 42 CFR 483.45(e) requires that PRN psychotropic medications be limited to 14 days maximum.`,
-                prnDays >= 14 ? `CRITICAL: Prescribing practitioner must evaluate the resident for appropriateness before renewal.` : `Approaching mandatory review milestone.`
-              ]
-            });
-          }
-        }
-
-        // RULE: GDR WATCH
-        const residentGDR = residentGDRList.find(g => g.medication && g.medication.toLowerCase().includes(ap.genericName.toLowerCase())) || residentGDRList[0];
-        if (daysOnDrug > 180 && !residentGDR) {
-          this._createAlert({
-            code: 'GDR-001',
-            severity: 'high',
-            title: 'GDR REVIEW DUE / DOCUMENTATION NOT FOUND',
-            message: `Resident has received ${drugName} for >180 days. No gradual dose reduction (GDR) trial or physician clinical contraindication found in imported records.`,
-            residentId,
-            residentName,
-            residentRoom,
-            drug: drugName,
-            sources: [{ sourceReport: 'Consultant Pharmacist / GDR Log', reportDateTime: new Date().toISOString(), originalRow: 'Search completed' }],
-            whyFlagged: [
-              `Medication duration exceeds 6 months (${daysOnDrug} days).`,
-              `CMS F758 requires gradual dose reduction attempts in two separate quarters of the first year, then annually thereafter.`,
-              `No clinical contraindication statement or GDR trial was located in imported records.`
-            ]
-          });
-        }
-      }
-    }
-
-    // SYNC WITH OPEN ISSUES ENGINE
-      this._syncOpenIssues();
-    });
-
-    this._invalidateCache();
-
-    return true;
-  }
+  async runRulesEngine(user) { return require('./snf/rules/engine.cjs').runRulesEngine.call(this,user); }
 
   // --- ALERT LIFECYCLE & OPEN ISSUES ENGINE ---
 
   _createAlert({ code, severity, title, message, residentId, residentName, residentRoom, drug, sources = [], whyFlagged = [] }) {
+    severity = {review:'medium',info:'informational'}[severity] || severity;
+    const evidence = require('./snf/rules/evidence.cjs').capture.call(this, code, residentId, message, whyFlagged);
+    sources = evidence.sources;
     const alertId = `alt-${code}-${residentId || 'facility'}-${(drug || 'general').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
     const existing = this.store.get('snf_alert', alertId);
 
@@ -1637,6 +937,11 @@ class SNFCommandCenter {
       // Update existing alert without losing acknowledgement/in-review state
       const updated = {
         ...existing,
+        ...evidence,
+        evaluationHistory: [...new Set([...(existing.evaluationHistory||[]), evidence.evaluationId])],
+        // A changed evidence set reopens a resolved finding; omissions never close one.
+        status: existing.status === 'resolved' && existing.evaluationId !== evidence.evaluationId ? 'new' : existing.status,
+        auditTrail: existing.status === 'resolved' && existing.evaluationId !== evidence.evaluationId ? [...(existing.auditTrail||[]),{action:'reopened',timestamp:now,user:'Rules engine',note:'New imported evidence'}] : existing.auditTrail,
         title,
         message,
         severity,
@@ -1651,6 +956,12 @@ class SNFCommandCenter {
 
     const newAlert = {
       id: alertId,
+      ...evidence,
+      evaluationHistory: [evidence.evaluationId],
+      createdDate: now,
+      dueDate: now + (severity === 'critical' ? 4 : severity === 'high' ? 24 : 72) * 3600000,
+      owner: null,
+      evidenceReviewed: [],
       code,
       severity, // 'critical' | 'high' | 'review' | 'info'
       title,
@@ -1684,71 +995,10 @@ class SNFCommandCenter {
     return this.store.list('snf_alert').filter(a => a.status !== 'resolved' && a.status !== 'dismissed');
   }
 
-  acknowledgeAlert(alertId, user = 'Clinician') {
-    const alert = this.store.get('snf_alert', alertId);
-    if (!alert) throw fail('INVALID');
-    if (alert.status === 'resolved') return alert;
-
-    const now = Date.now();
-    alert.status = alert.status === 'new' ? 'acknowledged' : alert.status;
-    alert.acknowledgedBy = user;
-    alert.acknowledgedAt = alert.acknowledgedAt || now;
-    alert.auditTrail.push({
-      action: 'acknowledged',
-      user,
-      timestamp: now,
-      note: 'Alert acknowledged by clinical user. Remains visible until fully resolved.'
-    });
-
-    this.store.put('snf_alert', alertId, alert);
-    this._syncOpenIssues();
-    this._invalidateCache();
-    return alert;
-  }
-
-  assignAlert(alertId, assignedTo, user = 'Clinician', note = '') {
-    const alert = this.store.get('snf_alert', alertId);
-    if (!alert) throw fail('INVALID');
-
-    const now = Date.now();
-    alert.status = 'in_review';
-    alert.assignedTo = assignedTo;
-    alert.auditTrail.push({
-      action: 'assigned',
-      user,
-      timestamp: now,
-      note: `Assigned to ${assignedTo} for clinical review. ${note}`
-    });
-
-    this.store.put('snf_alert', alertId, alert);
-    this._syncOpenIssues();
-    this._invalidateCache();
-    return alert;
-  }
-
-  resolveAlert(alertId, resolutionStatus, note = '', user = 'Clinician') {
-    const alert = this.store.get('snf_alert', alertId);
-    if (!alert) throw fail('INVALID');
-
-    const now = Date.now();
-    alert.status = 'resolved';
-    alert.resolvedBy = user;
-    alert.resolvedAt = now;
-    alert.resolutionStatus = resolutionStatus || 'Verified in PCC / Addressed';
-    alert.actionNote = note;
-    alert.auditTrail.push({
-      action: 'resolved',
-      user,
-      timestamp: now,
-      resolutionStatus: alert.resolutionStatus,
-      note: note || 'Resolved with clinical verification'
-    });
-
-    this.store.put('snf_alert', alertId, alert);
-    this._syncOpenIssues();
-    this._invalidateCache();
-    return alert;
-  }
+  updateAlert(id, patch, user) { return require('./snf/alerts/lifecycle.cjs').updateAlert.call(this,id,patch,user); }
+  acknowledgeAlert(id,user='Clinician') { const a=this.store.get('snf_alert',id); if(a?.status==='resolved')return a;return this.updateAlert(id,{status:'acknowledged'},user); }
+  assignAlert(id,owner,user='Clinician',note='') { return this.updateAlert(id,{status:'in_review',owner,note},user); }
+  resolveAlert(id,reason,note='',user='Clinician') { return this.updateAlert(id,{status:'resolved',resolutionReason:reason,note},user); }
 
   _syncOpenIssues() {
     const alerts = this.store.list('snf_alert');
@@ -1790,7 +1040,7 @@ class SNFCommandCenter {
       const alerts = this.store.list('snf_alert').filter(a => a.status !== 'resolved');
       const critical = alerts.filter(a => a.severity === 'critical').length;
       const high = alerts.filter(a => a.severity === 'high').length;
-      const review = alerts.filter(a => a.severity === 'review').length;
+      const review = alerts.filter(a => a.severity === 'medium').length;
       const unacknowledgedCritical = alerts.filter(a => a.severity === 'critical' && !a.acknowledgedAt).length;
 
       const feedStatus = this.getFeedStatus();
@@ -1839,7 +1089,7 @@ class SNFCommandCenter {
     const prnDeadlines = unresolvedAlerts.filter(a => a.code === 'PRN-014').length;
     const newPsychDiags = unresolvedAlerts.filter(a => a.code === 'AP-003').length;
 
-    // CMS Quality Measure Watch (2026 Long-Stay Antipsychotic Measure Model)
+    // Exploratory imported-data ratio; not an implementation of the official CMS measure.
     // Label: "Estimated QM Exposure"
     const longStayResidents = residents.filter(r => r.stayType === 'long_stay');
     const potentialNumerator = [];
@@ -1908,7 +1158,7 @@ class SNFCommandCenter {
       },
       qmWatch: {
         label: 'Estimated QM Exposure',
-        note: 'Calculated using CMS 2026 long-stay methodology (excluding Schizophrenia, Tourette, Huntington). Claim/encounter verification required for definitive audit determination.',
+        note: 'Exploratory imported-data estimate, not the official CMS measure. Exclusions, denominator and current methodology require independent verification.',
         longStayDenominator: longStayResidents.length,
         potentialNumeratorCount: potentialNumerator.length,
         potentialNumeratorResidents: potentialNumerator,
@@ -1922,7 +1172,7 @@ class SNFCommandCenter {
       unresolvedAlertCounts: {
         critical: unresolvedAlerts.filter(a => a.severity === 'critical').length,
         high: unresolvedAlerts.filter(a => a.severity === 'high').length,
-        review: unresolvedAlerts.filter(a => a.severity === 'review').length
+        review: unresolvedAlerts.filter(a => a.severity === 'medium').length
       }
     };
     });
@@ -2005,7 +1255,7 @@ class SNFCommandCenter {
     brief += `### New Medications & Psych Watch Overview\n`;
     const pw = metrics.psychWatchCard;
     brief += `**Psych Watch Metrics**: Antipsychotic Residents: **${pw.antipsychoticResidents}** | New (24h): **${pw.newAPs24h}** | Doc Reviews: **${pw.documentationReview}** | GDR Reviews: **${pw.gdrReview}** | PRN 14-Day Deadlines: **${pw.prnDeadlines}**\n`;
-    brief += `**Estimated QM Exposure**: **${metrics.qmWatch.estimatedRatePercentage}%** (${metrics.qmWatch.potentialNumeratorCount} of ${metrics.qmWatch.longStayDenominator} long-stay residents; ${metrics.qmWatch.knownExclusionsCount} known exclusions)\n\n`;
+    brief += `**Estimated QM Exposure**: **${metrics.qmWatch.estimatedRatePercentage}%** (${metrics.qmWatch.potentialNumeratorCount} of ${metrics.qmWatch.longStayDenominator} long-stay residents; ${metrics.qmWatch.knownExclusionsCount} diagnosis exclusion candidates requiring verification)\n\n`;
 
     // 5. INCIDENTS, INFECTIONS & EXCEPTIONS
     brief += `### Incidents, Infections & eMAR Exceptions\n`;
@@ -2054,7 +1304,7 @@ class SNFCommandCenter {
       const metrics = this.getDashboardMetrics();
       const pw = metrics.psychWatchCard;
       const orders = this.store.list('snf_med_order').filter(o => o.status === 'Active' && o.isAntipsychotic);
-      const alerts = this.store.list('snf_alert').filter(a => a.status !== 'resolved' && a.code.startsWith('AP-') || a.code === 'PRN-014' || a.code === 'GDR-001');
+      const alerts = this.store.list('snf_alert').filter(a => a.status !== 'resolved' && (a.code.startsWith('AP-') || a.code === 'PRN-014' || a.code === 'GDR-001'));
 
       let out = `# PSYCH WATCH — ANTIPSYCHOTIC SURVEILLANCE\n\n`;
       out += `**Overview Summary**: Antipsychotic Residents: **${pw.antipsychoticResidents}** | New Orders (24h): **${pw.newAPs24h}** | Doc Reviews Needed: **${pw.documentationReview}** | GDR Reviews: **${pw.gdrReview}** | PRN 14-Day Limit Deadlines: **${pw.prnDeadlines}**\n\n`;
@@ -2272,6 +1522,7 @@ class SNFCommandCenter {
   }
 
   async seedRealisticPCCDataset() {
+    if (this.demoMode !== true) throw fail("POLICY");
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -2408,7 +1659,9 @@ class SNFCommandCenter {
       return d.toISOString().slice(0, 10);
     }
 
-    return await this.ingestReports(sampleFeed, 'PCC Automated Runner');
+    this._seedingDemo = true;
+    try { return await this.ingestReports(sampleFeed.map(r=>({...r,date:new Date().toISOString()})), 'Demo generator'); }
+    finally { this._seedingDemo = false; }
   }
 
   getPCCReportCatalog() {
@@ -2419,7 +1672,8 @@ class SNFCommandCenter {
     const rawKinds = [
       'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
       'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
-      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer'
+      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer',
+      'snf_psych_review', 'snf_pharmacist_review', 'snf_weight', 'snf_care_plan'
     ];
     if (rawKinds.includes(kind)) {
       throw new Error(`EMR data (${kind}) is strictly read-only and immutable. In accordance with clinical governance, raw EMR surveillance records cannot be edited or altered.`);
@@ -2427,7 +1681,10 @@ class SNFCommandCenter {
   }
 
   cleanup(retentionDays = 100, now = Date.now()) {
+    if (!Number.isFinite(retentionDays) || retentionDays < 1 || retentionDays > 3650) throw new Error('Invalid retention period');
     const rawCutoff = now - retentionDays * 86400000;
+    const {retainedEvidence, pruneEvidence} = require('./snf/retention.cjs');
+    const keep = retainedEvidence(this.store, rawCutoff);
     const counts = {
       rawEmrRecords: 0,
       dischargedResidents: 0,
@@ -2440,7 +1697,8 @@ class SNFCommandCenter {
     const rawKinds = [
       'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
       'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
-      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer'
+      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer',
+      'snf_psych_review', 'snf_pharmacist_review', 'snf_weight', 'snf_care_plan'
     ];
 
     this._tx(() => {
@@ -2452,7 +1710,7 @@ class SNFCommandCenter {
                        (rec.eventDate ? Date.parse(rec.eventDate) : null) ||
                        rec.timestamp ||
                        rec.updated;
-          if (time && time < rawCutoff) {
+          if (time && time < rawCutoff && !keep.rows.has(rec.provenance?.rowId)) {
             this.store.delete(kind, rec.id);
             counts.rawEmrRecords++;
           }
@@ -2465,7 +1723,7 @@ class SNFCommandCenter {
         const isDischarged = res.status === 'Discharged' || res.dischargeDate;
         if (isDischarged) {
           const dischargeTime = res.dischargeDate ? Date.parse(res.dischargeDate) : (res.updated || res.importTimestamp);
-          if (dischargeTime && dischargeTime < rawCutoff) {
+          if (dischargeTime && dischargeTime < rawCutoff && !keep.residents.has(res.id)) {
             this.store.delete('snf_resident', res.id);
             counts.dischargedResidents++;
           }
@@ -2509,7 +1767,8 @@ class SNFCommandCenter {
       }
     });
 
-    counts.total = counts.rawEmrRecords + counts.dischargedResidents + counts.resolvedAlerts + counts.resolvedIssues + counts.reportsPurged;
+    counts.evidenceRecordsPurged = pruneEvidence(this.store, rawCutoff, keep);
+    counts.total = counts.evidenceRecordsPurged + counts.rawEmrRecords + counts.dischargedResidents + counts.resolvedAlerts + counts.resolvedIssues + counts.reportsPurged;
 
     if (counts.total > 0) {
       this._invalidateCache();
@@ -2534,7 +1793,7 @@ class SNFCommandCenter {
 
   getRetentionStatus() {
     const settings = this.getSettings();
-    const retentionDays = this.core?.settings()?.retentionDays || 100;
+    const retentionDays = settings.retentionDays || 100;
 
     const alerts = this.store.list('snf_alert');
     const resolvedAlerts = alerts.filter(a => a.status === 'resolved' || a.status === 'dismissed').length;
@@ -2547,7 +1806,8 @@ class SNFCommandCenter {
     const rawKinds = [
       'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
       'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
-      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer'
+      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer',
+      'snf_psych_review', 'snf_pharmacist_review', 'snf_weight', 'snf_care_plan'
     ];
     let totalRawRecords = 0;
     for (const kind of rawKinds) {
@@ -2567,7 +1827,7 @@ class SNFCommandCenter {
       resolvedAlerts,
       totalRawRecords,
       isSupplementalOnly: true,
-      regulatoryNotice: "Supplemental operational surveillance & clinical analytics only. Exempt from CMS 42 CFR § 483 / HIPAA 6-year archival. Raw EMR data is immutable and held for 100 days for quarterly audits; resulted analytical reports are held for 200 days."
+      regulatoryNotice: "Supplemental surveillance. Default raw retention is 100 days and derived reports 200 days; the organization must approve applicable retention and legal holds. No regulatory exemption is asserted."
     };
   }
 
@@ -2593,10 +1853,10 @@ class SNFCommandCenter {
     report += `- **Long-Stay Census (≥101 days)**: ${qm.longStayDenominator} residents\n`;
     report += `- **Data Ingestion Status**: ${metrics.feedStatus.receivedFeedsCount}/16 PointClickCare feeds active (${metrics.feedStatus.dataCurrentThroughFormatted})\n\n`;
 
-    report += `## 2. Quality Measure (QM) Exposure & Antipsychotic Surveillance (CMS F758)\n`;
+    report += `## 2. Exploratory QM Estimate & Antipsychotic Surveillance — Human Review Required\n`;
     report += `- **Estimated QM Antipsychotic Rate**: **${qm.estimatedRatePercentage}%**\n`;
     report += `- **Potential Numerator Count**: ${qm.potentialNumeratorCount} long-stay residents receiving antipsychotics\n`;
-    report += `- **Identified CMS Exclusions**: ${qm.knownExclusionsCount} (Schizophrenia, Tourette's, Huntington's)\n`;
+    report += `- **Imported diagnosis exclusion candidates — verify independently**: ${qm.knownExclusionsCount} (Schizophrenia, Tourette's, Huntington's)\n`;
     report += `- **Exclusions Requiring Chart Verification**: ${qm.possibleExclusionsToVerifyCount} residents\n`;
     report += `- **Facility-Wide Antipsychotic Prevalence**: ${metrics.antipsychoticResidentsCount} residents (${metrics.antipsychoticRate}%)\n\n`;
 
@@ -2626,7 +1886,7 @@ class SNFCommandCenter {
     const unresolved = alerts.filter(a => a.status !== 'resolved');
     const crit = unresolved.filter(a => a.severity === 'critical');
     const high = unresolved.filter(a => a.severity === 'high');
-    const rev = unresolved.filter(a => a.severity === 'review');
+    const rev = unresolved.filter(a => a.severity === 'medium');
     report += `- **Total Active Alerts**: ${unresolved.length} (${crit.length} Critical, ${high.length} High, ${rev.length} Review)\n`;
     if (crit.length > 0) {
       report += `\n### Critical Exceptions Requiring Review:\n`;
@@ -2687,10 +1947,10 @@ class SNFCommandCenter {
 
     const { exportFile } = require('./files.cjs');
     const out = await exportFile(workspacePath, {
-      content: markdown || "# Clinical Surveillance Report\n\nNo active surveillance records found.",
+      content: (this.demoMode ? 'DEMO DATA — NOT FOR CLINICAL USE\n\n' : '') + (markdown || "# Clinical Surveillance Report\n\nNo active surveillance records found."),
       format: "pdf",
-      title,
-      subfolder: "Reports"
+      title: (this.demoMode ? "DEMO DATA — " : "") + title,
+      subfolder: this.demoMode ? "Demo-Reports" : "Reports"
     });
     return out;
   }
@@ -2706,3 +1966,4 @@ module.exports = {
   NON_PHARM_INTERVENTIONS,
   identifyMedication
 };
+

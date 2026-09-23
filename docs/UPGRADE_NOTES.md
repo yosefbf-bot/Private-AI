@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+
 # Upgrade from 2.0.0 to 2.0.1
 
 See [startup-fix instructions](STARTUP_FIX_2.0.1.md). Install over the existing application under the same Windows account. The data folder remains `%LOCALAPPDATA%\PrivateAI2`; the database format and encryption key are unchanged. Never delete that folder to resolve a launch error.
@@ -30,3 +32,4 @@ Within v2, schema migrations run transactionally and preserve settings/history. 
 Installer and portable variants share the same local profile. Do not run both to create independent workers. If moving the portable application, reconnect Chrome afterward and update Chrome's loaded extension location. Keep the entire runtime folder together.
 
 Disable redundant old scheduled jobs/Workers only after verifying the replacement. Private AI does not modify or turn off your previous installation. Each new Worker gets its own identity and explicit peer trust. Never sync or clone the PrivateAI2 private directory between active PCs.
+
