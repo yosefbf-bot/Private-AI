@@ -119,6 +119,7 @@ async function dispatch(op, data = {}) {
   if (typeof op !== "string" || !data || typeof data !== "object" || Array.isArray(data)) throw fail("INVALID");
   devPolicy.assertOperation(op, data);
   core.assertUnlocked();
+  if (op.startsWith("snf")) return require("./source/snf/index.cjs").dispatch(core,op,data);
   switch (op) {
     case "userGuide":
       return require("./source/app-guide.json");
@@ -333,50 +334,6 @@ async function dispatch(op, data = {}) {
           { name: "Hybrid reasoning router", status: "pass" },
         ],
       };
-    case "snfDashboard":
-      return core.snf ? core.snf.getDashboardMetrics() : { error: "Not initialized" };
-    case "snfAlerts": {
-      let alerts = core.store.list("snf_alert");
-      if (data.unresolvedOnly) alerts = alerts.filter((a) => a.status !== "resolved");
-      if (data.severity) alerts = alerts.filter((a) => a.severity === data.severity);
-      return alerts;
-    }
-    case "snfAcknowledgeAlert":
-      return core.snf.acknowledgeAlert(data.alertId, data.user || "Clinical User");
-    case "snfAssignAlert":
-      return core.snf.assignAlert(data.alertId, data.assignedTo, data.user || "Clinical User", data.note || "");
-    case "snfResolveAlert":
-      return core.snf.resolveAlert(data.alertId, data.resolutionStatus, data.note || "", data.user || "Clinical User");
-    case "snfOpenIssues":
-      return core.store.list("snf_open_issue");
-    case "snfMorningBrief":
-      return { text: core.snf.generateMorningBrief() };
-    case "snfResidentTimeline":
-      return { text: core.snf.getResidentTimelineReport(data.query) };
-    case "snfFeedStatus":
-      return core.snf ? core.snf.getFeedStatus() : { feeds: {} };
-    case "snfMedChanges":
-      return core.snf ? core.snf.getMedicationChangesList() : [];
-    case "snfPsychWatch":
-      return core.snf ? core.snf.getPsychWatchData() : {};
-    case "snfPCCReports":
-      return core.snf ? core.snf.getPCCReportCatalog() : [];
-    case "snfRunRules":
-      return await core.snf.runRulesEngine(data.user || "Clinical User");
-    case "snfSeedData":
-      return await core.snf.seedRealisticPCCDataset();
-    case "snfIngest":
-      return await core.snf.ingestReports(data.reports || [], data.user || "Clinical User");
-    case "snfRetentionCleanup":
-      return core.snf ? core.snf.cleanup(core.snf.getSettings().retentionDays || 100) : { total: 0 };
-    case "snfRetentionStatus":
-      return core.snf ? core.snf.getRetentionStatus() : {};
-    case "snfExportPDF":
-      if (!core.snf) throw fail("INVALID");
-      return await core.snf.exportReportPDF(data.type, data.query, core.settings().workspace);
-    case "snfSaveSettings":
-      if (!core.snf) throw fail("INVALID");
-      return core.snf.saveSettings(data.settings || {});
     default:
       throw fail("INVALID");
   }

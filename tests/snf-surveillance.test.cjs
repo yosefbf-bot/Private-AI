@@ -8,8 +8,11 @@ const { deterministic } = require('../source/deterministic.cjs');
 
 test('SNF Clinical Surveillance - Core Engine & Rules Test Suite', async (t) => {
   const { core } = fixture(t);
-  const snf = core.snf;
-  const store = core.store;
+  const workspaces = require('../source/snf/demo.cjs').forCore(core);
+  await workspaces.set({mode:'demo'});
+  const snf = workspaces.current();
+  core.snf = snf; // Explicit synthetic fixture only; production isolation tested separately.
+  const store = snf.store;
 
   await t.test('Medication Classifier Identifies Clinical Classes Correctly', () => {
     const risperidone = identifyMedication('Risperdal 0.5 mg oral tablet');
@@ -249,9 +252,12 @@ test('SNF Clinical Surveillance - Core Engine & Rules Test Suite', async (t) => 
       ]
     };
 
+    snf._seedingDemo = true;
     const resilientIngest = await snf.ingestReports([malformedReport]);
-    assert.strictEqual(resilientIngest.success, true);
-    assert(resilientIngest.totalRecords >= 2, 'Should gracefully process rows with valid/extractable IDs');
+    snf._seedingDemo = false;
+    assert.strictEqual(resilientIngest.success, false);
+    assert.strictEqual(resilientIngest.totalRecords, 0, 'Invalid report date/mapping must not produce clinical events');
+    assert(resilientIngest.validationErrors.length > 0);
 
     // 3. Rules Engine Resilience against malformed resident data
     store.put('snf_resident', 'res-corrupt', {
@@ -314,3 +320,4 @@ test('SNF Clinical Surveillance - Core Engine & Rules Test Suite', async (t) => 
     assert.deepStrictEqual(medBefore, medAfter, 'Raw EMR records must remain strictly unmodified');
   });
 });
+
