@@ -17,7 +17,7 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   assert.match(await page.locator('.today-page').textContent(),/Surveillance incomplete/);
   await page.getByRole('button',{name:'Open isolated Demo Mode'}).click();
   await page.getByRole('button',{name:'Return to production',exact:true}).waitFor();
-  await page.locator('.today-page [data-evidence]').first().click();await page.locator('[data-evidence-output] pre').first().waitFor();
+  await page.locator('.today-page details > summary').first().click();await page.locator('.today-page [data-evidence]').first().click();await page.locator('[data-evidence-output] pre').first().waitFor({state:'attached'});
   await page.locator('.today-page [data-follow-up]').first().click();
   const form=page.locator('dialog form');await form.locator('[name=reviewer]').fill('Synthetic UI reviewer');await form.locator('[name=status]').selectOption('waiting');await form.locator('[name=note]').fill('Synthetic review pending');await form.getByRole('button',{name:'Save follow-up'}).click();await page.locator('dialog').waitFor({state:'detached'});
   fs.mkdirSync(path.join(__dirname,'../build/screenshots'),{recursive:true});await page.screenshot({path:path.join(__dirname,'../build/screenshots/hardening-today-demo.png')});
