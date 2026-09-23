@@ -318,7 +318,7 @@ class Store {
 
           if (
             (r.expires && r.expires <= now) ||
-            (targetCutoff && kind !== "memory" && r.updated < targetCutoff)
+            (targetCutoff && kind !== "memory" && r.updated <= targetCutoff)
           ) {
             this.delete(kind, r.id);
             if (isReportFile || isReportJob) {

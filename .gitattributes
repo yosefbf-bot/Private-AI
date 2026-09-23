@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Binary files
+*.db binary
+*.db-* binary
+*.key binary
+*.ico binary
+*.png binary
