@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # WhatsApp: independent read and write permissions
 
 Implemented source behavior:
@@ -32,3 +34,4 @@ API reference: https://docs.wwebjs.dev/Client.html
 Install from the updated package.json/package-lock.json with lifecycle scripts controlled. The new whatsapp-web.js dependency and its transitive dependencies must be included in app.asar. The old preserve-asar.cjs deliberately rejects changed dependency sets; do not bypass that assertion or merely overwrite source into the old archive. Build the complete dependency tree and validate packaged dependency resolution. Use existing installed Edge, not a downloaded Puppeteer browser. Session profiles and real user data must never enter source/release archives.
 
 The edits and tests here do not update the installed app or existing installer.
+

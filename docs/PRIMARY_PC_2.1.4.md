@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.4 — primary-PC upgrade
 
 Built on the confirmed 2.1.3 source, version 4. This is an application-code upgrade, not a replacement local engine. Electron, desktop helper, dependencies, and the no-admin Windows local-model runtime are preserved from the 2.1.3 portable release.
@@ -33,3 +35,4 @@ Rollback: quit Private AI, keep a copy of the 2.1.4 archive, then have IT replac
 145 automated tests passed on Linux, including the original security/retention, manual Chrome reading, local-only policy, files, worker, messaging, model-startup tests and 17 new coordination/integration tests. Mocked Windows/browser boundaries confirm that denied actions do not reach launch/helper/send operations. Actual TXT/DOCX/XLSX/PDF processing tests passed. 34 source modules passed syntax checks. Packaged archive content and unchanged dependency/runtime bytes are checked during packaging.
 
 Windows execution, the PowerShell updater, real Windows focus behavior, actual ShareSync service behavior, and local-model inference on this PC remain unverified. Earlier 2.1.3 validation files are historical, not new 2.1.4 Windows results. No claim of HIPAA certification or unlimited autonomous desktop control is made. Review and test on your approved PC before using with sensitive work.
+

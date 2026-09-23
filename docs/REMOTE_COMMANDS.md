@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Remote commands in 2.1.0
 
 The optional Messaging bridge is now implemented as an experimental Windows/Web adapter. See [HYBRID_UPGRADE.md](HYBRID_UPGRADE.md) for setup, permission checks, privacy warnings, and remaining limits.
@@ -9,3 +11,4 @@ Completion/failure and optional started notices return through the WhatsApp Web 
 This is a UI-based integration, not the official WhatsApp Business API. Live account pairing/delivery, platform eligibility, and the organization's approval of the channel remain to be checked. A group title alone never authorizes a task. The app does not claim that disappearing messages or encryption establish HIPAA suitability.
 
 Outlook message/calendar reading and reviewed drafts remain available in Apps. Monitoring emails to yourself as a remote-command channel is not included in this hybrid release.
+

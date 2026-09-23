@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Future mobile companion — deferred beyond 3.0
 
 Mobile implementation is explicitly out of the current release scope. WhatsApp is the primary remote interface for jobs, tasks, progress, results, and ordinary AI questions. No mobile server, remote-access port, APK, or phone installer is being added by this plan.
@@ -30,3 +32,4 @@ A Windows EXE cannot run on Android or iOS. The desktop installer could eventual
 3. Replies, forwarding, progress, and future attachment delivery must recheck the selected destination and disable-all-writing override at the sending boundary.
 4. Preserve AI conversation context per conversation and sender. `/new` starts fresh context. Do not insert unrelated account-wide observations into model prompts automatically.
 5. Keep the current Windows validation and release gates independent of this future layout plan.
+

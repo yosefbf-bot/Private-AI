@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.3 — local model loading fix
 
 The newer recording shows Qwen refused with LOW_MEMORY at about 4.8 GB available, and Llama changing from loading to CANCELLED. These are separate issues from the screen-refresh error fixed in 2.1.2. A Microsoft runtime installation would not resolve either recorded error.
@@ -25,3 +27,4 @@ If RAM is lower because other programs are open, close heavy programs, set **Loc
 128 regression tests and 22 Chromium UI checks passed. Real Qwen and Llama inference at context 4096 passed on Linux with the corrected manual-load lifecycle, including remaining ready through the maintenance timer, with zero OpenAI requests. Windows engine inspection verifies x64 architecture, every bundled DLL dependency and imported symbol, baseline/AVX2 backends, and absence of external compiler-runtime DLL requirements. Installer archive and delivery ZIP integrity are checked separately.
 
 The Windows executable could not be run in this environment: the available Wine runtime requires Unix sockets that this environment does not permit. Linux inference and static Windows checks do not replace execution on your PC. See Validation/startup-inference.json and Validation/runtime-check.json for the exact evidence.
+

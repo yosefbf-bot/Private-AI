@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Version 2.1.0
 
 Start with [HYBRID_UPGRADE.md](HYBRID_UPGRADE.md). It covers optional local inference, local commands, messaging, and browser workflows. The instructions below describe the preserved manual/API workflow.
@@ -51,3 +53,4 @@ Uncertain/interrupted jobs are not automatically generated again; review status 
 ## Retention, backup, and lock
 
 Default retention is 90 days since last saved activity for local chats, working files, and completed jobs. Memory has separate expiry. Original source files and exported reports are not deleted. Failed cleanup is surfaced/deferred; synced backups and ShareSync version history have separate administrative retention. A local encrypted backup requires this Windows user's original DPAPI master key; a database alone is not a cross-PC backup. Set an optional app passphrase; maintain Windows screen locking, disk encryption, endpoint protection, and managed backups regardless.
+

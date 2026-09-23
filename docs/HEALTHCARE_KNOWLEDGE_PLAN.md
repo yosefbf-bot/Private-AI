@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Healthcare Knowledge Engine — next major upgrade
 
 Status: accepted development scope and implementation plan; the engine is not implemented yet. The complete user specification is preserved verbatim in [HEALTHCARE_KNOWLEDGE_REQUIREMENTS.txt](HEALTHCARE_KNOWLEDGE_REQUIREMENTS.txt). All 38 sections remain requirements; this plan does not replace or narrow them.
@@ -107,3 +109,4 @@ Keep adapters for source discovery, extraction, indexes/embeddings, reranking, a
 - Existing chat/streaming/projects/files/exports/ShareSync/scheduler/Worker/browser/WhatsApp/model behavior remains intact.
 
 Use synthetic resident fixtures for automated tests. Actual clinical/regulatory answer quality needs authoritative source checks and review; passing software tests alone does not establish clinical validity.
+

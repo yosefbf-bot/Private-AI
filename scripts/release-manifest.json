@@ -1,0 +1,9 @@
+{
+  "required": [
+    "build/prepare-browser-assets.cjs", "build/windows-build.cjs", "build/after-pack.cjs",
+    "build/installer.nsh", "build/icon.ico", "build/pe-integrity.cjs", "build/release-evidence-gate.cjs",
+    "build/desktop-helper/PrivateAI.Access.exe", "build/local-runtime/llama-server.exe",
+    "source/ui/icon.png", "source/ui/logo.png", "chrome_extension/manifest.json"
+  ],
+  "evidenceRequired": ["clean install", "launch", "database and vault initialization", "OpenAI", "Ollama/local inference", "chat", "file import", "SNF import and alert", "restart persistence", "temporary cleanup", "export", "browser companion", "worker start/stop", "2.1.x upgrade", "uninstall/reinstall"]
+}

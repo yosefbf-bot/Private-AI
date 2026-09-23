@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.1 — Hybrid upgrade evaluation
 
 This is an in-place upgrade of 2.0.1. It retains the Windows startup fix, encrypted database, Windows-protected key, 90-day default retention, report folder, manual Chrome capture, and existing OpenAI connection. No data reset is required.
@@ -75,3 +77,4 @@ Installing this application, encryption, or disappearing messages does not estab
 The full proposed plan is therefore **not completely accepted/validated**. This build implements the main hybrid path and controlled adapters, with the specific limits above. It is an unsigned evaluation build, not a production certification.
 
 Sources: [Qwen3-4B GGUF publisher](https://huggingface.co/Qwen/Qwen3-4B-GGUF), [pinned llama.cpp runtime b10809](https://github.com/ggml-org/llama.cpp/releases/tag/b10809), [llama.cpp server documentation](https://github.com/ggml-org/llama.cpp/blob/b10809/tools/server/README.md).
+

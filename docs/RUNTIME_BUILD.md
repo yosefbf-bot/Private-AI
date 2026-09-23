@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Windows local engine build
 
 Private AI 2.1.3 uses llama.cpp b10809 source from:
@@ -12,3 +14,4 @@ Compiler, C++ and OpenMP runtime support is linked statically. Shared model-engi
 OpenSSL and the engine's web UI are disabled: inference uses the app's authenticated loopback-only connection. OpenAI TLS and model-download HTTPS are handled by the desktop app as before. The app remains responsible for exposing only 127.0.0.1 and never logging prompts or engine output.
 
 See RUNTIME_NOTICES.txt for llama.cpp, MinGW and GCC runtime licenses, including the GCC Runtime Library Exception. Windows execution on a real PC remains an acceptance requirement.
+

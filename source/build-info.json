@@ -1,4 +1,7 @@
 {
-  "updatedAt": "2026-09-16T13:21:05.394Z",
-  "sourceSHA256": "a492fd3eed370fc240ed77d362ef64e6c8b9b2083a1db4709fe412d827a193a0"
+  "version": "3.0.1-dev",
+  "updatedAt": "2026-09-23T00:00:00.000Z",
+  "baselineCommit": "baa2deeb32d10ec1b4b28c1626dc81198ecb514d",
+  "releaseStatus": "blocked",
+  "note": "Development source; no validated Windows artifact"
 }

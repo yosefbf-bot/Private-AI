@@ -1,10 +1,7 @@
 'use strict';
 const { test } = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const modulePath = path.join(__dirname, '../build/pe-integrity.cjs');
-if (!fs.existsSync(modulePath)) {
-  test.skip('build/pe-integrity.cjs not present in workspace', () => {});
-  return;
-}
+
 const { inspectPe } = require(modulePath);
 // A minimal complete PE64 fixture, with independently declared disk extents.
 function fixture() {
@@ -25,3 +22,4 @@ test('certificate extent outside the file is rejected', () => {
   const b = fixture(); b.writeUInt32LE(1500, 296); b.writeUInt32LE(100, 300);
   assert.throws(() => inspectPe(b), /certificate table/);
 });
+

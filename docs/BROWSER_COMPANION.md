@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Browser companion checkpoint
 
 The companion shares chat, page capture, and native messaging code. It does not contain its own AI model or API key. Private AI on the same Windows PC performs processing. The updated desktop source must be built and installed before Firefox can connect; the old 2.1.7 installer lacks the Firefox host registration.
@@ -22,3 +24,4 @@ The Chromium public key remains unchanged, preserving the existing extension ID.
 Automated checks cover native identity rejection, both manifest contracts, Firefox sidebar gestures, and explicit-only capture. Firefox is not installed in this test environment, so actual Firefox sidebar/native-host integration is still unverified. Do not treat simulated API tests as live browser acceptance.
 
 References: [Mozilla native messaging](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Native_messaging), [Firefox temporary installation](https://www.extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/), [Mozilla signing](https://www.extensionworkshop.com/documentation/publish/signing-and-distribution-overview/), [Edge native messaging](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/native-messaging).
+

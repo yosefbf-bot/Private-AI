@@ -1,0 +1,36 @@
+{
+  "version": "3.0.1-dev",
+  "authoritativeBranch": "main",
+  "developmentBranch": "chatgpt/3.0.1-hardening",
+  "lastVerifiedCommit": "baa2deeb32d10ec1b4b28c1626dc81198ecb514d",
+  "releaseStatus": "blocked",
+  "desktopProductionTarget": true,
+  "webMode": "development-only",
+  "hipaaMode": true,
+  "hipaaModeMeaning": "Default policy setting; not a compliance certification",
+  "currentPriorities": [
+    "Clinical provenance and isolated demo profile",
+    "Regression validation and independent PR review"
+  ],
+  "knownCriticalIssues": [
+    "Historical vault/key exposure remains in other refs/history; owner remediation required",
+    "Windows build inputs missing; Windows execution unverified"
+  ],
+  "completedFeatures": [
+    "Provider credential isolation",
+    "Configuration-bound approval",
+    "Authenticated loopback-only restricted development server",
+    "Automatic production sample seeding removed",
+    "Required-file and repository policy gates"
+  ],
+  "experimentalFeatures": [
+    "SNF heuristic surveillance requires clinical validation",
+    "Multi-provider adapters outside HIPAA mode"
+  ],
+  "deferredFeatures": [
+    "Production network hosting",
+    "New major platform features",
+    "PHI realtime voice approval"
+  ],
+  "lastTested": null
+}

@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.1.6 — stability, recovery, diagnostics
 
 Built on the released 2.1.5 code and Windows runtime. This is an application-code upgrade, not a rebuilt Windows installer. No model weights are included or downloaded automatically.
@@ -62,3 +64,4 @@ Package checksums detect damaged transfers; they are not publisher signatures. K
 Automated Linux tests cover original regressions plus safe startup, cooldown, diagnostic privacy, encrypted drafts, memory admission/recovery, output interruption/reuse, changed-file protection, report sections, and settings permissions. See the bundled Validation report for exact counts and hashes.
 
 **Not validated here:** executing the Windows application, PowerShell updater/rollback or memory sampler on Windows; real model inference; real sleep/wake; renderer crash behavior in Electron; and rendered browser UI. A browser test runtime was unavailable and its download timed out. Updated browser test code is included for a provisioned environment. Windows runtime/dependency files are preserved byte-for-byte; this does not establish Windows execution success or crash-free operation.
+

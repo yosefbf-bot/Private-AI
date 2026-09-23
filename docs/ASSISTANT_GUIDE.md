@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Private AI 3.0.0 — Assistant reference
 
 Use the versioned source/app-guide.json as the source of truth for supported app features. Each topic has a stable id, location, aliases, ordered steps, and limitations. The human guide is generated from the same data.
@@ -44,3 +46,4 @@ Use the versioned source/app-guide.json as the source of truth for supported app
 - lastupdated: Check when this app source was updated — Bottom of sidebar
 
 For the full procedures, read USER_GUIDE.md or source/app-guide.json.
+

@@ -1,3 +1,5 @@
+> Historical/pre-hardening document. Read ../../ARCHITECTURE.md and ../../PROJECT_STATUS.json from this repository root for current status; procedures and release claims below require revalidation.
+
 # Private AI 2.0.1 — Windows startup fix
 
 ## Install the fix
@@ -27,3 +29,4 @@ The original code failed the new first-run and replacement regression cases unde
 The executable and bundled runtimes come from the original 2.0.0 release; application code and installer are repackaged as 2.0.1. Packaged source is checked against the corrected source. This environment cannot execute the application on your actual Windows profile, so Windows launch, DPAPI, and organization-specific policies still need the local check above. The package remains unsigned.
 
 This release fixes startup in the released 2.0.0 package. It does not include the separate, unfinished remote-command additions discussed later.
+
