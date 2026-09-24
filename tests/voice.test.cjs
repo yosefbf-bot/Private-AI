@@ -217,4 +217,111 @@ test("Voice subsystem logic and state management", async (t) => {
     assert.match(sentPayload.prompt, /Translate the user's spoken words into natural, fluent Spanish/);
     assert.match(sentPayload.prompt, /Good morning, how can I help you today\?/);
   });
+
+  await t.test("Mood selector configures 'Professional', 'Empathetic', and 'Concise' personality configurations", async () => {
+    let sentPayload = null;
+    let notifiedState = null;
+    const vm = new VoiceManager({
+      onSend: async (payload) => {
+        sentPayload = payload;
+        return { text: "Acknowledged." };
+      },
+      getState: () => ({}),
+      getChat: () => ({ id: "chat-mood" }),
+      onStateChange: (s) => { notifiedState = s; }
+    });
+
+    // Default mood is professional
+    assert.equal(vm.voiceMood, "professional");
+    assert.ok(vm.moodConfigs.professional);
+    assert.ok(vm.moodConfigs.empathetic);
+    assert.ok(vm.moodConfigs.concise);
+
+    // Test Professional mood prompt
+    vm.finalTranscript = "Review fall incidents for West Wing.";
+    await vm.dispatchCurrentTranscript();
+    assert.match(sentPayload.prompt, /Voice Personality Mood: Professional/);
+    assert.match(sentPayload.prompt, /polished, respectful, objective, and authoritative tone/);
+
+    // Toggle to Empathetic mood
+    vm.state = "idle";
+    vm.setVoiceMood("empathetic");
+    assert.equal(vm.voiceMood, "empathetic");
+    assert.equal(notifiedState.voiceMood, "empathetic");
+    assert.equal(vm.moodConfigs.empathetic.pitchMultiplier, 1.04);
+    assert.equal(vm.moodConfigs.empathetic.rateMultiplier, 0.96);
+
+    vm.finalTranscript = "The family is upset about the room transfer.";
+    await vm.dispatchCurrentTranscript();
+    assert.match(sentPayload.prompt, /Voice Personality Mood: Empathetic/);
+    assert.match(sentPayload.prompt, /warm, caring, patient, and compassionate tone/);
+
+    // Toggle to Concise mood
+    vm.state = "idle";
+    vm.setVoiceMood("concise");
+    assert.equal(vm.voiceMood, "concise");
+    assert.equal(notifiedState.voiceMood, "concise");
+    assert.equal(vm.moodConfigs.concise.pitchMultiplier, 1.0);
+    assert.equal(vm.moodConfigs.concise.rateMultiplier, 1.12);
+
+    vm.finalTranscript = "Give me today's census count.";
+    await vm.dispatchCurrentTranscript();
+    assert.match(sentPayload.prompt, /Voice Personality Mood: Concise/);
+    assert.match(sentPayload.prompt, /direct, succinct, and efficient answers/);
+  });
+
+  await t.test("Clear Accents support American, British, Australian, Canadian, and Irish voices", () => {
+    let notifiedState = null;
+    const vm = new VoiceManager({
+      onSend: async () => ({ text: "ok" }),
+      getState: () => ({}),
+      getChat: () => null,
+      onStateChange: (s) => { notifiedState = s; }
+    });
+
+    assert.equal(vm.voiceAccent, "american");
+    assert.ok(vm.accentConfigs.american);
+    assert.ok(vm.accentConfigs.british);
+    assert.ok(vm.accentConfigs.australian);
+    assert.ok(vm.accentConfigs.canadian);
+    assert.ok(vm.accentConfigs.irish);
+
+    // Mock speech synthesis voices
+    vm.availableVoices = [
+      { name: "Microsoft David - English (United States)", lang: "en-US", localService: true },
+      { name: "Microsoft George - English (United Kingdom)", lang: "en-GB", localService: true },
+      { name: "Microsoft Catherine - English (Australia)", lang: "en-AU", localService: true },
+      { name: "Microsoft Linda - English (Canada)", lang: "en-CA", localService: true },
+      { name: "Microsoft Moira - English (Ireland)", lang: "en-IE", localService: true },
+    ];
+
+    // Selecting American
+    vm.setVoiceAccent("american");
+    assert.equal(vm.voiceAccent, "american");
+    assert.equal(notifiedState.voiceAccent, "american");
+    let voice = vm.getBestVoiceForPreset("atlas", "american");
+    assert.equal(voice.lang, "en-US");
+
+    // Selecting British
+    vm.setVoiceAccent("british");
+    assert.equal(vm.voiceAccent, "british");
+    assert.equal(notifiedState.voiceAccent, "british");
+    voice = vm.getBestVoiceForPreset("atlas", "british");
+    assert.equal(voice.lang, "en-GB");
+
+    // Selecting Australian
+    vm.setVoiceAccent("australian");
+    voice = vm.getBestVoiceForPreset("sage", "australian");
+    assert.equal(voice.lang, "en-AU");
+
+    // Selecting Canadian
+    vm.setVoiceAccent("canadian");
+    voice = vm.getBestVoiceForPreset("sage", "canadian");
+    assert.equal(voice.lang, "en-CA");
+
+    // Selecting Irish
+    vm.setVoiceAccent("irish");
+    voice = vm.getBestVoiceForPreset("nova", "irish");
+    assert.equal(voice.lang, "en-IE");
+  });
 });

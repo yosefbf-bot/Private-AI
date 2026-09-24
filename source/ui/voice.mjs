@@ -11,6 +11,20 @@ export const TurnDetectionMode = {
   MANUAL: 'manual', // Push-to-Talk
 };
 
+export const VoiceMood = {
+  PROFESSIONAL: 'professional',
+  EMPATHETIC: 'empathetic',
+  CONCISE: 'concise',
+};
+
+export const VoiceAccent = {
+  AMERICAN: 'american',
+  BRITISH: 'british',
+  AUSTRALIAN: 'australian',
+  CANADIAN: 'canadian',
+  IRISH: 'irish',
+};
+
 export const LiveVoiceState = {
   IDLE: 'idle',
   CONNECTING: 'connecting',
@@ -49,9 +63,88 @@ export class VoiceManager {
     this.statusMessage = '';
     this.activeAgentId = '';
     this.voiceProfile = 'nova';
+    this.voiceMood = VoiceMood.PROFESSIONAL;
+    this.voiceAccent = VoiceAccent.AMERICAN;
     this.speechRate = 1.0;
     this.speechPitch = 1.0;
     this.ttsEnabled = true;
+
+    // Mood / Personality Configurations
+    this.moodConfigs = {
+      [VoiceMood.PROFESSIONAL]: {
+        id: VoiceMood.PROFESSIONAL,
+        name: 'Professional',
+        desc: 'Polished, authoritative & objective',
+        pitchMultiplier: 1.0,
+        rateMultiplier: 1.0,
+        promptDirective: '[Voice Personality Mood: Professional. Respond with a polished, respectful, objective, and authoritative tone suitable for professional healthcare and administrative operations. Maintain calm poise, clear structure, and professional assurance.]',
+      },
+      [VoiceMood.EMPATHETIC]: {
+        id: VoiceMood.EMPATHETIC,
+        name: 'Empathetic',
+        desc: 'Warm, caring & compassionate',
+        pitchMultiplier: 1.04,
+        rateMultiplier: 0.96,
+        promptDirective: '[Voice Personality Mood: Empathetic. Respond with a warm, caring, patient, and compassionate tone. Acknowledge emotional context with understanding and validation, while keeping guidance constructive, supportive, and reassuring.]',
+      },
+      [VoiceMood.CONCISE]: {
+        id: VoiceMood.CONCISE,
+        name: 'Concise',
+        desc: 'Direct, brief & to the point',
+        pitchMultiplier: 1.0,
+        rateMultiplier: 1.12,
+        promptDirective: '[Voice Personality Mood: Concise. Respond with direct, succinct, and efficient answers. Deliver essential information immediately in brief, clear spoken sentences without pleasantries, preamble, or unnecessary filler.]',
+      },
+    };
+
+    // Clear Accents Configurations (Easily understandable, native regional diction)
+    this.accentConfigs = {
+      [VoiceAccent.AMERICAN]: {
+        id: VoiceAccent.AMERICAN,
+        name: 'American',
+        label: 'American (Clear General US)',
+        desc: 'Clear General American accent',
+        langPrefixes: ['en-US', 'en'],
+        namePatterns: [/united states|us english|general|samantha|zira|david|mark|eva/i],
+        promptDirective: '[Spoken Accent / Diction: Clear General American. Maintain clean, natural enunciation without heavy regionalisms.]',
+      },
+      [VoiceAccent.BRITISH]: {
+        id: VoiceAccent.BRITISH,
+        name: 'British',
+        label: 'British (Clear RP / UK)',
+        desc: 'Clear Received Pronunciation / British accent',
+        langPrefixes: ['en-GB', 'en-UK'],
+        namePatterns: [/united kingdom|uk english|great britain|british|george|serena|daniel|hazel|oliver|stephanie/i],
+        promptDirective: '[Spoken Accent / Diction: Clear British English. Maintain crisp, natural Received Pronunciation without obscure slang.]',
+      },
+      [VoiceAccent.AUSTRALIAN]: {
+        id: VoiceAccent.AUSTRALIAN,
+        name: 'Australian',
+        label: 'Australian (Clear AU)',
+        desc: 'Clear Australian accent',
+        langPrefixes: ['en-AU'],
+        namePatterns: [/australia|australian|catherine|russell|karen|lee/i],
+        promptDirective: '[Spoken Accent / Diction: Clear Australian English. Maintain clean, accessible, and intelligible enunciation.]',
+      },
+      [VoiceAccent.CANADIAN]: {
+        id: VoiceAccent.CANADIAN,
+        name: 'Canadian',
+        label: 'Canadian (Clear CA)',
+        desc: 'Clear Canadian accent',
+        langPrefixes: ['en-CA'],
+        namePatterns: [/canada|canadian|heather|linda/i],
+        promptDirective: '[Spoken Accent / Diction: Clear Canadian English. Maintain clean, natural, and standard enunciation.]',
+      },
+      [VoiceAccent.IRISH]: {
+        id: VoiceAccent.IRISH,
+        name: 'Irish',
+        label: 'Irish (Clear IE)',
+        desc: 'Clear Irish accent',
+        langPrefixes: ['en-IE'],
+        namePatterns: [/ireland|irish|moira|emily/i],
+        promptDirective: '[Spoken Accent / Diction: Clear Irish English. Maintain gentle, clean, and universally accessible enunciation.]',
+      },
+    };
 
     // Live Translation Mode
     this.liveTranslation = false;
@@ -132,7 +225,7 @@ export class VoiceManager {
     }
   }
 
-  getBestVoiceForPreset(presetKey) {
+  getBestVoiceForPreset(presetKey, accentKey) {
     if (!this.availableVoices.length && typeof window !== 'undefined' && 'speechSynthesis' in window) {
       this.availableVoices = window.speechSynthesis.getVoices() || [];
     }
@@ -143,24 +236,37 @@ export class VoiceManager {
     const enVoices = voices.filter(v => v.lang && v.lang.startsWith('en'));
     const pool = enVoices.length ? enVoices : voices;
 
+    const accent = this.accentConfigs[accentKey || this.voiceAccent] || this.accentConfigs.american;
+
+    // Filter by accent language prefix first (e.g., 'en-GB', 'en-AU', 'en-CA', 'en-IE', 'en-US')
+    let accentPool = voices.filter(v => v.lang && accent.langPrefixes.some(p => v.lang.toLowerCase().startsWith(p.toLowerCase())));
+
+    // Also check voice name patterns for accent if language tag wasn't specific
+    if (!accentPool.length && accent.namePatterns) {
+      accentPool = voices.filter(v => accent.namePatterns.some(pattern => pattern.test(v.name)));
+    }
+
+    // Target pool prioritizes matching accent, falling back to all English, then all voices
+    const targetPool = accentPool.length ? accentPool : pool;
+
     if (presetKey === 'atlas') {
-      const match = pool.find(v => /male|david|george|daniel|guy|mark|james|alex/i.test(v.name) && !/female/i.test(v.name));
+      const match = targetPool.find(v => /male|david|george|daniel|guy|mark|james|alex/i.test(v.name) && !/female/i.test(v.name));
       if (match) return match;
     } else if (presetKey === 'sage') {
-      const match = pool.find(v => /natural|aria|samantha|karen|susan|catherine|serena/i.test(v.name));
+      const match = targetPool.find(v => /natural|aria|samantha|karen|susan|catherine|serena/i.test(v.name));
       if (match) return match;
     } else if (presetKey === 'breeze') {
-      const match = pool.find(v => /natural|jenny|victoria|breeze|steffi|fiona/i.test(v.name));
+      const match = targetPool.find(v => /natural|jenny|victoria|breeze|steffi|fiona/i.test(v.name));
       if (match) return match;
     } else if (presetKey === 'cove') {
-      const match = pool.find(v => /cove|oliver|tom|richard|michael|brian/i.test(v.name));
+      const match = targetPool.find(v => /cove|oliver|tom|richard|michael|brian/i.test(v.name));
       if (match) return match;
     } else {
       // Nova default
-      const match = pool.find(v => /natural|google|zira|samantha|karen|eva/i.test(v.name));
+      const match = targetPool.find(v => /natural|google|zira|samantha|karen|eva/i.test(v.name));
       if (match) return match;
     }
-    return pool[0];
+    return targetPool[0] || pool[0];
   }
 
   // --- Recognition & Turn Detection ---
@@ -469,6 +575,20 @@ export class VoiceManager {
     this.notifyState();
   }
 
+  setVoiceMood(mood) {
+    if (this.moodConfigs[mood]) {
+      this.voiceMood = mood;
+      this.notifyState();
+    }
+  }
+
+  setVoiceAccent(accent) {
+    if (this.accentConfigs[accent]) {
+      this.voiceAccent = accent;
+      this.notifyState();
+    }
+  }
+
   toggleHardMute() {
     this.isHardMuted = !this.isHardMuted;
 
@@ -609,9 +729,17 @@ export class VoiceManager {
         liveTranslationPrompt = `[Live Spoken Translation Mode: Translate the user's spoken words into natural, fluent ${this.translationTargetLang}. Provide the direct translation first followed by a concise spoken response.]\n\n`;
       }
 
-      let prompt = liveTranslationPrompt + conversationalPrefix + text;
+      // 4. Voice Mood / Personality Configuration Layer
+      const moodConfig = this.moodConfigs[this.voiceMood] || this.moodConfigs.professional;
+      const moodPrompt = moodConfig.promptDirective ? `${moodConfig.promptDirective}\n\n` : '';
 
-      // 4. Role / Agent Instruction Layer
+      // 5. Clear Spoken Accent Configuration Layer
+      const accentConfig = this.accentConfigs[this.voiceAccent] || this.accentConfigs.american;
+      const accentPrompt = accentConfig.promptDirective ? `${accentConfig.promptDirective}\n\n` : '';
+
+      let prompt = liveTranslationPrompt + moodPrompt + accentPrompt + conversationalPrefix + text;
+
+      // 6. Role / Agent Instruction Layer
       if (this.activeAgentId && state.agents) {
         const agent = state.agents.find((a) => a.id === this.activeAgentId);
         if (agent && agent.prompt) {
@@ -744,14 +872,15 @@ export class VoiceManager {
       }
 
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      const voice = this.getBestVoiceForPreset(this.voiceProfile);
+      const voice = this.getBestVoiceForPreset(this.voiceProfile, this.voiceAccent);
       const policy=this.getState?.()?.settings;
       if((policy?.hipaa||this.getChat?.()?.hipaa||policy?.processingMode==='local-only')&&voice?.localService!==true)return resolve();
       if (voice) utterance.voice = voice;
 
       const preset = this.voicePresets[this.voiceProfile] || this.voicePresets.nova;
-      utterance.rate = this.speechRate * (preset.rate || 1.0);
-      utterance.pitch = this.speechPitch * (preset.pitch || 1.0);
+      const mood = this.moodConfigs[this.voiceMood] || this.moodConfigs.professional;
+      utterance.rate = this.speechRate * (preset.rate || 1.0) * (mood.rateMultiplier || 1.0);
+      utterance.pitch = this.speechPitch * (preset.pitch || 1.0) * (mood.pitchMultiplier || 1.0);
 
       this.currentUtterance = utterance;
       this.assistantGeneratedText = cleanText;
@@ -869,6 +998,8 @@ export class VoiceManager {
         isHardMuted: this.isHardMuted,
         isPttHolding: this.isPttHolding,
         voiceProfile: this.voiceProfile,
+        voiceMood: this.voiceMood,
+        voiceAccent: this.voiceAccent,
         activeAgentId: this.activeAgentId,
         ttsEnabled: this.ttsEnabled,
         liveTranslation: this.liveTranslation,

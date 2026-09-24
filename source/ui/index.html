@@ -28,6 +28,7 @@
           🎙 Voice Mode <span class="voice-badge" id="voice-sidebar-badge">Ready</span>
         </button>
         <button class="nav" data-act="view" data-view="today">Today</button>
+        <button class="nav" data-act="view" data-view="automation" id="automation-sidebar-btn" title="Open Automation & Agent Control Center">⚡ Automation Center</button>
         <button class="nav" data-act="view" data-view="pcc">PCC Import Center</button>
         <button class="nav snf-sidebar-item" data-act="view" data-view="snf" id="snf-sidebar-btn" title="Open SNF Command Center & Clinical Surveillance">
           🏥 SNF Surveillance <span class="snf-sidebar-badge" id="snf-sidebar-badge">0 Alerts</span>
@@ -106,6 +107,12 @@
                 <button type="button" class="voice-patience-btn active" data-patience="normal" title="Natural conversational pause">Normal</button>
                 <button type="button" class="voice-patience-btn" data-patience="fast" title="Quick snappy responses">Fast</button>
               </div>
+              <div class="voice-mood-tabs" id="voice-mood-tabs" title="Voice personality mood">
+                <span class="voice-mood-label">Mood:</span>
+                <button type="button" class="voice-mood-btn active" data-mood="professional" title="Polished, professional, and objective">Professional</button>
+                <button type="button" class="voice-mood-btn" data-mood="empathetic" title="Warm, caring, and patient">Empathetic</button>
+                <button type="button" class="voice-mood-btn" data-mood="concise" title="Direct, brief, and to the point">Concise</button>
+              </div>
             </div>
             <div class="voice-header-actions">
               <button type="button" class="voice-hard-mute-btn" id="voice-hard-mute-btn" title="Physically cuts microphone hardware stream immediately">
@@ -148,11 +155,29 @@
                 </label>
                 <label class="voice-control-label">
                   Voice Option
-                  <select id="voice-profile-select" class="voice-select" aria-label="Select voice personality">
+                  <select id="voice-profile-select" class="voice-select" aria-label="Select voice profile">
                     <option value="nova">Nova · Calm &amp; Natural</option>
                     <option value="atlas">Atlas · Deep &amp; Authoritative</option>
                     <option value="sage">Sage · Warm Clinical</option>
                     <option value="breeze">Breeze · Fast &amp; Expressive</option>
+                  </select>
+                </label>
+                <label class="voice-control-label">
+                  Mood
+                  <select id="voice-mood-select" class="voice-select" aria-label="Select voice personality mood">
+                    <option value="professional" selected>Professional · Polished &amp; Objective</option>
+                    <option value="empathetic">Empathetic · Warm &amp; Caring</option>
+                    <option value="concise">Concise · Direct &amp; Succinct</option>
+                  </select>
+                </label>
+                <label class="voice-control-label">
+                  Accent
+                  <select id="voice-accent-select" class="voice-select" aria-label="Select clear voice accent">
+                    <option value="american" selected>American (Clear General US)</option>
+                    <option value="british">British (Clear RP / UK)</option>
+                    <option value="australian">Australian (Clear AU)</option>
+                    <option value="canadian">Canadian (Clear CA)</option>
+                    <option value="irish">Irish (Clear IE)</option>
                   </select>
                 </label>
                 <label class="voice-control-label">

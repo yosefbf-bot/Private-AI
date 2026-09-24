@@ -9,6 +9,7 @@ import { marked } from "./vendor/marked.mjs";
 import { createAccessUI } from "./access.mjs";
 import { VoiceManager } from "./voice.mjs";
 import { createSNFUI } from "./snf-ui.mjs";
+import { createAutomationCenterUI } from "./automation-center.mjs";
 const $ = (id) => document.getElementById(id),
   esc = (v) =>
     String(v ?? "").replace(
@@ -33,6 +34,20 @@ let state,
 const todayUI=createTodayUI({api,esc,toast,refresh,renderPage});
 const importUI=createImportCenter({api,esc,toast});
 const snfUI = createSNFUI({ api, toast, esc, renderPage });
+const automationUI = createAutomationCenterUI({
+  api,
+  esc,
+  toast,
+  refresh,
+  renderPage,
+  confirmAction,
+  form,
+  field,
+  select,
+  textarea,
+  fileChecks,
+  idsFrom
+});
 const formatOptions =
   '<option value="">Save as…</option>' +
   ["pdf", "docx", "xlsx", "csv", "md", "txt"]
@@ -93,6 +108,7 @@ function updateTop() {
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
   const names = {
     today: "Today",
+    automation: "⚡ Automation & Agent Center",
     pcc: "PCC Import Center",
     chat: chat?.title || "New chat",
     snf: "🏥 SNF Clinical Surveillance Command Center",
@@ -1165,6 +1181,19 @@ function initVoice() {
     };
   });
 
+  // Mood quick toggle tabs
+  document.querySelectorAll(".voice-mood-btn").forEach((btn) => {
+    btn.onclick = () => {
+      const mood = btn.dataset.mood;
+      voiceManager.setVoiceMood(mood);
+      const moodSel = $("voice-mood-select");
+      if (moodSel) moodSel.value = mood;
+      document
+        .querySelectorAll(".voice-mood-btn")
+        .forEach((b) => b.classList.toggle("active", b === btn));
+    };
+  });
+
   // Live Translation controls
   const transToggle = $("voice-translate-toggle");
   if (transToggle) {
@@ -1202,6 +1231,24 @@ function initVoice() {
   if (profileSel) {
     profileSel.onchange = () => {
       voiceManager.voiceProfile = profileSel.value;
+    };
+  }
+
+  const moodSel = $("voice-mood-select");
+  if (moodSel) {
+    moodSel.onchange = () => {
+      const mood = moodSel.value;
+      voiceManager.setVoiceMood(mood);
+      document
+        .querySelectorAll(".voice-mood-btn")
+        .forEach((b) => b.classList.toggle("active", b.dataset.mood === mood));
+    };
+  }
+
+  const accentSel = $("voice-accent-select");
+  if (accentSel) {
+    accentSel.onchange = () => {
+      voiceManager.setVoiceAccent(accentSel.value);
     };
   }
 
@@ -1318,6 +1365,23 @@ function updateVoiceUIState(vState) {
         "voice-badge " + (vState.state === "listening" || vState.state === "user_speaking" ? "listening" : "");
     }
   }
+
+  if (vState.voiceMood) {
+    const moodSel = $("voice-mood-select");
+    if (moodSel && moodSel.value !== vState.voiceMood) {
+      moodSel.value = vState.voiceMood;
+    }
+    document.querySelectorAll(".voice-mood-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.mood === vState.voiceMood);
+    });
+  }
+
+  if (vState.voiceAccent) {
+    const accentSel = $("voice-accent-select");
+    if (accentSel && accentSel.value !== vState.voiceAccent) {
+      accentSel.value = vState.voiceAccent;
+    }
+  }
 }
 
 function toggleVoiceHud(forceState) {
@@ -1368,6 +1432,11 @@ function renderPage(name) {
   if (["today","pcc"].includes(name)) {
     $("content").innerHTML="<p>Loading…</p>";
     (name==="today"?todayUI:importUI).render($("content")).catch(e=>toast(e.message));return;
+  }
+  if (name === "automation") {
+    $("content").innerHTML="<p>Loading…</p>";
+    automationUI.render($("content"), state).catch(e=>toast(e.message));
+    return;
   }
   if (name === "snf") {
     snfUI.render($("content"));
