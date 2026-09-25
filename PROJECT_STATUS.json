@@ -31,6 +31,8 @@
     "Shared provider transport/registry and live inventory requests",
     "Administrator Today, PCC Import Center and response Details implemented",
     "Encrypted voice transcript storage and legacy browser-storage migration",
+    "Automation & Agent Control Center operational dashboard and background scheduler integration",
+    "Operations Intelligence Command Center, Morning Standup Huddle Briefing, and Live Meeting Copilot",
     "Required-file release gates, architecture/status/handoff and review templates"
   ],
   "experimentalFeatures": [

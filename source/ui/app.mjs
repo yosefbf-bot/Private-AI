@@ -10,6 +10,7 @@ import { createAccessUI } from "./access.mjs";
 import { VoiceManager } from "./voice.mjs";
 import { createSNFUI } from "./snf-ui.mjs";
 import { createAutomationCenterUI } from "./automation-center.mjs";
+import { createOperationsCopilotUI } from "./operations-copilot.mjs";
 const $ = (id) => document.getElementById(id),
   esc = (v) =>
     String(v ?? "").replace(
@@ -31,6 +32,49 @@ let state,
   editing = null,
   toastTimer,
   streamTimer;
+function form(title, html, submit = "Save") {
+  return new Promise((resolve) => {
+    const d = $("modal");
+    $("modal-title").textContent = title;
+    $("modal-content").innerHTML = html;
+    $("modal-submit").textContent = submit;
+    const close = (result) => {
+      d.close();
+      resolve(result);
+    };
+    $("modal-form").onsubmit = (e) => {
+      e.preventDefault();
+      close(Object.fromEntries(new FormData(e.target)));
+    };
+    $("modal-cancel").onclick = () => close(null);
+    d.oncancel = (e) => {
+      e.preventDefault();
+      close(null);
+    };
+    d.showModal();
+    d.querySelector("input,textarea,select")?.focus();
+  });
+}
+function field(label, name, value = "", type = "text", help = "") {
+  return `<label class="field">${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${type === "password" ? 'autocomplete="off"' : ""}>${help ? `<small>${help}</small>` : ""}</label>`;
+}
+function textarea(label, name, value = "") {
+  return `<label class="field">${esc(label)}<textarea name="${name}">${esc(value)}</textarea></label>`;
+}
+function select(label, name, values, value) {
+  return `<label class="field">${label}<select name="${name}">${values.map(([v, l]) => `<option value="${v}" ${v === String(value) ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
+}
+async function confirmAction(title, message, button = "Continue") {
+  return !!(await form(title, `<p>${esc(message)}</p>`, button));
+}
+function fileChecks(ids = []) {
+  return `<details><summary>Include working files</summary>${(state?.files || []).map((f) => `<label class="check"><input type="checkbox" name="file_${f.id}" ${ids.includes(f.id) ? "checked" : ""}> ${esc(f.name)}</label>`).join("") || '<p class="help">Import files first in Files.</p>'}</details>`;
+}
+function idsFrom(r) {
+  return Object.keys(r || {})
+    .filter((k) => k.startsWith("file_"))
+    .map((k) => k.slice(5));
+}
 const todayUI=createTodayUI({api,esc,toast,refresh,renderPage});
 const importUI=createImportCenter({api,esc,toast});
 const snfUI = createSNFUI({ api, toast, esc, renderPage });
@@ -47,6 +91,13 @@ const automationUI = createAutomationCenterUI({
   textarea,
   fileChecks,
   idsFrom
+});
+const operationsCopilotUI = createOperationsCopilotUI({
+  api,
+  esc,
+  toast,
+  refresh,
+  renderPage
 });
 const formatOptions =
   '<option value="">Save as…</option>' +
@@ -108,6 +159,7 @@ function updateTop() {
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
   const names = {
     today: "Today",
+    operations: "📊 Operations Intelligence & Meeting Copilot",
     automation: "⚡ Automation & Agent Center",
     pcc: "PCC Import Center",
     chat: chat?.title || "New chat",
@@ -559,35 +611,6 @@ window.privateAI.onEvent((event) => {
       .catch(() => {});
   }
 });
-function form(title, html, submit = "Save") {
-  return new Promise((resolve) => {
-    const d = $("modal");
-    $("modal-title").textContent = title;
-    $("modal-content").innerHTML = html;
-    $("modal-submit").textContent = submit;
-    const close = (result) => {
-      d.close();
-      resolve(result);
-    };
-    $("modal-form").onsubmit = (e) => {
-      e.preventDefault();
-      close(Object.fromEntries(new FormData(e.target)));
-    };
-    $("modal-cancel").onclick = () => close(null);
-    d.oncancel = (e) => {
-      e.preventDefault();
-      close(null);
-    };
-    d.showModal();
-    d.querySelector("input,textarea,select")?.focus();
-  });
-}
-const field = (label, name, value = "", type = "text", help = "") =>
-  `<label class="field">${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${type === "password" ? 'autocomplete="off"' : ""}>${help ? `<small>${help}</small>` : ""}</label>`;
-const textarea = (label, name, value = "") =>
-  `<label class="field">${esc(label)}<textarea name="${name}">${esc(value)}</textarea></label>`;
-const select = (label, name, values, value) =>
-  `<label class="field">${label}<select name="${name}">${values.map(([v, l]) => `<option value="${v}" ${v === String(value) ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
 const messagingUI=createMessagingUI({api,esc,toast,refresh,state:()=>state});
 const browserUI=createBrowserUI({api,esc,toast});
 const hybridUI=createHybridUI({api,refresh,esc,state:()=>state,toast,render:renderPage});
@@ -628,9 +651,6 @@ const accessUI = createAccessUI({
     renderAttachments();
   },
 });
-async function confirmAction(title, message, button = "Continue") {
-  return !!(await form(title, `<p>${esc(message)}</p>`, button));
-}
 function healthHTML(){
   const h=state.health||{},s=state.settings,r=state.resources||{};
   const ram=state.ramProfile||h.ramProfile||{totalGB:h.totalRAMGB||16,availableGB:h.availableRAMGB||3,profile:'conservative',statusBadge:'Conservative Mode (Compact Models)',description:'Host RAM is conserved for background clinical apps.',tierCap:'medium',keepAlive:'0s',threadBudget:4,recommendedModels:state.providers?.ollama?.ramModels?.conservative||[]};
@@ -1433,6 +1453,11 @@ function renderPage(name) {
     $("content").innerHTML="<p>Loading…</p>";
     (name==="today"?todayUI:importUI).render($("content")).catch(e=>toast(e.message));return;
   }
+  if (name === "operations") {
+    $("content").innerHTML="<p>Loading Operations Intelligence…</p>";
+    operationsCopilotUI.render($("content")).catch(e=>toast(e.message));
+    return;
+  }
   if (name === "automation") {
     $("content").innerHTML="<p>Loading…</p>";
     automationUI.render($("content"), state).catch(e=>toast(e.message));
@@ -1600,13 +1625,6 @@ async function editMemory(id) {
     renderPage("memory");
   }
 }
-function fileChecks(ids = []) {
-  return `<details><summary>Include working files</summary>${state.files.map((f) => `<label class="check"><input type="checkbox" name="file_${f.id}" ${ids.includes(f.id) ? "checked" : ""}> ${esc(f.name)}</label>`).join("") || '<p class="help">Import files first in Files.</p>'}</details>`;
-}
-const idsFrom = (r) =>
-  Object.keys(r)
-    .filter((k) => k.startsWith("file_"))
-    .map((k) => k.slice(5));
 async function editTask(type, id) {
   const a =
     (type === "agent" ? state.agents : state.schedules).find(

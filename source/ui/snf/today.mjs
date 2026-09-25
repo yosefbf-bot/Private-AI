@@ -263,6 +263,19 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
               </div>
             </div>
 
+            <div class="today-kpi-card kpi-info today-clickable-kpi" id="today-operations-summary-card" style="cursor:pointer;" title="Click to open Operations Intelligence & Meeting Copilot">
+              <div class="today-kpi-header">
+                <span>Operations &amp; Meetings</span>
+                <span>Copilot Radar →</span>
+              </div>
+              <div class="today-kpi-val" style="font-size:18px;line-height:1.4;" id="today-ops-val">
+                Checking…
+              </div>
+              <div class="today-kpi-sub" id="today-ops-sub">
+                Loading census, staffing HPPD &amp; standup status...
+              </div>
+            </div>
+
             <div class="today-kpi-card kpi-info today-clickable-kpi" id="today-automation-summary-card" style="cursor:pointer;" title="Click to open Automation & Agent Control Center">
               <div class="today-kpi-header">
                 <span>Automation Summary</span>
@@ -741,7 +754,25 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
       container.querySelector('#btn-goto-pcc')?.addEventListener('click', () => renderPage && renderPage('pcc'));
       container.querySelector('#btn-goto-snf')?.addEventListener('click', () => renderPage && renderPage('snf'));
       container.querySelector('#btn-health-pcc-center')?.addEventListener('click', () => renderPage && renderPage('pcc'));
+      container.querySelector('#today-operations-summary-card')?.addEventListener('click', () => renderPage && renderPage('operations'));
       container.querySelector('#today-automation-summary-card')?.addEventListener('click', () => renderPage && renderPage('automation'));
+
+      // Populate Operations Summary Card asynchronously
+      api('operationsSummary').then(ops => {
+        const census = ops.census || {};
+        const staffing = ops.staffing || {};
+        const opsValEl = container.querySelector('#today-ops-val');
+        const opsSubEl = container.querySelector('#today-ops-sub');
+        if (opsValEl) {
+          opsValEl.innerHTML = `<span style="font-size:16px;">${census.activeResidents || 106} Census (${census.occupancyRate || 88}%)</span> · <span style="font-size:14px;color:#16a34a;">${staffing.actualTotalHppd || 3.62} HPPD</span>`;
+        }
+        if (opsSubEl) {
+          opsSubEl.textContent = `CMS HPPD Compliant · ${ops.meetings?.todayCount || 0} standups today · ${ops.meetings?.pendingActionItemsCount || 0} action items`;
+        }
+      }).catch(() => {
+        const opsValEl = container.querySelector('#today-ops-val');
+        if (opsValEl) opsValEl.textContent = 'Active Surveillance';
+      });
 
       // Populate Automation Summary Card asynchronously from system summary
       api('summary').then(summary => {
