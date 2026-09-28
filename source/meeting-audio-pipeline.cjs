@@ -1,23 +1,15 @@
 'use strict';
 
 /**
- * Meeting Audio Pipeline & Speaker Recognition Subsystem
- * 
- * Implements clean architectural separation:
- * Audio Capture -> Audio Enhancement -> Transcription -> Diarization -> Speaker Recognition -> Meeting Intelligence
- * 
- * Features:
- * - 80Hz rumble filter, noise suppression, VAD, gain normalization
- * - Audio quality assessment (Good / Fair / Poor) with real-time warnings
- * - Non-speech event detection ([Overhead page], [Door closes], [Phone ringing])
- * - Overhead page exclusion from commitments / action items
- * - Cross-talk ([Multiple speakers]) handling
- * - Persistent voice profiles with multi-sample acoustic representation
- * - Confidence scoring: Strong Match / Possible Match (?) / Unknown Speaker
- * - Post-meeting speaker review screen & learning from verified corrections with sample quality filtering
+ * Meeting speaker profiles and review. Local measurement is implemented in
+ * ui/speaker-capture.mjs; conservative experimental matching is in speaker-match.cjs.
+ * Automatic names are suggestions, never verified identity or a probability.
+ * The older enhancement/diarization helpers below are synthetic calculations,
+ * not live filtering, overlap detection, or continuous speaker diarization.
  */
 
 const { fail, isId, text, uuid } = require('./security.cjs');
+const speakerMatch = require('./speaker-match.cjs');
 
 // Non-speech acoustic signatures & patterns
 const NON_SPEECH_PATTERNS = [
@@ -181,7 +173,7 @@ class SpeakerRecognitionService {
   // -------------------------------------------------------------
   listProfiles() {
     this.core.assertUnlocked();
-    const profiles = (this.store.list('speaker_profile') || []).map(p => ({...p, samples: (p.samples || []).filter(s => !['System Baseline Roster', 'Correction in Meeting Review'].includes(s.verifiedBy))}));
+    const profiles = (this.store.list('speaker_profile') || []).map(p => ({...p, samples: (p.samples || []).filter(s => !speakerMatch.quality(s) && s.verifiedBy)}));
     return profiles.sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -233,6 +225,7 @@ class SpeakerRecognitionService {
     this.core.assertUnlocked();
     if (!isId(id)) throw fail('INVALID');
     this.store.delete('speaker_profile', id);
+    this.core.purgeBackups?.();
     return true;
   }
 
@@ -243,167 +236,47 @@ class SpeakerRecognitionService {
     this.core.assertUnlocked();
     const profile = this.getProfile(profileId);
 
-    if (!['durationSeconds','snrDb','pitchMean','spectralCentroid'].every(k => Number.isFinite(sampleData[k]))) return {accepted: false, reason: 'Measured acoustic features are required.'};
-    const duration = sampleData.durationSeconds;
-    const snr = sampleData.snrDb ?? 20;
-    const isOverlapping = sampleData.isOverlapping === true;
-    const isNoisy = sampleData.isNoisy === true || snr < 12;
-
-    // Strict Quality Filter:
-    // Do not train on:
-    // - very short clips (< 1.5 seconds)
-    // - strong overlap
-    // - very noisy segments (SNR < 12dB)
-    // - uncertain segments
-    if (duration < 1.5) {
-      return { accepted: false, reason: 'Sample too short (< 1.5s). Excluded to preserve profile quality.' };
-    }
-    if (isOverlapping) {
-      return { accepted: false, reason: 'Overlapping speech detected. Excluded to prevent feature distortion.' };
-    }
-    if (isNoisy) {
-      return { accepted: false, reason: 'Low SNR / excessive background noise. Excluded.' };
-    }
-
+    const problem = speakerMatch.quality(sampleData);
+    if (problem) return {accepted:false,reason:problem};
+    if (!String(sampleData.verifiedBy || '').trim() || sampleData.identityConfirmed !== true)
+      return {accepted:false,reason:'Confirm the speaker identity and enter the reviewer name.'};
+    if (Math.abs(Date.now()-sampleData.capturedAt)>120000)
+      return {accepted:false,reason:'Record a fresh sample before enrollment.'};
+    if ((this.store.list('speaker_profile') || []).some(p => (p.samples||[]).some(s=>s.captureId===sampleData.captureId)))
+      return {accepted:false,reason:'This recording was already enrolled. Record a different passage.'};
     const sample = {
-      id: uuid(),
-      timestamp: Date.now(),
-      durationSeconds: duration,
-      snrDb: snr,
-      pitchMean: sampleData.pitchMean,
-      spectralCentroid: sampleData.spectralCentroid,
-      verifiedBy: sampleData.verifiedBy || 'Clinician'
+      id:uuid(),timestamp:Date.now(),version:sampleData.version,captureId:sampleData.captureId,
+      durationSeconds:sampleData.durationSeconds,voicedSeconds:sampleData.voicedSeconds,
+      snrDb:sampleData.snrDb,pitchMean:sampleData.pitchMean,clippingRatio:sampleData.clippingRatio,
+      spectrum:[...sampleData.spectrum],capturedAt:sampleData.capturedAt,singleSpeakerConfirmed:true,
+      verifiedBy:text(sampleData.verifiedBy,100)
     };
-
-    profile.samples = profile.samples || [];
-    profile.samples.push(sample);
-
-    // Limit to max 12 high-quality samples per person
-    if (profile.samples.length > 12) {
-      profile.samples = profile.samples.slice(-12);
-    }
-
-    // Update quality status
-    if (profile.samples.length >= 5) {
-      profile.quality = 'Good';
-    } else if (profile.samples.length >= 2) {
-      profile.quality = 'Fair';
-    } else {
-      profile.quality = 'Needs Samples';
-    }
-
-    profile.lastVerifiedAt = Date.now();
-    profile.updatedAt = Date.now();
-
-    this.store.put('speaker_profile', profile.id, profile);
-    this.core.emit?.({ type: 'speaker_profile_updated', profileId: profile.id, sampleCount: profile.samples.length });
-
-    return {
-      accepted: true,
-      sample,
-      profileQuality: profile.quality,
-      totalSamples: profile.samples.length
-    };
+    profile.samples=[...(profile.samples||[]).filter(s=>!speakerMatch.quality(s)&&s.verifiedBy),sample].slice(-12);
+    profile.quality=profile.samples.length>=3?'Ready for experimental suggestions':'Needs 3 confirmed recordings';
+    profile.lastVerifiedAt=profile.updatedAt=Date.now();
+    this.store.put('speaker_profile',profile.id,profile);
+    return {accepted:true,sample,profileQuality:profile.quality,totalSamples:profile.samples.length};
   }
 
   removeSample(profileId, sampleId) {
     this.core.assertUnlocked();
     const profile = this.getProfile(profileId);
+    if (!isId(sampleId)) throw fail('INVALID');
     profile.samples = (profile.samples || []).filter(s => s.id !== sampleId);
 
-    if (profile.samples.length >= 5) {
-      profile.quality = 'Good';
-    } else if (profile.samples.length >= 2) {
-      profile.quality = 'Fair';
-    } else {
-      profile.quality = 'Needs Samples';
-    }
+    profile.quality = profile.samples.filter(s=>!speakerMatch.quality(s)&&s.verifiedBy).length>=3 ? 'Ready for experimental suggestions' : 'Needs 3 confirmed recordings';
     profile.updatedAt = Date.now();
     this.store.put('speaker_profile', profile.id, profile);
+    this.core.purgeBackups?.();
     return profile;
   }
 
   // -------------------------------------------------------------
   // Acoustic Recognition Matcher & Confidence Scorer
   // -------------------------------------------------------------
-  identifySpeaker(acousticFeatures = {}, expectedRoster = []) {
+  identifySpeaker(acousticFeatures = {}) {
     this.core.assertUnlocked();
-    const profiles = this.listProfiles();
-    if (profiles.length === 0) {
-      return {
-        label: 'Unknown Speaker',
-        confidenceLevel: 'weak',
-        confidenceScore: 0.1,
-        profileId: null,
-        needsConfirmation: false
-      };
-    }
-
-    if (!acousticFeatures || !Number.isFinite(acousticFeatures.pitchMean) || !Number.isFinite(acousticFeatures.spectralCentroid)) return {label: 'Unknown Speaker', confidenceLevel: 'weak', needsConfirmation: true};
-    const testPitch = acousticFeatures.pitchMean;
-    const testCentroid = acousticFeatures.spectralCentroid || 1400;
-
-    let bestProfile = null;
-    let highestSimilarity = 0;
-
-    profiles.forEach(p => {
-      if (!p.samples || p.samples.length === 0) return;
-
-      // Compute average centroid of verified samples
-      const avgPitch = p.samples.reduce((acc, s) => acc + s.pitchMean, 0) / p.samples.length;
-      const avgCentroid = p.samples.reduce((acc, s) => acc + s.spectralCentroid, 0) / p.samples.length;
-
-      // Distance calculation
-      const pitchDiff = Math.abs(testPitch - avgPitch) / 80;
-      const centroidDiff = Math.abs(testCentroid - avgCentroid) / 600;
-      const dist = Math.sqrt((pitchDiff * pitchDiff) + (centroidDiff * centroidDiff));
-      let sim = Math.max(0, 1 - (dist * 0.6));
-
-      // Meeting roster prior (narrows likely candidates, never forces identity)
-      const isExpected = expectedRoster.some(r => (r.name && r.name.toLowerCase() === p.name.toLowerCase()) || (r.role && r.role.toLowerCase() === p.role.toLowerCase()));
-      if (isExpected) {
-        sim = Math.min(0.98, sim + 0.08); // Slight bias for expected attendees
-      }
-
-      if (sim > highestSimilarity) {
-        highestSimilarity = sim;
-        bestProfile = p;
-      }
-    });
-
-    // Thresholds:
-    // Strong match (>= 0.82): Sarah (no interruption)
-    // Possible match (0.52 to 0.82): Probably Sarah ? (allow quick confirm)
-    // Weak match (< 0.52): Unknown Speaker (do not guess)
-    if (highestSimilarity >= 0.82 && bestProfile) {
-      return {
-        label: bestProfile.name,
-        confidenceLevel: 'strong',
-        confidenceScore: Math.round(highestSimilarity * 100) / 100,
-        profileId: bestProfile.id,
-        role: bestProfile.role,
-        needsConfirmation: false
-      };
-    } else if (highestSimilarity >= 0.52 && bestProfile) {
-      return {
-        label: `Probably ${bestProfile.name} ?`,
-        tentativeName: bestProfile.name,
-        confidenceLevel: 'possible',
-        confidenceScore: Math.round(highestSimilarity * 100) / 100,
-        profileId: bestProfile.id,
-        role: bestProfile.role,
-        needsConfirmation: true
-      };
-    } else {
-      return {
-        label: 'Unknown Speaker',
-        confidenceLevel: 'weak',
-        confidenceScore: Math.round(highestSimilarity * 100) / 100,
-        profileId: null,
-        role: 'Participant',
-        needsConfirmation: false
-      };
-    }
+    return speakerMatch.identify(acousticFeatures, this.listProfiles());
   }
 
   // -------------------------------------------------------------
@@ -417,14 +290,26 @@ class SpeakerRecognitionService {
     const entry = (meeting.transcript || []).find(t => t.id === transcriptEntryId);
     if (!entry) throw fail('NOT_FOUND');
 
+    if (!String(correctedSpeaker || '').trim() || /^unknown speaker$/i.test(correctedSpeaker.trim())) throw fail('INVALID');
     const oldSpeaker = entry.speaker;
     entry.speaker = text(correctedSpeaker, 100);
     if (correctedRole) entry.role = text(correctedRole, 60);
     entry.speakerVerified = true;
+    entry.attribution = 'manual';
+    entry.confirmedAt = Date.now();
     entry.confidenceLevel = 'strong';
 
+    for (const item of meeting.actionItems || []) {
+      if (item.detectedFromTranscriptId === entry.id) { item.assignee=entry.speaker; item.department=entry.role; }
+    }
+    for (const finding of meeting.clinicalRadar || []) {
+      if (finding.transcriptEntryId === entry.id || (!finding.transcriptEntryId && finding.timestamp === entry.timestamp && finding.speaker === oldSpeaker)) finding.speaker=entry.speaker;
+    }
     meeting.updatedAt = Date.now();
     this.store.put('meeting', meeting.id, meeting);
+    // Post-meeting corrections must also reach copied minutes, without changing
+    // the original completion time or silently learning a voice signature.
+    if (meeting.status === 'completed') new (require('./operations-copilot.cjs').OperationsCopilotEngine)(this.core).finalizeMeeting(meeting.id);
 
     this.core.emit?.({
       type: 'speaker_identity_corrected',
@@ -457,7 +342,7 @@ class SpeakerRecognitionService {
 
     transcript.forEach(entry => {
       const spk = entry.speaker || 'Unknown Speaker';
-      const conf = entry.confidenceLevel || (spk.includes('?') ? 'possible' : spk === 'Unknown Speaker' ? 'weak' : 'strong');
+      const conf = entry.speakerVerified && entry.attribution === 'manual' ? 'strong' : spk === 'Unknown Speaker' ? 'weak' : 'possible';
       if (!speakerMap.has(spk)) {
         speakerMap.set(spk, {
           speaker: spk,
@@ -468,6 +353,7 @@ class SpeakerRecognitionService {
         });
       }
       const data = speakerMap.get(spk);
+      if (conf !== 'strong') data.confidenceLevel = conf;
       data.count++;
       data.entries.push(entry.id);
     });
@@ -484,11 +370,10 @@ class SpeakerRecognitionService {
     const meeting = this.store.get('meeting', meetingId);
     if (!meeting) throw fail('NOT_FOUND');
 
-    (meeting.transcript || []).forEach(t => {
-      if (t.confidenceLevel === 'strong' || (!t.speaker.includes('?') && t.speaker !== 'Unknown Speaker')) {
-        t.speakerVerified = true;
-      }
-    });
+    // Bulk acceptance cannot turn machine suggestions into verified identities.
+    // Use the per-entry correction action to explicitly confirm each speaker.
+    if ((meeting.transcript || []).some(t => t.attribution !== 'manual' && !t.speakerVerified))
+      throw fail('INVALID');
 
     meeting.updatedAt = Date.now();
     this.store.put('meeting', meeting.id, meeting);

@@ -9,12 +9,12 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   assert.equal((await fetch('http://127.0.0.1:3000/api/health')).status,401);
   browser=await chromium.launch({executablePath:process.env.PRIVATE_AI_TEST_CHROMIUM,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--no-zygote','--single-process']});
   const page=await browser.newPage({viewport:{width:1280,height:900}});page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.type()==='prompt'?d.accept(token):d.accept());
-  // Connector cannot materialize >1 MB branding blobs; use existing repo icon for QA only.
+  // Use a small existing icon for deterministic visual smoke fixtures.
   await page.route(/\/(?:logo|icon)\.png$/,route=>route.fulfill({path:path.join(__dirname,'../chrome_extension/icon128.png')}));
   await page.goto('http://127.0.0.1:3000');
   await page.locator('dialog input[type=password]').fill(token);
   await page.getByRole('button',{name:'Connect',exact:true}).click();
-  await page.getByRole('heading',{name:'Today',exact:true}).waitFor();
+  await page.getByRole('heading',{name:/Administrator Today/}).waitFor();
   assert.match(await page.locator('#development-mode-banner').textContent(),/Not for PHI/);
   assert.match(await page.locator('.today-page').textContent(),/incomplete|missing|stale/i);
   await page.locator('#btn-toggle-demo').click();

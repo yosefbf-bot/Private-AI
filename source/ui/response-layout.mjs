@@ -15,3 +15,13 @@ export function responseLayout(text) {
   }
   return {body,footnotes};
 }
+
+export function responseChecks(processing) {
+  if (!processing) return [];
+  const reasons=processing.reliability?.reasons || [], checks=[];
+  if(reasons.some(r=>r==='Evidence quotations were found in the supplied source.')) checks.push('Source quotation matched');
+  if(reasons.some(r=>/Some context was not available|Some context was omitted/.test(r))) checks.push('Input incomplete');
+  if(reasons.some(r=>r==='Some numbers could not be matched to the source.')) checks.push('Unmatched numbers — review');
+  checks.push(processing.provider==='deterministic'?'Local tool result — verify inputs':'Review required');
+  return checks;
+}

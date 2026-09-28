@@ -1,7 +1,7 @@
 {
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
-  "developmentBranch": "chatgpt/ai-studio-review-2026-09-25",
+  "developmentBranch": "chatgpt/workflow-voice-improvements-2026-09-28",
   "lastVerifiedCommit": null,
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
@@ -9,8 +9,8 @@
   "hipaaMode": true,
   "hipaaModeMeaning": "Default policy setting; not a compliance certification",
   "currentPriorities": [
-    "Review and merge the AI Studio repair branch, then sync AI Studio main",
-    "Windows helper/runtime build and actual install/upgrade acceptance",
+    "Review workflow/speaker branch, then merge and refresh AI Studio main",
+    "Windows install/upgrade/restore acceptance and real microphone/real-speaker validation",
     "Independent clinical validation and review of legacy sample-containing records",
     "Real Chromium visual acceptance and representative PCC mapping validation"
   ],
@@ -37,12 +37,16 @@
     "Demo-isolated meetings/SBAR/followups and idempotent meeting action conversion",
     "Meeting microphone policy and removal of fabricated acoustic/staff samples",
     "Token-entry development authentication with explicit exact preview origin and no public token disclosure",
-    "Completed meeting/closed SBAR retention, pending evidence preservation and shared AGENTS/GEMINI handoff"
+    "Completed meeting/closed SBAR retention, pending evidence preservation and shared AGENTS/GEMINI handoff",
+    "Unambiguous resident selection, complete handoffs, linked meeting-task completion, unknown imported event facts",
+    "Source-only local extraction and corrected non-OpenAI cloud usage accounting",
+    "Compact missing-data setup, evidence labels and recorded-action briefings with optional checklist",
+    "Local bounded acoustic capture/enrollment, conservative suggested speaker names, manual confirmation and sample deletion"
   ],
   "experimentalFeatures": [
     "Heuristic SNF surveillance requires independent clinical validation",
     "Staffing, payer/capacity imports and validated survey scores are not implemented",
-    "Acoustic helpers exist but live audio sampling/filtering/diarization and recognition are not implemented end to end",
+    "Local speaker suggestions implemented with heuristic signatures; not calibrated identity accuracy. Real microphone/voice validation, continuous diarization and offline transcription pending",
     "Built-in clinical protocols are unapproved references; no facility approval workflow is implemented",
     "Browser DOM interaction checks passed; full visual acceptance remains pending",
     "Non-OpenAI cloud adapters remain outside HIPAA Mode; live provider acceptance pending"
@@ -53,11 +57,11 @@
     "PHI realtime voice approval"
   ],
   "lastTested": {
-    "date": "2026-09-25",
+    "date": "2026-09-28",
     "platform": "linux",
     "node": "24.19.0",
     "command": "npm test",
-    "passed": 337,
+    "passed": 352,
     "failed": 0,
     "cancelled": 0,
     "skipped": 0,
@@ -65,17 +69,24 @@
       "passed": 23,
       "failed": 0
     },
-    "dependencyInstall": "npm ci --ignore-scripts passed using restored lockfile",
-    "syntax": "passed",
-    "repositoryPolicy": "passed",
+    "dependencyInstall": "npm ci --ignore-scripts passed using unchanged package-lock.json",
+    "syntax": "passed: 141 JavaScript files",
+    "repositoryPolicy": "passed: 232 local tracked files",
     "dependencyAudit": "npm audit --omit=dev --audit-level=high: 0 vulnerabilities",
     "releaseManifest": "blocked: locally unbuilt Windows helper and inference runtime executables",
-    "browserDOM": "passed: seven Operations tabs, SBAR edit/save/review state and Automation rendering using real Core",
+    "browserDOM": "passed: eight Operations tabs, setup, enrollment/cancel, statement persistence, unknown attribution, capture cleanup",
     "browserUI": "not verified: Chromium exits before page creation",
     "windowsValidation": "not performed",
-    "reviewNotes": "docs/AI_STUDIO_REVIEW_2026-09-25.md",
-    "githubActions": "pending branch push; local verification is not remote CI evidence"
+    "reviewNotes": "docs/WORKFLOW_VOICE_REVIEW_2026-09-28.md",
+    "githubActions": "new branch CI pending push; base main run 36363249305 passed"
   },
-  "reviewBaseCommit": "b537dd9a9d43c4660c7036c85eece02ff2578705",
-  "verificationScope": "Local source tree in this review commit; remote GitHub Actions results must be checked separately."
+  "reviewBaseCommit": "21969ff21a5ab51bdb12900aea2d618eb96a3466",
+  "verificationScope": "Local working tree in this review; base CI is recorded separately. No measured speaker accuracy or Windows release acceptance.",
+  "baseIntegration": {
+    "pr": 4,
+    "merged": true,
+    "commit": "21969ff21a5ab51bdb12900aea2d618eb96a3466",
+    "githubRun": 36363249305,
+    "checks": "regression, dependencies and release-files passed"
+  }
 }

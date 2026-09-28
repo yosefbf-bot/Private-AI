@@ -63,5 +63,11 @@ test('actual desktop IPC dispatch reaches operations, meetings, SBAR and speaker
  }
  const meeting=await call('meetingSave',{title:'Synthetic IPC Meeting'}); assert.equal(meeting.ok,true);
  assert.equal((await call('meetingGet',{id:meeting.result.id})).result.title,'Synthetic IPC Meeting');
+ const {measuredSample}=require('./measured-speaker-fixture.cjs');
+ const profile=await call('speakerProfileSave',{name:'Synthetic IPC Speaker'});assert.equal(profile.ok,true);
+ for(let i=0;i<3;i++)assert.equal((await call('speakerSampleAdd',{profileId:profile.result.id,...measuredSample()})).result.accepted,true);
+ const identified=await call('speakerIdentify',{features:measuredSample()});assert.equal(identified.result.label,'Synthetic IPC Speaker');assert.equal(identified.result.speakerVerified,false);
+ const statement=await call('meetingAddTranscript',{meetingId:meeting.result.id,text:'Synthetic measured statement',acousticFeatures:measuredSample()});
+ assert.equal(statement.result.transcript[0].attribution,'suggested');
  b.core.locked=true; assert.equal((await call('operationsSummary')).ok,false);
 });

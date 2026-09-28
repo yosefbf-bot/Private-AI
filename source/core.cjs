@@ -1126,8 +1126,25 @@ class Core {
       completedAt: input.status === "completed" ? (input.completedAt || Date.now()) : null,
     };
     this.store.put("todo", t.id, t);
+    this.syncMeetingTodo(t);
     this.emit({ type: "todos_changed" });
     return t;
+  }
+  syncMeetingTodo(todo) {
+    // Older meeting tasks already carry convertedTodoId; preserve that link.
+    for (const meeting of this.store.list('meeting')) {
+      let changed = false;
+      for (const item of meeting.actionItems || []) {
+        if (item.convertedTodoId !== todo.id) continue;
+        item.status = todo.status === 'completed' ? 'completed' : 'in_progress';
+        item.completedAt = todo.completedAt || null;
+        changed = true;
+      }
+      if (changed) {
+        meeting.updatedAt = Date.now();
+        this.store.put('meeting', meeting.id, meeting);
+      }
+    }
   }
   toggleTodoStatus(id) {
     this.assertUnlocked();
@@ -1137,6 +1154,7 @@ class Core {
     t.status = t.status === "completed" ? "pending" : "completed";
     t.completedAt = t.status === "completed" ? Date.now() : null;
     this.store.put("todo", t.id, t);
+    this.syncMeetingTodo(t);
     this.emit({ type: "todos_changed" });
     return t;
   }
@@ -1265,4 +1283,5 @@ class Core {
   }
 }
 module.exports = { Core, DEFAULTS };
+
 

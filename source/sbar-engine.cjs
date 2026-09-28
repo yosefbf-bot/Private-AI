@@ -1055,7 +1055,7 @@ class SBAREngine {
     const acuteConcerns = alerts.filter(a => a.code === 'ACUTE_TRANSFER' || a.code === 'VITALS_ABNORMAL' || a.severity === 'critical');
 
     // 3. Residents Requiring Monitoring
-    const monitoringList = alerts.filter(a => a.status !== 'resolved').slice(0, 8).map(a => ({
+    const monitoringList = alerts.filter(a => a.status !== 'resolved').map(a => ({
       residentName: a.residentName || 'Resident',
       room: a.residentRoom || 'N/A',
       focus: a.title || a.message
@@ -1080,7 +1080,7 @@ class SBAREngine {
     const wounds = alerts.filter(a => a.code === 'WOUND_PRESSURE');
 
     // 10. Follow-Ups Pending
-    const followUpsPending = pendingTodos.slice(0, 10).map(t => ({
+    const followUpsPending = pendingTodos.map(t => ({
       id: t.id,
       task: t.title,
       priority: t.priority,

@@ -1,5 +1,7 @@
 # Review of AI Studio updates — 2026-09-25
 
+Historical report: PR #4 was merged at `21969ff` and its CI passed. Statements below describe the review-time state. For subsequent changes, read `WORKFLOW_VOICE_REVIEW_2026-09-28.md`.
+
 Repository: `yosefbf-bot/Private-AI-OG-google-version`.
 Branch: `chatgpt/ai-studio-review-2026-09-25`.
 Base: `b537dd9a9d43c4660c7036c85eece02ff2578705`.
