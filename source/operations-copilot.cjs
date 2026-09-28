@@ -133,92 +133,29 @@ class OperationsCopilotEngine {
     const reviewAlerts = alerts.filter(a => a.severity === 'medium' && a.status !== 'resolved');
     const alertsLast24h = alerts.filter(a => (a.firstDetected || 0) >= since24h);
 
-    // 2. Census & Occupancy calculation
-    const censusRecords = this.store.list('snf_census_record') || [];
-    const totalBeds = 120; // Facility licensed bed capacity
-    const activeResidents = censusRecords.length > 0 ? censusRecords.length : 106;
-    const occupancyRate = Math.min(100, Math.round((activeResidents / totalBeds) * 100));
-
-    // Payer breakdown
-    const payerMix = {
-      medicareA: Math.round(activeResidents * 0.22),
-      medicaid: Math.round(activeResidents * 0.58),
-      managedCare: Math.round(activeResidents * 0.14),
-      privatePay: Math.round(activeResidents * 0.06)
-    };
+    // Imported records are evidence, not a live census or a payer census.
+    const censusRecords = this.store.list('snf_resident') || [];
+    const totalBeds = null;
+    const activeResidents = censusRecords.length ? censusRecords.filter(r => r.status === 'Active').length : null;
+    const occupancyRate = null;
+    const payerMix = {medicareA: null, medicaid: null, managedCare: null, privatePay: null};
 
     // 3. Clinical Incidents & Surveillance Velocity
     const fallAlerts24h = alerts.filter(a => a.code === 'FALL_INCIDENT' && (a.firstDetected || 0) >= since24h).length;
     const fallAlerts7d = alerts.filter(a => a.code === 'FALL_INCIDENT' && (a.firstDetected || 0) >= since7d).length;
     const activeWoundAlerts = alerts.filter(a => a.code === 'WOUND_PRESSURE' && a.status !== 'resolved').length;
     const activeInfectionAlerts = alerts.filter(a => a.code === 'INFECTION_SURVEILLANCE' && a.status !== 'resolved').length;
-    const activePsychAlerts = alerts.filter(a => (a.code === 'ANTIPSYCHOTIC_NEW' || a.code === 'PRN_PSYCH_LIMIT' || a.code === 'GDR_OVERDUE') && a.status !== 'resolved').length;
+    const activePsychAlerts = alerts.filter(a => /^(AP-|PRN-|GDR-|PSYCH-|PHARM-)/.test(a.code) && a.status !== 'resolved').length;
     const hospitalTransfers24h = alerts.filter(a => a.code === 'ACUTE_TRANSFER' && (a.firstDetected || 0) >= since24h).length;
 
-    // 4. Staffing & CMS Mandate Tracking (HPPD: Hours Per Patient Day)
-    // CMS SNF Mandate minimums: 0.55 RN HPPD, 3.48 Total Nursing HPPD
-    const actualRnHppd = 0.58;
-    const targetRnHppd = 0.55;
-    const actualTotalHppd = 3.62;
-    const targetTotalHppd = 3.48;
+    // No staffing import or validated survey scoring model is implemented.
     const staffingStatus = {
-      rnCompliant: actualRnHppd >= targetRnHppd,
-      actualRnHppd,
-      targetRnHppd,
-      totalCompliant: actualTotalHppd >= targetTotalHppd,
-      actualTotalHppd,
-      targetTotalHppd,
-      dayShiftStaff: { rn: 3, lpn: 5, cna: 14, supervisor: 'R. Davis, RN' },
-      eveningShiftStaff: { rn: 2, lpn: 4, cna: 12, supervisor: 'C. Adams, RN' },
-      nightShiftStaff: { rn: 1, lpn: 3, cna: 7, supervisor: 'M. Patel, RN' },
-      openGaps: [
-        { shift: 'Evening (3-11)', role: 'CNA', unit: 'West Wing', status: 'Covered via Internal Float' }
-      ]
+      available: false, rnCompliant: null, totalCompliant: null,
+      actualRnHppd: null, targetRnHppd: null, actualTotalHppd: null, targetTotalHppd: null,
+      dayShiftStaff: {}, eveningShiftStaff: {}, nightShiftStaff: {}, openGaps: []
     };
-
-    // 5. Regulatory & Survey Readiness Radar (Top CMS F-Tags Risk Scores 0-100)
-    const surveyRadar = [
-      {
-        tag: 'F-689',
-        name: 'Free of Accident Hazards / Falls',
-        riskLevel: fallAlerts7d > 3 ? 'High' : 'Moderate',
-        score: Math.min(95, 45 + (fallAlerts7d * 10)),
-        residentCount: fallAlerts7d || 2,
-        keyArea: 'Comprehensive fall investigation, bed mobility alarms & floor mat placement'
-      },
-      {
-        tag: 'F-758',
-        name: 'Free from Unnecessary Psychotropic Meds / GDR',
-        riskLevel: activePsychAlerts > 2 ? 'High' : 'Controlled',
-        score: Math.min(90, 35 + (activePsychAlerts * 12)),
-        residentCount: activePsychAlerts || 3,
-        keyArea: 'PRN 14-day limit compliance, documented behavioral non-pharm interventions'
-      },
-      {
-        tag: 'F-684',
-        name: 'Quality of Care (Acute Condition Changes)',
-        riskLevel: criticalAlerts.length > 2 ? 'High' : 'Moderate',
-        score: Math.min(90, 40 + (criticalAlerts.length * 8)),
-        residentCount: criticalAlerts.length || 1,
-        keyArea: 'Physician notification timing, vitals re-check protocol adherence'
-      },
-      {
-        tag: 'F-880',
-        name: 'Infection Prevention & Control',
-        riskLevel: activeInfectionAlerts > 2 ? 'Moderate' : 'Low',
-        score: Math.min(80, 25 + (activeInfectionAlerts * 10)),
-        residentCount: activeInfectionAlerts || 1,
-        keyArea: 'Enhanced Barrier Precautions (EBP), PPE compliance & antibiotic timeout'
-      },
-      {
-        tag: 'F-656',
-        name: 'Comprehensive Person-Centered Care Plans',
-        riskLevel: reviewAlerts.length > 5 ? 'Moderate' : 'Low',
-        score: 30,
-        residentCount: reviewAlerts.length || 4,
-        keyArea: 'Care plan timeliness post-admission, measurable goal baseline'
-      }
-    ];
+    const surveyRadar = [];
+    const dataHealth = snf?.getFeedStatus?.() || {isSurveillanceComplete: false};
 
     // 6. Meetings Summary
     const meetings = this.store.list('meeting') || [];
@@ -251,20 +188,22 @@ class OperationsCopilotEngine {
       ],
       meetingActions: meetings.flatMap(m => (m.actionItems || []).filter(a => a.status === 'pending').map(a => ({ meetingTitle: m.title, task: a.task, assignee: a.assignee, priority: a.priority }))),
       automationHealth: {
-        status: 'Optimal',
-        surveillanceActive: true,
-        audioPipelineReady: true,
+        status: dataHealth.isSurveillanceComplete ? 'Imported feeds available' : 'Incomplete imported feeds',
+        surveillanceActive: !!dataHealth.isSurveillanceComplete,
+        audioPipelineReady: false,
         lastCheck: now
       }
     };
 
     return {
-      facilityName: 'Pinecrest Skilled Nursing & Rehabilitation Center',
+      facilityName: snf?.getSettings?.().facilityName || 'Facility name not configured',
+      demo: !!snf?.demoMode,
+      dataHealth,
       timestamp: now,
       census: {
         totalBeds,
         activeResidents,
-        availableBeds: totalBeds - activeResidents,
+        availableBeds: null,
         occupancyRate,
         payerMix
       },
@@ -316,18 +255,16 @@ class OperationsCopilotEngine {
       day: 'numeric'
     });
 
-    let brief = `# PINECREST REHABILITATION & HEALTHCARE CENTER\n`;
+    let brief = `${ops.demo ? 'DEMO DATA — NOT FOR CLINICAL USE\n\n' : ''}# ${ops.facilityName}\n`;
     brief += `## MORNING STANDUP & INTERDISCIPLINARY HUDDLE BRIEFING\n`;
-    brief += `**Date:** ${dateStr} | **Operational Status:** Active Surveillance\n\n`;
-
+    brief += `**Date:** ${dateStr} | **Coverage:** ${ops.dataHealth.isSurveillanceComplete ? 'Imported feeds available; verify source dates' : 'Incomplete imported feeds — not an all-clear'}\n\n`;
     brief += `### 1. FACILITY CENSUS & CAPACITY\n`;
-    brief += `- **Total Census:** ${ops.census.activeResidents} / ${ops.census.totalBeds} Beds (${ops.census.occupancyRate}% Occupancy)\n`;
-    brief += `- **Payer Mix:** Medicare Part A: ${ops.census.payerMix.medicareA} | Medicaid: ${ops.census.payerMix.medicaid} | Managed Care: ${ops.census.payerMix.managedCare} | Private: ${ops.census.payerMix.privatePay}\n`;
-    brief += `- **Open Available Beds:** ${ops.census.availableBeds} beds available for direct hospital admission\n\n`;
+    brief += `- **Active residents in imported records:** ${ops.census.activeResidents ?? 'Not available'} (not a live census)\n`;
+    brief += `- Capacity, occupancy, payer mix and bed availability: not available.\n\n`;
 
     brief += `### 2. OVERNIGHT & 24-HOUR CLINICAL ESCALATIONS\n`;
     if (critical.length === 0 && highs.length === 0) {
-      brief += `✓ No unresolved critical clinical alerts detected in imported feeds. Surveillance remains active.\n\n`;
+      brief += `No unresolved critical or high alerts in available records. Missing or stale feeds can hide events; this is not an all-clear.\n\n`;
     } else {
       if (critical.length > 0) {
         brief += `**CRITICAL ITEMS REQUIRING IMMEDIATE ATTENTION (${critical.length}):**\n`;
@@ -345,16 +282,8 @@ class OperationsCopilotEngine {
       }
     }
 
-    brief += `### 3. STAFFING & CMS MANDATE ALIGNMENT (HPPD)\n`;
-    brief += `- **RN Direct Care:** ${ops.staffing.actualRnHppd} HPPD (Mandate Target: ${ops.staffing.targetRnHppd} HPPD) — **${ops.staffing.rnCompliant ? 'COMPLIANT ✓' : 'ALERT: DEFICIT ⚠'}**\n`;
-    brief += `- **Total Direct Nursing:** ${ops.staffing.actualTotalHppd} HPPD (Mandate Target: ${ops.staffing.targetTotalHppd} HPPD) — **${ops.staffing.totalCompliant ? 'COMPLIANT ✓' : 'ALERT: DEFICIT ⚠'}**\n`;
-    brief += `- **Day Shift Coverage:** RN: ${ops.staffing.dayShiftStaff.rn}, LPN: ${ops.staffing.dayShiftStaff.lpn}, CNA: ${ops.staffing.dayShiftStaff.cna} (Supervisor: ${ops.staffing.dayShiftStaff.supervisor})\n\n`;
-
-    brief += `### 4. TODAY'S SAFETY & REGULATORY RADAR\n`;
-    ops.surveyRadar.forEach(r => {
-      brief += `- **${r.tag} (${r.name}):** Risk Score ${r.score}/100 [${r.riskLevel}] — Active surveillance on ${r.residentCount} resident(s).\n`;
-    });
-    brief += `\n`;
+    brief += `### 3. STAFFING DATA\nStaffing hours and roster data are not available. No compliance conclusion can be made.\n\n`;
+    brief += `### 4. SURVEY REVIEW\nNo validated survey risk score is available. Review imported alert evidence with facility leadership.\n\n`;
 
     brief += `### 5. INTERDISCIPLINARY ACTIONS FOR TODAY\n`;
     brief += `- **DON / Nursing:** Complete clinical evaluations for any fall or condition change from prior shift.\n`;
@@ -403,7 +332,7 @@ class OperationsCopilotEngine {
       status: 'live', // 'live' | 'draft' | 'completed'
       attendees: Array.isArray(input.attendees) && input.attendees.length > 0
         ? input.attendees
-        : template.defaultAttendees.map(a => ({ ...a, present: true })),
+        : template.defaultAttendees.map(a => ({ ...a, present: false })),
       agenda: template.agenda.map(item => ({ ...item, completed: false, notes: '' })),
       transcript: [],
       actionItems: [],
@@ -451,6 +380,7 @@ class OperationsCopilotEngine {
     this.core.assertUnlocked();
     if (!isId(id)) throw fail('INVALID');
     this.store.delete('meeting', id);
+    if (!this.core.snf?.demoMode) this.core.purgeBackups?.();
     return true;
   }
 
@@ -595,6 +525,10 @@ class OperationsCopilotEngine {
     const item = (meeting.actionItems || []).find(a => a.id === actionItemId);
     if (!item) throw fail('NOT_FOUND');
 
+    if (item.convertedTodoId) {
+      const todo = this.store.get('todo', item.convertedTodoId);
+      if (todo) return {success: true, todo, actionItem: item};
+    }
     // Create To-Do in Core Store
     const todo = this.core.saveTodo({
       title: item.task,
@@ -623,7 +557,7 @@ class OperationsCopilotEngine {
     meeting.completedAt = Date.now();
 
     // Auto-synthesize comprehensive minutes
-    let minutes = `# ${meeting.title.toUpperCase()}\n`;
+    let minutes = `${this.core.snf?.demoMode ? 'DEMO DATA — NOT FOR CLINICAL USE\n\n' : ''}# ${meeting.title.toUpperCase()}\n`;
     minutes += `**Date:** ${new Date(meeting.date).toLocaleString()} | **Shift:** ${meeting.shift.toUpperCase()}\n\n`;
 
     minutes += `### ATTENDEES\n`;
@@ -664,7 +598,7 @@ class OperationsCopilotEngine {
       });
     }
 
-    minutes += `*Executive minutes recorded in compliance with facility documentation and continuous surveillance policies.*`;
+    minutes += `*Draft minutes generated from available meeting entries. Verify attendance, speaker attribution, findings and actions before use.*`;
 
     meeting.summary = minutes;
     meeting.updatedAt = Date.now();
@@ -677,6 +611,19 @@ class OperationsCopilotEngine {
 // Module Dispatcher for RPC calls
 function dispatch(core, op, data = {}) {
   core.assertUnlocked();
+  const snf = require('./snf/demo.cjs').forCore(core).current();
+  if (snf?.demoMode) {
+    const liveCore = core;
+    core = Object.create(liveCore);
+    core.store = snf.store;
+    core.snf = snf;
+    core.emit = () => {}; // Demo events must not enter live notification channels.
+    core.saveTodo = input => {
+      const todo = {...input, id: uuid(), status: 'pending', createdAt: Date.now(), demo: true};
+      core.store.put('todo', todo.id, todo);
+      return todo;
+    };
+  }
   const engine = new OperationsCopilotEngine(core);
   const sbarEngine = new SBAREngine(core);
   const speakerService = new SpeakerRecognitionService(core);
@@ -779,3 +726,4 @@ module.exports = {
   SpeakerRecognitionService,
   dispatch
 };
+

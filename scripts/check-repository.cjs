@@ -23,7 +23,7 @@ function check() {
         if (e.name === 'node_modules' || e.name === '.git') continue;
         const p = path.join(dir, e.name);
         if (e.isDirectory()) out.push(...walk(p));
-        else out.push(p.replace(/^[./]+/, ''));
+        else out.push(p.split(path.sep).join('/').replace(/^\.\//, ''));
       }
       return out;
     }
@@ -35,3 +35,4 @@ function check() {
 }
 if (require.main === module) { try { check(); } catch(e) { console.error(e.message); process.exitCode = 1; } }
 module.exports = { inspect, check };
+

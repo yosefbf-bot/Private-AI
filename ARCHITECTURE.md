@@ -24,7 +24,7 @@
 Imports must retain source dates and batch/row provenance; import time does not make old data fresh. Unresolved alerts remain open through report omissions. Demo records require a separate encrypted namespace and labeled output. See PROJECT_STATUS and verification notes for which clinical improvements have passed tests; module names/roadmap entries do not establish completion.
 
 ## Release boundary
-The source contains Windows packaging references but lacks scripts/NSIS/icon/runtime/helper inputs listed in `scripts/release-manifest.json`. Structural PE and evidence helpers were reconstructed with tests, not recovered from a proven release. `npm run check:release` is an intentional failing gate until these inputs exist. No Windows executable/installer or release has been produced or validated by this hardening task.
+Windows build scripts, the NSIS include and icon have been restored from the integrated baseline. Locally generated helper/runtime binaries listed in `scripts/release-manifest.json` are still required. Structural PE and evidence helpers were reconstructed with tests, not recovered from a proven release. `npm run check:release` is an intentional failing gate until these inputs exist. No Windows executable/installer or release has been produced or validated by this hardening task.
 
 ## Clinical modules and administrator flow
 `source/snf/index.cjs` dispatches desktop/development clinical RPCs to the selected workspace. `demo.cjs` wraps the encrypted store with a `demo:` namespace; production automation and global alert counts remain tied to the live store. `import/batch-manager.cjs`, `validation.cjs`, `provenance.cjs`, and `feed-health.cjs` govern mapped batches, immutable original rows, source dates, rollback, duplicates and feed health. `rules/registry.cjs`, `engine.cjs`, and `evidence.cjs` produce versioned evaluation snapshots; `alerts/lifecycle.cjs` records operational transitions and audit history. `retention.cjs` pins unresolved evidence while purging expired unreferenced import history.
@@ -33,3 +33,9 @@ The source contains Windows packaging references but lacks scripts/NSIS/icon/run
 
 ## Voice and browser data
 `voice-history.cjs` stores transcripts as encrypted records with retention and deletion; temporary conversations do not create voice history. `source/ui/legacy-storage.mjs` migrates older plaintext draft/transcript copies and removes them only after backend persistence (or deliberate temporary-data discard). Browser speech recognition is disabled under HIPAA/Local Only because the browser may send audio to a remote service. This does not supply a new offline speech engine.
+
+
+## Operations, meeting and SBAR review
+Both desktop and development dispatch into `operations-copilot.cjs`, retaining their transport security policies. The selected SNF workspace governs its Store, demo followups and notification isolation. Missing staffing/capacity/payer data remains unknown. SBAR evidence version 2 excludes invented clinical facts; draft/review/finalization transitions invalidate approval after editing. Completed meetings without pending actions and closed SBAR records follow Store retention; unresolved loops stay retained. Legacy SBARs require recreation from verified sources. Meeting browser speech uses the HIPAA/Local Only gate; acoustic sampling and filtering are not wired to live audio.
+
+Development preview origins are exact and explicitly configured; anonymous HTML/token endpoints do not disclose bearer credentials. See AI_HANDOFF.md for current authentication and preview configuration.

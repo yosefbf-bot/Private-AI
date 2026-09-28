@@ -764,14 +764,14 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
         const opsValEl = container.querySelector('#today-ops-val');
         const opsSubEl = container.querySelector('#today-ops-sub');
         if (opsValEl) {
-          opsValEl.innerHTML = `<span style="font-size:16px;">${census.activeResidents || 106} Census (${census.occupancyRate || 88}%)</span> · <span style="font-size:14px;color:#16a34a;">${staffing.actualTotalHppd || 3.62} HPPD</span>`;
+          opsValEl.innerHTML = `<span style="font-size:16px;">${census.activeResidents ?? 'Unknown'} imported residents (${census.occupancyRate ?? 'Unknown'}% occupancy)</span> · <span style="font-size:14px;color:#16a34a;">${staffing.actualTotalHppd ?? 'Unknown'} HPPD</span>`;
         }
         if (opsSubEl) {
-          opsSubEl.textContent = `CMS HPPD Compliant · ${ops.meetings?.todayCount || 0} standups today · ${ops.meetings?.pendingActionItemsCount || 0} action items`;
+          opsSubEl.textContent = `Staffing data unavailable · ${ops.meetings?.todayCount || 0} standups today · ${ops.meetings?.pendingActionItemsCount || 0} action items`;
         }
       }).catch(() => {
         const opsValEl = container.querySelector('#today-ops-val');
-        if (opsValEl) opsValEl.textContent = 'Active Surveillance';
+        if (opsValEl) opsValEl.textContent = 'Operations data unavailable';
       });
 
       // Populate Automation Summary Card asynchronously from system summary
@@ -1148,3 +1148,4 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
     }
   };
 }
+

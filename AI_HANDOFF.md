@@ -1,53 +1,45 @@
-# Mandatory AI Development Rules
+# Shared AI development handoff
 
-Before making changes:
-1. Read `AI_HANDOFF.md`.
-2. Read `PROJECT_STATUS.json`.
-3. Read relevant architecture documentation.
-4. Fetch/pull and review latest `main`; record the actual base SHA.
-5. Never assume roadmap items are implemented.
-6. Never expose secrets, PHI, credentials, runtime databases, or encryption keys.
-7. Never weaken a security control just to make a test pass.
-8. Never weaken a test just to make a build pass.
-9. Never commit directly to `main`.
-10. Use a feature branch (`chatgpt/*` or `studio/*`).
-11. Keep changes within the assigned task scope.
-12. Run relevant tests.
-13. Document exactly what changed.
-14. Document known limitations.
-15. Update project status when appropriate.
-16. Do not mark work complete without evidence.
+Read `AGENTS.md`, `GEMINI.md`, `PROJECT_STATUS.json`, `ARCHITECTURE.md`, and `docs/AI_STUDIO_REVIEW_2026-09-25.md` before changes. GitHub is authoritative; record the exact base SHA and inspect the latest source/history. Roadmap entries, old manuals and UI mockups are not implemented-feature evidence.
 
-## Collaboration
-GitHub is authoritative. `main` is stable integration; `chatgpt/3.0.1-hardening` is this development task. Never have two AI systems edit the same feature branch simultaneously. ChatGPT generally handles security, architecture, clinical design, debugging, refactoring and release review. Google AI Studio generally handles isolated UI/components, implementation and prototypes. These are guidelines. Prefer review by the system that did not implement the PR. Use the issue and PR templates. Do not merge this hardening PR automatically.
+## Current workstream
 
-## Before each phase
-Inspect code/history, implement a bounded change, run tests, review the diff, commit logically, update status, continue. Preserve Windows installation/data paths and the Store/Core/IPC contracts. Renderer calls go through `window.privateAI`; no Node access in UI. Persist sensitive records through encrypted Store. Clinical output is supplemental and requires human review; do not silently claim missing imported documentation is absent in PCC.
+Review branch: `chatgpt/ai-studio-review-2026-09-25`, based on main `b537dd9a9d43c4660c7036c85eece02ff2578705`. This repairs the three recent AI Studio updates after the prior hardening integration. Do not merge automatically or overwrite the branch while another tool is editing it. AI Studio currently uses `main`; it must sync/reload after the user approves and merges these fixes. Current review findings and limits are in `docs/AI_STUDIO_REVIEW_2026-09-25.md`; older evidence remains in `docs/HARDENING_REVIEW.md`.
 
-## Verification
-`npm ci --ignore-scripts`; `npm test`; `npm run test:hardening`; `npm run check:repository`; `npm run lint`; `npm run check:release`. Report every failure. Required Windows packaging assets are missing; no test may skip that problem. Actual Windows install/upgrade, vault, local inference and feature execution evidence at the artifact SHA are required before release readiness. Consult `docs/HARDENING_BASELINE.md` and the final verification notes.
+## Non-negotiable implementation rules
 
-## Current hardening evidence
-Read docs/HARDENING_REVIEW.md before assessing this PR. The verified source passed 280 Linux tests; Windows release, dependency remediation, browser visual acceptance, and independent clinical review remain blocked or pending. Do not infer readiness from a source feature or a historical manual. The feature branch is the ChatGPT workstream; review from an independent branch/tool and leave main unchanged until integration is explicitly approved.
+- Never commit secrets, PHI, runtime databases, vault keys, credentials or browser sessions. Preserve installed `%LOCALAPPDATA%\PrivateAI2` data/vaults and the Store/Core/IPC contracts.
+- Keep `package-lock.json` and tracked Windows `build/` inputs. Web preview exports can omit required desktop files; absence in the preview is not authorization to delete them. Use `npm ci --ignore-scripts` with the lockfile.
+- Desktop renderer calls go through `window.privateAI`; no Node access in UI. Wire new features in both desktop IPC and the restricted development adapter, retaining their separate allowlists and unlock/origin checks.
+- For editable UI, verify edit → save → reload → downstream/copy output. Review/finalization must apply to the saved revision. Test the actual call path through Core/SQLite/IPC/HTTP where relevant, not only mock module methods or source strings.
+- Never invent clinical or operational measurements, source citations/dates, diagnoses, medication, code status, staff identities, audio samples or facility approval. Missing data is unknown; incomplete imports are not an all-clear. Built-in protocols are unapproved references.
+- Demo content belongs in the selected isolated encrypted namespace; generated/copied output must say DEMO DATA. Do not seed production. Legacy SBARs predating evidenceVersion 2 are retained for inspection but cannot be signed off; recreate from verified sources.
+- Browser speech recognition may send audio off the device. Meeting and chat microphone policies must block it in HIPAA/Local Only and when policy is unavailable; stop capture on navigation, completion and policy changes. No simulated audio measurement can be labeled as verified training.
+- Keep clinician review gates, immutable evidence, pending callbacks and unresolved critical alerts. Clinical source changes are supplemental and require independent clinical acceptance.
+- Do not weaken security or tests to make a preview green. Keep changes bounded, review diffs and document limitations. Do not claim Windows readiness from source tests.
 
-## Development Server Guidelines (ChatGPT & Google AI Studio)
+## Development preview authentication
 
-### Development Policy & Token Lifecycle
-1. **Dev Server Token Bootstrapping:**
-   - The development server (`server.cjs`) is restricted to local/demo use (`Development / Demo Mode — Not for PHI`).
-   - `server/development-policy.cjs` mandates `PRIVATE_AI_DEV_TOKEN` (>= 32 chars) and an external directory for `PRIVATE_AI_DEV_DATA`.
-   - In development, `server.cjs` checks `process.env.PRIVATE_AI_DEV_TOKEN`. If missing or too short, it auto-generates a secure 32-byte (64 hex character) token and saves it to `.env` (which is git-ignored with 0600 permissions), setting `process.env.PRIVATE_AI_DEV_TOKEN` and `process.env.PRIVATE_AI_DEV_DATA` (`~/.privateai-development`).
-   - `devPolicy.configuration({})` remains strictly guarded and throws when empty configurations are passed in unit tests (`tests/server-hardening.test.cjs`).
+Development mode is `Development / Demo Mode — Not for PHI` and binds to `127.0.0.1:3000`. Data stays outside the repository; the development vault is not Windows DPAPI. No production LAN/cloud hosting is supported.
 
-2. **Web Bridge & IFrame Compatibility:**
-   - The development server serves `index.html` by injecting `window.__PRIVATE_AI_DEV_TOKEN__` into the `<head>` and exposes `GET /api/dev-token` for allowed same-origin/cloud hosts.
-   - `source/ui/web-bridge.js` reads `window.__PRIVATE_AI_DEV_TOKEN__`, `/api/dev-token`, URL param `?token=...`, or `sessionStorage`.
-   - This prevents iframe execution halts from `window.prompt()` while preserving mandatory token-based POST `/api/session` handshakes and subsequent CSRF token validation (`X-Private-AI-CSRF`).
-   - `server/development-policy.cjs` boundary allows `127.0.0.1`, `localhost`, `::1` loopback hosts as well as authorized development cloud domains (`*.run.app`, `*.google.com`, `*.google.dev`, `*.aistudio.google.com`) via `isAllowedHost()` and `isAllowedOrigin()`. Do not restrict this back to loopback-only string sets, as cloud preview iframes route through `*.run.app`.
-   - CSP header sets `frame-ancestors 'self' https://*.google.com https://*.google.dev https://*.aistudio.google.com https://*.run.app` for preview embedding while rejecting external/unauthorized hosts.
-   - For sandboxed iframes where cookies may be restricted, `web-bridge.js` passes `X-Private-AI-Session` along with `X-Private-AI-CSRF`, which the boundary middleware verifies alongside cookie authentication, and SSE `/api/events` supports `?session=...` query token.
+The server loads or generates a random token in the git-ignored local `.env`. `PRIVATE_AI_DEV_TOKEN` must be at least 32 characters. The UI uses a DOM token form compatible with iframes, then POST `/api/session` and session/CSRF headers. Token injection into HTML and the unauthenticated `/api/dev-token` endpoint were removed because they defeated token possession. Do not restore them.
 
-3. **Build & Release Gates:**
-   - `package.json` `"build"` executes `node scripts/check-syntax.cjs` to validate syntax of all application code for web/dev compilation.
-   - `npm run check:release` remains the authoritative Windows packaging gate that blocks release until required Windows binaries/scripts exist.
+By default accept exact localhost/loopback host and origin/port combinations only. An optional `PRIVATE_AI_DEV_PREVIEW_ORIGIN` accepts one exact HTTPS preview origin, e.g. the project's own run.app origin. Wildcard cloud host trust and untrusted `X-Forwarded-Host` are prohibited. Session headers support restricted-cookie previews; session query credentials are accepted only on `/api/events`. A parent frame's origin is not the API's origin. Keep filesystem, import/export and background automation restrictions.
 
+## Verification commands and evidence
+
+Use Node 24. Run:
+
+```
+npm ci --ignore-scripts
+npm test
+npm run test:hardening
+npm run check:repository
+npm run lint
+npm audit --omit=dev --audit-level=high
+npm run check:release
+```
+
+Run `npm run test:hardening-ui` where Chromium is available, providing `PRIVATE_AI_TEST_CHROMIUM` when necessary. It covers the login form, Today/demo/evidence/follow-up navigation, Operations SBAR edits and Automation. In this review environment Chromium exits before page creation; supplementary DOM checks passed, but full visual acceptance is still pending.
+
+`npm run build` and `lint` are syntax checks only. `check:release` is the Windows input gate. Restored build scripts/icon are present; Windows helper/runtime binaries must be built by the documented workflow. Actual install, existing-data upgrade, vault, local inference and feature execution at the artifact SHA remain release requirements. Record exact passing/failing counts and all unperformed tests in PROJECT_STATUS; do not reuse historical claims as current evidence.

@@ -53,3 +53,15 @@ test('background entry point starts without opening a window or asking unattende
 test('entry point preserves existing encrypted chat and paused local-only settings',async t=>{
  const b=await boot(t,{existing:true});assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.equal(b.core.store.get('chat','kept').title,'Saved chat');assert.equal(b.core.settings().workerPaused,true);assert.equal(b.core.settings().processingMode,'local-only');assert.equal(b.core.settings().allowCloud,false);
 });
+
+test('actual desktop IPC dispatch reaches operations, meetings, SBAR and speaker modules', async t => {
+ const b=await boot(t); assert.deepEqual(b.errors,[]);
+ const contents=b.windows[0].webContents, frame={url:b.windows[0].url}; contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ for(const op of ['operationsSummary','operationsHuddleBrief','meetingList','sbarList','sbarTemplates','speakerProfilesList']) {
+   const result=await call(op); assert.equal(result.ok,true,op+': '+JSON.stringify(result.error));
+ }
+ const meeting=await call('meetingSave',{title:'Synthetic IPC Meeting'}); assert.equal(meeting.ok,true);
+ assert.equal((await call('meetingGet',{id:meeting.result.id})).result.title,'Synthetic IPC Meeting');
+ b.core.locked=true; assert.equal((await call('operationsSummary')).ok,false);
+});

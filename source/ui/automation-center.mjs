@@ -1120,6 +1120,11 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
     container.querySelectorAll('[data-act="quick-enable-worker"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         try {
+          if (state.settings?.role === 'primary') {
+            toast('Select Both or Worker in Worker settings before enabling background jobs on this PC.');
+            renderPage('worker');
+            return;
+          }
           await api('settings', { workerEnabled: true });
           await refresh();
           renderPage('automation');
@@ -1164,3 +1169,4 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
     });
   }
 }
+
