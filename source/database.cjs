@@ -305,18 +305,19 @@ class Store {
     return true;
   }
   cleanup(days, now = Date.now()) {
-    const counts = { chats: 0, files: 0, memory: 0, jobs: 0, usage: 0, messages: 0, reports: 0, voiceTranscripts: 0, meetings: 0, sbars: 0 };
+    const counts = { chats: 0, files: 0, memory: 0, jobs: 0, usage: 0, messages: 0, reports: 0, voiceTranscripts: 0, meetings: 0, sbars: 0, workflows: 0 };
     const cutoff = days ? now - days * 86400000 : null;
     // Reports and results from raw data are held for an additional 100 days (e.g., 100 + 100 = 200 days default)
     const reportCutoff = days ? now - (days + 100) * 86400000 : null;
     this.db.exec("BEGIN IMMEDIATE");
     let committed = false;
     try {
-      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession", "voice_transcript", "meeting", "sbar"])
+      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession", "voice_transcript", "meeting", "sbar", "wf_decision", "wf_metric_import", "wf_action_meta", "wf_playbook_run"])
         for (const r of this.db
           .prepare("SELECT id,updated,expires FROM records WHERE kind=?")
           .all(kind)) {
-          const value = ["job", "file", "meeting", "sbar"].includes(kind) ? this.get(kind, r.id) : null;
+          const value = ["job", "file", "meeting", "sbar", "wf_decision"].includes(kind) ? this.get(kind, r.id) : null;
+          if (kind === "wf_decision" && value?.status !== "closed") continue;
           if (kind === "meeting" && (value?.status !== "completed" || value?.actionItems?.some(a => !["completed", "cancelled"].includes(a.status)))) continue;
           if (kind === "sbar" && !value?.closeTheLoop?.isComplete) continue;
           if (kind === "job" && ["queued", "running", "waiting", "paused"].includes(value?.status))
@@ -338,7 +339,7 @@ class Store {
               counts.reports++;
             } else {
               counts[
-                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages", voice_transcript: "voiceTranscripts", meeting: "meetings", sbar: "sbars" }[
+                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages", voice_transcript: "voiceTranscripts", meeting: "meetings", sbar: "sbars", wf_decision: "workflows", wf_metric_import: "workflows", wf_action_meta: "workflows", wf_playbook_run: "workflows" }[
                   kind
                 ]
               ]++;

@@ -301,7 +301,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
               </div>
               <p class="auto-subtitle">Operational status of all scheduled automations, background jobs, Worker activity, and failure recovery.</p>
             </div>
-            <div class="auto-header-actions">
+            <div class="auto-header-actions"><button class="auto-btn" data-act="view" data-view="playbooks">Playbooks &amp; budgets</button><button class="auto-btn" data-act="view" data-view="agents">Agents</button><button class="auto-btn" data-act="view" data-view="worker">Workers</button>
               <button class="auto-btn" data-act="auto-refresh">↻ Refresh</button>
               <button class="auto-btn auto-btn-primary" data-act="schedule-new">+ New Scheduled Task</button>
             </div>
@@ -771,7 +771,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
             </h2>
             <p class="auto-section-desc">Manage local PC execution roles, resource safety governors, and trusted peer PCs connected via ShareSync.</p>
           </div>
-          <div class="auto-header-actions">
+          <div class="auto-header-actions"><button class="auto-btn" data-act="view" data-view="playbooks">Playbooks &amp; budgets</button><button class="auto-btn" data-act="view" data-view="agents">Agents</button><button class="auto-btn" data-act="view" data-view="worker">Workers</button>
             <button class="auto-btn" data-act="refresh-worker">↻ Refresh Peers</button>
             <button class="auto-btn" data-act="open-workspace">Open Work Folder</button>
           </div>

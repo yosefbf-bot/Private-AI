@@ -195,7 +195,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                 <span>Daily 60-Second Scan</span>
               </div>
             </div>
-            <div class="today-header-actions">
+            <div class="today-header-actions"><button class="today-btn" data-act="view" data-view="actions">Actions &amp; changes since review</button><button class="today-btn" data-act="view" data-view="operations">Meetings</button>
               <input type="search" id="today-search" placeholder="Search resident, medication, rule..." value="${esc(searchQuery)}" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;width:220px;" />
               <button class="today-btn" id="btn-refresh">↻ Refresh</button>
               <button class="today-btn" id="btn-goto-pcc" data-view="pcc" data-act="view">PCC Import Center</button>

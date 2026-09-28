@@ -1,3 +1,4 @@
+import {createWorkflowUI} from "./workflows.mjs";
 import {migrateLegacyStorage} from "./legacy-storage.mjs";
 import {createTodayUI} from "./snf/today.mjs";
 import {createImportCenter} from "./snf/import-center.mjs";
@@ -75,8 +76,9 @@ function idsFrom(r) {
     .filter((k) => k.startsWith("file_"))
     .map((k) => k.slice(5));
 }
+const workflowUI=createWorkflowUI({api,esc,toast,form,field,textarea,select,renderPage,refresh});
 const todayUI=createTodayUI({api,esc,toast,refresh,renderPage});
-const importUI=createImportCenter({api,esc,toast});
+const importUI=createImportCenter({api,esc,toast,form});
 const snfUI = createSNFUI({ api, toast, esc, renderPage });
 const automationUI = createAutomationCenterUI({
   api,
@@ -161,6 +163,7 @@ function updateTop() {
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
   const names = {
     today: "Today",
+    actions: "Action Center", decisions: "Decision log", metrics: "Data sources", workspace: "Projects & Documents", playbooks: "Playbooks & Budgets",
     operations: "📊 Operations Intelligence & Meeting Copilot",
     automation: "⚡ Automation & Agent Center",
     pcc: "PCC Import Center",
@@ -676,7 +679,7 @@ function healthHTML(){
       </p>
     </div>
   </section>
-  <section class="section"><h2>Resources</h2><p>${esc(h.availableRAMGB)} GB available of ${esc(h.totalRAMGB)} GB RAM · App process: ${esc(h.appMemoryMB)} MB</p><p>Brain: ${esc(state.localBrain?.model)} — ${esc(state.localBrain?.state)}. Model cooldown: ${esc(h.modelCooldownSeconds)} seconds.</p><p>Background: ${esc(r.background?.state)} — ${esc(r.background?.reason)}</p><div class="fields"><label class="field">PC use profile<select name="workProfile"><option value="work" ${s.workProfile==='work'?'selected':''}>Work — balanced CPU</option><option value="away" ${s.workProfile==='away'?'selected':''}>Away — configured CPU setting</option></select></label>${field('Keep free RAM (MB)','ramReserveMB',s.ramReserveMB,'number')}${field('RAM recovery delay (seconds)','ramRecoverySeconds',s.ramRecoverySeconds,'number')}${field('Keep loaded brain for follow-ups (minutes; 0 = Small first)','keepBrainMinutes',s.keepBrainMinutes,'number')}</div><label class="check"><input type="checkbox" name="sectionedReports" ${s.sectionedReports?'checked':''}> Allow section-by-section processing for oversized report jobs (up to 12 sections; additional inference and possible API charges)</label><p>Away does not enable jobs, allow cloud use, or approve desktop input. After sleep or an unclean exit, resume background work manually. Windows peak working-set readings can increase later RAM budgets; they never lower the existing estimate. Other RAM observations reflect system changes.</p><button data-act="health-save">Save stability settings</button> <button data-act="health-refresh">Refresh health</button> <button data-act="health-ack">Acknowledge startup notice</button></section><section class="section"><h2>Diagnostics</h2><p>No prompts, document contents, credentials, file paths, or device names are included. Review the saved technical report before sharing it.</p><button data-act="self-check">Run local checks</button> <button data-act="diagnostics">Export diagnostics</button><p>Recent technical events: ${esc((h.events||[]).map(e=>e.event).join(', ')||'None this session')}</p></section>${jobsHTML()}</div>`;}
+  <section class="section"><h2>Resources</h2><p>${esc(h.availableRAMGB)} GB available of ${esc(h.totalRAMGB)} GB RAM · App process: ${esc(h.appMemoryMB)} MB</p><p>Brain: ${esc(state.localBrain?.model)} — ${esc(state.localBrain?.state)}. Model cooldown: ${esc(h.modelCooldownSeconds)} seconds.</p><p>Background: ${esc(r.background?.state)} — ${esc(r.background?.reason)}</p><div class="fields"><label class="field">PC use profile<select name="workProfile"><option value="work" ${s.workProfile==='work'?'selected':''}>Work — balanced CPU</option><option value="away" ${s.workProfile==='away'?'selected':''}>Away — configured CPU setting</option></select></label>${field('Keep free RAM (MB)','ramReserveMB',s.ramReserveMB,'number')}${field('RAM recovery delay (seconds)','ramRecoverySeconds',s.ramRecoverySeconds,'number')}${field('Keep loaded brain for follow-ups (minutes; 0 = Small first)','keepBrainMinutes',s.keepBrainMinutes,'number')}</div><label class="check"><input type="checkbox" name="sectionedReports" ${s.sectionedReports?'checked':''}> Allow section-by-section processing for oversized report jobs (up to 128 sections; additional inference and possible API charges)</label><p>Away does not enable jobs, allow cloud use, or approve desktop input. After sleep or an unclean exit, resume background work manually. Windows peak working-set readings can increase later RAM budgets; they never lower the existing estimate. Other RAM observations reflect system changes.</p><button data-act="health-save">Save stability settings</button> <button data-act="health-refresh">Refresh health</button> <button data-act="health-ack">Acknowledge startup notice</button></section><section class="section"><h2>Diagnostics</h2><p>No prompts, document contents, credentials, file paths, or device names are included. Review the saved technical report before sharing it.</p><button data-act="self-check">Run local checks</button> <button data-act="diagnostics">Export diagnostics</button><p>Recent technical events: ${esc((h.events||[]).map(e=>e.event).join(', ')||'None this session')}</p></section>${jobsHTML()}</div>`;}
 // ============================================================================
 // KEYBOARD SHORTCUTS MANAGER
 // ============================================================================
@@ -1443,7 +1446,7 @@ async function init() {
     if (view !== "locked") toast(e.message);
   }
 }
-function renderPage(name) {
+function renderPage(name, options = {}) {
   operationsCopilotUI.stopListening();
   if (name === "snf" && state.settings.snfEnabled === false) {
     renderChat();
@@ -1452,13 +1455,16 @@ function renderPage(name) {
   view = name;
   updateTop();
   renderSidebar();
+  if (["actions","decisions","metrics","workspace","playbooks"].includes(name)) {
+    $("content").innerHTML="<p>Loading…</p>";workflowUI.render($("content"),name).catch(e=>toast(e.message));return;
+  }
   if (["today","pcc"].includes(name)) {
     $("content").innerHTML="<p>Loading…</p>";
     (name==="today"?todayUI:importUI).render($("content")).catch(e=>toast(e.message));return;
   }
   if (name === "operations") {
     $("content").innerHTML="<p>Loading Operations Intelligence…</p>";
-    operationsCopilotUI.render($("content")).catch(e=>toast(e.message));
+    operationsCopilotUI.render($("content"),options).catch(e=>toast(e.message));
     return;
   }
   if (name === "automation") {
@@ -1687,7 +1693,8 @@ async function editTodo(id) {
     t.id ? "Edit follow-up item" : "New follow-up item",
     field("Title / Task", "title", t.title || "") +
     textarea("Details / Context", "description", t.description || "") +
-    field("Follow-up date / time", "followUpDate", t.followUpDate || "", "datetime-local") +
+    field("Owner", "owner", t.owner || "") +
+    field("Follow-up date / time", "followUpDate", (t.dueAt ? new Date(t.dueAt-new Date(t.dueAt).getTimezoneOffset()*60000).toISOString().slice(0,16) : t.followUpDate || ""), "datetime-local") +
     select(
       "Priority",
       "priority",
@@ -1706,6 +1713,7 @@ async function editTodo(id) {
     await api("todoSave", {
       id: t.id,
       title: r.title,
+      owner: r.owner,
       description: r.description,
       followUpDate: r.followUpDate,
       priority: r.priority,

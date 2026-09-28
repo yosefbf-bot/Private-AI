@@ -3,6 +3,10 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const CODES = Object.freeze({
+  REVIEW_CHANGED: "The saved data changed. Reload and review the current revision before continuing.",
+  BUDGET: "The local cloud budget blocked this request. Review the monthly limits and pricing in Playbooks and budgets.",
+  NOT_FOUND: "This item is no longer available. Reload the page.",
+  OUTPUT_CHECK: "The draft is missing required output sections. Review the saved job before exporting.",
   MODEL_COOLDOWN: "Repeated local model failures. Loading is paused for up to one minute. Review Diagnostics and RAM settings before trying again.",
   RECOVERY: "This interrupted operation requires review. It was not automatically repeated.",
   LOCAL_ONLY: "This task could not be completed reliably locally. Cloud use is disabled; no OpenAI request was sent.",
@@ -240,3 +244,4 @@ module.exports = {
   encodeFrame,
   FrameReader,
 };
+
