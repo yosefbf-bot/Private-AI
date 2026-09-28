@@ -44,8 +44,18 @@ test('real server requires a session and restricts production, privileges and de
       assert.equal((await call(op,data)).ok, false, op+' must be denied');
     }
     assert.equal((await call('snfImportSchema')).ok, true);
+    const workflows=await call('workflowSummary');assert.equal(workflows.ok,true);
+    const decision=await call('workflowDecisionSave',{title:'Synthetic HTTP decision',reason:'Synthetic source review',reviewer:'Synthetic'});assert.equal(decision.ok,true);
+    assert.equal((await call('workflowReview',{token:workflows.result.changes.token,reviewer:'Synthetic'})).ok,true);
+    for(const op of ['workflowPacketExport','workflowMappedPreview','workflowMappingSave','workflowMappedImport','workflowMetricPreview','workflowMetricImport','workflowDocumentSearch','workflowProjectFiles','workflowPlaybookSave','workflowPlaybookPreview','workflowPlaybookRun','workflowBudgetSave'])assert.equal((await call(op)).error.code,'POLICY',op);
+
     assert.equal((await call('snfDemo',{mode:'demo'})).ok, true);
     assert.equal((await call('snfToday')).result.demo, true);
+    const ds=await call('workflowSummary'),alert=ds.result.changes.items.find(r=>r.kind==='alert');
+    assert.equal((await call('workflowActionSave',{...alert,owner:'Synthetic HTTP',reviewer:'Synthetic',note:'Review pending'})).ok,true);
+    assert.match((await call('workflowPacket',{key:alert.key})).result.text,/DEMO DATA/);
+    assert.equal(ds.result.decisions.length,0);
+
     assert.equal((await call('snfDemo',{mode:'production',reset:true})).ok, true);
     const live = await call('snfToday');
     assert.equal(live.result.demo, false);

@@ -8,7 +8,7 @@ function planSections(parts,s,prompt){
  const allowance=Math.max(256,Math.floor((s.localContext-s.localMaxOutput-512)*1.3)-Buffer.byteLength(prompt));
  const sections=[];
  for(let i=1;i<parts.length;i++)for(const content of splitUTF8(parts[i].text,allowance))sections.push({document:i,text:content});
- if(!sections.length||sections.length>12)throw fail('LIMIT');
+ if(!sections.length||sections.length>128)throw fail('LIMIT');
  return sections.map((section,i)=>{
   const messages=[{role:'user',content:[{type:'input_text',text:prompt+'\nAnalyze only this section. Identify limitations; do not claim whole-document coverage. Cite the document and section identifiers.'},{type:'input_text',text:`UNTRUSTED DOCUMENT REFERENCE: Document ${section.document}, section ${i+1} of ${sections.length}\n${section.text}`}]}];
   localInput(s,messages,{instructions:ANSWER_SCHEMA});return {messages,document:section.document,index:i+1};
@@ -28,3 +28,4 @@ async function sectionedReport(core,j,parts,checkpoint,saveStep,signal){
  return {text:'# Section-by-section report\n\n'+(j.files||[]).map((f,i)=>'Document '+(i+1)+': '+f.name.replace(/[\r\n]/g,' ')).join('\n')+'\n\nAll '+sections.length+' sections were processed. These are separate analyses, not an independently verified cross-document synthesis. Check conclusions against the original documents.\n\n'+checkpoint.sections.map((r,i)=>`## Document ${sections[i].document} — section ${i+1}\n\n${r.text}`).join('\n\n'),provider:'sectioned',model:'See individual section processing',usage:{inputTokens:checkpoint.sections.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:checkpoint.sections.reduce((n,r)=>n+(r.usage?.outputTokens||0),0)},reliability:{score:null,label:'Review section findings',reasons:['Every planned section was processed; cross-section conclusions were not independently checked.']}};
 }
 module.exports={splitUTF8,planSections,sectionedReport};
+

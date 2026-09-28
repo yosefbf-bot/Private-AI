@@ -148,7 +148,7 @@ class OperationsCopilotEngine {
     const activePsychAlerts = alerts.filter(a => /^(AP-|PRN-|GDR-|PSYCH-|PHARM-)/.test(a.code) && a.status !== 'resolved').length;
     const hospitalTransfers24h = alerts.filter(a => a.code === 'ACUTE_TRANSFER' && (a.firstDetected || 0) >= since24h).length;
 
-    // No staffing import or validated survey scoring model is implemented.
+    // Aggregate staffing snapshots are exposed separately by date/unit; no facility-wide coverage or compliance is inferred.
     const staffingStatus = {
       available: false, rnCompliant: null, totalCompliant: null,
       actualRnHppd: null, targetRnHppd: null, actualTotalHppd: null, targetTotalHppd: null,
@@ -220,6 +220,7 @@ class OperationsCopilotEngine {
         hospitalTransfers24h
       },
       staffing: staffingStatus,
+      measuredOperations: require("./workflows/imports.cjs").metrics({store:this.store}).days,
       surveyRadar,
       meetings: {
         total: meetings.length,
@@ -313,7 +314,10 @@ class OperationsCopilotEngine {
   }
 
   withTaskStatus(meeting) {
-    return {...meeting, actionItems:(meeting.actionItems||[]).map(item=>{
+    return {...meeting, carryover:(meeting.carryoverRefs||[]).map(ref=>{
+      const source=this.store.get('meeting',ref.meetingId),item=source?.actionItems?.find(a=>a.id===ref.actionId),todo=item?.convertedTodoId&&this.store.get('todo',item.convertedTodoId);
+      return { ...ref, title:source?.title||'Source unavailable',task:item?.task||'Source unavailable',status:todo?.status||item?.status||'unavailable',assignee:todo?.owner||item?.assignee||'',dueDate:todo?.dueAt??item?.dueDate??null };
+    }), actionItems:(meeting.actionItems||[]).map(item=>{
       const task=item.convertedTodoId && this.store.get('todo',item.convertedTodoId);
       return task ? {...item,status:task.status==='completed'?'completed':'in_progress',dueDate:task.dueAt,completedAt:task.completedAt} : item;
     })};
@@ -343,6 +347,7 @@ class OperationsCopilotEngine {
         : template.defaultAttendees.map(a => ({ ...a, present: false })),
       agenda: template.agenda.map(item => ({ ...item, completed: false, notes: '' })),
       transcript: [],
+      carryoverRefs: this.listMeetings().filter(m=>m.type===meetingType).flatMap(m=>(m.actionItems||[]).filter(a=>!['completed','cancelled'].includes(a.status)).map(a=>({meetingId:m.id,actionId:a.id}))),
       actionItems: [],
       decisions: [],
       clinicalRadar: [],
@@ -552,6 +557,7 @@ class OperationsCopilotEngine {
     // Create To-Do in Core Store
     const todo = this.core.saveTodo({
       title: item.task,
+      owner: item.assignee || "",
       description: `Action item assigned to ${item.assignee || 'Unassigned'} (${item.department || 'Department not set'}) from ${meeting.title} on ${new Date(meeting.date).toLocaleDateString()}`,
       priority: item.priority === 'urgent' ? 'urgent' : 'high',
       dueAt: item.dueDate || null,
@@ -600,6 +606,8 @@ class OperationsCopilotEngine {
       minutes += `\n`;
     }
 
+    const carryover=this.withTaskStatus(meeting).carryover;
+    if(carryover.length) minutes += '### CARRYOVER FROM EARLIER MEETINGS\n'+carryover.map(a=>`- ${a.task} — ${a.status}; owner ${a.assignee||'Unassigned'}; source ${a.meetingId}/${a.actionId}`).join('\n')+'\n\n';
     if ((meeting.actionItems || []).length > 0) {
       minutes += `### ACTION ITEMS & ASSIGNMENTS\n`;
       meeting.actionItems.forEach((ai, idx) => {

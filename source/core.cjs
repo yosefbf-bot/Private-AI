@@ -340,7 +340,7 @@ class Core {
     }
     this.canSend(this.settings().hipaa, true);
     const s = { ...this.settings(), provider: prov, maxOutput: 256 };
-    const r = await this.client.generate(
+    const r = await require('./workflows/budget.cjs').generate(this,
       this.key(prov),
       s,
       [{ role: "user", content: "Reply with OK." }],
@@ -366,6 +366,7 @@ class Core {
     const provider = s.provider || (this.key("openai") ? "openai" : "local");
     if (provider === "openai" && this.key("openai") && cloudAllowed(s)) {
       try {
+        if (require('./workflows/budget.cjs').status(this).policy.enabled) throw fail('BUDGET');
         const session = await this.client.createRealtimeSession(this.key("openai"), {
           ...s,
           turnDetection: options.turnDetection || "normal",
@@ -531,6 +532,7 @@ class Core {
       name,
       instructions,
       outputFolder,
+      fileIds: isId(id) ? (this.store.get("project",id)?.fileIds || []) : [],
       hipaa:
         this.settings().hipaa ||
         (isId(id) && this.store.get("project", id)?.hipaa === true),
@@ -1015,14 +1017,11 @@ class Core {
       // Once extraction has finished, recovery only needs the extracted parts;
       // release redundant original bytes from the encrypted snapshot.
       if(record.recoveryInput)record.recoveryInput.files=record.recoveryInput.files.map(f=>({...f,bytes:''}));
-      if (
-        parts.reduce((n, p) => n + (p.text?.length || 1000), 0) >
-        this.settings().contextChars
-      )
-        throw fail("LIMIT");
+
       if(!record.savedAnswer)saveStep("answer requested; completion unconfirmed");
       const sourceBytes=Buffer.byteLength(JSON.stringify(parts));
       const sectioned=this.settings().sectionedReports&&j.files?.length&&this.settings().processingMode!=="cloud-first"&&sourceBytes>Math.max(512,(this.settings().localContext-this.settings().localMaxOutput-512)*1.3);
+      if (!sectioned && parts.reduce((n,p)=>n+(p.text?.length||1000),0)>this.settings().contextChars) throw fail("LIMIT");
       const answer = record.savedAnswer || (sectioned ? await require('./sectioned-report.cjs').sectionedReport(this,j,parts,checkpoint,saveStep,controller.signal) : await this.router.generate(
         this.key(),
         {
@@ -1033,6 +1032,7 @@ class Core {
         { web: j.web, signal: controller.signal, taskPrompt:j.prompt },
       ));
       record.savedAnswer=answer;
+      if(j.playbook){record.playbook=j.playbook;record.outputCheck=require('./workflows/playbooks.cjs').checkOutput(j,answer.text);if(!record.outputCheck.passed){saveStep('output sections require review');throw fail('OUTPUT_CHECK');}}
       saveStep("answer saved");
       record.resultText = answer.text;
       record.status = 'running';
@@ -1111,10 +1111,18 @@ class Core {
   }
   saveTodo(input) {
     this.assertUnlocked();
+    const prior=isId(input.id)?this.store.get('todo',input.id):null;
+    // Old and new editors share one deadline; editing notes must not reopen completed tasks.
+    if(Object.hasOwn(input,'followUpDate')&&!Object.hasOwn(input,'dueAt')) input={...input,dueAt:input.followUpDate?Date.parse(input.followUpDate):null};
+    if(Object.hasOwn(input,'dueAt')&&!Object.hasOwn(input,'followUpDate')) input={...input,followUpDate:null};
+    input={...prior,...input};
+    if(input.dueAt!=null&&(!Number.isFinite(Number(input.dueAt))||Number(input.dueAt)<=0))throw fail('INVALID');
+    if(prior&&prior.dueAt!==input.dueAt)input.notified=false;
     const t = {
       id: isId(input.id) ? input.id : uuid(),
       title: text(input.title || "Follow-up item", 200),
       description: text(input.description || "", 4000),
+      owner: text(input.owner ?? (isId(input.id) ? this.store.get("todo",input.id)?.owner : "") ?? "", 100),
       dueAt: input.dueAt ? Number(input.dueAt) : null,
       followUpDate: input.followUpDate ? String(input.followUpDate).slice(0, 50) : null,
       priority: ["low", "normal", "high", "urgent"].includes(input.priority) ? input.priority : "normal",
@@ -1138,6 +1146,8 @@ class Core {
         if (item.convertedTodoId !== todo.id) continue;
         item.status = todo.status === 'completed' ? 'completed' : 'in_progress';
         item.completedAt = todo.completedAt || null;
+        item.dueDate = todo.dueAt;
+        if(todo.owner!==undefined)item.assignee=todo.owner;
         changed = true;
       }
       if (changed) {

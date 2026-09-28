@@ -12,13 +12,10 @@
 - Defer mobile, new providers/integrations, unrestricted agents, computer control and image generation until hardening and release validation are complete.
 
 
-## Next product work (not implemented by the workflow/speaker branch)
+## Administrator workflow branch
 
-1. Consolidate Today/Operations and Automation/Agents/Schedules navigation; preserve stable backend contracts.
-2. Build a unified action queue linked to alerts, SBAR callbacks and meetings, retaining separate clinical sign-off.
-3. Save/version reviewed PCC mappings and expose missing/changed feeds.
-4. Add change-since-review briefings and evidence packets with coverage and source dates.
-5. Version playbooks with required inputs, approval boundaries, output checks and spending limits.
-6. Add searchable long-document sections and whole-document coverage accounting.
-7. Implement actual staffing/payer feeds before showing metrics or regulatory conclusions.
-8. Validate experimental local speaker signatures on Windows; evaluate a proper local speaker-embedding model and offline transcription before continuous diarization. Never equate heuristic similarity with accuracy.
+The implementation matrix in `docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md` covers navigation consolidation, unified action/review/decision workflows, evidence packets, versioned mappings, measured staffing/census imports, document sections, playbook previews and local budget limits. These changes are on the review branch, not automatically merged into main.
+
+Remaining product extensions: scheduled revision-pinned playbooks, deterministic validated calculation definitions, document OCR and semantic retrieval, automatic staffing/payroll connections and facility-specific approved scoring. Current CSV unit metrics do not establish facility-wide coverage or regulatory compliance.
+
+Validate experimental speaker signatures on Windows and held-out real speakers. Evaluate a proper local speaker-embedding model and offline transcription before continuous diarization. Keep manual attribution and abstention available.

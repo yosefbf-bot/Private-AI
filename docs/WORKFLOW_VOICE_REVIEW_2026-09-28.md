@@ -3,6 +3,8 @@
 Base: `21969ff21a5ab51bdb12900aea2d618eb96a3466` (main, merged PR #4).
 Branch: `chatgpt/workflow-voice-improvements-2026-09-28`.
 
+Integration update: PR #5 was merged at `6e3f85b3faffb1688f34d7681c5765e5be04cf82`. Follow-on implementation is documented in `ADMINISTRATOR_WORKFLOWS_2026-09-28.md`; the original scope/results below are historical.
+
 ## Scope and findings
 
 This change implements the six defects reproduced in the overall app review and the immediate dashboard/briefing/evidence-label cleanup. The user asked to retain and develop speaker recognition rather than hide it. Larger navigation consolidation, staffing imports, document retrieval, and versioned playbooks remain follow-on work, not completed features.

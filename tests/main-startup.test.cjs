@@ -71,3 +71,21 @@ test('actual desktop IPC dispatch reaches operations, meetings, SBAR and speaker
  assert.equal(statement.result.transcript[0].attribution,'suggested');
  b.core.locked=true; assert.equal((await call('operationsSummary')).ok,false);
 });
+
+test('desktop workflow IPC executes saved assignments, imports, document search and reviewed playbooks',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=async(op,data={})=>{const r=await b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});assert.equal(r.ok,true,op+': '+JSON.stringify(r.error));return r.result;};
+ const todo=b.core.saveTodo({title:'Synthetic IPC action'});let s=await call('workflowSummary'),item=s.changes.items.find(i=>i.id===todo.id);
+ await call('workflowActionSave',{...item,owner:'Synthetic reviewer',reviewer:'Synthetic reviewer',note:'Checked'});s=await call('workflowSummary');await call('workflowReview',{token:s.changes.token,reviewer:'Synthetic reviewer'});
+ await call('workflowDecisionSave',{title:'Synthetic decision',reason:'Source reviewed',reviewer:'Synthetic',sourceKey:item.key});assert.match((await call('workflowPacket',{key:item.key})).text,/Synthetic decision/);
+ const mapping=await call('workflowMappingSave',{name:'Synthetic',type:'census',headers:['residentId','name'],mapping:{residentId:'residentId',name:'name'},reviewer:'Synthetic'});
+ await call('workflowMappedPreview',{id:mapping.id,revision:mapping.revision,type:'census',headers:mapping.headers,rows:[{residentId:'synthetic-ipc',name:'Synthetic IPC'}],reviewer:'Synthetic',date:new Date().toISOString()});
+ await call('workflowMappedImport',{id:mapping.id,revision:mapping.revision,type:'census',headers:mapping.headers,rows:[{residentId:'synthetic-ipc',name:'Synthetic IPC'}],reviewer:'Synthetic',date:new Date().toISOString()});
+ const data={type:'census',reviewer:'Synthetic',rows:[{date:new Date().toISOString().slice(0,10),unit:'Synthetic',census:2}]},preview=await call('workflowMetricPreview',data);await call('workflowMetricImport',{...data,token:preview.token});
+ const source=path.join(path.dirname(b.core.root),'synthetic.txt');fs.writeFileSync(source,'Synthetic document finding.');const file=await b.core.importFile(source),project=b.core.projectSave({name:'Synthetic'});
+ await call('workflowProjectFiles',{projectId:project.id,fileIds:[file.id]});assert.equal((await call('workflowDocumentSearch',{projectId:project.id,query:'finding'})).totalMatches,1);
+ const p=await call('workflowPlaybookSave',{name:'Synthetic',prompt:'Extract findings',fileIds:[file.id],requiredSections:['Findings'],reviewer:'Synthetic'}),runPreview=await call('workflowPlaybookPreview',{id:p.id});
+ b.core.saveSettings({workspace:path.join(path.dirname(b.core.root),'output')});const packetPreview=await call('workflowPacket',{key:item.key});const packetFile=await call('workflowPacketExport',{key:item.key,token:packetPreview.token,generatedAt:packetPreview.generatedAt});assert.ok(fs.existsSync(packetFile.path));const current=await call('workflowPlaybookPreview',{id:p.id});let queued;b.core.runJob=async j=>{queued=j;};await call('workflowPlaybookRun',{...current,reviewer:'Synthetic'});assert.equal(queued.playbook.revision,1);
+ await call('workflowBudgetSave',{enabled:true,maxRequests:0});assert.equal((await call('workflowSummary')).budget.policy.enabled,true);
+ b.core.locked=true;const blocked=await b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op:'workflowSummary',data:{}});assert.equal(blocked.ok,false);
+});

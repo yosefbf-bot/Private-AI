@@ -105,6 +105,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         }
 
         // Resolve selected objects from this workspace on every load.
+        if(options.sbarId){activeSbar=await api('sbarGet',{id:options.sbarId});activeTab='sbar';}
+        if(options.meetingId){activeMeeting=await api('meetingGet',{id:options.meetingId});activeTab='copilot';}
         activeMeeting = meetingHistory.find(m => m.id === activeMeeting?.id) || meetingHistory.find(m => m.status === 'live') || null;
         activeSbar = sbarList.find(s => s.id === activeSbar?.id) || sbarList[0] || null;
       } catch (err) {
@@ -200,7 +202,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       const cmd = ops.commandCenter || { needsAttention: [], followUps: [], meetingActions: [], automationHealth: { status: 'Not available' } };
 
       return `
-        <div class="ops-radar-container">
+        <div class="ops-radar-container"><p><button class="ops-btn" data-act="view" data-view="actions">All assignments &amp; changes since review</button></p>
           <!-- Command Center Integrated Action Alert Strip -->
           <section class="ops-command-strip">
             <div class="ops-command-card card-attention">
@@ -320,10 +322,10 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
             </section>
 
             <details class="ops-card" style="padding:16px">
-              <summary>Set up operational data sources</summary>
+              <summary>Set up operational data sources</summary>${(ops.measuredOperations||[]).length?`<p>${ops.measuredOperations.length} dated unit snapshots available. Open staffing &amp; census sources for values, coverage and provenance.</p>`:""}<button class="ops-btn" data-act="view" data-view="metrics">Staffing &amp; census sources</button>
               <p><strong>Census:</strong> Import mapped census records in PCC Import Center.</p>
-              <p><strong>Staffing:</strong> Staffing-hours and roster imports still need implementation and reviewed mappings.</p>
-              <p><strong>Payer / occupancy:</strong> Capacity configuration and payer-feed support still need implementation.</p>
+              <p><strong>Staffing:</strong> Import reviewed daily aggregate RN/LPN/CNA hours by unit and shift. Full-day completeness is required for HPPD.</p>
+              <p><strong>Payer / occupancy:</strong> Import dated unit census, capacity and payer counts. Missing values stay unknown.</p>
               <p><strong>Survey risk:</strong> No validated scoring method is available. Review the actual alert evidence.</p>
               <button type="button" class="ops-btn" data-act="view" data-view="pcc">Open PCC Import Center</button>
             </details>
@@ -394,6 +396,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
       return `
         <div class="ops-meeting-room">
+          ${(activeMeeting?.carryover||[]).length?`<section class="ops-card"><h3>Carryover from earlier meetings</h3><p>Linked to the original assignments. Changes in Action Center update their current status.</p>${activeMeeting.carryover.map(a=>`<p>${esc(a.task)} — ${esc(a.status)} · ${esc(a.assignee||'Unassigned')}</p>`).join('')}<button data-act="view" data-view="actions">Review assignments</button></section>`:''}
           <!-- Top Session Controller Bar -->
           <div class="ops-session-bar">
             <div class="ops-session-left">

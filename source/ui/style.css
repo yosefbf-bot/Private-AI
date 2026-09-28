@@ -6888,3 +6888,14 @@ dialog.today-modal::backdrop {
 
 
 
+
+
+/* Administrator workflows share the existing desktop layout and form controls. */
+.workflow-page label { display: block; margin: 12px 0; }
+.workflow-page label input:not([type="checkbox"]),
+.workflow-page select, .workflow-page textarea { max-width: 100%; }
+.workflow-page textarea { width: 100%; }
+.workflow-page pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; }
+.workflow-page button { margin: 4px 4px 4px 0; }
+.workflow-page article + article { border-top: 1px solid var(--border, #cbd5e1); padding-top: 12px; }
+aside details > summary { padding: 10px; cursor: pointer; }

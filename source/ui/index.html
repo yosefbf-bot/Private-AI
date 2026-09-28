@@ -28,28 +28,34 @@
           🎙 Voice Mode <span class="voice-badge" id="voice-sidebar-badge">Ready</span>
         </button>
         <button class="nav" data-act="view" data-view="today">Today</button>
-        <button class="nav" data-act="view" data-view="operations" id="operations-sidebar-btn" title="Open Operations Intelligence &amp; Meeting Copilot">📊 Operations &amp; Meetings</button>
-        <button class="nav" data-act="view" data-view="automation" id="automation-sidebar-btn" title="Open Automation & Agent Control Center">⚡ Automation Center</button>
-        <button class="nav" data-act="view" data-view="pcc">PCC Import Center</button>
-        <button class="nav snf-sidebar-item" data-act="view" data-view="snf" id="snf-sidebar-btn" title="Open SNF Command Center & Clinical Surveillance">
-          🏥 SNF Surveillance <span class="snf-sidebar-badge" id="snf-sidebar-badge">0 Alerts</span>
-        </button>
-        <nav>
-          <button class="nav" data-act="view" data-view="projects">
-            ▤ Projects</button
-          ><button class="nav" data-act="view" data-view="agents">
-            ✧ Agents</button
-          ><button class="nav" data-act="view" data-view="schedules">
-            ◷ Scheduled tasks</button
-          ><button class="nav" data-act="view" data-view="todos">
-            ✓ To-Do &amp; Reminders</button
-          ><button class="nav" data-act="view" data-view="files">
-            ▧ Files
-          </button>
-        </nav>
-        <button class="nav" data-act="view" data-view="apps">▦ Apps</button>
-        <button class="nav" data-act="view" data-view="processing">◇ AI Processing</button><button class="nav" data-act="view" data-view="usage">$ API Usage</button>
-        <button class="nav" data-act="view" data-view="messaging">↗ Messaging</button><button class="nav" data-act="view" data-view="browser">▣ Browser reports</button><button class="nav" data-act="view" data-view="guide">? User guide</button><button class="nav" data-act="shortcuts" id="sidebar-shortcuts-btn" title="Keyboard Shortcuts (?)">⌨ Shortcuts</button><div class="history-title">YOUR CHATS</div>
+        <button class="nav" data-act="view" data-view="actions">Action Center</button>
+        <button class="nav" data-act="view" data-view="operations" id="operations-sidebar-btn">Operations &amp; Meetings</button>
+        <button class="nav" data-act="view" data-view="workspace">Projects &amp; Documents</button>
+        <button class="nav" data-act="view" data-view="automation" id="automation-sidebar-btn">Automation</button>
+        <button class="nav" data-act="view" data-view="playbooks">Playbooks &amp; Budgets</button>
+        <details><summary>Clinical &amp; data sources</summary>
+          <button class="nav" data-act="view" data-view="pcc">PCC Import Center</button>
+          <button class="nav" data-act="view" data-view="metrics">Staffing &amp; Census</button>
+          <button class="nav snf-sidebar-item" data-act="view" data-view="snf" id="snf-sidebar-btn">SNF Surveillance <span class="snf-sidebar-badge" id="snf-sidebar-badge">0 Alerts</span></button>
+          <button class="nav" data-act="view" data-view="decisions">Decision log</button>
+        </details>
+        <details><summary>Connections</summary>
+          <button class="nav" data-act="view" data-view="apps">Apps</button>
+          <button class="nav" data-act="view" data-view="messaging">Messaging</button>
+          <button class="nav" data-act="view" data-view="browser">Browser reports</button>
+        </details>
+        <details><summary>Tools &amp; settings</summary>
+          <button class="nav" data-act="view" data-view="projects">Manage projects</button>
+          <button class="nav" data-act="view" data-view="files">Manage files</button>
+          <button class="nav" data-act="view" data-view="todos">To-Do &amp; Reminders</button>
+          <button class="nav" data-act="view" data-view="agents">Agents</button>
+          <button class="nav" data-act="view" data-view="schedules">Scheduled tasks</button>
+          <button class="nav" data-act="view" data-view="processing">AI Processing</button>
+          <button class="nav" data-act="view" data-view="usage">API Usage</button>
+          <button class="nav" data-act="view" data-view="guide">User guide</button>
+          <button class="nav" data-act="shortcuts" id="sidebar-shortcuts-btn">Shortcuts</button>
+        </details>
+        <div class="history-title">YOUR CHATS</div>
         <input
           id="search"
           type="search"
@@ -281,4 +287,5 @@
     <script type="module" src="app.mjs"></script>
   </body>
 </html>
+
 

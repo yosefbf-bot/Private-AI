@@ -1,7 +1,7 @@
 {
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
-  "developmentBranch": "chatgpt/workflow-voice-improvements-2026-09-28",
+  "developmentBranch": "chatgpt/administrator-workflows-2026-09-28",
   "lastVerifiedCommit": null,
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
@@ -9,10 +9,10 @@
   "hipaaMode": true,
   "hipaaModeMeaning": "Default policy setting; not a compliance certification",
   "currentPriorities": [
-    "Review workflow/speaker branch, then merge and refresh AI Studio main",
-    "Windows install/upgrade/restore acceptance and real microphone/real-speaker validation",
-    "Independent clinical validation and review of legacy sample-containing records",
-    "Real Chromium visual acceptance and representative PCC mapping validation"
+    "Review administrator-workflows branch, then merge and refresh AI Studio main",
+    "Windows install/upgrade/restore acceptance and real microphone/held-out speaker validation",
+    "Independent clinical validation with representative PCC and aggregate staffing/census imports",
+    "Full Chromium visual/keyboard acceptance of consolidated workflows"
   ],
   "knownCriticalIssues": [
     "Historical vault/key exposure remains in other refs/history; owner remediation and credential rotation remain required",
@@ -41,19 +41,28 @@
     "Unambiguous resident selection, complete handoffs, linked meeting-task completion, unknown imported event facts",
     "Source-only local extraction and corrected non-OpenAI cloud usage accounting",
     "Compact missing-data setup, evidence labels and recorded-action briefings with optional checklist",
-    "Local bounded acoustic capture/enrollment, conservative suggested speaker names, manual confirmation and sample deletion"
+    "Local bounded acoustic capture/enrollment, conservative suggested speaker names, manual confirmation and sample deletion",
+    "Unified source-linked action queue, reviewed change baseline, decision history, evidence packets and meeting carryover",
+    "Versioned PCC mappings with schema drift rejection and accepted/rejected previews",
+    "Dated aggregate staffing/census/payer imports with completeness-gated HPPD",
+    "Versioned document playbooks, expiring input-bound run previews, output heading checks and retained failed drafts",
+    "Per-PC cloud request and estimated allowance budgets with persistent pre-request reservations",
+    "Project-linked extracted document sections, exact page/character citations and coverage",
+    "Opt-in resumable report processing expanded to 128 sections beyond single-prompt limits"
   ],
   "experimentalFeatures": [
     "Heuristic SNF surveillance requires independent clinical validation",
-    "Staffing, payer/capacity imports and validated survey scores are not implemented",
     "Local speaker suggestions implemented with heuristic signatures; not calibrated identity accuracy. Real microphone/voice validation, continuous diarization and offline transcription pending",
     "Built-in clinical protocols are unapproved references; no facility approval workflow is implemented",
     "Browser DOM interaction checks passed; full visual acceptance remains pending",
-    "Non-OpenAI cloud adapters remain outside HIPAA Mode; live provider acceptance pending"
+    "Non-OpenAI cloud adapters remain outside HIPAA Mode; live provider acceptance pending",
+    "Imported unit HPPD is a measured ratio, not validated staffing compliance or a facility-wide coverage claim",
+    "Playbook heading checks do not validate facts/calculations; scheduling/delivery and deterministic formula definitions remain future work",
+    "Budget allowances use configured rates and conservative estimates, not invoice guarantees; external apps/PCs excluded",
+    "Extracted document text only: OCR, semantic retrieval and automatic whole-document synthesis are not implemented"
   ],
   "deferredFeatures": [
     "Production network hosting",
-    "New major platform features",
     "PHI realtime voice approval"
   ],
   "lastTested": {
@@ -61,7 +70,7 @@
     "platform": "linux",
     "node": "24.19.0",
     "command": "npm test",
-    "passed": 352,
+    "passed": 367,
     "failed": 0,
     "cancelled": 0,
     "skipped": 0,
@@ -70,23 +79,22 @@
       "failed": 0
     },
     "dependencyInstall": "npm ci --ignore-scripts passed using unchanged package-lock.json",
-    "syntax": "passed: 141 JavaScript files",
-    "repositoryPolicy": "passed: 232 local tracked files",
+    "syntax": "passed: 149 JavaScript files",
+    "repositoryPolicy": "passed: 241 local tracked files",
     "dependencyAudit": "npm audit --omit=dev --audit-level=high: 0 vulnerabilities",
     "releaseManifest": "blocked: locally unbuilt Windows helper and inference runtime executables",
-    "browserDOM": "passed: eight Operations tabs, setup, enrollment/cancel, statement persistence, unknown attribution, capture cleanup",
+    "browserDOM": "passed: five workflow pages, action/decision save-reload, budgets/playbooks, PCC mapping save/preview/import, coverage/demo restrictions; eight existing Operations/voice tabs also passed",
     "browserUI": "not verified: Chromium exits before page creation",
     "windowsValidation": "not performed",
-    "reviewNotes": "docs/WORKFLOW_VOICE_REVIEW_2026-09-28.md",
-    "githubActions": "new branch CI pending push; base main run 36363249305 passed"
+    "reviewNotes": "docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md",
+    "githubActions": "new review branch CI pending publication"
   },
-  "reviewBaseCommit": "21969ff21a5ab51bdb12900aea2d618eb96a3466",
-  "verificationScope": "Local working tree in this review; base CI is recorded separately. No measured speaker accuracy or Windows release acceptance.",
+  "reviewBaseCommit": "6e3f85b3faffb1688f34d7681c5765e5be04cf82",
+  "verificationScope": "Local reviewed working tree based on merged PR #5, real Core/SQLite plus desktop IPC and authenticated development HTTP. DOM is supplemental; no Windows release or calibrated real-speaker accuracy claim.",
   "baseIntegration": {
-    "pr": 4,
+    "pr": 5,
     "merged": true,
-    "commit": "21969ff21a5ab51bdb12900aea2d618eb96a3466",
-    "githubRun": 36363249305,
-    "checks": "regression, dependencies and release-files passed"
+    "commit": "6e3f85b3faffb1688f34d7681c5765e5be04cf82",
+    "checks": "Merge verified through GitHub; new branch checks recorded separately"
   }
 }

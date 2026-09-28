@@ -6,7 +6,9 @@ Read `AGENTS.md`, `GEMINI.md`, `PROJECT_STATUS.json`, `ARCHITECTURE.md`, and `do
 
 PR #4 was merged into main at `21969ff21a5ab51bdb12900aea2d618eb96a3466`; its regression, dependency and release-file CI checks passed (run 36363249305). Do not repeat that merge or treat its old branch notes as current status.
 
-Current branch: `chatgpt/workflow-voice-improvements-2026-09-28`, based on that main commit. Read `docs/WORKFLOW_VOICE_REVIEW_2026-09-28.md` for workflow fixes, speaker setup, thresholds and acceptance limits. These new changes require review/merge before AI Studio's main-only project can sync them. Preserve historical review reports as dated evidence.
+PR #5 is merged into main at `6e3f85b3faffb1688f34d7681c5765e5be04cf82`. Its six high-priority repairs, dashboard cleanup and experimental voice improvements are the base for this work.
+
+Current branch: `chatgpt/administrator-workflows-2026-09-28`. Read `docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md` for the implementation matrix, CSV schemas, playbook/budget boundaries and outstanding physical acceptance. This branch requires review/merge before AI Studio's main-only project can sync it. Preserve dated earlier review reports as historical evidence.
 
 ## Non-negotiable implementation rules
 
