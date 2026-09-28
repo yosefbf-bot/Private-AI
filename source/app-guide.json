@@ -317,14 +317,18 @@
         "browser reports",
         "recipe",
         "website automation",
-        "playwright"
+        "playwright",
+        "bitwarden",
+        "saved passwords"
       ],
       "steps": [
-        "Open Browser reports to create or review a supported recipe for the approved site and its defined steps.",
+        "Open Browser reports, choose Chrome, Edge, managed Firefox/Chromium, or installed Brave/Vivaldi, and save a workflow for the approved site. Edit preserves the browser choice. Legacy workflows use Edge.",
+        "Open the browser to sign in. Each browser has a separate persistent Private AI profile. Install and unlock Bitwarden in that profile, then use its autofill menu or configured shortcut; browser saved-password prompts also remain available. Your everyday browser profile is not imported.",
+        "Optionally set a control that appears after sign-in. The workflow waits up to five minutes for it while you complete unlock/MFA, then continues without reading passwords. Do not store passwords or tokens in workflow steps. Manual setup permits browser/extension network access; automated runs restrict requests to reviewed origins.",
         "Review the interference warning before manually opening or running browser work. Log in or complete verification yourself when required.",
         "Run the reviewed recipe from the interface or use /report NAME for a saved recipe. Close the browser session when finished."
       ],
-      "note": "Separate profiles do not guarantee focus isolation. Visible browser actions can take focus, share session state, open windows or download files. Unattended interfering actions are deferred."
+      "note": "Firefox automation requires Playwright's matching managed build, while the companion can use ordinary Firefox. Brave/Vivaldi and real Bitwarden unlock/autofill still require on-PC acceptance. Separate profiles do not guarantee focus isolation; unattended interfering actions remain deferred."
     },
     {
       "id": "interference",
@@ -370,7 +374,7 @@
         "Pin and click the toolbar icon to open the sidebar. Ask a question. Enable Include page only when you intend to read the current page; click the icon on that tab first to grant access.",
         "Disconnect browser companions in Settings and close open panels when finished. Re-run setup if the desktop executable moves."
       ],
-      "note": "Firefox live native integration is not yet validated and permanent distribution requires Mozilla signing. Brave is an unverified Chromium compatibility candidate. Browser-internal pages and some PDF viewers cannot be captured. The companion uses the desktop app; it contains no independent model or API key."
+      "note": "Firefox live native integration is not yet validated and permanent distribution requires Mozilla signing. Brave/Vivaldi are unverified Chromium compatibility candidates; a toolbar popup is used when sidebar APIs are unavailable. Browser-internal pages, Bitwarden's hosted vault, extension pages and some PDF viewers cannot be captured. The companion uses the desktop app; it contains no independent model or API key."
     },
     {
       "id": "outlook",

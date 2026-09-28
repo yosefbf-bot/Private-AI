@@ -4,6 +4,9 @@
   ${If} $1 == "$INSTDIR\PrivateAI.exe"
     DeleteRegKey HKCU "Software\Google\Chrome\NativeMessagingHosts\org.privateai.companion"
     DeleteRegKey HKCU "Software\Microsoft\Edge\NativeMessagingHosts\org.privateai.companion"
+    DeleteRegKey HKCU "Software\Chromium\NativeMessagingHosts\org.privateai.companion"
+    DeleteRegKey HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\org.privateai.companion"
+    DeleteRegKey HKCU "Software\Vivaldi\NativeMessagingHosts\org.privateai.companion"
     DeleteRegKey HKCU "Software\Mozilla\NativeMessagingHosts\org.privateai.companion"
     DeleteRegKey HKCU "Software\PrivateAI"
   ${EndIf}

@@ -1,7 +1,7 @@
 {
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
-  "developmentBranch": "chatgpt/application-checkup-2026-09-28",
+  "developmentBranch": "chatgpt/browser-compatibility-2026-09-28",
   "lastVerifiedCommit": null,
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
@@ -9,7 +9,7 @@
   "hipaaMode": true,
   "hipaaModeMeaning": "Default policy setting; not a compliance certification",
   "currentPriorities": [
-    "Review application-checkup branch, then merge and refresh AI Studio main",
+    "Review browser compatibility and Bitwarden handoff, then merge and rebuild the desktop app",
     "Windows install/upgrade/restore acceptance and real microphone/held-out speaker validation",
     "Independent clinical validation with representative PCC and aggregate staffing/census imports",
     "Full Chromium visual/keyboard acceptance of consolidated workflows"
@@ -50,7 +50,9 @@
     "Project-linked extracted document sections, exact page/character citations and coverage",
     "Opt-in resumable report processing expanded to 128 sections beyond single-prompt limits",
     "Selected-workspace surveillance alert summary restored without mixing demo and production totals",
-    "Workflow document metadata reads, incremental job projection and linear review membership comparison"
+    "Workflow document metadata reads, incremental job projection and linear review membership comparison",
+    "Per-recipe Chrome/Edge/managed Firefox/Chromium and optional Brave/Vivaldi selection with separate persistent profiles",
+    "Browser/Bitwarden sign-in handoff without password extraction; selected-text capture shares sensitive-field exclusions"
   ],
   "experimentalFeatures": [
     "Heuristic SNF surveillance requires independent clinical validation",
@@ -61,7 +63,8 @@
     "Imported unit HPPD is a measured ratio, not validated staffing compliance or a facility-wide coverage claim",
     "Playbook heading checks do not validate facts/calculations; scheduling/delivery and deterministic formula definitions remain future work",
     "Budget allowances use configured rates and conservative estimates, not invoice guarantees; external apps/PCs excluded",
-    "Extracted document text only: OCR, semantic retrieval and automatic whole-document synthesis are not implemented"
+    "Extracted document text only: OCR, semantic retrieval and automatic whole-document synthesis are not implemented",
+    "Brave/Vivaldi, real Bitwarden unlock/autofill and packaged native companion connectivity require on-PC acceptance; managed Firefox/Chromium runtimes are optional per-user installs"
   ],
   "deferredFeatures": [
     "Production network hosting",
@@ -72,7 +75,7 @@
     "platform": "win32",
     "node": "24.19.0",
     "command": "npm test",
-    "passed": 370,
+    "passed": 380,
     "failed": 0,
     "cancelled": 0,
     "skipped": 0,
@@ -81,23 +84,23 @@
       "failed": 0
     },
     "dependencyInstall": "npm ci --ignore-scripts passed using unchanged package-lock.json",
-    "syntax": "passed; includes new performance regression and manual benchmark files",
-    "repositoryPolicy": "passed; unchanged lockfile and tracked Windows build inputs retained",
-    "dependencyAudit": "npm audit --omit=dev --audit-level=high: 0 vulnerabilities",
+    "syntax": "Passed final syntax checks",
+    "repositoryPolicy": "Passed tracked-file policy check; no runtime data or credentials committed",
+    "dependencyAudit": "High-severity gate passed: 0 high/critical; 2 moderate mailparser/nodemailer findings (GHSA-6vj9-mwq6-2f5v), unrelated dependency upgrades deferred.",
     "releaseManifest": "blocked: locally unbuilt Windows helper and inference runtime executables",
     "browserDOM": "Earlier supplemental coverage is recorded in docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md; current browser scope is below",
-    "browserUI": "passed in Edge: login, Today/demo, evidence and saved follow-up, Surveillance, PCC navigation, SBAR edit persistence, Automation and five workflow pages; completed Today screenshot visually inspected",
+    "browserUI": "Passed synthetic report/sign-in, protected capture and save/edit/reload/use in Chrome, Edge, managed Firefox and Chromium. Real Bitwarden and packaged native messaging not exercised.",
     "windowsValidation": "Source tests and Edge smoke passed on Windows; packaged install/upgrade, vault, inference, real microphone and live provider acceptance not performed",
-    "performance": "Synthetic 400-document/80-job/1500-action workflowSummary: median 416.69 ms base vs 216.09 ms initial optimized run; decrypted bytes 87560481 vs 34366771. Committed benchmark verification median 187.62 ms. No universal latency or peak-memory claim.",
-    "reviewNotes": "docs/APPLICATION_CHECKUP_2026-09-28.md",
-    "githubActions": "new review branch CI pending publication"
+    "performance": "Prior checkup measurement retained in docs/APPLICATION_CHECKUP_2026-09-28.md; not remeasured in this browser change.",
+    "reviewNotes": "docs/BROWSER_PASSWORDS_2026-09-28.md",
+    "githubActions": "Review branch CI pending publication"
   },
-  "reviewBaseCommit": "a897ba7a6f7ea0d79ec4e3593cc1260396e03a7e",
-  "verificationScope": "Local reviewed working tree based on merged PR #6, real Core/SQLite plus desktop IPC and authenticated development HTTP regression tests, Edge smoke and a synthetic workflow benchmark. No installed user data accessed; no Windows release or calibrated real-speaker accuracy claim.",
+  "reviewBaseCommit": "f0b6d88e274a77e38fb7ee67a686b5e1b81251b2",
+  "verificationScope": "Browser changes based on merged PR #7: real Core/SQLite, desktop IPC and authenticated development HTTP policy tests; synthetic browser automation in four engines. No installed personal profiles, passwords or Bitwarden vault accessed. Native extension installation and real autofill remain acceptance tasks.",
   "baseIntegration": {
-    "pr": 6,
+    "pr": 7,
     "merged": true,
-    "commit": "a897ba7a6f7ea0d79ec4e3593cc1260396e03a7e",
-    "checks": "GitHub Actions run 36465145722 passed regression, dependencies and release-files; new branch checks recorded separately"
+    "commit": "f0b6d88e274a77e38fb7ee67a686b5e1b81251b2",
+    "checks": "Merge verified through gh; browser branch checks recorded separately"
   }
 }

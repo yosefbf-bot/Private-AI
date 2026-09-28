@@ -3,10 +3,12 @@ const path=require('node:path');
 const extension=require('./extension-id.json');
 const firefoxId='companion@privateai.local';
 const origin='chrome-extension://'+extension.id+'/';
-const keys=['Google\\Chrome','Microsoft\\Edge','Mozilla'].map(v=>'HKCU\\Software\\'+v+'\\NativeMessagingHosts\\org.privateai.companion');
+const chromiumKeys=['Google\\Chrome','Microsoft\\Edge','Chromium','BraveSoftware\\Brave-Browser','Vivaldi'].map(v=>'HKCU\\Software\\'+v+'\\NativeMessagingHosts\\org.privateai.companion');
+const firefoxKey='HKCU\\Software\\Mozilla\\NativeMessagingHosts\\org.privateai.companion';
+const keys=[...chromiumKeys,firefoxKey];
 function manifests(root,executable){const common={name:'org.privateai.companion',description:'Private AI Browser Companion',path:executable,type:'stdio'};return [
- {file:path.join(root,'native-host.json'),keys:keys.slice(0,2),value:{...common,allowed_origins:[origin]}},
- {file:path.join(root,'native-host-firefox.json'),keys:keys.slice(2),value:{...common,allowed_extensions:[firefoxId]}}
+ {file:path.join(root,'native-host.json'),keys:chromiumKeys,value:{...common,allowed_origins:[origin]}},
+ {file:path.join(root,'native-host-firefox.json'),keys:[firefoxKey],value:{...common,allowed_extensions:[firefoxId]}}
 ];}
 function isInvocation(args){return args.some(a=>a.startsWith('chrome-extension://')||path.win32.basename(a)==='native-host-firefox.json');}
 function allowedInvocation(args,root){

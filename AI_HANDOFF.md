@@ -10,7 +10,9 @@ PR #5 is merged into main at `6e3f85b3faffb1688f34d7681c5765e5be04cf82`. Its six
 
 PR #6 is merged into main at `a897ba7a6f7ea0d79ec4e3593cc1260396e03a7e`; regression, dependencies and release-file CI passed (run 36465145722). Read `docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md` for the implementation matrix and remaining physical acceptance.
 
-Current branch: `chatgpt/application-checkup-2026-09-28`. Read `docs/APPLICATION_CHECKUP_2026-09-28.md` for the measured workflow optimization, selected-workspace surveillance alert fix and actual Windows/Edge test scope. This branch requires review/merge before AI Studio's main-only project can sync it. Preserve dated earlier review reports as historical evidence.
+PR #7 is merged at `f0b6d88e274a77e38fb7ee67a686b5e1b81251b2`. Its checkup findings remain in `docs/APPLICATION_CHECKUP_2026-09-28.md`.
+
+Current branch: `chatgpt/browser-compatibility-2026-09-28`, based on merged PR #7. Read `docs/BROWSER_PASSWORDS_2026-09-28.md` for browser choices, Bitwarden handoff, setup and acceptance limits. This branch requires review/merge before AI Studio's main-only project can sync it. Preserve dated earlier reports as historical evidence.
 
 ## Non-negotiable implementation rules
 
@@ -48,7 +50,9 @@ npm run check:release
 
 Run `npm run test:hardening-ui` where Chromium is available, providing `PRIVATE_AI_TEST_CHROMIUM` when necessary. It covers the login form, Today/demo/evidence/follow-up navigation, Surveillance, Operations SBAR edits, Automation and all five workflow pages. The current checkup passed in Windows Edge after removing forced single-process launch flags and correcting the modal scope; the completed Today screenshot was visually inspected. Earlier supplemental DOM checks remain historical evidence. Full packaged-desktop, visual and keyboard acceptance is still pending.
 
-Current local verification: 370 regression tests and 23 hardening tests passed; production audit found zero vulnerabilities. `node --expose-gc tests/workflow-benchmark.cjs` provides a repeatable synthetic performance measurement without a timing-sensitive CI gate. Local release-file verification remains blocked on the two generated Windows binaries; consult branch CI separately.
+Browser change verification: 380 regression tests passed. `npm run test:browsers` passed synthetic download/sign-in, filtered page/selection capture and browser choice save/edit/reload/use in installed Chrome/Edge and managed Firefox/Chromium. Real Bitwarden vault/autofill, Brave/Vivaldi, and packaged native companion connectivity remain on-PC acceptance. `npm run setup:browsers` installs optional matching Firefox/Chromium runtimes into Playwright's per-user cache; it does not import a regular browser profile. Local release-file verification remains blocked on the two generated Windows binaries; consult branch CI separately.
+
+Browser passwords stay in browser/manager-controlled profiles. Do not add password getters, vault/clipboard extraction, cookie export or automatic manager unlock. The new login step waits for a post-login control, and users handle unlock/MFA. Manual browser setup permits network access; an automated report run reinstalls its reviewed-origin filter before navigating. Native companion permissions and the development-browser denylist remain unchanged.
 
 `npm run build` and `lint` are syntax checks only. `check:release` is the Windows input gate. Restored build scripts/icon are present; Windows helper/runtime binaries must be built by the documented workflow. Actual install, existing-data upgrade, vault, local inference and feature execution at the artifact SHA remain release requirements. Record exact passing/failing counts and all unperformed tests in PROJECT_STATUS; do not reuse historical claims as current evidence.
 

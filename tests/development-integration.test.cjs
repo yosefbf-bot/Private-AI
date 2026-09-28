@@ -40,7 +40,7 @@ test('real server requires a session and restricts production, privileges and de
     const today = await call('snfToday');
     assert.equal(today.result.demo, false);
     assert.equal(today.result.dataHealth.isSurveillanceComplete, false);
-    for (const [op,data] of [['settings',{approved:true}], ['grantFolder',{}], ['runJob',{}], ['snfIngest',{reports:[]}], ['snfSeedData',{}]]) {
+    for (const [op,data] of [['browserRecipes',{}], ['browserSave',{}], ['browserOpen',{browser:'firefox',url:'https://example.com'}], ['browserRun',{}], ['settings',{approved:true}], ['grantFolder',{}], ['runJob',{}], ['snfIngest',{reports:[]}], ['snfSeedData',{}]]) {
       assert.equal((await call(op,data)).ok, false, op+' must be denied');
     }
     assert.equal((await call('snfImportSchema')).ok, true);

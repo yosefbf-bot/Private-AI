@@ -6,8 +6,9 @@ function prepare(){
  for(const name of ['panel.html','panel.css','panel.mjs','capture.mjs','background.mjs','icon16.png','icon48.png','icon128.png','vendor'])fs.cpSync(path.join(dir,name),path.join(target,name),{recursive:true});
  const manifest=JSON.parse(fs.readFileSync(path.join(dir,'manifest.json'),'utf8'));
  manifest.version=require('../package.json').version.split('-')[0];
+ fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
  delete manifest.key;delete manifest.side_panel;manifest.permissions=manifest.permissions.filter(p=>p!=='sidePanel');
- manifest.background={scripts:['background.mjs'],type:'module'};
+ manifest.background={scripts:['background.mjs']};
  manifest.sidebar_action={default_title:'Private AI Companion',default_panel:'panel.html',default_icon:'icon48.png'};
  manifest.browser_specific_settings={gecko:{id:require('../source/browser-hosts.cjs').firefoxId,strict_min_version:'128.0'}};
  fs.writeFileSync(path.join(target,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');

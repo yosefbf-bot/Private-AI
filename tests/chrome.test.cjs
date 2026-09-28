@@ -68,6 +68,12 @@ test("Blank questions cannot trigger extraction even with the checkbox enabled",
     ),
   );
 });
+
+test('Bitwarden vault and extension pages are rejected before capture executes',async()=>{
+ const {buildQuestion}=await import('../chrome_extension/capture.mjs');
+ for(const url of ['https://vault.bitwarden.com/#/vault','https://vault.bitwarden.eu/#/vault','chrome-extension://synthetic/vault.html','moz-extension://synthetic/vault.html'])
+  await assert.rejects(buildQuestion({prompt:'Summarize',includePage:true},{tabs:{query:async()=>[{id:3,url}]},scripting:{executeScript:()=>assert.fail('vault captured')}}),/Password-manager pages are excluded/);
+});
 test("Manifest has no automatic content scripts, all-site access, browsing history, or storage permissions", () => {
   const m = require("../chrome_extension/manifest.json");
   assert.equal(m.content_scripts, undefined);
