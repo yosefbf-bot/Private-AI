@@ -29,7 +29,8 @@ class HybridRouter {
   if(clinicalContext)options={...options,instructions:(options.instructions||'')+clinicalContext};
   if(options.web&&s.hipaa)throw fail('POLICY');
   if(!options.web){result=await deterministic(prompt,messages,this.core.localTools);if(result)return this.finish(result,s,options);}
-  const hard=options.web||/\b(?:current|latest|today's news|legal|regulat(?:ion|ory)|diagnos(?:is|e)|medical advice|treatment|dosage|medication|liability|compliance|root.cause|complex cod(?:e|ing))\b/i.test(prompt)||messages.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==='input_image'));
+  const sourceOnly = !!source && /^(?:list|extract|copy|tabulate)\b/i.test(prompt.trim()) && !/\b(?:recommend|diagnose|prescribe|should|treat|advise)\b/i.test(prompt);
+  const hard=options.web||(!sourceOnly && /\b(?:current|latest|today's news|legal|regulat(?:ion|ory)|diagnos(?:is|e)|medical advice|treatment|dosage|medication|liability|compliance|root.cause|complex cod(?:e|ing))\b/i.test(prompt))||messages.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==='input_image'));
   const chars=JSON.stringify(messages).length+(options.instructions?.length||0);
   if(s.processingMode!=='cloud-first'&&!hard&&this.local){
    try{
@@ -67,4 +68,5 @@ class HybridRouter {
  finish(result,s,options){if(options.signal?.aborted)throw fail('CANCELLED');options.onDelta?.(result.text);result.meter=this.meter.record(result,s);return result;}
 }
 module.exports={HybridRouter,evaluateLocal};
+
 

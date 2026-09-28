@@ -1,3 +1,4 @@
+import { captureSpeakerSample } from './speaker-capture.mjs';
 import { browserSpeechAllowed } from './speech-policy.mjs';
 // Operations Intelligence + Meeting Copilot + Interactive SBAR + Shift Handoff UI Module
 // Comprehensive operational command center, morning standup briefing,
@@ -7,6 +8,7 @@ import { browserSpeechAllowed } from './speech-policy.mjs';
 export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage, getState = () => null }) {
   // Navigation tabs: 'operations' | 'copilot' | 'speaker_review' | 'sbar' | 'handoff' | 'protocols' | 'history'
   let activeTab = 'operations';
+  let captureController = null, captureDialog = null, pendingAcoustic = null, capturePolicy = null;
   let activeMeeting = null; // Current live or selected meeting
   let isListening = false;
   let activeSpeaker = 'Unknown Speaker';
@@ -17,7 +19,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
   let historySearch = '';
 
   // Audio Pipeline & Speaker Recognition State
-  let audioQuality = { status: 'Unmeasured', noiseFloorDb: 'Unknown', snrDb: 'Unknown', warning: 'Audio filtering and automatic speaker identification are not connected to measured microphone data. Verify speakers manually.' };
+  let audioQuality = { status: 'Unmeasured', noiseFloorDb: 'Unknown', snrDb: 'Unknown', warning: 'Local speaker recording is available for one speaker at a time. Automatic names are experimental suggestions; confirm identity before assigning work.' };
   let speakerProfiles = [];
   let speakerReviewData = null;
   let pendingCorrection = null;
@@ -138,7 +140,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               <div class="ops-header-meta">
                 <span>Facility: ${esc(ops.facilityName || 'Not configured')}</span>
                 <span class="ops-sep">·</span>
-                <span>Active Census: ${metric(census.activeResidents)}/${metric(census.totalBeds)} (${metric(census.occupancyRate)}%)</span>
+                <span>Active residents in imported records: ${metric(census.activeResidents)}</span>
                 <span class="ops-sep">·</span>
                 <span class="ops-live-tag">${ops.demo ? 'DEMO DATA — NOT FOR CLINICAL USE' : ops.dataHealth?.isSurveillanceComplete ? 'IMPORTED FEEDS — VERIFY DATES' : 'INCOMPLETE DATA — NOT AN ALL-CLEAR'}</span>
                 ${pendingCallbacksCount > 0 ? `<span class="ops-callback-alert-pill">⚠ ${pendingCallbacksCount} MD Callback Pending</span>` : ''}
@@ -162,8 +164,9 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 🔄 Shift Handoff
               </button>
               <button type="button" class="ops-tab-btn ${activeTab === 'protocols' ? 'active' : ''}" data-ops-tab="protocols">
-                📜 Protocols &amp; Voice Profiles
+                📜 Protocols
               </button>
+              <button type="button" class="ops-tab-btn ${activeTab === 'voice_profiles' ? 'active' : ''}" data-ops-tab="voice_profiles">🎙 Voice Profiles</button>
               <button type="button" class="ops-tab-btn ${activeTab === 'history' ? 'active' : ''}" data-ops-tab="history">
                 📁 Archives (${meetingHistory.length})
               </button>
@@ -177,7 +180,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
             ${activeTab === 'speaker_review' ? this.renderSpeakerReviewView() : ''}
             ${activeTab === 'sbar' ? this.renderSbarView() : ''}
             ${activeTab === 'handoff' ? this.renderHandoffView(ops) : ''}
-            ${activeTab === 'protocols' ? this.renderProtocolsAndProfilesView() : ''}
+            ${['protocols','voice_profiles'].includes(activeTab) ? this.renderProtocolsAndProfilesView() : ''}
             ${activeTab === 'history' ? this.renderHistoryView() : ''}
           </main>
         </div>
@@ -225,7 +228,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 <strong>Follow-Up Engine (${cmd.followUps.length})</strong>
               </div>
               <div class="ops-command-list">
-                ${cmd.followUps.length === 0 ? `<div class="ops-empty-cmd">No overdue clinical follow-ups.</div>` : cmd.followUps.slice(0, 3).map(f => `
+                ${cmd.followUps.length === 0 ? `<div class="ops-empty-cmd">No follow-ups recorded in available data.</div>` : cmd.followUps.slice(0, 3).map(f => `
                   <div class="ops-cmd-item">
                     <span class="ops-cmd-badge badge-pending">PENDING</span>
                     <span>${esc(f.title)}</span>
@@ -240,7 +243,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 <strong>Meeting Actions (${cmd.meetingActions.length})</strong>
               </div>
               <div class="ops-command-list">
-                ${cmd.meetingActions.length === 0 ? `<div class="ops-empty-cmd">All commitments from recent meetings converted or completed.</div>` : cmd.meetingActions.slice(0, 3).map(a => `
+                ${cmd.meetingActions.length === 0 ? `<div class="ops-empty-cmd">No open meeting actions in available records.</div>` : cmd.meetingActions.slice(0, 3).map(a => `
                   <div class="ops-cmd-item">
                     <strong class="ops-cmd-title">${esc(a.assignee || 'Staff')}:</strong>
                     <span>${esc(a.task)}</span>
@@ -252,26 +255,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
           <!-- Top Vital Signs Grid -->
           <section class="ops-vitals-grid">
-            <!-- Metric 1: Census & Payer -->
             <div class="ops-kpi-card">
-              <div class="ops-kpi-label">FACILITY CENSUS &amp; OCCUPANCY</div>
-              <div class="ops-kpi-value">${metric(census.activeResidents)} <span class="ops-kpi-unit">/ ${metric(census.totalBeds)} Beds</span></div>
-              <div class="ops-kpi-meter-wrap">
-                <div class="ops-kpi-meter-bar" style="width: ${Number(census.occupancyRate) || 0}%;"></div>
-              </div>
-              <div class="ops-kpi-sub">
-                <span>${metric(census.occupancyRate)}% Occupied</span>
-                <span class="ops-sep">·</span>
-                <span>${metric(census.availableBeds)} Available Beds</span>
-              </div>
-              <div class="ops-payer-strip">
-                <span>Med A: <strong>${metric(census.payerMix.medicareA)}</strong></span>
-                <span>Medicaid: <strong>${metric(census.payerMix.medicaid)}</strong></span>
-                <span>Managed: <strong>${metric(census.payerMix.managedCare)}</strong></span>
-                <span>Private: <strong>${metric(census.payerMix.privatePay)}</strong></span>
-              </div>
+              <div class="ops-kpi-label">IMPORTED ACTIVE RESIDENTS</div>
+              <div class="ops-kpi-value">${metric(census.activeResidents)}</div>
+              <p>Based on imported records, not a live census. Verify source dates.</p>
             </div>
-
             <!-- Metric 2: Clinical Alert Velocity -->
             <div class="ops-kpi-card ${surv.criticalAlertsCount > 0 ? 'kpi-crit' : ''}">
               <div class="ops-kpi-label">SURVEILLANCE VELOCITY (24H)</div>
@@ -288,22 +276,6 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 <span>Infections: <strong>${surv.activeInfectionAlerts}</strong></span>
                 <span>Psychotropics: <strong>${surv.activePsychAlerts}</strong></span>
                 <span>ER Transfers: <strong>${surv.hospitalTransfers24h}</strong></span>
-              </div>
-            </div>
-
-            <!-- Metric 3: CMS Staffing Mandate Alignment -->
-            <div class="ops-kpi-card">
-              <div class="ops-kpi-label">STAFFING DATA (NOT CONNECTED)</div>
-              <div class="ops-kpi-value">
-                ${metric(staffing.actualTotalHppd)} <span class="ops-kpi-unit">Total HPPD</span>
-              </div>
-              <div class="ops-kpi-sub">
-                <span class="ops-tag-pending">RN: ${metric(staffing.actualRnHppd)} (Target: ${metric(staffing.targetRnHppd)})</span>
-                <span class="ops-sep">·</span>
-                <span class="ops-tag-pending">Target: ${metric(staffing.targetTotalHppd)} HPPD</span>
-              </div>
-              <div class="ops-payer-strip">
-                <span>Day Roster: ${metric(staffing.dayShiftStaff?.rn)} RN · ${metric(staffing.dayShiftStaff?.lpn)} LPN · ${metric(staffing.dayShiftStaff?.cna)} CNA</span>
               </div>
             </div>
 
@@ -333,48 +305,28 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               <div class="ops-card-header">
                 <div>
                   <h2 class="ops-card-title">Morning Standup &amp; Huddle Brief</h2>
-                  <p class="ops-card-subtitle">One-click operational synthesis across census, clinical alerts, staffing, and compliance priorities.</p>
+                  <p class="ops-card-subtitle">Imported clinical findings, recorded follow-ups, and meeting actions.</p>
                 </div>
                 <div class="ops-card-actions">
                   <button type="button" class="ops-btn ops-btn-sm ops-btn-secondary" id="ops-copy-brief-btn">📋 Copy Brief</button>
                   <button type="button" class="ops-btn ops-btn-sm ops-btn-primary" id="ops-refresh-brief-btn">↻ Refresh</button>
                 </div>
               </div>
-              <div class="ops-huddle-content" id="ops-huddle-content">
+              <label><input type="checkbox" id="ops-include-checklist"> Include optional general department checklist</label><div class="ops-huddle-content" id="ops-huddle-content">
                 <div class="ops-brief-placeholder">
                   <p>Click <strong>"Morning Standup Brief"</strong> to synthesize today's facility operations into an executive briefing document.</p>
                 </div>
               </div>
             </section>
 
-            <!-- Right: Survey & Regulatory Radar -->
-            <section class="ops-card ops-radar-box">
-              <div class="ops-card-header">
-                <div>
-                  <h2 class="ops-card-title">Survey Readiness &amp; F-Tag Vulnerability Radar</h2>
-                  <p class="ops-card-subtitle">A validated survey risk model is not available. Review source evidence with facility leadership.</p>
-                </div>
-              </div>
-              <div class="ops-radar-list">
-                ${radar.length === 0 ? '<p>No validated survey risk score available.</p>' : ''}${radar.map(r => `
-                  <div class="ops-radar-item">
-                    <div class="ops-radar-topline">
-                      <span class="ops-radar-tag">${esc(r.tag)}</span>
-                      <strong class="ops-radar-name">${esc(r.name)}</strong>
-                      <span class="ops-radar-score ${r.score > 60 ? 'score-high' : 'score-med'}">${r.score}/100 [${esc(r.riskLevel)}]</span>
-                    </div>
-                    <div class="ops-radar-progress-bg">
-                      <div class="ops-radar-progress-fill ${r.score > 60 ? 'bg-high' : 'bg-med'}" style="width: ${r.score}%;"></div>
-                    </div>
-                    <div class="ops-radar-footer">
-                      <span>Surveillance: <strong>${r.residentCount}</strong> resident(s) flagged</span>
-                      <span class="ops-sep">·</span>
-                      <span class="ops-radar-key">${esc(r.keyArea)}</span>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </section>
+            <details class="ops-card" style="padding:16px">
+              <summary>Set up operational data sources</summary>
+              <p><strong>Census:</strong> Import mapped census records in PCC Import Center.</p>
+              <p><strong>Staffing:</strong> Staffing-hours and roster imports still need implementation and reviewed mappings.</p>
+              <p><strong>Payer / occupancy:</strong> Capacity configuration and payer-feed support still need implementation.</p>
+              <p><strong>Survey risk:</strong> No validated scoring method is available. Review the actual alert evidence.</p>
+              <button type="button" class="ops-btn" data-act="view" data-view="pcc">Open PCC Import Center</button>
+            </details>
           </div>
         </div>
       `;
@@ -391,7 +343,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               <div class="ops-card-header">
                 <div>
                   <h2 class="ops-card-title">Start a Meeting Copilot Session</h2>
-                  <p class="ops-card-subtitle">Select a meeting template to initialize live audio capture, noise filtering, persistent voice identification, agenda tracking, clinical sentinel alerts, and automated action item extraction.</p>
+                  <p class="ops-card-subtitle">Start a meeting with agenda tracking, reviewed actions, manual notes, and optional local speaker suggestions. Browser transcription depends on your privacy settings.</p>
                 </div>
                 <div class="ops-card-actions">
                   <button type="button" class="ops-btn ops-btn-secondary ops-btn-sm" id="ops-preflight-mic-btn">
@@ -504,14 +456,12 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
             </div>
 
             <div class="ops-pipeline-indicators">
-              <span class="ops-indicator-pill" title="80Hz Biquad High-Pass Filter Active">⚡ 80Hz Filter</span>
-              <span class="ops-indicator-pill" title="Dynamic Spectral Noise Suppression">🛡 Noise Gate</span>
-              <span class="ops-indicator-pill" title="Voice Activity Detection">🗣 VAD</span>
-              <span class="ops-indicator-pill" title="Automatic Gain Control">🎚 AGC</span>
+              <span class="ops-indicator-pill">Local speaker measurement: opt-in, one speaker per recording</span>
+              <span class="ops-indicator-pill">Names require confirmation; overlapping speech is unsupported</span>
             </div>
 
             <div class="ops-role-selector-block">
-              <span class="ops-role-selector-label">Active Speaker:</span>
+              <span class="ops-role-selector-label">Manually selected speaker:</span>
               <div class="ops-role-chips">
                 ${ROLES.map(r => `
                   <button type="button" class="ops-role-chip ${activeSpeaker === r.speaker ? 'active' : ''}" data-set-role="${esc(r.role)}" data-set-speaker="${esc(r.speaker)}">
@@ -523,7 +473,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
             <div class="ops-quick-input-block">
               <input type="text" id="ops-statement-input" class="ops-statement-input" placeholder="Type or dictate statement for ${esc(activeSpeaker)}…" aria-label="Statement input">
-              <button type="button" class="ops-btn ops-btn-primary ops-btn-sm" id="ops-submit-statement-btn">Add Statement ↑</button>
+              <button type="button" class="ops-btn ops-btn-secondary ops-btn-sm" id="ops-record-speaker-btn">Record speaker for this statement</button><span id="ops-speaker-result" role="status"></span><button type="button" class="ops-btn ops-btn-primary ops-btn-sm" id="ops-submit-statement-btn">Add Statement ↑</button>
             </div>
           </section>
 
@@ -571,7 +521,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                     <p>No statements recorded yet. Start microphone listening or type a statement above to begin live copilot ingestion.</p>
                   </div>
                 ` : transcript.map(t => {
-                  const conf = t.confidenceLevel || 'strong';
+                  const conf = t.speakerVerified && t.attribution === 'manual' ? 'strong' : t.speaker === 'Unknown Speaker' ? 'weak' : 'possible';
                   const isUncertain = conf === 'possible';
                   const isUnknown = conf === 'weak' || t.speaker === 'Unknown Speaker';
 
@@ -581,7 +531,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                         <div class="ops-speaker-badge">
                           <strong class="ops-speaker-name">${esc(t.speaker)}</strong>
                           <span class="ops-speaker-role">(${esc(t.role)})</span>
-                          ${isUncertain ? `<span class="ops-conf-pill pill-uncertain" title="Tentative speaker match">Probably ${esc(t.speaker)} ?</span>` : ''}
+                          ${isUncertain ? `<span class="ops-conf-pill pill-uncertain" title="Tentative speaker match">Suggested — confirm identity</span>` : ''}
                           ${isUnknown ? `<span class="ops-conf-pill pill-unknown">Unknown Speaker</span>` : ''}
                           ${t.isOverheadPage ? `<span class="ops-conf-pill pill-page">Possible overhead page</span>` : ''}
                           ${t.isCrossTalk ? `<span class="ops-conf-pill pill-crosstalk">Multiple speakers</span>` : ''}
@@ -600,7 +550,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                         </div>
                       ` : ''}
 
-                      ${isUncertain ? `
+                      ${!t.speakerVerified ? `
                         <div class="ops-quick-confirm-row">
                           <span>Verify speaker:</span>
                           <button type="button" class="ops-btn ops-btn-xs ops-btn-secondary ops-confirm-speaker-btn" data-entry-id="${esc(t.id)}" data-speaker-name="${esc(t.speaker.replace('Probably ', '').replace(' ?', ''))}">✓ Confirm</button>
@@ -705,11 +655,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               <div>
                 <div class="ops-header-kicker">ACOUSTIC VERIFICATION &amp; CONTINUOUS LEARNING</div>
                 <h2 class="ops-card-title">Meeting Speaker Review</h2>
-                <p class="ops-card-subtitle">Verify speaker attributions rapidly across all transcript segments without reading every line. Confirmed corrections improve future automatic recognition.</p>
+                <p class="ops-card-subtitle">Verify speaker attributions rapidly across all transcript segments without reading every line. Confirm each identity. Profile enrollment is separate and always requires a fresh recording.</p>
               </div>
               <div class="ops-card-actions">
-                <button type="button" class="ops-btn ops-btn-primary ops-btn-sm" id="ops-confirm-all-high-btn">
-                  ✓ Confirm All High Confidence
+                <button type="button" class="ops-btn ops-btn-primary ops-btn-sm" id="ops-review-help-btn">
+                  Review individual entries
                 </button>
               </div>
             </div>
@@ -731,17 +681,17 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                   <div class="ops-spk-review-status">
                     <span>Recognition Status:</span>
                     <strong class="status-${esc(spk.confidenceLevel)}">
-                      ${spk.confidenceLevel === 'strong' ? 'High Confidence (Verified Match)' : spk.confidenceLevel === 'possible' ? 'Tentative Match (Requires Verification)' : 'Unmatched Voice (Unknown Speaker)'}
+                      ${spk.confidenceLevel === 'strong' ? 'Manually confirmed' : spk.confidenceLevel === 'possible' ? 'Tentative Match (Requires Verification)' : 'Unmatched Voice (Unknown Speaker)'}
                     </strong>
                   </div>
 
                   <div class="ops-spk-review-actions">
                     ${spk.confidenceLevel !== 'strong' ? `
                       <button type="button" class="ops-btn ops-btn-sm ops-btn-secondary ops-change-speaker-batch-btn" data-current-speaker="${esc(spk.speaker)}">
-                        Change Speaker &amp; Train Profile
+                        Change speaker labels
                       </button>
                     ` : `
-                      <span class="ops-spk-verified-pill">✓ Verified Profile Match</span>
+                      <span class="ops-spk-verified-pill">✓ Manually confirmed</span>
                     `}
                   </div>
                 </div>
@@ -1305,7 +1255,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 <div class="ops-h12-card">
                   <h3 class="ops-h12-title">12. Family Notification Needed (${h.sections.itemsRequiringFamilyNotification.length})</h3>
                   <div class="ops-h12-body">
-                    ${h.sections.itemsRequiringFamilyNotification.length === 0 ? `<p class="ops-none">All required family updates documented.</p>` : h.sections.itemsRequiringFamilyNotification.map(fam => `
+                    ${h.sections.itemsRequiringFamilyNotification.length === 0 ? `<p class="ops-none">No family-notification items identified in available records. Verify completeness.</p>` : h.sections.itemsRequiringFamilyNotification.map(fam => `
                       <div class="ops-h12-item">${esc(fam.residentName)}: ${esc(fam.event)}</div>
                     `).join('')}
                   </div>
@@ -1326,7 +1276,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
           <!-- Split: Protocol Library & Persistent Voice Profiles -->
           <div class="ops-split-grid">
             <!-- Left: Approved Facility Protocols Library -->
-            <section class="ops-card">
+            <section class="ops-card" ${activeTab !== 'protocols' ? 'hidden' : ''}>
               <div class="ops-card-header">
                 <div>
                   <h2 class="ops-card-title">Approved Facility Protocols Library</h2>
@@ -1366,11 +1316,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
             </section>
 
             <!-- Right: Persistent Voice Profiles & Recognition Engine -->
-            <section class="ops-card">
+            <section class="ops-card" ${activeTab !== 'voice_profiles' ? 'hidden' : ''}>
               <div class="ops-card-header">
                 <div>
                   <h2 class="ops-card-title">Persistent Voice Profiles</h2>
-                  <p class="ops-card-subtitle">Local multi-sample acoustic representations for automated participant recognition in meetings.</p>
+                  <p class="ops-card-subtitle">Record at least three different passages per person. Local acoustic similarity can suggest names; it is not a measured accuracy percentage or validated biometric identification.</p>
                 </div>
                 <div class="ops-card-actions">
                   <button type="button" class="ops-btn ops-btn-primary ops-btn-sm" id="ops-add-voice-profile-btn">＋ Add Staff Member</button>
@@ -1398,7 +1348,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
                     <div class="ops-prof-actions">
                       <button type="button" class="ops-btn ops-btn-xs ops-btn-secondary ops-add-sample-btn" data-profile-id="${esc(prof.id)}">＋ Add Verified Sample</button>
-                      <button type="button" class="ops-btn ops-btn-xs ops-btn-secondary ops-view-samples-btn" data-profile-id="${esc(prof.id)}">Review Samples (${(prof.samples || []).length})</button>
+                      <button type="button" class="ops-btn ops-btn-xs ops-delete-profile-btn" data-profile-id="${esc(prof.id)}">Delete profile</button><button type="button" class="ops-btn ops-btn-xs ops-btn-secondary ops-view-samples-btn" data-profile-id="${esc(prof.id)}">Review Samples (${(prof.samples || []).length})</button>
                     </div>
                   </div>
                 `).join('')}
@@ -1584,6 +1534,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       // Active Speaker Selection Chips
       container.querySelectorAll('[data-set-speaker]').forEach(chip => {
         chip.addEventListener('click', (e) => {
+          pendingAcoustic = null;
           activeSpeaker = e.currentTarget.getAttribute('data-set-speaker');
           activeRole = e.currentTarget.getAttribute('data-set-role');
           const input = container.querySelector('#ops-statement-input');
@@ -1597,16 +1548,17 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         const input = container.querySelector('#ops-statement-input');
         if (!input || !input.value.trim() || !activeMeeting) return;
         const textVal = input.value.trim();
-        input.value = '';
-
+        const measured = pendingAcoustic;
         try {
           const updated = await api('meetingAddTranscript', {
             meetingId: activeMeeting.id,
             speaker: activeSpeaker,
             role: activeRole,
-            text: textVal
+            text: textVal,
+            ...(measured ? {acousticFeatures:measured} : {speakerConfirmed:activeSpeaker !== 'Unknown Speaker'})
           });
           activeMeeting = updated;
+          pendingAcoustic = null;
           this.renderFullView(container);
           const feed = container.querySelector('#ops-transcript-feed');
           if (feed) feed.scrollTop = feed.scrollHeight;
@@ -1846,8 +1798,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         if (!pendingCorrection || !activeMeeting) return;
         try {
           // Re-attribute matching entries in meeting
-          const target = (activeMeeting.transcript || []).find(t => t.speaker === pendingCorrection.oldSpeaker);
-          if (target) {
+          const targets = (activeMeeting.transcript || []).filter(t => t.speaker === pendingCorrection.oldSpeaker);
+          for (const target of targets) {
             await api('speakerCorrectionLearn', {
               meetingId: activeMeeting.id,
               transcriptEntryId: target.id,
@@ -1857,6 +1809,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
           }
           toast(`Saved speaker correction for ${pendingCorrection.newSpeaker}. No audio profile training was performed.`);
           pendingCorrection = null;
+          activeMeeting=await api('meetingGet',{id:activeMeeting.id});
           speakerProfiles = await api('speakerProfilesList');
           speakerReviewData = await api('speakerReviewGet', { meetingId: activeMeeting.id });
           this.renderFullView(container);
@@ -2128,7 +2081,26 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         }
       });
 
-      container.querySelectorAll('.ops-add-sample-btn').forEach(btn => { btn.disabled = true; btn.title = 'Measured audio sample capture is not implemented'; });
+      container.querySelectorAll('.ops-add-sample-btn').forEach(btn => btn.addEventListener('click', () => this.recordSpeaker(container, btn.dataset.profileId)));
+      container.querySelector('#ops-record-speaker-btn')?.addEventListener('click', () => this.recordSpeaker(container));
+      container.querySelectorAll('.ops-delete-profile-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+        if(!window.confirm('Delete this voice profile and its saved acoustic measurements? Existing meeting labels remain for review.'))return;
+        try { await api('speakerProfileDelete',{id:btn.dataset.profileId});speakerProfiles=await api('speakerProfilesList');this.renderFullView(container); }catch(e){toast(e.message);}
+      }));
+      container.querySelectorAll('.ops-view-samples-btn').forEach(btn => btn.addEventListener('click', async () => {
+        const profile=speakerProfiles.find(p=>p.id===btn.dataset.profileId);
+        if(!profile)return;
+        const list=(profile.samples||[]).map((sample,i)=>`${i+1}. ${formatDateTime(sample.timestamp)} — confirmed by ${sample.verifiedBy}`).join('\n');
+        const choice=window.prompt((list||'No usable measured recordings.')+'\nEnter a sample number to delete, or Cancel to keep all:');
+        if(choice===null||!/^\d+$/.test(choice.trim()))return;
+        const sample=profile.samples[Number(choice)-1];if(!sample)return;
+        try { await api('speakerSampleRemove',{profileId:profile.id,sampleId:sample.id});speakerProfiles=await api('speakerProfilesList');this.renderFullView(container); } catch(e){toast(e.message);}
+      }));
+      container.querySelector('#ops-review-help-btn')?.addEventListener('click',()=>{activeTab='copilot';this.renderFullView(container);});
+      container.querySelectorAll('.ops-change-speaker-btn').forEach(btn => btn.addEventListener('click',async()=>{
+        const name=window.prompt('Confirmed speaker name:');if(!name?.trim()||!activeMeeting)return;
+        try { await api('speakerCorrectionLearn',{meetingId:activeMeeting.id,transcriptEntryId:btn.dataset.entryId,correctedSpeaker:name,learnForFuture:false});activeMeeting=await api('meetingGet',{id:activeMeeting.id});this.renderFullView(container); }catch(e){toast(e.message);}
+      }));
 
       // Open Past Meeting from Archive
       container.querySelectorAll('[data-open-meeting]').forEach(btn => {
@@ -2172,7 +2144,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
       box.innerHTML = `<div class="ops-loading">Synthesizing clinical alerts, census, and staffing roster into morning briefing...</div>`;
       try {
-        const brief = await api('operationsHuddleBrief');
+        const brief = await api('operationsHuddleBrief', {includeChecklist: container.querySelector('#ops-include-checklist')?.checked === true});
         box.innerHTML = `
           <div class="ops-brief-rendered">
             <pre class="ops-brief-pre">${esc(brief.text)}</pre>
@@ -2186,7 +2158,85 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
     // -------------------------------------------------------------
     // Helper: Live Speech Recognition Ingestion & Pipeline
     // -------------------------------------------------------------
+    recordSpeaker(container, profileId = null) {
+      if (!getState()?.settings) {toast('Unlock and load settings before recording.');return;}
+      if (!profileId && activeMeeting?.status !== 'live') {toast('Open a live meeting first.');return;}
+      this.stopListening();
+      capturePolicy=JSON.stringify([getState().settings.hipaa,getState().settings.processingMode]);
+      const meetingId=activeMeeting?.id;
+      const profile=profileId?speakerProfiles.find(p=>p.id===profileId):null;
+      if(profileId&&!profile)return;
+      const dialog=document.createElement('dialog');captureDialog=dialog;
+      dialog.innerHTML=`<form method="dialog" style="max-width:520px;padding:20px">
+        <h2>${profile?'Enroll '+esc(profile.name):'Record this speaker'}</h2>
+        <p>10 seconds: stay quiet for two seconds, then speak alone. Use a different passage for each enrollment. Local measurement only; no raw recording is retained.</p>
+        <p>Experimental suggestions need three confirmed recordings, a strong match, and clear separation from other profiles. Similar voices or changing microphones may prevent a match. Overlap cannot be detected reliably.</p>
+        <p>In Development / Demo Mode, use demonstration voices and nonclinical text only.</p>
+        <p data-capture-status role="status">Ready. Recording starts only when you press Record.</p>
+        <button type="button" data-record>Record</button>
+        <label style="display:block"><input type="checkbox" data-single> I confirm only one person spoke during this recording.</label>
+        ${profile?`<label style="display:block"><input type="checkbox" data-identity> I verified that the speaker is ${esc(profile.name)} and they agreed to save a local voice profile.</label><label>Confirmed by <input data-reviewer maxlength="100" required></label>`:''}
+        <button type="button" data-use disabled>${profile?'Save confirmed sample':'Use for this statement'}</button>
+        <button type="button" data-cancel>Cancel / stop recording</button>
+      </form>`;
+      document.body.appendChild(dialog);dialog.showModal();
+      let features=null,disposed=false;
+      const close=()=>{
+        if(disposed)return;disposed=true;
+        captureController?.abort();captureController=null;
+        if(captureDialog===dialog)captureDialog=null;
+        dialog.close();dialog.remove();features=null;
+      };
+      dialog.addEventListener('cancel',close);dialog.addEventListener('close',close);
+      dialog.querySelector('[data-cancel]').onclick=close;
+      const status=dialog.querySelector('[data-capture-status]'),use=dialog.querySelector('[data-use]'),record=dialog.querySelector('[data-record]');
+      record.onclick=async()=>{
+        record.disabled=true;use.disabled=true;features=null;
+        dialog.querySelector('[data-single]').checked=false;
+        if(profile)dialog.querySelector('[data-identity]').checked=false;
+        captureController=new AbortController();
+        try{
+          features=await captureSpeakerSample({signal:captureController.signal,onProgress:message=>{status.textContent=message;}});
+          if(disposed)return;
+          status.textContent='Recording measured. Confirm the checkboxes before using it.';use.disabled=false;
+        }catch(e){if(!disposed)status.textContent=e.message;}
+        finally{record.disabled=false;}
+      };
+      use.onclick=async()=>{
+        if(!features||!dialog.querySelector('[data-single]').checked){status.textContent='Confirm that only one person spoke.';return;}
+        if(!getState()?.settings){close();return;}
+        use.disabled=true;
+        const measured={...features,singleSpeakerConfirmed:true};
+        try{
+          if(profile){
+            const reviewer=dialog.querySelector('[data-reviewer]').value.trim();
+            if(!reviewer||!dialog.querySelector('[data-identity]').checked)throw Error('Confirm identity and enter the reviewer name.');
+            const result=await api('speakerSampleAdd',{...measured,profileId,verifiedBy:reviewer,identityConfirmed:true});
+            if(!result.accepted)throw Error(result.reason);
+            speakerProfiles=await api('speakerProfilesList');
+            close();toast(`Saved confirmed recording (${result.totalSamples}/3 minimum).`);this.renderFullView(container);
+          }else{
+            if(activeMeeting?.id!==meetingId||activeMeeting?.status!=='live')throw Error('Meeting changed. Record again.');
+            const match=await api('speakerIdentify',{features:measured});
+            if(disposed)return;
+            close();pendingAcoustic=measured;
+            const output=container.querySelector('#ops-speaker-result');
+            if(output)output.textContent=`${match.profileId?'Suggested: '+match.label:'Unknown Speaker'} — ${match.reason} Applies only to the next statement; expires after two minutes.`;
+          }
+        }catch(e){if(!disposed){status.textContent=e.message;use.disabled=false;}}
+      };
+    },
+
+    enforcePolicy(settings) {
+      const key=JSON.stringify([settings?.hipaa,settings?.processingMode]);
+      if (!settings || ((captureController || pendingAcoustic) && capturePolicy !== key) ||
+          (!browserSpeechAllowed(settings) && recognitionInstance)) this.stopListening();
+    },
+
     stopListening() {
+      captureController?.abort(); captureController=null;
+      captureDialog?.close(); captureDialog?.remove(); captureDialog=null;
+      pendingAcoustic=null; capturePolicy=null;
       const recognition = recognitionInstance;
       recognitionInstance = null;
       isListening = false;
@@ -2295,7 +2345,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       submitBtn.textContent = 'Apply & Ready';
       cancelBtn.textContent = 'Close';
 
-      content.innerHTML = `<p>Microphone quality has not been measured. Noise filtering, acoustic sampling and automatic speaker identification are not connected to live audio.</p><p>Use manual text entry and verify speaker names. Browser speech recognition is blocked in HIPAA and Local Only modes.</p>`;
+      content.innerHTML = `<p>Use Record speaker for a bounded local microphone measurement, or add confirmed samples under Voice Profiles. Keep quiet for the first two seconds, then speak alone. No raw audio is saved. Continuous speaker diarization and automatic cross-talk detection are not implemented.</p><p>Names are suggested only after strict similarity checks and three confirmed recordings; these thresholds are not an accuracy guarantee. Use manual text entry and verify speaker names. Browser speech recognition is blocked in HIPAA and Local Only modes.</p>`;
 
       const onSubmit = (e) => {
         e.preventDefault();
@@ -2362,4 +2412,3 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
     }
   };
 }
-

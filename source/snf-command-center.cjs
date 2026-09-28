@@ -490,8 +490,8 @@ class SNFCommandCenter {
         residentId,
         residentName: r.name || r.residentName || residentId,
         admissionDate: this._safeDateString(r.admissionDate, this._safeDateString(reportDate)),
-        admittedFrom: r.admittedFrom || r.hospital || 'Hospital',
-        primaryDiagnosis: r.primaryDiagnosis || r.admitDiagnosis || 'Post-Acute Care',
+        admittedFrom: r.admittedFrom || r.hospital || null,
+        primaryDiagnosis: r.primaryDiagnosis || r.admitDiagnosis || null,
         prescriber: r.prescriber || r.physician,
         sourceReport,
         reportDate,
@@ -514,9 +514,9 @@ class SNFCommandCenter {
         id,
         residentId,
         residentName: r.name || r.residentName || residentId,
-        type: r.type || 'Transfer Out', // 'Transfer Out' | 'Return'
-        hospital: r.hospital || r.destination || 'Acute Care Medical Center',
-        reason: r.reason || 'Acute Change in Condition',
+        type: r.type || null, // 'Transfer Out' | 'Return'
+        hospital: r.hospital || r.destination || null,
+        reason: r.reason || null,
         eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
@@ -540,10 +540,10 @@ class SNFCommandCenter {
         residentId,
         residentName: r.name || r.residentName || residentId,
         shift: r.shift || '24-Hour',
-        summary: r.summary || r.notes || r.event || 'Change in condition noted',
+        summary: r.summary || r.notes || r.event || null,
         vitalSigns: r.vitals || null,
-        providerNotified: !!r.providerNotified,
-        familyNotified: !!r.familyNotified,
+        providerNotified: importedBoolean(r.providerNotified),
+        familyNotified: importedBoolean(r.familyNotified),
         eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
         reportDate,
@@ -617,7 +617,7 @@ class SNFCommandCenter {
         isHighAlert: identified.isHighAlert,
         isPsychotropic: identified.isPsychotropic,
         isAntipsychotic: identified.isAntipsychotic,
-        changeType: r.changeType || r.action || 'New Order', // 'New Order' | 'Dose Increase' | 'Dose Decrease' | 'Discontinued' | 'Restart'
+        changeType: r.changeType || r.action || 'Unknown', // 'New Order' | 'Dose Increase' | 'Dose Decrease' | 'Discontinued' | 'Restart'
         previousDose: r.previousDose || null,
         newDose: r.newDose || r.dose,
         frequency: r.frequency,
@@ -680,7 +680,7 @@ class SNFCommandCenter {
         residentName: r.residentName || r.name || residentId,
         medication: r.medication || r.drugName,
         scheduledTime: r.scheduledTime || null,
-        exceptionType: r.exceptionType || r.status || 'Omitted', // 'Refused' | 'Omitted' | 'Not Available' | 'Held'
+        exceptionType: r.exceptionType || r.status || 'Unknown', // 'Refused' | 'Omitted' | 'Not Available' | 'Held'
         reason: r.reason || null,
         nurse: r.nurse || r.administeredBy || null,
         eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
@@ -767,8 +767,8 @@ class SNFCommandCenter {
         residentId,
         residentName: r.residentName || r.name || residentId,
         location: r.location || null,
-        injuryLevel: r.injuryLevel || 'None', // 'None' | 'Minor' | 'Major'
-        witnessed: !!r.witnessed,
+        injuryLevel: r.injuryLevel || null, // 'None' | 'Minor' | 'Major'
+        witnessed: importedBoolean(r.witnessed),
         neuroChecksDone: r.neuroChecksDone === true ? true : r.neuroChecksDone === false ? false : null,
         eventDate: this._safeDateString(r.eventDate, this._safeDateString(reportDate)),
         sourceReport,
@@ -846,8 +846,8 @@ class SNFCommandCenter {
         residentName: r.residentName || r.name || residentId,
         testName: r.testName || r.lab || null,
         result: r.result || null,
-        abnormal: !!r.abnormal,
-        criticalValue: !!r.criticalValue,
+        abnormal: importedBoolean(r.abnormal),
+        criticalValue: importedBoolean(r.criticalValue),
         followUpStatus: r.followUpStatus || 'Not documented',
         collectedDate: this._safeDateString(r.collectedDate, this._safeDateString(reportDate)),
         sourceReport,
@@ -871,8 +871,8 @@ class SNFCommandCenter {
         id,
         residentId,
         residentName: r.residentName || r.name || residentId,
-        noteType: r.noteType || 'Nursing Note', // 'Nursing' | 'Physician' | 'Psychiatry' | 'Social Service'
-        author: r.author || 'Staff',
+        noteType: r.noteType || null, // 'Nursing' | 'Physician' | 'Psychiatry' | 'Social Service'
+        author: r.author || null,
         text: r.text || r.summary || '',
         noteDate: this._safeDateString(r.noteDate, this._safeDateString(reportDate)),
         sourceReport,
@@ -898,11 +898,11 @@ class SNFCommandCenter {
         residentName: r.residentName || r.name || residentId,
         medication: r.medication,
         lastGDRDate: r.lastGDRDate || null,
-        result: r.result || 'Pending', // 'Success' | 'Relapsed/Reverted' | 'Contraindicated' | 'Pending'
+        result: r.result || null, // 'Success' | 'Relapsed/Reverted' | 'Contraindicated' | 'Pending'
         nextReviewDate: r.nextReviewDate || null,
-        isContraindicated: !!r.isContraindicated,
+        isContraindicated: importedBoolean(r.isContraindicated),
         clinicalRationale: r.clinicalRationale || null,
-        prescriberDocumentation: !!r.prescriberDocumentation,
+        prescriberDocumentation: importedBoolean(r.prescriberDocumentation),
         sourceReport,
         reportDate,
         originalRow: i + 1,
@@ -1470,16 +1470,19 @@ class SNFCommandCenter {
     if (!residentQuery) return 'Please specify a resident name or ID (e.g. /resident Smith).';
     const q = residentQuery.trim().toLowerCase();
     const residents = this.store.list('snf_resident');
-    const target = residents.find(r => r.name.toLowerCase().includes(q) || r.id.toLowerCase() === q);
+    const exact = residents.find(r => r.id.toLowerCase() === q);
+    const matches = exact ? [exact] : residents.filter(r => String(r.name || '').toLowerCase().includes(q));
+    if (matches.length > 1) return 'Multiple residents match. Repeat /resident with the exact resident ID:\n' + matches.map(r => `${r.name} — ID: ${r.id} — Room: ${r.room || 'Unknown'}`).join('\n');
+    const target = matches[0];
     if (!target) return `Resident "${residentQuery}" was not found in current PointClickCare census records.`;
 
     return this._getCached(`report_timeline_${target.id}`, () => {
       const rid = target.id;
-      const orders = this.store.list('snf_med_order').filter(o => o.residentId === rid);
+      const orders = this.store.list('snf_med_order').filter(o => o.residentId === rid && o.status === 'Active');
       const diags = this.store.list('snf_diagnosis').filter(d => d.residentId === rid);
       const behs = this.store.list('snf_behavior').filter(b => b.residentId === rid);
       const falls = this.store.list('snf_fall').filter(f => f.residentId === rid);
-      const alerts = this.store.list('snf_alert').filter(a => a.residentId === rid);
+      const alerts = this.store.list('snf_alert').filter(a => a.residentId === rid && a.status !== 'resolved');
 
       let out = `# CLINICAL SURVEILLANCE TIMELINE: ${target.name}\n`;
       out += `**Room**: ${target.room} | **Unit**: ${target.unit} | **Admitted**: ${target.admissionDate} | **MD**: ${target.prescriber}\n\n`;
@@ -1967,3 +1970,11 @@ module.exports = {
   identifyMedication
 };
 
+
+
+// Preserve unknown separately from false, including CSV boolean strings.
+function importedBoolean(value) {
+ if (value === true || value === 1 || /^(true|yes|1)$/i.test(String(value))) return true;
+ if (value === false || value === 0 || /^(false|no|0)$/i.test(String(value))) return false;
+ return null;
+}

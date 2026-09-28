@@ -4,7 +4,9 @@ Read `AGENTS.md`, `GEMINI.md`, `PROJECT_STATUS.json`, `ARCHITECTURE.md`, and `do
 
 ## Current workstream
 
-Review branch: `chatgpt/ai-studio-review-2026-09-25`, based on main `b537dd9a9d43c4660c7036c85eece02ff2578705`. This repairs the three recent AI Studio updates after the prior hardening integration. Do not merge automatically or overwrite the branch while another tool is editing it. AI Studio currently uses `main`; it must sync/reload after the user approves and merges these fixes. Current review findings and limits are in `docs/AI_STUDIO_REVIEW_2026-09-25.md`; older evidence remains in `docs/HARDENING_REVIEW.md`.
+PR #4 was merged into main at `21969ff21a5ab51bdb12900aea2d618eb96a3466`; its regression, dependency and release-file CI checks passed (run 36363249305). Do not repeat that merge or treat its old branch notes as current status.
+
+Current branch: `chatgpt/workflow-voice-improvements-2026-09-28`, based on that main commit. Read `docs/WORKFLOW_VOICE_REVIEW_2026-09-28.md` for workflow fixes, speaker setup, thresholds and acceptance limits. These new changes require review/merge before AI Studio's main-only project can sync them. Preserve historical review reports as dated evidence.
 
 ## Non-negotiable implementation rules
 
@@ -40,6 +42,10 @@ npm audit --omit=dev --audit-level=high
 npm run check:release
 ```
 
-Run `npm run test:hardening-ui` where Chromium is available, providing `PRIVATE_AI_TEST_CHROMIUM` when necessary. It covers the login form, Today/demo/evidence/follow-up navigation, Operations SBAR edits and Automation. In this review environment Chromium exits before page creation; supplementary DOM checks passed, but full visual acceptance is still pending.
+Run `npm run test:hardening-ui` where Chromium is available, providing `PRIVATE_AI_TEST_CHROMIUM` when necessary. It covers the login form, Today/demo/evidence/follow-up navigation, Operations SBAR edits and Automation. The current review also checked all eight Operations tabs and local capture controls through a supplemental DOM harness. In this review environment Chromium exits before page creation; supplementary DOM checks passed, but full visual acceptance is still pending.
 
 `npm run build` and `lint` are syntax checks only. `check:release` is the Windows input gate. Restored build scripts/icon are present; Windows helper/runtime binaries must be built by the documented workflow. Actual install, existing-data upgrade, vault, local inference and feature execution at the artifact SHA remain release requirements. Record exact passing/failing counts and all unperformed tests in PROJECT_STATUS; do not reuse historical claims as current evidence.
+
+## Speaker recognition contract
+
+Keep the speaker feature available. Local recordings produce experimental suggestions only after three confirmed recordings, quality checks, a strict similarity threshold and separation from competing profiles. These thresholds are not probabilities. Automatic suggestions are never verified identity or task ownership; a person must confirm each attribution. Do not substitute browser transcript confidence for speaker identity. Do not fabricate acoustic samples, add roster score bonuses, or silently train on corrections. Keep local capture separate from policy-gated browser transcription, and preserve capture cancellation and raw-audio non-retention.

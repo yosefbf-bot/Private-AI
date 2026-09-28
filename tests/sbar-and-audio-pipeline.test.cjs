@@ -1,3 +1,4 @@
+const {measuredSample}=require('./measured-speaker-fixture.cjs');
 'use strict';
 
 const test = require('node:test');
@@ -426,26 +427,21 @@ test('Enhanced Meeting Audio Pipeline & Speaker Recognition Test Suite', async (
 
     assert.deepEqual(speakerService.listProfiles(), []);
     const profile = speakerService.createProfile({name: 'Sarah Jenkins', role: 'DON'});
-    for (let i = 0; i < 3; i++) speakerService.addVerifiedSample(profile.id, {durationSeconds: 3.2, snrDb: 24, pitchMean: 210, spectralCentroid: 1650});
+    for (let i = 0; i < 3; i++) speakerService.addVerifiedSample(profile.id, measuredSample({pitchMean:210}));
     const sarah = speakerService.getProfile(profile.id);
     assert.equal(sarah.samples.length, 3);
-    assert.equal(sarah.quality, 'Fair');
+    assert.equal(sarah.quality, 'Ready for experimental suggestions');
 
     // 1. Identify Sarah with matching pitch and formant features
-    const matchSarah = speakerService.identifySpeaker({
-      pitchMean: sarah.samples[0].pitchMean,
-      spectralCentroid: sarah.samples[0].spectralCentroid
-    }, [{ name: 'Sarah Jenkins', role: 'DON' }]);
+    const matchSarah = speakerService.identifySpeaker(measuredSample({pitchMean:210}), [{ name: 'Sarah Jenkins', role: 'DON' }]);
 
-    assert.equal(matchSarah.confidenceLevel, 'strong');
+    assert.equal(matchSarah.confidenceLevel, 'possible');
+    assert.equal(matchSarah.matchStrength, 'strong');
     assert.equal(matchSarah.label, 'Sarah Jenkins');
-    assert.equal(matchSarah.needsConfirmation, false);
+    assert.equal(matchSarah.needsConfirmation, true);
 
     // 2. Identify unknown guest voice with very distant pitch/spectral features
-    const matchUnknown = speakerService.identifySpeaker({
-      pitchMean: 350,
-      spectralCentroid: 3200
-    }, []);
+    const matchUnknown = speakerService.identifySpeaker(measuredSample({pitchMean:350}), []);
 
     assert.equal(matchUnknown.confidenceLevel, 'weak');
     assert.equal(matchUnknown.label, 'Unknown Speaker');
@@ -457,27 +453,22 @@ test('Enhanced Meeting Audio Pipeline & Speaker Recognition Test Suite', async (
     const profId = speakerService.createProfile({name: 'Test Speaker'}).id;
 
     // Reject short clip (< 1.5s)
-    const shortRes = speakerService.addVerifiedSample(profId, { durationSeconds: 0.8, snrDb: 24, pitchMean: 180, spectralCentroid: 1400 });
+    const shortRes = speakerService.addVerifiedSample(profId, measuredSample({durationSeconds:0.8,voicedSeconds:0.5}));
     assert.equal(shortRes.accepted, false);
-    assert.match(shortRes.reason, /too short/);
+    assert.match(shortRes.reason, /clear speech/);
 
     // Reject overlapping clip
-    const overlapRes = speakerService.addVerifiedSample(profId, { durationSeconds: 3.0, snrDb: 24, pitchMean: 180, spectralCentroid: 1400, isOverlapping: true });
+    const overlapRes = speakerService.addVerifiedSample(profId, measuredSample({isOverlapping:true}));
     assert.equal(overlapRes.accepted, false);
-    assert.match(overlapRes.reason, /Overlapping/);
+    assert.match(overlapRes.reason, /overlapping/);
 
     // Reject low SNR clip (< 12dB)
-    const noisyRes = speakerService.addVerifiedSample(profId, { durationSeconds: 3.0, snrDb: 6, pitchMean: 180, spectralCentroid: 1400 });
+    const noisyRes = speakerService.addVerifiedSample(profId, measuredSample({snrDb:6}));
     assert.equal(noisyRes.accepted, false);
-    assert.match(noisyRes.reason, /Low SNR/);
+    assert.match(noisyRes.reason, /noisy/);
 
     // Accept clean verified sample
-    const cleanRes = speakerService.addVerifiedSample(profId, {
-      durationSeconds: 3.5,
-      snrDb: 24,
-      pitchMean: 180,
-      spectralCentroid: 1400
-    });
+    const cleanRes = speakerService.addVerifiedSample(profId, measuredSample());
     assert.equal(cleanRes.accepted, true);
     assert.ok(cleanRes.sample.id);
   });

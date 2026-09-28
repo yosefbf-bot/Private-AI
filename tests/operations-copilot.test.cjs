@@ -145,7 +145,7 @@ test('Operations Intelligence & Meeting Copilot Module Suite', async (t) => {
     assert.ok(brief.text, 'Brief must have text');
     assert.match(brief.text, /MORNING STANDUP & INTERDISCIPLINARY HUDDLE BRIEFING/);
     assert.match(brief.text, /FACILITY CENSUS & CAPACITY/);
-    assert.match(brief.text, /STAFFING DATA/);
+    assert.match(brief.text, /RECORDED FOLLOW-UPS/);
     assert.match(brief.text, /John Doe/);
     assert.match(brief.text, /204-B/);
   });
