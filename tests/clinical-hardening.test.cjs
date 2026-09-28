@@ -74,4 +74,10 @@ test('production critical summary remains visible in demo mode and with clinical
  assert.equal(core.summary().snfAlerts.critical,critical);
  const dashboard=await require('../source/snf/index.cjs').dispatch(core,'snfDashboard');
  assert.equal(dashboard.demo,true);assert.equal(dashboard.productionAlerts.critical,critical);
+ assert.deepEqual(dashboard.alerts,forCore(core).current().getAlertSummary());
+ assert.notEqual(dashboard.alerts.totalUnresolved,dashboard.productionAlerts.totalUnresolved);
+ await forCore(core).set({mode:'production'});
+ const liveDashboard=await require('../source/snf/index.cjs').dispatch(core,'snfDashboard');
+ assert.deepEqual(liveDashboard.alerts,liveDashboard.productionAlerts);
+ assert.equal(liveDashboard.alerts.critical,critical);
 });
