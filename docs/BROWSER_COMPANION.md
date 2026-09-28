@@ -1,5 +1,7 @@
 > Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
 
+Current browser choices, Bitwarden handoff and validation limits: [2026-09-28 browser review](BROWSER_PASSWORDS_2026-09-28.md).
+
 # Browser companion checkpoint
 
 The companion shares chat, page capture, and native messaging code. It does not contain its own AI model or API key. Private AI on the same Windows PC performs processing. The updated desktop source must be built and installed before Firefox can connect; the old 2.1.7 installer lacks the Firefox host registration.

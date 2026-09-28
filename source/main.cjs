@@ -38,7 +38,7 @@ const {LocalBrain}=require("./local-brain.cjs");
 const {ModelManager,MODELS,TIERS}=require("./model-manager.cjs");
 const {cloudAllowed}=require("./hybrid-settings.cjs");
 const {createTools}=require("./local-tools.cjs");
-const {BrowserWorker,validateRecipe}=require("./browser-worker.cjs");
+const {BrowserWorker,validateRecipe,validateBrowserTarget}=require("./browser-worker.cjs");
 const {MessagingBridge}=require("./messaging.cjs");
 const {WhatsAppWeb}=require("./whatsapp-web.cjs");
 const {WhatsAppWindows}=require("./whatsapp-windows.cjs");
@@ -383,7 +383,7 @@ async function dispatch(
     case "browserRecipes": return core.store.list("browserRecipe");
     case "browserSave": {const r=validateRecipe(data);core.store.put("browserRecipe",r.id,r);return r;}
     case "browserDelete": core.store.delete("browserRecipe",data.id);return true;
-    case "browserOpen": {const r=validateRecipe(data);await browserWorker.open(r.url,r.origins);return true;}
+    case "browserOpen": {const r=validateBrowserTarget(data);await browserWorker.open(r.url,r.origins,false,r.browser);return true;}
     case "browserClose": await browserWorker.close();return true;
     case "browserRun": {const r=core.store.get("browserRecipe",data.id);if(!r)throw fail("INVALID");return browserWorker.run(r);}
     case "localStatus": return {brain:core.router.local.status(),download:modelManager.status(),routing:core.router.tierStatus||{phase:'idle',tier:null}};

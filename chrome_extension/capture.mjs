@@ -9,6 +9,11 @@ export async function buildQuestion(
   if (includePage !== true) return question;
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw Error("Choose a webpage first.");
+  if(tab.url){
+    const url=new URL(tab.url);
+    if(['chrome-extension:','moz-extension:'].includes(url.protocol)||['vault.bitwarden.com','vault.bitwarden.eu'].includes(url.hostname))
+      throw Error('Password-manager pages are excluded from capture. Use Bitwarden to fill the website login without including its vault.');
+  }
   let result;
   try {
     result = await browser.scripting.executeScript({
@@ -34,8 +39,9 @@ export async function buildQuestion(
   return question;
 }
 export function extractVisible(selectionOnly = false) {
-  if (selectionOnly)
-    return { text: (window.getSelection()?.toString() || "").slice(0, 60000) };
+  const selection=selectionOnly?window.getSelection():null;
+  if(selectionOnly&&(!selection||selection.isCollapsed||!selection.rangeCount))return {text:""};
+  const ranges=selectionOnly?Array.from({length:selection.rangeCount},(_,i)=>selection.getRangeAt(i)):null;
   const parts = [];
   let length = 0,
     visited = 0;
@@ -54,7 +60,7 @@ export function extractVisible(selectionOnly = false) {
     "FOOTER",
   ]);
   const root =
-    document.querySelector('main,article,[role="main"]') || document.body;
+    (selectionOnly?document.body:document.querySelector('main,article,[role="main"]')) || document.body;
   if (!root || root.getClientRects().length === 0) return { text: "" };
   function walk(node) {
     if (length >= 60000 || ++visited > 50000) return;
@@ -63,14 +69,18 @@ export function extractVisible(selectionOnly = false) {
         skip.has(node.tagName) ||
         node.hidden ||
         node.isContentEditable ||
-        node.getAttribute("aria-hidden") === "true"
+        node.getAttribute("aria-hidden") === "true" ||
+        node.tagName.startsWith("BITWARDEN-") ||
+        node.matches('[autocomplete="current-password" i],[autocomplete="new-password" i],[autocomplete="one-time-code" i]')
       )
         return;
       const style = getComputedStyle(node);
       if (style.display === "none" || style.visibility === "hidden") return;
     }
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent.replace(/\s+/g, " ").trim();
+      let raw=node.textContent;
+      if(ranges)raw=ranges.filter(r=>r.intersectsNode(node)).map(r=>node.textContent.slice(r.startContainer===node?r.startOffset:0,r.endContainer===node?r.endOffset:node.textContent.length)).join(" ");
+      const text = raw.replace(/\s+/g, " ").trim();
       if (text) {
         const piece = text.slice(0, 60000 - length);
         parts.push(piece);

@@ -12,6 +12,8 @@
     "build": "node scripts/check-syntax.cjs",
     "lint": "node scripts/check-syntax.cjs",
     "prepare:browser": "node build/prepare-browser-assets.cjs",
+    "setup:browsers": "playwright-core install firefox chromium",
+    "test:browsers": "node tests/browser-e2e-check.cjs",
     "prestart": "node --check server.cjs",
     "test": "node --test --test-concurrency=4 --test-timeout=60000 tests/*.test.cjs",
     "test:ui": "node tests/ui-check.cjs",

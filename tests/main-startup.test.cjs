@@ -8,7 +8,7 @@ const {createRequire}=require('node:module'),{EventEmitter}=require('node:events
 const {Cipher}=require('../source/security.cjs'),{Store}=require('../source/database.cjs');
 const sourcePath=process.env.PRIVATEAI_TEST_MAIN||path.resolve(__dirname,'../source/main.cjs');
 const realRequire=createRequire(sourcePath);
-async function boot(t,{background=false,existing=false}={}){
+async function boot(t,{background=false,existing=false,browserWorker}={}){
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'privateai-startup-'));
  const root=path.join(folder,'PrivateAI2'),cipher=new Cipher(require('node:crypto').randomBytes(32));
  fs.mkdirSync(root);
@@ -32,6 +32,7 @@ async function boot(t,{background=false,existing=false}={}){
   if(name==='./windows-acl.cjs')return {verifyPrivateAcl(){}};
   if(name==='./startup-storage.cjs')return {...realRequire(name),loadVault:()=>cipher};
   if(name==='./bridge.cjs')return {startBridge:()=>({server:new EventEmitter(),broadcast(){},close(){}})};
+  if(name==='./browser-worker.cjs'&&browserWorker)return {...realRequire(name),BrowserWorker:class{constructor(){return browserWorker;}}};
   if(name==='./core.cjs'){const RealCore=realRequire(name).Core;return {Core:class extends RealCore{constructor(options){super(options);core=this;}}};}
   return realRequire(name);
  },process:fakeProcess,__dirname:path.dirname(sourcePath),Buffer,URL,console,setInterval:()=>timer,clearInterval(){},setTimeout,clearTimeout};
@@ -88,4 +89,16 @@ test('desktop workflow IPC executes saved assignments, imports, document search 
  b.core.saveSettings({workspace:path.join(path.dirname(b.core.root),'output')});const packetPreview=await call('workflowPacket',{key:item.key});const packetFile=await call('workflowPacketExport',{key:item.key,token:packetPreview.token,generatedAt:packetPreview.generatedAt});assert.ok(fs.existsSync(packetFile.path));const current=await call('workflowPlaybookPreview',{id:p.id});let queued;b.core.runJob=async j=>{queued=j;};await call('workflowPlaybookRun',{...current,reviewer:'Synthetic'});assert.equal(queued.playbook.revision,1);
  await call('workflowBudgetSave',{enabled:true,maxRequests:0});assert.equal((await call('workflowSummary')).budget.policy.enabled,true);
  b.core.locked=true;const blocked=await b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op:'workflowSummary',data:{}});assert.equal(blocked.ok,false);
+});
+
+test('desktop browser IPC saves and reloads browser choice, opens selected engine and runs saved recipe',async t=>{
+ const opened=[],runs=[],worker={open:async(...args)=>opened.push(args),run:async r=>{runs.push(r);return {complete:true};},close:async()=>{}};
+ const b=await boot(t,{browserWorker:worker});assert.deepEqual(b.errors,[]);
+ const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ const saved=await call('browserSave',{name:'Synthetic browser workflow',browser:'firefox',url:'https://example.com',steps:[{op:'login',selector:'#ready'},{op:'download',selector:'#export'}]});assert.equal(saved.ok,true);
+ const row=(await call('browserRecipes')).result.find(r=>r.id===saved.result.id);assert.equal(row.browser,'firefox');
+ assert.equal((await call('browserOpen',{url:row.url,browser:row.browser})).ok,true);assert.equal(opened[0][3],'firefox');
+ assert.equal((await call('browserRun',{id:row.id})).ok,true);assert.equal(runs[0].steps[0].op,'login');assert.equal(runs[0].browser,'firefox');
+ b.core.locked=true;assert.equal((await call('browserOpen',row)).ok,false);assert.equal(opened.length,1);
 });

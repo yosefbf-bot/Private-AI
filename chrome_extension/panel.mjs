@@ -77,7 +77,7 @@ function connect() {
     load().catch((e) => error(e.message));
   } catch {
     error(
-      "Open Private AI and use Settings → Set up Chrome Companion, then reconnect.",
+      "Open Private AI and use Settings → Set up browser companion, then reconnect.",
     );
   }
 }

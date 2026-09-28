@@ -3,6 +3,8 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const CODES = Object.freeze({
+  BROWSER_SETUP: "The selected browser could not start. Install Chrome/Edge/Brave/Vivaldi, or have your administrator install the matching managed Firefox/Chromium automation runtime. No other browser was substituted.",
+  BROWSER_LOGIN: "Sign-in is not ready. Use the browser or Bitwarden to fill the login, complete unlock/MFA, then retry. Passwords must not be entered in workflow steps.",
   REVIEW_CHANGED: "The saved data changed. Reload and review the current revision before continuing.",
   BUDGET: "The local cloud budget blocked this request. Review the monthly limits and pricing in Playbooks and budgets.",
   NOT_FOUND: "This item is no longer available. Reload the page.",

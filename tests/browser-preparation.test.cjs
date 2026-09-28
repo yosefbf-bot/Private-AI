@@ -19,6 +19,8 @@ test('restored browser preparation supports development versions and preserves r
   prepare();
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'chrome_extension/firefox/manifest.json')));
   assert.equal(manifest.version, '3.0.1');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root,'chrome_extension/manifest.json'))).version,manifest.version);
+  assert.equal(manifest.background.type,undefined);
   assert.ok(!manifest.permissions.includes('sidePanel'));
   const first = fs.readFileSync(infoFile, 'utf8'), info = JSON.parse(first);
   assert.equal(info.version, '3.0.1-dev');

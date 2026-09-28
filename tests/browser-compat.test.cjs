@@ -23,3 +23,8 @@ test('Firefox API capture still requires the user include-page choice',async()=>
  const browser={tabs:{query:async()=>{queries++;return [{id:9}];}},scripting:{executeScript:async()=>[{result:{text:'Synthetic page'}}]}};
  const old=globalThis.browser;globalThis.browser=browser;try{await buildQuestion({prompt:'hello'});assert.equal(queries,0);await buildQuestion({prompt:'summarize',includePage:true});assert.equal(queries,1);}finally{if(old===undefined)delete globalThis.browser;else globalThis.browser=old;}
 });
+
+test('companion falls back to a user-opened popup without sidebar APIs',()=>{
+ let popup,command,opened=0;const chrome={action:{setPopup:value=>{popup=value.popup;},openPopup:()=>opened++},commands:{onCommand:{addListener:fn=>command=fn}}};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../chrome_extension/background.mjs'),'utf8'),{chrome});assert.equal(popup,'panel.html');assert.equal(opened,0);command('open-private-ai');assert.equal(opened,1);
+});
