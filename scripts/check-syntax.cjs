@@ -9,10 +9,11 @@ try{
       if(e.name==='node_modules'||e.name==='.git'||e.name==='vendor')continue;
       const p=path.join(dir,e.name);
       if(e.isDirectory())walk(p);
-      else if(/\.(cjs|mjs|js)$/.test(e.name))files.push(p.replace(/^[./]+/, ''));
+      else if(/\.(cjs|mjs|js)$/.test(e.name))files.push(p.split(path.sep).join('/').replace(/^\.\//, ''));
     }
   }
   walk('.');
 }
 for(const file of files)execFileSync(process.execPath,['--check',file],{stdio:'inherit'});
 console.log(`Syntax checked: ${files.length} files.`);
+

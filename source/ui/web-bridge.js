@@ -5,29 +5,26 @@
   let csrf = '';
   let sessionToken = '';
   const ready = (async () => {
-    let token = window.__PRIVATE_AI_DEV_TOKEN__ || '';
-    if (!token && typeof window !== 'undefined' && window.location?.search) {
-      try {
-        const p = new URLSearchParams(window.location.search);
-        token = p.get('token') || '';
-      } catch {}
-    }
-    if (!token && typeof sessionStorage !== 'undefined') {
-      try { token = sessionStorage.getItem('privateai_dev_token') || ''; } catch {}
-    }
+    let token = '';
+    try { token = sessionStorage.getItem('privateai_dev_token') || ''; } catch {}
     if (!token) {
-      try {
-        const res = await fetch('/api/dev-token');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.token) token = data.token;
-        }
-      } catch {}
-    }
-    if (!token) {
-      try {
-        token = window.prompt('Development / Demo Mode — Not for PHI. Enter the local development access token:') || '';
-      } catch {}
+      // A DOM form works in preview iframes where window.prompt is disabled.
+      token = await new Promise(resolve => {
+        const show = () => {
+          const dialog = document.createElement('dialog');
+          const form = document.createElement('form');
+          const label = document.createElement('label');
+          label.textContent = 'Development / Demo Mode — Not for PHI. Enter PRIVATE_AI_DEV_TOKEN from your local .env file: ';
+          const input = document.createElement('input');
+          input.type = 'password'; input.required = true; input.minLength = 32; input.autocomplete = 'off';
+          const button = document.createElement('button'); button.textContent = 'Connect'; button.type = 'submit';
+          label.append(input); form.append(label, button); dialog.append(form); document.body.append(dialog);
+          dialog.addEventListener('cancel', event => event.preventDefault());
+          form.onsubmit = event => {event.preventDefault(); const value = input.value; dialog.remove(); resolve(value);};
+          dialog.showModal(); input.focus();
+        };
+        if (document.body) show(); else document.addEventListener('DOMContentLoaded', show, {once: true});
+      });
     }
     if (token && typeof sessionStorage !== 'undefined') {
       try { sessionStorage.setItem('privateai_dev_token', token); } catch {}
@@ -37,6 +34,7 @@
       headers: { Authorization: 'Bearer ' + (token || ''), 'X-Private-AI': 'development' }
     });
     if (!response.ok) {
+      try { sessionStorage.removeItem('privateai_dev_token'); } catch {}
       console.error('Development authentication failed: status', response.status);
       throw Error('Development authentication failed. Reload to try again.');
     }
@@ -139,4 +137,5 @@
     };
   }
 })();
+
 

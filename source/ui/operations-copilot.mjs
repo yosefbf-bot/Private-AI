@@ -1,22 +1,23 @@
+import { browserSpeechAllowed } from './speech-policy.mjs';
 // Operations Intelligence + Meeting Copilot + Interactive SBAR + Shift Handoff UI Module
 // Comprehensive operational command center, morning standup briefing,
 // real-time live meeting copilot with audio pipeline, non-speech filtering, speaker recognition,
 // interactive SBAR generator with clinical recommendation safeguards, and structured shift handoffs.
 
-export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage }) {
+export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage, getState = () => null }) {
   // Navigation tabs: 'operations' | 'copilot' | 'speaker_review' | 'sbar' | 'handoff' | 'protocols' | 'history'
   let activeTab = 'operations';
   let activeMeeting = null; // Current live or selected meeting
   let isListening = false;
-  let activeSpeaker = 'Sarah Jenkins';
-  let activeRole = 'DON';
+  let activeSpeaker = 'Unknown Speaker';
+  let activeRole = 'Unverified';
   let recognitionInstance = null;
   let meetingHistory = [];
   let opsData = null;
   let historySearch = '';
 
   // Audio Pipeline & Speaker Recognition State
-  let audioQuality = { status: 'Good', noiseFloorDb: -46, snrDb: 24, clippingCount: 0, crossTalkRatio: 0.02, warning: null };
+  let audioQuality = { status: 'Unmeasured', noiseFloorDb: 'Unknown', snrDb: 'Unknown', warning: 'Audio filtering and automatic speaker identification are not connected to measured microphone data. Verify speakers manually.' };
   let speakerProfiles = [];
   let speakerReviewData = null;
   let pendingCorrection = null;
@@ -32,15 +33,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
   let sbarSnapshotHours = 48;
   let shiftHandoffData = null;
 
-  const ROLES = [
-    { label: 'Sarah Jenkins (DON)', role: 'DON', dept: 'Nursing', speaker: 'Sarah Jenkins' },
-    { label: 'Dr. Robert Smith (MD)', role: 'Medical Director', dept: 'Medical', speaker: 'Dr. Robert Smith' },
-    { label: 'Michael Chang (MDS)', role: 'MDS Coordinator', dept: 'Clinical', speaker: 'Michael Chang' },
-    { label: 'David Miller (Admin)', role: 'Administrator', dept: 'Administration', speaker: 'David Miller' },
-    { label: 'Amanda Lewis (Staff RN)', role: 'Staff Nurse', dept: 'Nursing', speaker: 'Amanda Lewis' },
-    { label: 'Rachel Davis (Therapy)', role: 'Therapy', dept: 'Therapy', speaker: 'Rachel Davis' },
-    { label: 'Lisa Wong (Dietary)', role: 'Dietary', dept: 'Dietary', speaker: 'Lisa Wong' }
-  ];
+  const ROLES = [{label: 'Unknown Speaker — verify manually', role: 'Unverified', dept: '', speaker: 'Unknown Speaker'}];
+  const metric = value => value == null ? 'Not available' : esc(String(value));
 
   function formatTime(ts) {
     if (!ts) return '—';
@@ -76,12 +70,12 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
       try {
         const [ops, meetings, sbars, templates, protocols, profiles] = await Promise.all([
-          api('operationsSummary').catch(() => null),
-          api('meetingList').catch(() => []),
-          api('sbarList').catch(() => []),
-          api('sbarTemplates').catch(() => []),
-          api('sbarProtocols').catch(() => []),
-          api('speakerProfilesList').catch(() => [])
+          api('operationsSummary'),
+          api('meetingList'),
+          api('sbarList'),
+          api('sbarTemplates'),
+          api('sbarProtocols'),
+          api('speakerProfilesList')
         ]);
 
         opsData = ops;
@@ -90,13 +84,14 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         sbarTemplates = templates || [];
         facilityProtocols = protocols || [];
         speakerProfiles = profiles || [];
+        ROLES.splice(1, ROLES.length, ...speakerProfiles.map(p => ({label: p.name, speaker: p.name, role: p.role || 'Attendee', dept: p.department || ''})));
 
         // If launching directly with resident or alert parameters, auto-draft SBAR
         if (options.residentName || options.alertId) {
           try {
             activeSbar = await api('sbarGenerate', {
               residentName: options.residentName || 'Resident',
-              residentRoom: options.residentRoom || 'Rm 102',
+              residentRoom: options.residentRoom || '',
               alertId: options.alertId || null,
               templateKey: options.templateKey || 'general_provider',
               target: 'attending_physician'
@@ -107,15 +102,9 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
           }
         }
 
-        // Active meeting resolution
-        if (!activeMeeting && meetingHistory.length > 0) {
-          activeMeeting = meetingHistory.find(m => m.status === 'live') || null;
-        }
-
-        // Active SBAR default resolution
-        if (!activeSbar && sbarList.length > 0) {
-          activeSbar = sbarList[0];
-        }
+        // Resolve selected objects from this workspace on every load.
+        activeMeeting = meetingHistory.find(m => m.id === activeMeeting?.id) || meetingHistory.find(m => m.status === 'live') || null;
+        activeSbar = sbarList.find(s => s.id === activeSbar?.id) || sbarList[0] || null;
       } catch (err) {
         container.innerHTML = `
           <div class="ops-page">
@@ -134,9 +123,9 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
     renderFullView(container) {
       const ops = opsData || {};
-      const census = ops.census || { totalBeds: 120, activeResidents: 106, occupancyRate: 88, payerMix: { medicareA: 23, medicaid: 61, managedCare: 15, privatePay: 7 } };
+      const census = ops.census || {payerMix: {}};
       const surv = ops.surveillance || { criticalAlertsCount: 0, highAlertsCount: 0, fallAlerts24h: 0, fallAlerts7d: 0, activeWoundAlerts: 0, activeInfectionAlerts: 0, activePsychAlerts: 0 };
-      const staffing = ops.staffing || { rnCompliant: true, actualRnHppd: 0.58, targetRnHppd: 0.55, totalCompliant: true, actualTotalHppd: 3.62, targetTotalHppd: 3.48 };
+      const staffing = ops.staffing || {};
       const pendingCallbacksCount = (ops.sbars?.pendingCallbacksCount) || sbarList.filter(s => s.closeTheLoop?.stage === 'awaiting_callback').length;
 
       container.innerHTML = `
@@ -147,11 +136,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               <div class="ops-header-kicker">EXECUTIVE CLINICAL COMMAND &amp; AUTOMATION RADAR</div>
               <h1 class="ops-header-title">Operations Intelligence &amp; Meeting Copilot</h1>
               <div class="ops-header-meta">
-                <span>Facility: Pinecrest Skilled Nursing &amp; Rehabilitation</span>
+                <span>Facility: ${esc(ops.facilityName || 'Not configured')}</span>
                 <span class="ops-sep">·</span>
-                <span>Active Census: ${census.activeResidents}/${census.totalBeds} (${census.occupancyRate}%)</span>
+                <span>Active Census: ${metric(census.activeResidents)}/${metric(census.totalBeds)} (${metric(census.occupancyRate)}%)</span>
                 <span class="ops-sep">·</span>
-                <span class="ops-live-tag">SURVEILLANCE SENTINEL ACTIVE</span>
+                <span class="ops-live-tag">${ops.demo ? 'DEMO DATA — NOT FOR CLINICAL USE' : ops.dataHealth?.isSurveillanceComplete ? 'IMPORTED FEEDS — VERIFY DATES' : 'INCOMPLETE DATA — NOT AN ALL-CLEAR'}</span>
                 ${pendingCallbacksCount > 0 ? `<span class="ops-callback-alert-pill">⚠ ${pendingCallbacksCount} MD Callback Pending</span>` : ''}
               </div>
             </div>
@@ -201,11 +190,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
     // Tab 1: Operations Radar & KPI Command Center
     // -------------------------------------------------------------
     renderOperationsRadar(ops) {
-      const census = ops.census || { totalBeds: 120, activeResidents: 106, occupancyRate: 88, payerMix: { medicareA: 23, medicaid: 61, managedCare: 15, privatePay: 7 } };
+      const census = ops.census || {payerMix: {}};
       const surv = ops.surveillance || { criticalAlertsCount: 0, highAlertsCount: 0, fallAlerts24h: 0, fallAlerts7d: 0, activeWoundAlerts: 0, activeInfectionAlerts: 0, activePsychAlerts: 0, hospitalTransfers24h: 0 };
-      const staffing = ops.staffing || { rnCompliant: true, actualRnHppd: 0.58, targetRnHppd: 0.55, totalCompliant: true, actualTotalHppd: 3.62, targetTotalHppd: 3.48, dayShiftStaff: { rn: 3, lpn: 5, cna: 14 } };
+      const staffing = ops.staffing || {};
       const radar = ops.surveyRadar || [];
-      const cmd = ops.commandCenter || { needsAttention: [], followUps: [], meetingActions: [], automationHealth: { status: 'Optimal' } };
+      const cmd = ops.commandCenter || { needsAttention: [], followUps: [], meetingActions: [], automationHealth: { status: 'Not available' } };
 
       return `
         <div class="ops-radar-container">
@@ -266,20 +255,20 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
             <!-- Metric 1: Census & Payer -->
             <div class="ops-kpi-card">
               <div class="ops-kpi-label">FACILITY CENSUS &amp; OCCUPANCY</div>
-              <div class="ops-kpi-value">${census.activeResidents} <span class="ops-kpi-unit">/ ${census.totalBeds} Beds</span></div>
+              <div class="ops-kpi-value">${metric(census.activeResidents)} <span class="ops-kpi-unit">/ ${metric(census.totalBeds)} Beds</span></div>
               <div class="ops-kpi-meter-wrap">
-                <div class="ops-kpi-meter-bar" style="width: ${census.occupancyRate}%;"></div>
+                <div class="ops-kpi-meter-bar" style="width: ${Number(census.occupancyRate) || 0}%;"></div>
               </div>
               <div class="ops-kpi-sub">
-                <span>${census.occupancyRate}% Occupied</span>
+                <span>${metric(census.occupancyRate)}% Occupied</span>
                 <span class="ops-sep">·</span>
-                <span>${census.totalBeds - census.activeResidents} Available Beds</span>
+                <span>${metric(census.availableBeds)} Available Beds</span>
               </div>
               <div class="ops-payer-strip">
-                <span>Med A: <strong>${census.payerMix.medicareA}</strong></span>
-                <span>Medicaid: <strong>${census.payerMix.medicaid}</strong></span>
-                <span>Managed: <strong>${census.payerMix.managedCare}</strong></span>
-                <span>Private: <strong>${census.payerMix.privatePay}</strong></span>
+                <span>Med A: <strong>${metric(census.payerMix.medicareA)}</strong></span>
+                <span>Medicaid: <strong>${metric(census.payerMix.medicaid)}</strong></span>
+                <span>Managed: <strong>${metric(census.payerMix.managedCare)}</strong></span>
+                <span>Private: <strong>${metric(census.payerMix.privatePay)}</strong></span>
               </div>
             </div>
 
@@ -304,17 +293,17 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
             <!-- Metric 3: CMS Staffing Mandate Alignment -->
             <div class="ops-kpi-card">
-              <div class="ops-kpi-label">CMS STAFFING MANDATE (HPPD)</div>
+              <div class="ops-kpi-label">STAFFING DATA (NOT CONNECTED)</div>
               <div class="ops-kpi-value">
-                ${staffing.actualTotalHppd} <span class="ops-kpi-unit">Total HPPD</span>
+                ${metric(staffing.actualTotalHppd)} <span class="ops-kpi-unit">Total HPPD</span>
               </div>
               <div class="ops-kpi-sub">
-                <span class="ops-tag-ok">RN: ${staffing.actualRnHppd} (Target: ${staffing.targetRnHppd})</span>
+                <span class="ops-tag-pending">RN: ${metric(staffing.actualRnHppd)} (Target: ${metric(staffing.targetRnHppd)})</span>
                 <span class="ops-sep">·</span>
-                <span class="ops-tag-ok">Target: ${staffing.targetTotalHppd} HPPD</span>
+                <span class="ops-tag-pending">Target: ${metric(staffing.targetTotalHppd)} HPPD</span>
               </div>
               <div class="ops-payer-strip">
-                <span>Day Roster: ${staffing.dayShiftStaff?.rn || 3} RN · ${staffing.dayShiftStaff?.lpn || 5} LPN · ${staffing.dayShiftStaff?.cna || 14} CNA</span>
+                <span>Day Roster: ${metric(staffing.dayShiftStaff?.rn)} RN · ${metric(staffing.dayShiftStaff?.lpn)} LPN · ${metric(staffing.dayShiftStaff?.cna)} CNA</span>
               </div>
             </div>
 
@@ -363,11 +352,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               <div class="ops-card-header">
                 <div>
                   <h2 class="ops-card-title">Survey Readiness &amp; F-Tag Vulnerability Radar</h2>
-                  <p class="ops-card-subtitle">Continuous surveillance for high-risk CMS survey focus areas based on live PCC telemetry.</p>
+                  <p class="ops-card-subtitle">A validated survey risk model is not available. Review source evidence with facility leadership.</p>
                 </div>
               </div>
               <div class="ops-radar-list">
-                ${radar.map(r => `
+                ${radar.length === 0 ? '<p>No validated survey risk score available.</p>' : ''}${radar.map(r => `
                   <div class="ops-radar-item">
                     <div class="ops-radar-topline">
                       <span class="ops-radar-tag">${esc(r.tag)}</span>
@@ -696,15 +685,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
     // Tab 3: Post-Meeting Speaker Review & Profile Learning
     // -------------------------------------------------------------
     renderSpeakerReviewView() {
-      const review = speakerReviewData || (activeMeeting ? {
-        meetingId: activeMeeting.id,
-        speakers: [
-          { speaker: 'Sarah Jenkins', role: 'DON', count: 18, confidenceLevel: 'strong' },
-          { speaker: 'Dr. Robert Smith', role: 'Medical Director', count: 11, confidenceLevel: 'strong' },
-          { speaker: 'Probably Michael Chang ?', role: 'MDS Coordinator', count: 4, confidenceLevel: 'possible' },
-          { speaker: 'Unknown Speaker', role: 'Attendee', count: 2, confidenceLevel: 'weak' }
-        ]
-      } : null);
+      const review = speakerReviewData;
 
       if (!review) {
         return `
@@ -824,8 +805,9 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               <button type="button" class="ops-btn ops-btn-sm ops-btn-secondary" id="ops-new-sbar-btn">
                 ＋ Draft New SBAR
               </button>
+              ${s && s.status !== 'finalized' ? '<button type="button" class="ops-btn ops-btn-primary" id="ops-save-sbar-btn">Save Draft</button>' : ''}
               ${s && s.status === 'draft' ? `
-                <button type="button" class="ops-btn ops-btn-sm ops-btn-primary" id="ops-review-sbar-btn">
+                <button type="button" class="ops-btn ops-btn-secondary" id="ops-review-sbar-btn">
                   ✓ Mark Clinician Reviewed
                 </button>
               ` : s && s.status === 'reviewed' ? `
@@ -942,7 +924,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 </div>
                 <div class="ops-sbar-section-body">
                   <label class="ops-field-label">Current Clinical Concern &amp; Immediate Observations:</label>
-                  <textarea class="ops-textarea" id="sbar-edit-situation-concern" rows="3">${esc(s.situation?.concern || '')}</textarea>
+                  <textarea class="ops-textarea" id="sbar-edit-situation-concern" ${s.status === 'finalized' ? 'disabled' : ''} rows="3">${esc(s.situation?.concern || '')}</textarea>
                   ${showSources ? `<div class="ops-source-attribution">Source: ${esc(s.situation?.source || 'PointClickCare 24-Hour Clinical Feed')} · Onset: ${esc(s.situation?.onset || 'Current shift')}</div>` : ''}
 
                   <div class="ops-vitals-badge-row">
@@ -981,7 +963,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                     </div>
                     <div class="ops-bg-item">
                       <span class="ops-bg-lbl">Code Status:</span>
-                      <span>${esc(s.background?.codeStatus?.value || 'Full Code')}</span>
+                      <span>${esc(s.background?.codeStatus?.value || 'Not available — verify before use')}</span>
                       ${showSources ? `<span class="ops-src">Source: Advance Directives</span>` : ''}
                     </div>
                     <div class="ops-bg-item">
@@ -1039,7 +1021,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
                   <div class="ops-clinician-notes-group">
                     <label class="ops-field-label">Clinician Manual Observations &amp; Nursing Assessment:</label>
-                    <textarea class="ops-textarea" id="sbar-edit-clinician-notes" rows="2" placeholder="Add verified physical assessment, nursing observations, or patient statements…">${esc(s.assessment?.clinicianNotes || '')}</textarea>
+                    <textarea class="ops-textarea" id="sbar-edit-clinician-notes" ${s.status === 'finalized' ? 'disabled' : ''} rows="2" placeholder="Add verified physical assessment, nursing observations, or patient statements…">${esc(s.assessment?.clinicianNotes || '')}</textarea>
                   </div>
                 </div>
               </div>
@@ -1526,6 +1508,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       // Tab Switching
       container.querySelectorAll('[data-ops-tab]').forEach(btn => {
         btn.addEventListener('click', (e) => {
+          this.stopListening();
           activeTab = e.currentTarget.getAttribute('data-ops-tab');
           this.renderFullView(container);
         });
@@ -1640,9 +1623,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         }
       });
 
+      // Synthetic entries are available only in the isolated demo workspace.
+      container.querySelectorAll('[id^="ops-sim-"]').forEach(button => { button.disabled = !opsData?.demo; });
       // Acoustic Event Simulations
       container.querySelector('#ops-sim-page-btn')?.addEventListener('click', async () => {
-        if (!activeMeeting) return;
+        if (!activeMeeting || !opsData?.demo) return;
         try {
           const updated = await api('meetingAddTranscript', {
             meetingId: activeMeeting.id,
@@ -1660,7 +1645,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       });
 
       container.querySelector('#ops-sim-crosstalk-btn')?.addEventListener('click', async () => {
-        if (!activeMeeting) return;
+        if (!activeMeeting || !opsData?.demo) return;
         try {
           const updated = await api('meetingAddTranscript', {
             meetingId: activeMeeting.id,
@@ -1678,7 +1663,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       });
 
       container.querySelector('#ops-sim-unknown-btn')?.addEventListener('click', async () => {
-        if (!activeMeeting) return;
+        if (!activeMeeting || !opsData?.demo) return;
         try {
           const updated = await api('meetingAddTranscript', {
             meetingId: activeMeeting.id,
@@ -1748,7 +1733,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
             });
             if (res.success) {
               toast(`Saved as Official To-Do in Action Inbox: "${res.todo.title}"`);
-              activeMeeting = await api('meetingGet', { id: activeMeeting.id });
+              this.stopListening();
+            activeMeeting = await api('meetingGet', { id: activeMeeting.id });
               this.renderFullView(container);
             }
           } catch (err) {
@@ -1784,6 +1770,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         if (!confirm) return;
 
         try {
+          this.stopListening();
           const finalized = await api('meetingFinalize', { meetingId: activeMeeting.id });
           activeMeeting = finalized;
           meetingHistory = await api('meetingList');
@@ -1806,7 +1793,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         if (!activeMeeting) return;
         try {
           await api('speakerReviewConfirmAll', { meetingId: activeMeeting.id });
-          activeMeeting = await api('meetingGet', { id: activeMeeting.id });
+          this.stopListening();
+            activeMeeting = await api('meetingGet', { id: activeMeeting.id });
           speakerReviewData = await api('speakerReviewGet', { meetingId: activeMeeting.id });
           toast('Confirmed all high-confidence speaker attributions.');
           this.renderFullView(container);
@@ -1826,8 +1814,9 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               meetingId: activeMeeting.id,
               transcriptEntryId: entryId,
               correctedSpeaker: spkName,
-              learnForFuture: true
+              learnForFuture: false
             });
+            this.stopListening();
             activeMeeting = await api('meetingGet', { id: activeMeeting.id });
             toast(`Confirmed speaker: ${spkName}`);
             this.renderFullView(container);
@@ -1841,7 +1830,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       container.querySelectorAll('.ops-change-speaker-batch-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const oldSpeaker = e.currentTarget.getAttribute('data-current-speaker');
-          const newName = window.prompt(`Re-assign all segments attributed to "${oldSpeaker}" to which speaker name?`, 'David Miller');
+          const newName = window.prompt(`Re-assign all segments attributed to "${oldSpeaker}" to which speaker name?`, '');
           if (newName && newName.trim() && newName !== oldSpeaker) {
             pendingCorrection = {
               oldSpeaker,
@@ -1863,10 +1852,10 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               meetingId: activeMeeting.id,
               transcriptEntryId: target.id,
               correctedSpeaker: pendingCorrection.newSpeaker,
-              learnForFuture: true
+              learnForFuture: false
             });
           }
-          toast(`Updated profile for ${pendingCorrection.newSpeaker} with verified acoustic samples!`);
+          toast(`Saved speaker correction for ${pendingCorrection.newSpeaker}. No audio profile training was performed.`);
           pendingCorrection = null;
           speakerProfiles = await api('speakerProfilesList');
           speakerReviewData = await api('speakerReviewGet', { meetingId: activeMeeting.id });
@@ -1884,6 +1873,10 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       // -----------------------------------------------------------
       // SBAR Interactive Editor Event Wiring
       // -----------------------------------------------------------
+      if (activeSbar && activeSbar.evidenceVersion !== 2) {
+        container.querySelector('.ops-sbar-headline')?.insertAdjacentHTML('afterend', '<p role="alert">Legacy SBAR may contain sample clinical facts. Preserve for review and create a new draft from verified sources. Copying and sign-off are blocked.</p>');
+        for (const id of ['ops-save-sbar-btn','ops-review-sbar-btn','ops-finalize-sbar-btn','ops-copy-sbar-btn']) { const b=container.querySelector('#'+id); if(b)b.disabled=true; }
+      }
       container.querySelector('#ops-toggle-sources-btn')?.addEventListener('click', () => {
         showSources = !showSources;
         this.renderFullView(container);
@@ -1892,9 +1885,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       container.querySelector('#ops-sbar-target-sel')?.addEventListener('change', async (e) => {
         const newTarget = e.currentTarget.value;
         if (!activeSbar) return;
-        activeSbar.targetKey = newTarget;
         try {
-          activeSbar = await api('sbarSave', activeSbar);
+          activeSbar = await api('sbarSave', {id: activeSbar.id, targetKey: newTarget});
           this.renderFullView(container);
           toast(`Communication adapted for ${activeSbar.targetRole}.`);
         } catch (err) {
@@ -1907,8 +1899,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         try {
           activeSbar = await api('sbarGenerate', {
             templateKey: tplKey,
-            residentName: activeSbar?.residentName || 'Eleanor Vance',
-            residentRoom: activeSbar?.residentRoom || 'Rm 104',
+            residentName: activeSbar?.residentName || '',
+            residentRoom: activeSbar?.residentRoom || '',
             target: activeSbar?.targetKey || 'attending_physician'
           });
           sbarList = await api('sbarList');
@@ -1924,7 +1916,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         if (activeSbar) {
           try {
             const snap = await api('sbarSnapshot48h', {
-              residentId: activeSbar.residentName,
+              residentId: activeSbar.residentId,
               windowHours: sbarSnapshotHours
             });
             activeSbar.snapshot48h = snap;
@@ -1937,8 +1929,9 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       });
 
       container.querySelector('#ops-new-sbar-btn')?.addEventListener('click', async () => {
-        const resName = window.prompt('Enter Resident Name:', 'Eleanor Vance') || 'Eleanor Vance';
-        const resRoom = window.prompt('Enter Room / Bed:', 'Rm 104') || 'Rm 104';
+        const resName = window.prompt('Enter Resident Name:', '')?.trim();
+        if (!resName) return;
+        const resRoom = window.prompt('Enter Room / Bed:', '')?.trim() || '';
         try {
           activeSbar = await api('sbarGenerate', {
             residentName: resName,
@@ -1954,9 +1947,31 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         }
       });
 
+      const editFields = ['#sbar-edit-situation-concern', '#sbar-edit-clinician-notes'];
+      editFields.forEach(selector => container.querySelector(selector)?.addEventListener('input', () => {
+        for (const id of ['ops-review-sbar-btn','ops-finalize-sbar-btn','ops-copy-sbar-btn']) {
+          const button = container.querySelector('#' + id); if (button) button.disabled = true;
+        }
+        const save = container.querySelector('#ops-save-sbar-btn'); if (save) save.textContent = 'Save Changes (review required)';
+      }));
+      container.querySelector('#ops-save-sbar-btn')?.addEventListener('click', async () => {
+        if (!activeSbar) return;
+        try {
+          activeSbar = await api('sbarSave', {
+            id: activeSbar.id,
+            situation: {concern: container.querySelector('#sbar-edit-situation-concern')?.value || ''},
+            assessment: {clinicianNotes: container.querySelector('#sbar-edit-clinician-notes')?.value || ''}
+          });
+          sbarList = await api('sbarList');
+          this.renderFullView(container);
+          toast('Draft saved. Review the updated content before finalizing.');
+        } catch (err) { toast(err.message); }
+      });
+
       container.querySelector('#ops-review-sbar-btn')?.addEventListener('click', async () => {
         if (!activeSbar) return;
-        const reviewer = window.prompt('Clinician Reviewer Name / Title:', 'Amanda Lewis, RN') || 'Amanda Lewis, RN';
+        const reviewer = window.prompt('Clinician Reviewer Name / Title:', '')?.trim();
+        if (!reviewer) return;
         try {
           activeSbar = await api('sbarReview', { id: activeSbar.id, reviewer });
           sbarList = await api('sbarList');
@@ -1969,7 +1984,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
       container.querySelector('#ops-finalize-sbar-btn')?.addEventListener('click', async () => {
         if (!activeSbar) return;
-        const finalizer = window.prompt('Finalizing Nurse Supervisor Name / Title:', 'Sarah Jenkins, DON') || 'Sarah Jenkins, DON';
+        const finalizer = window.prompt('Finalizing Nurse Supervisor Name / Title:', '')?.trim();
+        if (!finalizer) return;
         try {
           activeSbar = await api('sbarFinalize', { id: activeSbar.id, finalizer });
           sbarList = await api('sbarList');
@@ -2112,36 +2128,14 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         }
       });
 
-      container.querySelectorAll('.ops-add-sample-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const profileId = e.currentTarget.getAttribute('data-profile-id');
-          try {
-            const res = await api('speakerSampleAdd', {
-              profileId,
-              durationSeconds: 3.5,
-              snrDb: 22,
-              pitchMean: 180,
-              spectralCentroid: 1400,
-              verifiedBy: 'Clinician Mic Calibration'
-            });
-            if (res.accepted) {
-              toast(`Added clean verified sample! Profile quality: ${res.profileQuality}`);
-              speakerProfiles = await api('speakerProfilesList');
-              this.renderFullView(container);
-            } else {
-              toast(`Sample rejected by quality filter: ${res.reason}`);
-            }
-          } catch (err) {
-            toast(err.message);
-          }
-        });
-      });
+      container.querySelectorAll('.ops-add-sample-btn').forEach(btn => { btn.disabled = true; btn.title = 'Measured audio sample capture is not implemented'; });
 
       // Open Past Meeting from Archive
       container.querySelectorAll('[data-open-meeting]').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           const id = e.currentTarget.getAttribute('data-open-meeting');
           try {
+            this.stopListening();
             activeMeeting = await api('meetingGet', { id });
             activeTab = 'copilot';
             this.renderFullView(container);
@@ -2192,6 +2186,16 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
     // -------------------------------------------------------------
     // Helper: Live Speech Recognition Ingestion & Pipeline
     // -------------------------------------------------------------
+    stopListening() {
+      const recognition = recognitionInstance;
+      recognitionInstance = null;
+      isListening = false;
+      if (recognition) {
+        recognition.onresult = recognition.onend = recognition.onerror = recognition.onstart = null;
+        recognition.abort();
+      }
+    },
+
     toggleSpeechRecognition(container) {
       if (isListening) {
         if (recognitionInstance) {
@@ -2204,6 +2208,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         return;
       }
 
+      if (!browserSpeechAllowed(getState()?.settings)) { toast('Browser speech recognition is disabled in HIPAA / Local Only mode. Use manual text entry.'); return; }
+      if (!activeMeeting || activeMeeting.status !== 'live') return;
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
         toast('Speech Recognition API not supported in this browser. Please use the text input.');
@@ -2222,20 +2228,18 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
           this.renderFullView(container);
         };
 
+        const meetingId = activeMeeting.id;
         recognitionInstance.onresult = async (event) => {
+          if (!browserSpeechAllowed(getState()?.settings) || activeMeeting?.id !== meetingId || activeMeeting?.status !== 'live') { this.stopListening(); return; }
           const results = event.results;
           const lastResult = results[results.length - 1];
           if (lastResult.isFinal) {
             const speechText = lastResult[0].transcript.trim();
             if (speechText && activeMeeting) {
               try {
-                // Determine speaker recognition attribution
-                const ident = await api('speakerIdentify', {
-                  features: { pitchMean: 180, spectralCentroid: 1400 },
-                  expectedRoster: activeMeeting.attendees || []
-                }).catch(() => ({ label: activeSpeaker, confidenceLevel: 'strong' }));
-
-                const finalSpeaker = ident.confidenceLevel === 'weak' ? 'Unknown Speaker' : ident.label;
+                // Browser speech recognition provides text, not acoustic identity evidence.
+                const ident = {label: 'Unknown Speaker', role: 'Unverified', confidenceLevel: 'weak'};
+                const finalSpeaker = ident.label;
 
                 const updated = await api('meetingAddTranscript', {
                   meetingId: activeMeeting.id,
@@ -2291,47 +2295,12 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       submitBtn.textContent = 'Apply & Ready';
       cancelBtn.textContent = 'Close';
 
-      content.innerHTML = `
-        <div class="ops-mic-diagnostic">
-          <p style="font-size:13px;color:#475569;margin-bottom:14px;">
-            Testing conference room microphone availability, ambient room noise, and input volume levels before starting the meeting session.
-          </p>
-
-          <div class="ops-diag-row">
-            <span class="ops-diag-lbl">Microphone Device:</span>
-            <strong class="ops-diag-val">Default Conference USB Audio (Available ✓)</strong>
-          </div>
-
-          <div class="ops-diag-row">
-            <span class="ops-diag-lbl">Ambient Noise Floor:</span>
-            <strong class="ops-diag-val">-46 dB (Quiet Room ✓)</strong>
-          </div>
-
-          <div class="ops-diag-row">
-            <span class="ops-diag-lbl">Low-Frequency Rumble (HVAC):</span>
-            <strong class="ops-diag-val">Filtered via 80Hz Biquad Cutoff ✓</strong>
-          </div>
-
-          <div class="ops-diag-row">
-            <span class="ops-diag-lbl">Input Level / Clipping:</span>
-            <strong class="ops-diag-val">Normal Gain — No Clipping Detected ✓</strong>
-          </div>
-
-          <div class="ops-diag-meter-wrap">
-            <div class="ops-diag-meter-label">Live Input Signal:</div>
-            <div class="ops-diag-meter-bar"><div class="ops-diag-meter-fill" style="width: 65%;"></div></div>
-          </div>
-
-          <div class="ops-diag-summary" style="margin-top:14px;padding:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:12px;color:#166534;">
-            ✓ <strong>Microphone Quality: Optimal.</strong> Audio pipeline is primed with high-pass filtering, noise suppression, and persistent voice recognition.
-          </div>
-        </div>
-      `;
+      content.innerHTML = `<p>Microphone quality has not been measured. Noise filtering, acoustic sampling and automatic speaker identification are not connected to live audio.</p><p>Use manual text entry and verify speaker names. Browser speech recognition is blocked in HIPAA and Local Only modes.</p>`;
 
       const onSubmit = (e) => {
         e.preventDefault();
         dialog.close();
-        toast('Microphone settings confirmed.');
+        toast('Audio capability information acknowledged.');
         form.removeEventListener('submit', onSubmit);
       };
 
@@ -2393,3 +2362,4 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
     }
   };
 }
+

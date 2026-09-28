@@ -249,7 +249,7 @@ class SBAREngine {
   // Data Freshness & Attribution Helpers
   // -------------------------------------------------------------
   calculateFreshness(timestamp, thresholds = { freshMs: 14400000, staleMs: 43200000 }) {
-    if (!timestamp || typeof timestamp !== 'number') {
+    if (!Number.isFinite(timestamp) || timestamp <= 0 || timestamp > Date.now()) {
       return {
         isStale: true,
         ageMinutes: null,
@@ -291,19 +291,20 @@ class SBAREngine {
   get48HourSnapshot(residentId, windowHours = 48) {
     this.core.assertUnlocked();
     const now = Date.now();
+    if (!residentId || !Number.isFinite(Number(windowHours)) || windowHours <= 0 || windowHours > 720) throw fail('INVALID');
     const cutoff = now - (windowHours * 3600000);
 
     // 1. Gather alerts in window
     const alerts = (this.store.list('snf_alert') || []).filter(a => {
-      const matchRes = !residentId || a.residentId === residentId || (a.residentName && a.residentName.toLowerCase().includes(String(residentId).toLowerCase()));
+      const matchRes = a.residentId === residentId;
       const time = a.firstDetected || a.createdDate || 0;
       return matchRes && time >= cutoff;
     });
 
     // 2. Gather medication changes in window
-    const medChanges = (this.store.list('snf_medication_order') || []).filter(m => {
-      const matchRes = !residentId || m.residentId === residentId;
-      const time = m.startDate || m.orderDate || 0;
+    const medChanges = (this.store.list('snf_med_order') || []).filter(m => {
+      const matchRes = m.residentId === residentId;
+      const time = typeof m.startDate === 'number' ? m.startDate : Date.parse(m.startDate || m.orderDate || '');
       return matchRes && time >= cutoff;
     });
 
@@ -312,7 +313,7 @@ class SBAREngine {
     const meetingNotes = [];
     meetings.forEach(m => {
       (m.transcript || []).forEach(t => {
-        if (residentId && t.text.toLowerCase().includes(String(residentId).toLowerCase())) {
+        if (t.residentId === residentId) {
           meetingNotes.push({
             meetingTitle: m.title,
             speaker: t.speaker,
@@ -338,9 +339,10 @@ class SBAREngine {
       medChangesCount: medChanges.length,
       medChanges: medChanges.map(m => ({
         id: m.id,
-        medicationName: m.name || m.medicationName,
+        medicationName: m.drugName || m.name || m.medicationName,
         action: m.action || 'New Order',
-        directions: m.directions,
+        directions: m.directions || [m.dose, m.route, m.frequency].filter(Boolean).join(' '),
+        sourceReport: m.sourceReport, reportDate: m.reportDate, batchId: m.batchId, originalRow: m.originalRow,
         timestamp: m.startDate || m.orderDate
       })),
       meetingNotes
@@ -360,8 +362,10 @@ class SBAREngine {
       const isReviewNeeded = p.reviewDate ? (new Date(p.reviewDate).getTime() < now) : false;
       return {
         ...p,
-        statusLabel: isReviewNeeded ? 'Protocol Review Needed' : 'Protocol Current',
-        isCurrent: !isReviewNeeded
+        status: 'review_needed',
+        sourceDocument: custom.includes(p) ? p.sourceDocument : 'Packaged example — not an approved facility protocol',
+        statusLabel: 'Reference only — facility approval not recorded',
+        isCurrent: false
       };
     });
   }
@@ -381,7 +385,7 @@ class SBAREngine {
       version: text(data.version || '1.0', 20),
       effectiveDate: data.effectiveDate || new Date().toISOString().slice(0, 10),
       reviewDate: data.reviewDate || new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
-      status: 'current',
+      status: 'review_needed',
       sourceDocument: text(data.sourceDocument || 'Internal Facility Clinical Protocol', 200),
       interventions: Array.isArray(data.interventions) ? data.interventions : [],
       updatedAt: Date.now()
@@ -407,37 +411,35 @@ class SBAREngine {
     const targetKey = input.target || 'attending_physician';
     const targetConfig = COMMUNICATION_TARGETS.find(t => t.id === targetKey) || COMMUNICATION_TARGETS[0];
 
-    const residentName = text(input.residentName || 'Resident', 100);
-    const residentRoom = text(input.residentRoom || 'Unit 1', 50);
-    const residentId = input.residentId || null;
+    const selectedAlert = input.alertId ? this.store.get('snf_alert', input.alertId) : null;
+    if (input.alertId && !selectedAlert) throw fail('NOT_FOUND');
+    if (input.residentId && selectedAlert?.residentId && input.residentId !== selectedAlert.residentId) throw fail('INVALID');
+    const residentId = input.residentId || selectedAlert?.residentId || null;
+    const resident = residentId ? this.store.get('snf_resident', residentId) : null;
+    const residentName = text(resident?.name || selectedAlert?.residentName || input.residentName || 'Resident identity not provided', 100);
+    const residentRoom = text(resident?.room || selectedAlert?.residentRoom || input.residentRoom || 'Not available', 50);
     const windowHours = Number(input.windowHours) || 48;
 
     // 1. Gather relevant imported records
-    const snapshot = this.get48HourSnapshot(residentId || residentName, windowHours);
+    const snapshot = (residentId ? this.get48HourSnapshot(residentId, windowHours) : {windowHours, alerts: [], alertsCount: 0, medChanges: [], medChangesCount: 0, meetingNotes: []});
     const alerts = this.store.list('snf_alert') || [];
     const matchedAlert = input.alertId ? alerts.find(a => a.id === input.alertId) : null;
     const residentAlerts = alerts.filter(a => a.residentName && a.residentName.toLowerCase() === residentName.toLowerCase());
 
     // 2. Extract clinical telemetry with source attribution & freshness
     const now = Date.now();
-    const vitalsReportDate = input.vitalsReportDate ? Number(input.vitalsReportDate) : (matchedAlert?.firstDetected || (now - 3600000));
+    const vitalsReportDate = input.vitalsReportDate ? Number(input.vitalsReportDate) : null;
     const vitalsFreshness = this.calculateFreshness(vitalsReportDate, { freshMs: 7200000, staleMs: 14400000 }); // Vitals stale after 4h
 
     // Objective Documented Observations
-    const documentedVitals = input.vitals || (matchedAlert ? {
-      temp: '100.8°F',
-      bp: '108/64 mmHg',
-      pulse: '94 bpm',
-      resp: '20 bpm',
-      o2sat: '94% on RA'
-    } : null);
+    const documentedVitals = input.vitals && typeof input.vitals === 'object' && !Array.isArray(input.vitals) && Object.keys(input.vitals).length ? input.vitals : null;
 
     // Missing Critical Info Tracking
     const missingItems = [];
     if (!documentedVitals) {
       missingItems.push({
         field: 'Current Vitals',
-        status: 'Last available vitals are 9 hours old or not documented in current feed',
+        status: 'Vitals not documented in current sources',
         severity: 'high'
       });
     } else if (vitalsFreshness.isStale) {
@@ -473,58 +475,50 @@ class SBAREngine {
 
     const situation = {
       concern: situationText,
-      source: matchedAlert ? `PointClickCare Surveillance Alert [${matchedAlert.code}]` : 'PointClickCare 24-Hour Clinical Feed',
-      timestamp: matchedAlert?.firstDetected || now,
+      source: matchedAlert ? `Imported surveillance alert [${matchedAlert.code}]` : 'User-entered concern; source not independently verified',
+      timestamp: matchedAlert?.firstDetected || null,
       freshness: vitalsFreshness,
-      onset: input.onset || 'Past 4 hours / current shift',
-      immediateObservations: input.immediateObservations || (matchedAlert?.message || 'Change in condition observed during nursing assessment.'),
+      onset: input.onset || 'Onset not available in current sources',
+      immediateObservations: input.immediateObservations || (matchedAlert?.message || 'Observations not available in current sources'),
       vitalSigns: documentedVitals ? {
         values: documentedVitals,
-        source: 'Vital Signs Report — Today',
+        source: 'User-entered vitals; source not independently verified',
         freshness: vitalsFreshness
       } : {
         values: null,
-        status: 'Last available vitals are 9 hours old',
+        status: 'Vitals not documented in current sources',
         source: 'Documentation not found in current imported shift report'
       },
-      baselineDelta: input.baselineDelta || 'Change from baseline documented on current shift.'
+      baselineDelta: input.baselineDelta || 'Baseline comparison not available in current sources'
     };
 
     // 4. Build Background (B)
     const background = {
-      primaryDiagnoses: input.primaryDiagnoses || [
-        { name: 'Type 2 Diabetes Mellitus', source: 'Active Diagnosis List' },
-        { name: 'Congestive Heart Failure (CHF)', source: 'Active Diagnosis List' },
-        { name: 'Hypertension', source: 'Active Diagnosis List' }
-      ],
+      primaryDiagnoses: input.primaryDiagnoses || [],
       allergies: {
         value: allergies,
-        source: allergies.includes('No allergy') ? 'Not in imported feeds' : 'PCC Allergy Profile'
+        source: allergies.includes('No allergy') ? 'Not in imported feeds' : 'User-entered allergies; verify source'
       },
       codeStatus: {
-        value: input.codeStatus || 'Full Code',
-        source: 'Advance Directives & POLST Record'
+        value: input.codeStatus || 'Not available — verify before use',
+        source: 'User-entered code status; verify source'
       },
       baselineCognition: {
         value: baselineCognition,
-        source: baselineCognition.includes('Not available') ? 'Not documented in imported feeds' : 'Quarterly MDS 3.0 BIMS'
+        source: baselineCognition.includes('Not available') ? 'Not documented in imported feeds' : 'User-entered cognition; verify source'
       },
       baselineMobility: {
-        value: input.baselineMobility || 'Extensive assistance x 1 for bed mobility and transfers',
-        source: 'ADL Index Report'
+        value: input.baselineMobility || 'Not available in current sources',
+        source: 'User-entered mobility; verify source'
       },
       recentFalls: {
         count: snapshot.alerts.filter(a => a.code === 'FALL_INCIDENT').length,
-        notes: snapshot.alerts.filter(a => a.code === 'FALL_INCIDENT').map(a => a.message).join('; ') || 'No falls documented in previous 48 hours.',
+        notes: snapshot.alerts.filter(a => a.code === 'FALL_INCIDENT').map(a => a.message).join('; ') || 'No matching fall alerts in available records; this does not establish absence of falls.',
         source: 'Incident & Fall Log'
       },
-      activeMedications: input.activeMedications || [
-        { name: 'Metformin 500mg PO BID', source: 'Active Medication Profile' },
-        { name: 'Lisinopril 10mg PO Daily', source: 'Active Medication Profile' },
-        { name: 'Furosemide 20mg PO Daily', source: 'Active Medication Profile' }
-      ],
+      activeMedications: input.activeMedications || [],
       recentMedChanges: snapshot.medChanges,
-      recentHospitalization: input.recentHospitalization || 'None in past 30 days'
+      recentHospitalization: input.recentHospitalization || 'Not available in current sources'
     };
 
     // 5. Build Assessment (A) with STRICT SEPARATION of Documented Findings vs AI Interpretation
@@ -534,22 +528,22 @@ class SBAREngine {
         {
           label: 'Vital Signs Trend',
           detail: documentedVitals ? `T: ${documentedVitals.temp || 'N/A'}, BP: ${documentedVitals.bp || 'N/A'}, P: ${documentedVitals.pulse || 'N/A'}, SpO2: ${documentedVitals.o2sat || 'N/A'}` : 'Vitals not verified on current shift.',
-          source: 'Nursing Flowsheet & PCC Vitals Report',
+          source: 'User-entered vitals; verify source',
           timestamp: vitalsReportDate,
           stale: vitalsFreshness.isStale
         },
         {
           label: 'Documented Symptoms',
-          detail: input.symptoms || (matchedAlert?.message || 'Increased lethargy, reduced oral fluid intake over last 24 hours.'),
-          source: 'Clinical Progress Notes — Current Shift',
-          timestamp: now - 7200000,
+          detail: input.symptoms || (matchedAlert?.message || 'Symptoms not available in current sources'),
+          source: 'User-entered symptoms or imported alert; verify source',
+          timestamp: null,
           stale: false
         },
         {
           label: 'Pain & Physical Assessment',
-          detail: input.painReport || 'Pain score 2/10 reported at rest; no acute focal grimacing on movement.',
-          source: 'Shift Nursing Pain Assessment',
-          timestamp: now - 3600000,
+          detail: input.painReport || 'Pain assessment not available in current sources',
+          source: 'User-entered pain assessment; verify source',
+          timestamp: null,
           stale: false
         }
       ],
@@ -558,7 +552,7 @@ class SBAREngine {
         {
           type: 'surveillance_flag',
           disclaimer: 'Private AI Automated Surveillance Flag — Not a physician diagnosis or clinical conclusion. Requires licensed clinician verification.',
-          finding: `Pattern match on ${template.name}: Telemetry exhibits potential acute condition change requiring provider evaluation.`,
+          finding: `Template selected: ${template.name}. No clinical conclusion is established by template selection; review the linked evidence.`,
           ruleSource: 'Deterministic Clinical Risk Engine v3.0',
           evidenceRefs: snapshot.alerts.map(a => a.code)
         }
@@ -624,14 +618,14 @@ class SBAREngine {
           id: uuid(),
           text: so.text,
           safetyType: 'existing_provider_order',
-          sourceLabel: `Existing provider order — Signed by ${so.physician || 'Attending Physician'}`,
-          verified: true
+          sourceLabel: 'User-entered order — signature and source require clinician verification',
+          verified: false
         });
       });
     }
 
     // 7. Communication Target Adaptation
-    const adaptedText = this.adaptWordingForTarget({
+    const adaptedText = (this.core.snf?.demoMode ? 'DEMO DATA — NOT FOR CLINICAL USE\n\n' : '') + this.adaptWordingForTarget({
       targetKey,
       residentName,
       residentRoom,
@@ -650,6 +644,7 @@ class SBAREngine {
       templateName: template.name,
       targetKey,
       targetRole: targetConfig.role,
+      evidenceVersion: 2,
       status: 'draft', // 'draft' | 'reviewed' | 'finalized'
       createdAt: now,
       updatedAt: now,
@@ -696,18 +691,15 @@ class SBAREngine {
   adaptWordingForTarget({ targetKey, residentName, residentRoom, situation, background, assessment, recommendations }) {
     if (targetKey === 'family_representative') {
       // Clear, compassionate, non-technical plain English
-      let text = `Hello. This is the nursing team contacting you from Pinecrest regarding ${residentName} in Room ${residentRoom}.\n\n`;
-      text += `We are reaching out to let you know about a change in condition: ${situation.immediateObservations}. `;
-      text += `Our nursing team has checked ${residentName}'s vital signs, and they are resting comfortably in bed under close observation.\n\n`;
-      text += `We have already contacted the attending provider for review and will keep you informed of any updates or instructions. `;
-      text += `Please feel free to call our nursing station directly if you have any questions or would like to visit.\n\n`;
-      text += `— Pinecrest Nursing & Care Team`;
+      let text = `Hello. This is the nursing team contacting you regarding ${residentName} in Room ${residentRoom}.\n\n`;
+      text += `Information for review: ${situation.immediateObservations}.\n\n`;
+      text += `Please verify current condition, actions taken, and provider contact before communicating this draft.`;
       return text;
     }
 
     if (targetKey === 'hospital_ems') {
       // Emergency transport fast triage handoff
-      let text = `EMERGENCY MEDICAL HANDOFF — PINECREST REHABILITATION\n`;
+      let text = `EMERGENCY MEDICAL HANDOFF\n`;
       text += `RESIDENT: ${residentName} | ROOM: ${residentRoom} | CODE STATUS: ${background.codeStatus.value}\n`;
       text += `TRANSFER REASON: ${situation.concern}\n`;
       text += `CURRENT VITALS: ${situation.vitalSigns.values ? JSON.stringify(situation.vitalSigns.values) : 'See nursing report'}\n`;
@@ -719,7 +711,7 @@ class SBAREngine {
     }
 
     // Default: Physician / NP / PA / Medical Director SBAR
-    let sbarText = `SBAR CLINICAL NOTIFICATION — PINECREST REHABILITATION\n\n`;
+    let sbarText = `SBAR CLINICAL NOTIFICATION\n\n`;
     sbarText += `S — SITUATION:\n`;
     sbarText += `Resident: ${residentName} (Rm ${residentRoom})\n`;
     sbarText += `Concern: ${situation.concern}\n`;
@@ -744,6 +736,7 @@ class SBAREngine {
     assessment.aiSurveillanceFlags.forEach(flag => {
       sbarText += `- [Surveillance Flag]: ${flag.finding}\n  *Note: ${flag.disclaimer}*\n`;
     });
+    if (assessment.clinicianNotes) sbarText += `Clinician-entered notes: ${assessment.clinicianNotes}\n`;
     sbarText += `\n`;
 
     sbarText += `R — REQUEST / RECOMMENDATION:\n`;
@@ -767,7 +760,7 @@ class SBAREngine {
     const now = Date.now();
 
     // Prevent direct editing of finalized SBARs without explicit un-finalize note
-    if (sbar.status === 'finalized' && data.status !== 'finalized' && !data.revisionReason) {
+    if (sbar.status === 'finalized' && !text(data.revisionReason || '', 1000).trim()) {
       throw fail('POLICY');
     }
 
@@ -781,26 +774,31 @@ class SBAREngine {
       sbar.targetRole = COMMUNICATION_TARGETS.find(t => t.id === data.targetKey).role;
     }
 
+    sbar.status = 'draft';
+    sbar.reviewedAt = null; sbar.reviewedBy = null;
+    sbar.finalizedAt = null; sbar.finalizedBy = null;
+    sbar.adaptedCommunicationText = (this.core.snf?.demoMode ? 'DEMO DATA — NOT FOR CLINICAL USE\n\n' : '') + this.adaptWordingForTarget(sbar);
     sbar.updatedAt = now;
     sbar.auditTrail = sbar.auditTrail || [];
     sbar.auditTrail.push({
       action: 'edited',
       user,
       timestamp: now,
-      note: data.editNote || 'Updated SBAR contents in interactive editor.'
+      note: data.revisionReason || data.editNote || 'Updated SBAR contents; review required again.'
     });
 
     this.store.put('sbar', sbar.id, sbar);
     return sbar;
   }
 
-  reviewSbar(id, reviewer = 'Charge Nurse, RN', note = '') {
+  reviewSbar(id, reviewer, note = '') {
     this.core.assertUnlocked();
     if (!isId(id)) throw fail('INVALID');
     const sbar = this.store.get('sbar', id);
     if (!sbar) throw fail('NOT_FOUND');
 
     const now = Date.now();
+    if (sbar.evidenceVersion !== 2 || !text(reviewer || '', 100).trim() || sbar.status !== 'draft') throw fail('POLICY');
     sbar.status = 'reviewed';
     sbar.reviewedAt = now;
     sbar.reviewedBy = text(reviewer, 100);
@@ -820,13 +818,14 @@ class SBAREngine {
     return sbar;
   }
 
-  finalizeSbar(id, finalizer = 'Supervising Nurse, RN', note = '') {
+  finalizeSbar(id, finalizer, note = '') {
     this.core.assertUnlocked();
     if (!isId(id)) throw fail('INVALID');
     const sbar = this.store.get('sbar', id);
     if (!sbar) throw fail('NOT_FOUND');
 
     const now = Date.now();
+    if (sbar.evidenceVersion !== 2 || !text(finalizer || '', 100).trim() || sbar.status !== 'reviewed' || !sbar.reviewedAt) throw fail('POLICY');
     sbar.status = 'finalized';
     sbar.finalizedAt = now;
     sbar.finalizedBy = text(finalizer, 100);
@@ -1008,7 +1007,7 @@ class SBAREngine {
   listSbars() {
     this.core.assertUnlocked();
     const list = this.store.list('sbar') || [];
-    return list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return list.map(s => ({...s, legacyUnverified: s.evidenceVersion !== 2})).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   }
 
   getSbar(id) {
@@ -1023,6 +1022,7 @@ class SBAREngine {
     this.core.assertUnlocked();
     if (!isId(id)) throw fail('INVALID');
     this.store.delete('sbar', id);
+    if (!this.core.snf?.demoMode) this.core.purgeBackups?.();
     return true;
   }
 
@@ -1036,7 +1036,7 @@ class SBAREngine {
     const since24h = now - 86400000;
 
     // Gather live data feeds from store
-    const alerts = this.store.list('snf_alert') || [];
+    const alerts = (this.store.list('snf_alert') || []).filter(a => a.status !== 'resolved');
     const openIssues = this.store.list('snf_open_issue') || [];
     const sbars = this.store.list('sbar') || [];
     const recentSbars = sbars.filter(s => (s.createdAt || 0) >= since24h);
@@ -1062,7 +1062,7 @@ class SBAREngine {
     }));
 
     // 4. New Orders
-    const newOrders = (this.store.list('snf_medication_order') || []).filter(m => (m.startDate || m.orderDate || 0) >= since24h);
+    const newOrders = (this.store.list('snf_med_order') || []).filter(m => (typeof m.startDate === 'number' ? m.startDate : Date.parse(m.startDate || m.orderDate || '')) >= since24h);
 
     // 5. Pending Labs / Tests
     const pendingLabs = alerts.filter(a => a.code === 'LAB_CRITICAL' || a.code === 'ANTIBIOTIC_NEW');
@@ -1074,7 +1074,7 @@ class SBAREngine {
     const transfers = alerts.filter(a => a.code === 'ACUTE_TRANSFER' && (a.firstDetected || 0) >= since24h);
 
     // 8. Behavioral / Psychotropic Concerns
-    const behaviors = alerts.filter(a => (a.code === 'ANTIPSYCHOTIC_NEW' || a.code === 'PRN_PSYCH_LIMIT' || a.code === 'GDR_OVERDUE'));
+    const behaviors = alerts.filter(a => /^(AP-|PRN-|GDR-|PSYCH-|PHARM-)/.test(a.code));
 
     // 9. Wounds / Skin
     const wounds = alerts.filter(a => a.code === 'WOUND_PRESSURE');
@@ -1096,7 +1096,8 @@ class SBAREngine {
     const handoff = {
       id: uuid(),
       shift,
-      facilityName: 'Pinecrest Rehabilitation & Healthcare Center',
+      facilityName: this.core.snf?.getSettings?.().facilityName || 'Facility name not configured',
+      demo: !!this.core.snf?.demoMode,
       generatedAt: now,
       summary: {
         totalAcute: acuteConcerns.length,
@@ -1139,3 +1140,4 @@ module.exports = {
   SBAR_TEMPLATES,
   COMMUNICATION_TARGETS
 };
+

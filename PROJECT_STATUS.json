@@ -1,29 +1,28 @@
 {
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
-  "developmentBranch": "chatgpt/3.0.1-hardening",
-  "lastVerifiedCommit": "e85b2b3c416d737dfe33bed44f03625ffd7935c3",
+  "developmentBranch": "chatgpt/ai-studio-review-2026-09-25",
+  "lastVerifiedCommit": null,
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
   "webMode": "development-only",
   "hipaaMode": true,
   "hipaaModeMeaning": "Default policy setting; not a compliance certification",
   "currentPriorities": [
-    "Independent security and clinical review of the draft PR",
-    "Restore missing Windows packaging inputs and validate actual artifacts",
-    "Remediate WhatsApp/Puppeteer dependency findings",
-    "Browser visual QA and representative PCC mapping validation"
+    "Review and merge the AI Studio repair branch, then sync AI Studio main",
+    "Windows helper/runtime build and actual install/upgrade acceptance",
+    "Independent clinical validation and review of legacy sample-containing records",
+    "Real Chromium visual acceptance and representative PCC mapping validation"
   ],
   "knownCriticalIssues": [
-    "Historical vault/key exposure remains in other refs/history; owner remediation and credential rotation required",
-    "Seven required Windows packaging inputs missing; no actual Windows acceptance evidence",
-    "Five high-severity dependency findings in WhatsApp/Puppeteer/extract-zip chain",
-    "Legacy auto-seeded clinical data and mirrored credentials require reconciliation before live upgrade"
+    "Historical vault/key exposure remains in other refs/history; owner remediation and credential rotation remain required",
+    "Windows helper/runtime binaries and actual Windows acceptance not validated in this environment",
+    "Legacy seeded clinical, speaker or SBAR records require user review before live use; no silent deletion",
+    "Full browser visual acceptance unavailable: Chromium exits before page creation"
   ],
   "completedFeatures": [
     "Runtime data removed from hardening branch tip; repository policy scanner and CI",
     "Provider credential isolation and configuration-bound HIPAA approval",
-    "Authenticated loopback-only restricted development server with automatic token self-bootstrapping and iframe-compatible CSP",
     "Automatic production sample seeding removed; isolated explicit Demo Mode and labeled exports",
     "Versioned rule registry and immutable alert input/evidence snapshots",
     "PCC batch provenance, validation, duplicate detection and feed health",
@@ -31,15 +30,22 @@
     "Shared provider transport/registry and live inventory requests",
     "Administrator Today, PCC Import Center and response Details implemented",
     "Encrypted voice transcript storage and legacy browser-storage migration",
-    "Automation & Agent Control Center operational dashboard and background scheduler integration",
-    "Operations Intelligence Command Center, Morning Standup Huddle Briefing, and Live Meeting Copilot",
-    "Required-file release gates, architecture/status/handoff and review templates"
+    "Required-file release gates, architecture/status/handoff and review templates",
+    "Restored dependency lockfile and nine tracked Windows build assets",
+    "Desktop and development Operations/meeting/SBAR routing, verified through desktop IPC and HTTP",
+    "Operations missing-data states, exact resident medication snapshots and review-gated SBAR edit/save workflow",
+    "Demo-isolated meetings/SBAR/followups and idempotent meeting action conversion",
+    "Meeting microphone policy and removal of fabricated acoustic/staff samples",
+    "Token-entry development authentication with explicit exact preview origin and no public token disclosure",
+    "Completed meeting/closed SBAR retention, pending evidence preservation and shared AGENTS/GEMINI handoff"
   ],
   "experimentalFeatures": [
-    "SNF heuristic surveillance and exploratory QM estimate require clinical validation",
-    "Today/PCC UI needs browser visual acceptance; current Chromium cannot launch",
-    "Non-OpenAI cloud adapters available only outside HIPAA Mode; live provider acceptance pending",
-    "Remaining legacy clinical/UI monoliths need further incremental extraction"
+    "Heuristic SNF surveillance requires independent clinical validation",
+    "Staffing, payer/capacity imports and validated survey scores are not implemented",
+    "Acoustic helpers exist but live audio sampling/filtering/diarization and recognition are not implemented end to end",
+    "Built-in clinical protocols are unapproved references; no facility approval workflow is implemented",
+    "Browser DOM interaction checks passed; full visual acceptance remains pending",
+    "Non-OpenAI cloud adapters remain outside HIPAA Mode; live provider acceptance pending"
   ],
   "deferredFeatures": [
     "Production network hosting",
@@ -47,27 +53,29 @@
     "PHI realtime voice approval"
   ],
   "lastTested": {
-    "date": "2026-09-23",
+    "date": "2026-09-25",
     "platform": "linux",
     "node": "24.19.0",
     "command": "npm test",
-    "passed": 280,
+    "passed": 337,
     "failed": 0,
     "cancelled": 0,
     "skipped": 0,
+    "hardening": {
+      "passed": 23,
+      "failed": 0
+    },
+    "dependencyInstall": "npm ci --ignore-scripts passed using restored lockfile",
     "syntax": "passed",
     "repositoryPolicy": "passed",
-    "dependencyAudit": "failed: 5 high",
-    "releaseManifest": "failed: missing Windows inputs",
-    "browserUI": "blocked: Chromium SIGSEGV before page execution",
+    "dependencyAudit": "npm audit --omit=dev --audit-level=high: 0 vulnerabilities",
+    "releaseManifest": "blocked: locally unbuilt Windows helper and inference runtime executables",
+    "browserDOM": "passed: seven Operations tabs, SBAR edit/save/review state and Automation rendering using real Core",
+    "browserUI": "not verified: Chromium exits before page creation",
     "windowsValidation": "not performed",
-    "reviewNotes": "docs/HARDENING_REVIEW.md",
-    "githubActions": {
-      "runId": 35857211998,
-      "sourceCommit": "e85b2b3c416d737dfe33bed44f03625ffd7935c3",
-      "regression": "passed",
-      "releaseFiles": "failed",
-      "dependencies": "failed"
-    }
-  }
+    "reviewNotes": "docs/AI_STUDIO_REVIEW_2026-09-25.md",
+    "githubActions": "pending branch push; local verification is not remote CI evidence"
+  },
+  "reviewBaseCommit": "b537dd9a9d43c4660c7036c85eece02ff2578705",
+  "verificationScope": "Local source tree in this review commit; remote GitHub Actions results must be checked separately."
 }

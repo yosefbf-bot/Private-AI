@@ -24,6 +24,9 @@ test('real server requires a session and restricts production, privileges and de
     });
     const base = 'http://127.0.0.1:3000';
     assert.equal((await fetch(base+'/api/health')).status, 401);
+    assert.equal((await fetch(base+'/api/dev-token')).status, 404);
+    const html=await (await fetch(base)).text();
+    assert.ok(!html.includes(token), 'HTML must not disclose the access token');
     const response = await fetch(base+'/api/session', {method:'POST', headers:{authorization:'Bearer '+token, 'x-private-ai':'development'}});
     assert.equal(response.status, 200);
     const session = await response.json();
@@ -54,3 +57,4 @@ test('real server requires a session and restricts production, privileges and de
     fs.rmSync(root,{recursive:true,force:true});
   }
 });
+

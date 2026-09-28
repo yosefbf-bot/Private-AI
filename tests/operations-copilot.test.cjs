@@ -116,14 +116,15 @@ test('Operations Intelligence & Meeting Copilot Module Suite', async (t) => {
     const summary = engine.getOperationsSummary();
 
     assert.ok(summary.census, 'Summary must have census');
-    assert.equal(summary.census.totalBeds, 120);
-    assert.ok(summary.census.occupancyRate > 0);
+    assert.equal(summary.census.totalBeds, null);
+    assert.equal(summary.census.occupancyRate, null);
+    assert.equal(summary.census.activeResidents, null);
     assert.equal(summary.surveillance.criticalAlertsCount, 1);
     assert.equal(summary.surveillance.highAlertsCount, 1);
     assert.equal(summary.surveillance.fallAlerts24h, 1);
     assert.ok(summary.staffing, 'Summary must have staffing metrics');
-    assert.equal(summary.staffing.rnCompliant, true);
-    assert.ok(summary.surveyRadar.length >= 3, 'Must have F-tag survey radar entries');
+    assert.equal(summary.staffing.rnCompliant, null);
+    assert.deepEqual(summary.surveyRadar, [], 'Must not fabricate validated survey scores');
   });
 
   await t.test('OperationsCopilotEngine generates a scannable Morning Huddle Brief', () => {
@@ -144,7 +145,7 @@ test('Operations Intelligence & Meeting Copilot Module Suite', async (t) => {
     assert.ok(brief.text, 'Brief must have text');
     assert.match(brief.text, /MORNING STANDUP & INTERDISCIPLINARY HUDDLE BRIEFING/);
     assert.match(brief.text, /FACILITY CENSUS & CAPACITY/);
-    assert.match(brief.text, /STAFFING & CMS MANDATE ALIGNMENT/);
+    assert.match(brief.text, /STAFFING DATA/);
     assert.match(brief.text, /John Doe/);
     assert.match(brief.text, /204-B/);
   });
@@ -268,3 +269,4 @@ test('Operations Intelligence & Meeting Copilot Module Suite', async (t) => {
     assert.match(cssContent, /\.ops-speech-bar/);
   });
 });
+

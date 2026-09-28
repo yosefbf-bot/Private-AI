@@ -354,6 +354,7 @@ async function dispatch(
   if (op !== "summary") core.touch();
   if (op.startsWith("voiceTranscript")) return require("./voice-history.cjs").dispatch(core,op,data);
   if (op.startsWith("snf")) return require("./snf/index.cjs").dispatch(core,op,data);
+  if (/^(operations|meeting|sbar|speaker|audio)/.test(op)) return require("./operations-copilot.cjs").dispatch(core,op,data);
   switch (op) {
     case "userGuide": return require('./app-guide.cjs').guide;
     case "discardRecovery": return core.discardRecovery(data.id);
@@ -1074,4 +1075,5 @@ process.on("uncaughtException", () => {
   app.exit(1);
 });
 process.on("unhandledRejection", () => {try{core?.stability.incident("promise-failed");core?.stability.pause();emit({type:"jobs_changed"});}catch{}});
+
 

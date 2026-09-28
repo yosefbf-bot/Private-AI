@@ -93,6 +93,7 @@ const automationUI = createAutomationCenterUI({
   idsFrom
 });
 const operationsCopilotUI = createOperationsCopilotUI({
+  getState: () => state,
   api,
   esc,
   toast,
@@ -153,6 +154,7 @@ function renderSidebar() {
     .forEach((el) => el.classList.toggle("active", el.dataset.view === view));
 }
 function updateTop() {
+  if (!state?.settings || state.settings.hipaa || state.settings.processingMode === "local-only") operationsCopilotUI.stopListening();
   const resource=state.resources;
   const ram=state.ramProfile||state.health?.ramProfile;
   const ramPart=ram?`Hardware RAM: ${ram.totalGB} GB (${ram.availableGB} GB Free · ${ram.statusBadge}) · `:``;
@@ -1442,6 +1444,7 @@ async function init() {
   }
 }
 function renderPage(name) {
+  operationsCopilotUI.stopListening();
   if (name === "snf" && state.settings.snfEnabled === false) {
     renderChat();
     return;
@@ -2417,4 +2420,5 @@ setInterval(() => {
       .catch(() => {});
 }, 30000);
 init();
+
 

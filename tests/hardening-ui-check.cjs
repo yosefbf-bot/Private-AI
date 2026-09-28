@@ -12,21 +12,36 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   // Connector cannot materialize >1 MB branding blobs; use existing repo icon for QA only.
   await page.route(/\/(?:logo|icon)\.png$/,route=>route.fulfill({path:path.join(__dirname,'../chrome_extension/icon128.png')}));
   await page.goto('http://127.0.0.1:3000');
+  await page.locator('dialog input[type=password]').fill(token);
+  await page.getByRole('button',{name:'Connect',exact:true}).click();
   await page.getByRole('heading',{name:'Today',exact:true}).waitFor();
   assert.match(await page.locator('#development-mode-banner').textContent(),/Not for PHI/);
-  assert.match(await page.locator('.today-page').textContent(),/Surveillance incomplete/);
-  await page.getByRole('button',{name:'Open isolated Demo Mode'}).click();
-  await page.getByRole('button',{name:'Return to production',exact:true}).waitFor();
-  await page.locator('.today-page details > summary').first().click();await page.locator('.today-page [data-evidence]').first().click();await page.locator('[data-evidence-output] pre').first().waitFor({state:'attached'});
-  await page.locator('.today-page [data-follow-up]').first().click();
-  const form=page.locator('dialog form');await form.locator('[name=reviewer]').fill('Synthetic UI reviewer');await form.locator('[name=status]').selectOption('waiting');await form.locator('[name=note]').fill('Synthetic review pending');await form.getByRole('button',{name:'Save follow-up'}).click();await page.locator('dialog').waitFor({state:'detached'});
+  assert.match(await page.locator('.today-page').textContent(),/incomplete|missing|stale/i);
+  await page.locator('#btn-toggle-demo').click();
+  await page.locator('#btn-return-prod').waitFor();
+  await page.locator('.today-page [data-act-evidence]').first().click();await page.locator('[data-evidence-target]:not([hidden])').first().waitFor();
+  await page.locator('.today-page [data-act-followup]').first().click();
+  const form=page.locator('dialog form');await form.locator('[name=reviewer]').fill('Synthetic UI reviewer');await form.locator('[name=status]').selectOption('waiting');await form.locator('[name=note]').fill('Synthetic review pending');await form.getByRole('button',{name:/Save/i}).click();await page.locator('dialog').waitFor({state:'detached'});
   fs.mkdirSync(path.join(__dirname,'../build/screenshots'),{recursive:true});await page.screenshot({path:path.join(__dirname,'../build/screenshots/hardening-today-demo.png')});
-  await page.getByRole('button',{name:'Full SNF Command Center'}).click();await page.locator('.snf-headline').waitFor();assert.match(await page.locator('.snf-page').textContent(),/DEMO DATA/);
-  await page.getByRole('button',{name:'Today / Demo workspace'}).click();await page.getByRole('button',{name:'Delete demo data and return'}).click();await page.getByRole('button',{name:'Open isolated Demo Mode'}).waitFor();
+  await page.locator('#btn-goto-snf').click();await page.locator('.snf-headline').waitFor();assert.match(await page.locator('.snf-page').textContent(),/DEMO DATA/);
+  await page.getByRole('button',{name:'Today / Demo workspace'}).click();await page.locator('#btn-reset-demo').click();await page.locator('#btn-toggle-demo').waitFor();
   assert.doesNotMatch(await page.locator('.today-page').textContent(),/Eleanor Vance|Dorothy Zimmerman/);
   await page.getByRole('button',{name:'PCC Import Center',exact:true}).first().click();await page.getByRole('heading',{name:'PCC Import Center'}).waitFor();
   // Development mode must visibly block production import flow.
   assert.match(await page.locator('#content').textContent(),/Development mode|No imports yet|disabled/i);
-  assert.equal(errors.length,0,errors.join('\n'));console.log('PASS: authenticated dev server, Today, demo isolation, evidence, follow-up, reset and navigation.');
+  await page.locator('#operations-sidebar-btn').click();
+  await page.locator('.ops-page').waitFor();
+  assert.doesNotMatch(await page.locator('.ops-page').textContent(),/Pinecrest|106 Census|3\.62/);
+  const created=await page.evaluate(()=>window.privateAI.call('sbarGenerate',{residentName:'Synthetic UI Resident'}));
+  assert.equal(created.ok,true);
+  await page.locator('#operations-sidebar-btn').click();
+  await page.locator('[data-ops-tab=sbar]').click();
+  await page.locator('#sbar-edit-situation-concern').fill('Synthetic UI updated concern');
+  assert.equal(await page.locator('#ops-review-sbar-btn').isDisabled(),true);
+  await page.locator('#ops-save-sbar-btn').click();
+  await page.waitForFunction(async id=>{const r=await window.privateAI.call('sbarGet',{id});return r.result?.situation.concern==='Synthetic UI updated concern';},created.result.id);
+  await page.locator('#automation-sidebar-btn').click();await page.locator('.auto-center-page').waitFor();
+  assert.equal(errors.length,0,errors.join('\n'));console.log('PASS: authenticated dev server, Today, demo isolation, evidence, follow-up, Operations/SBAR edit persistence and Automation navigation.');
  }finally{await browser?.close();child.kill();if(child.exitCode===null&&child.signalCode===null)await new Promise(r=>{child.once('exit',r);setTimeout(r,1000);});fs.rmSync(root,{recursive:true,force:true});}
 })().catch(e=>{console.error(e.message);process.exitCode=1;});
+

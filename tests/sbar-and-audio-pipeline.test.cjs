@@ -115,10 +115,10 @@ test('Interactive SBAR & Shift-Handoff Generator Test Suite', async (t) => {
     });
 
     assert.equal(draft.situation.vitalSigns.values, null);
-    assert.match(draft.situation.vitalSigns.status, /9 hours old|not documented/);
+    assert.match(draft.situation.vitalSigns.status, /not documented/);
     const missingVitals = draft.missingCriticalItems.find(m => m.field === 'Current Vitals');
     assert.ok(missingVitals, 'Must flag missing vitals');
-    assert.match(draft.adaptedCommunicationText, /Last available vitals are 9 hours old/);
+    assert.match(draft.adaptedCommunicationText, /Vitals not documented in current sources/);
   });
 
   await t.test('Stale data (>4h vitals) triggers STALE DATA WARNING', () => {
@@ -179,22 +179,12 @@ test('Interactive SBAR & Shift-Handoff Generator Test Suite', async (t) => {
     assert.doesNotMatch(textAll, /STAT CBC|STAT BMP|bilateral hip X-ray/i);
   });
 
-  await t.test('Approved Facility Protocols populate verified protocol recommendations', () => {
-    const { core } = createMockCore();
-    const engine = new SBAREngine(core);
-
-    // Fall template links to approved Fall Protocol (v2.4)
-    const draft = engine.generateSbarDraft({
-      residentName: 'George Nelson',
-      residentRoom: '208',
-      templateKey: 'fall'
-    });
-
-    const protocolRecs = draft.recommendations.filter(r => r.safetyType === 'facility_protocol');
-    assert.ok(protocolRecs.length > 0, 'Must include protocol recommendations');
-    assert.ok(protocolRecs[0].sourceLabel.includes('Approved Facility Protocol'));
-    assert.ok(protocolRecs[0].protocolRef.name.includes('Fall Incident'));
-    assert.equal(protocolRecs[0].verified, true);
+  await t.test('Packaged example protocols cannot authorize clinical recommendations', () => {
+    const {core} = createMockCore(); const engine = new SBAREngine(core);
+    const draft = engine.generateSbarDraft({residentName: 'Synthetic Resident', templateKey: 'fall'});
+    assert.equal(draft.recommendations.filter(r => r.safetyType === 'facility_protocol').length, 0);
+    assert.ok(engine.listProtocols().every(p => !p.isCurrent && p.status === 'review_needed'));
+    assert.ok(draft.recommendations.every(r => r.safetyType === 'safe_communication'));
   });
 
   await t.test('Standing Provider Orders populate existing order label', () => {
@@ -211,7 +201,8 @@ test('Interactive SBAR & Shift-Handoff Generator Test Suite', async (t) => {
 
     const standingRec = draft.recommendations.find(r => r.safetyType === 'existing_provider_order');
     assert.ok(standingRec);
-    assert.ok(standingRec.sourceLabel.includes('Existing provider order'));
+    assert.match(standingRec.sourceLabel, /require clinician verification/);
+    assert.equal(standingRec.verified, false);
   });
 
   await t.test('Communication Target Adaptation modifies wording appropriately', () => {
@@ -224,8 +215,8 @@ test('Interactive SBAR & Shift-Handoff Generator Test Suite', async (t) => {
       residentRoom: '215',
       target: 'family_representative'
     });
-    assert.match(familyDraft.adaptedCommunicationText, /Hello\. This is the nursing team contacting you from Pinecrest/);
-    assert.match(familyDraft.adaptedCommunicationText, /resting comfortably/);
+    assert.match(familyDraft.adaptedCommunicationText, /Hello\. This is the nursing team contacting you regarding/);
+    assert.doesNotMatch(familyDraft.adaptedCommunicationText, /resting comfortably|already contacted|Pinecrest/);
     assert.doesNotMatch(familyDraft.adaptedCommunicationText, /S — SITUATION/); // Non-technical plain English
 
     // Hospital / EMS target
@@ -433,13 +424,11 @@ test('Enhanced Meeting Audio Pipeline & Speaker Recognition Test Suite', async (
     const { core } = createMockCore();
     const speakerService = new SpeakerRecognitionService(core);
 
-    // List seeded default staff profiles
-    const profiles = speakerService.listProfiles();
-    assert.ok(profiles.length >= 4);
-
-    const sarah = profiles.find(p => p.name === 'Sarah Jenkins');
-    assert.ok(sarah);
-    assert.ok(sarah.samples.length >= 3);
+    assert.deepEqual(speakerService.listProfiles(), []);
+    const profile = speakerService.createProfile({name: 'Sarah Jenkins', role: 'DON'});
+    for (let i = 0; i < 3; i++) speakerService.addVerifiedSample(profile.id, {durationSeconds: 3.2, snrDb: 24, pitchMean: 210, spectralCentroid: 1650});
+    const sarah = speakerService.getProfile(profile.id);
+    assert.equal(sarah.samples.length, 3);
     assert.equal(sarah.quality, 'Fair');
 
     // 1. Identify Sarah with matching pitch and formant features
@@ -465,21 +454,20 @@ test('Enhanced Meeting Audio Pipeline & Speaker Recognition Test Suite', async (
   await t.test('Sample Quality Filter rejects low SNR, overlapping, or short clips', () => {
     const { core } = createMockCore();
     const speakerService = new SpeakerRecognitionService(core);
-    const profiles = speakerService.listProfiles();
-    const profId = profiles[0].id;
+    const profId = speakerService.createProfile({name: 'Test Speaker'}).id;
 
     // Reject short clip (< 1.5s)
-    const shortRes = speakerService.addVerifiedSample(profId, { durationSeconds: 0.8 });
+    const shortRes = speakerService.addVerifiedSample(profId, { durationSeconds: 0.8, snrDb: 24, pitchMean: 180, spectralCentroid: 1400 });
     assert.equal(shortRes.accepted, false);
     assert.match(shortRes.reason, /too short/);
 
     // Reject overlapping clip
-    const overlapRes = speakerService.addVerifiedSample(profId, { durationSeconds: 3.0, isOverlapping: true });
+    const overlapRes = speakerService.addVerifiedSample(profId, { durationSeconds: 3.0, snrDb: 24, pitchMean: 180, spectralCentroid: 1400, isOverlapping: true });
     assert.equal(overlapRes.accepted, false);
     assert.match(overlapRes.reason, /Overlapping/);
 
     // Reject low SNR clip (< 12dB)
-    const noisyRes = speakerService.addVerifiedSample(profId, { durationSeconds: 3.0, snrDb: 6 });
+    const noisyRes = speakerService.addVerifiedSample(profId, { durationSeconds: 3.0, snrDb: 6, pitchMean: 180, spectralCentroid: 1400 });
     assert.equal(noisyRes.accepted, false);
     assert.match(noisyRes.reason, /Low SNR/);
 
@@ -494,7 +482,7 @@ test('Enhanced Meeting Audio Pipeline & Speaker Recognition Test Suite', async (
     assert.ok(cleanRes.sample.id);
   });
 
-  await t.test('Learn From Verified Corrections updates speaker profile with clean sample', () => {
+  await t.test('Speaker correction does not invent acoustic samples', () => {
     const { core, events } = createMockCore();
     const opsEngine = new OperationsCopilotEngine(core);
     const speakerService = new SpeakerRecognitionService(core);
@@ -519,7 +507,8 @@ test('Enhanced Meeting Audio Pipeline & Speaker Recognition Test Suite', async (
 
     assert.equal(res.success, true);
     assert.equal(res.entry.speaker, 'David Miller');
-    assert.equal(res.learningResult.accepted, true);
+    assert.equal(res.learningResult.accepted, false);
+    assert.deepEqual(speakerService.listProfiles(), []);
     assert.ok(events.some(e => e.type === 'speaker_identity_corrected'));
   });
 
@@ -536,9 +525,9 @@ test('Enhanced Meeting Audio Pipeline & Speaker Recognition Test Suite', async (
 
     // Audio operations
     const audioCheck = dispatch(core, 'audioCheckQuality', { snrDb: 22 });
-    assert.equal(audioCheck.status, 'Good');
+    assert.equal(audioCheck.status, 'Unmeasured');
     const speakerProfiles = dispatch(core, 'speakerProfilesList', {});
-    assert.ok(speakerProfiles.length >= 4);
+    assert.deepEqual(speakerProfiles, []);
   });
 
   await t.test('Development Policy ALLOWED permits all new operations', () => {
@@ -560,3 +549,4 @@ test('Enhanced Meeting Audio Pipeline & Speaker Recognition Test Suite', async (
     }
   });
 });
+

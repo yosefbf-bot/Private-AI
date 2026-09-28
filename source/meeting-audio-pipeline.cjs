@@ -114,6 +114,7 @@ class AudioEnhancementService {
 
 class AudioQualityAssessor {
   assess(metrics = {}) {
+    if (!['noiseFloorDb','snrDb','clippingCount','crossTalkRatio'].every(k => Number.isFinite(metrics[k]))) return {status: 'Unmeasured', metrics: {}, issues: ['Missing microphone measurements'], warning: 'Microphone quality has not been measured.'};
     const noiseFloor = metrics.noiseFloorDb ?? -45; // e.g. -45 dB
     const snr = metrics.snrDb ?? 22; // e.g. 22 dB
     const clippingCount = metrics.clippingCount || 0;
@@ -180,36 +181,7 @@ class SpeakerRecognitionService {
   // -------------------------------------------------------------
   listProfiles() {
     this.core.assertUnlocked();
-    const profiles = this.store.list('speaker_profile') || [];
-    if (profiles.length === 0) {
-      // Initialize facility default staff profiles if empty
-      const defaultStaff = [
-        { name: 'Sarah Jenkins', role: 'DON', department: 'Nursing', expectedMeeting: 'Morning Standup', pitch: 210, centroid: 1650 },
-        { name: 'Dr. Robert Smith', role: 'Medical Director', department: 'Medical', expectedMeeting: 'Clinical IDT', pitch: 115, centroid: 1100 },
-        { name: 'Michael Chang', role: 'MDS Coordinator', department: 'Clinical', expectedMeeting: 'Morning Standup', pitch: 140, centroid: 1300 },
-        { name: 'David Miller', role: 'Facility Administrator', department: 'Administration', expectedMeeting: 'Morning Standup', pitch: 105, centroid: 1000 },
-        { name: 'Amanda Lewis', role: 'Staff Nurse', department: 'Nursing', expectedMeeting: 'Shift Handoff', pitch: 235, centroid: 1850 }
-      ];
-      defaultStaff.forEach(s => {
-        const p = this.createProfile({
-          name: s.name,
-          role: s.role,
-          department: s.department,
-          expectedMeeting: s.expectedMeeting
-        });
-        // Seed 3 baseline verified samples for default staff with distinct acoustic profiles
-        for (let i = 0; i < 3; i++) {
-          this.addVerifiedSample(p.id, {
-            durationSeconds: 3.2,
-            snrDb: 24,
-            pitchMean: s.pitch + (i * 2 - 2),
-            spectralCentroid: s.centroid + (i * 10 - 10),
-            verifiedBy: 'System Baseline Roster'
-          });
-        }
-      });
-      return this.store.list('speaker_profile') || [];
-    }
+    const profiles = (this.store.list('speaker_profile') || []).map(p => ({...p, samples: (p.samples || []).filter(s => !['System Baseline Roster', 'Correction in Meeting Review'].includes(s.verifiedBy))}));
     return profiles.sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -271,7 +243,8 @@ class SpeakerRecognitionService {
     this.core.assertUnlocked();
     const profile = this.getProfile(profileId);
 
-    const duration = sampleData.durationSeconds || 3.0;
+    if (!['durationSeconds','snrDb','pitchMean','spectralCentroid'].every(k => Number.isFinite(sampleData[k]))) return {accepted: false, reason: 'Measured acoustic features are required.'};
+    const duration = sampleData.durationSeconds;
     const snr = sampleData.snrDb ?? 20;
     const isOverlapping = sampleData.isOverlapping === true;
     const isNoisy = sampleData.isNoisy === true || snr < 12;
@@ -297,8 +270,8 @@ class SpeakerRecognitionService {
       timestamp: Date.now(),
       durationSeconds: duration,
       snrDb: snr,
-      pitchMean: sampleData.pitchMean || 175,
-      spectralCentroid: sampleData.spectralCentroid || 1350,
+      pitchMean: sampleData.pitchMean,
+      spectralCentroid: sampleData.spectralCentroid,
       verifiedBy: sampleData.verifiedBy || 'Clinician'
     };
 
@@ -366,7 +339,8 @@ class SpeakerRecognitionService {
       };
     }
 
-    const testPitch = acousticFeatures.pitchMean || 180;
+    if (!acousticFeatures || !Number.isFinite(acousticFeatures.pitchMean) || !Number.isFinite(acousticFeatures.spectralCentroid)) return {label: 'Unknown Speaker', confidenceLevel: 'weak', needsConfirmation: true};
+    const testPitch = acousticFeatures.pitchMean;
     const testCentroid = acousticFeatures.spectralCentroid || 1400;
 
     let bestProfile = null;
@@ -461,26 +435,7 @@ class SpeakerRecognitionService {
     });
 
     let learningResult = null;
-    if (learnForFuture) {
-      // Find matching speaker profile or create if needed
-      const profiles = this.listProfiles();
-      let profile = profiles.find(p => p.name.toLowerCase() === correctedSpeaker.toLowerCase());
-      if (!profile) {
-        profile = this.createProfile({
-          name: correctedSpeaker,
-          role: correctedRole || entry.role || 'Staff'
-        });
-      }
-
-      // Add verified sample with quality filtering
-      learningResult = this.addVerifiedSample(profile.id, {
-        durationSeconds: segmentDuration,
-        snrDb: 22,
-        pitchMean: 175 + (Math.random() * 20 - 10),
-        spectralCentroid: 1350 + (Math.random() * 80 - 40),
-        verifiedBy: 'Correction in Meeting Review'
-      });
-    }
+    if (learnForFuture) learningResult = {accepted: false, reason: 'Correction saved. No measured audio sample is attached; voice profile was not changed.'};
 
     return {
       success: true,
@@ -549,3 +504,4 @@ module.exports = {
   SpeakerDiarizationService,
   SpeakerRecognitionService
 };
+
