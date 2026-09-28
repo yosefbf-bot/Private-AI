@@ -30,23 +30,26 @@ async function dispatch(core, op, data = {}) {
         budget: snf.demoMode ? null : budget.status(core),
         files: snf.demoMode
           ? []
-          : core.store.list("file").map((f) => ({ id: f.id, name: f.name })),
+          : core.store.summaries("file").map((f) => ({ id: f.id, name: f.name })),
         projects: snf.demoMode ? [] : core.store.list("project"),
         runs: snf.demoMode
           ? []
           : core.store
-              .list("job")
-              .filter((j) => j.playbook || j.recoveryInput?.playbook)
-              .map((j) => ({
-                id: j.id,
-                title: j.title,
-                status: j.status,
-                reason: j.reason,
-                playbook: j.playbook || j.recoveryInput?.playbook,
-                outputCheck: j.outputCheck,
-                draftText: j.status === "failed" ? j.savedAnswer?.text : null,
-                output: j.output,
-              })),
+              .project("job", (j) =>
+                j.playbook || j.recoveryInput?.playbook
+                  ? {
+                      id: j.id,
+                      title: j.title,
+                      status: j.status,
+                      reason: j.reason,
+                      playbook: j.playbook || j.recoveryInput?.playbook,
+                      outputCheck: j.outputCheck,
+                      draftText: j.status === "failed" ? j.savedAnswer?.text : null,
+                      output: j.output,
+                    }
+                  : null,
+              )
+              .filter(Boolean),
       };
     case "workflowActionSave":
       return actions.update(core, snf, data);

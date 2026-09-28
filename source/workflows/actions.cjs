@@ -193,6 +193,7 @@ function changes(core, snf) {
   const rows = queue(core, snf, { includeClosed: true }),
     previous = snf.store.get("wf_review", "last");
   const before = new Map((previous?.items || []).map((i) => [i.key, i]));
+  const currentKeys = new Set(rows.map((r) => r.key));
   const changed = rows.map((r) => ({
     ...r,
     change: !previous
@@ -209,7 +210,7 @@ function changes(core, snf) {
     reviewedAt: previous?.reviewedAt || null,
     items: changed,
     unavailable: (previous?.items || [])
-      .filter((i) => !rows.some((r) => r.key === i.key))
+      .filter((i) => !currentKeys.has(i.key))
       .map((i) => ({
         key: i.key,
         change: "unavailable",

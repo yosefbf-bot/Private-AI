@@ -8,7 +8,9 @@ PR #4 was merged into main at `21969ff21a5ab51bdb12900aea2d618eb96a3466`; its re
 
 PR #5 is merged into main at `6e3f85b3faffb1688f34d7681c5765e5be04cf82`. Its six high-priority repairs, dashboard cleanup and experimental voice improvements are the base for this work.
 
-Current branch: `chatgpt/administrator-workflows-2026-09-28`. Read `docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md` for the implementation matrix, CSV schemas, playbook/budget boundaries and outstanding physical acceptance. This branch requires review/merge before AI Studio's main-only project can sync it. Preserve dated earlier review reports as historical evidence.
+PR #6 is merged into main at `a897ba7a6f7ea0d79ec4e3593cc1260396e03a7e`; regression, dependencies and release-file CI passed (run 36465145722). Read `docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md` for the implementation matrix and remaining physical acceptance.
+
+Current branch: `chatgpt/application-checkup-2026-09-28`. Read `docs/APPLICATION_CHECKUP_2026-09-28.md` for the measured workflow optimization, selected-workspace surveillance alert fix and actual Windows/Edge test scope. This branch requires review/merge before AI Studio's main-only project can sync it. Preserve dated earlier review reports as historical evidence.
 
 ## Non-negotiable implementation rules
 
@@ -44,7 +46,9 @@ npm audit --omit=dev --audit-level=high
 npm run check:release
 ```
 
-Run `npm run test:hardening-ui` where Chromium is available, providing `PRIVATE_AI_TEST_CHROMIUM` when necessary. It covers the login form, Today/demo/evidence/follow-up navigation, Operations SBAR edits and Automation. The current review also checked all eight Operations tabs and local capture controls through a supplemental DOM harness. In this review environment Chromium exits before page creation; supplementary DOM checks passed, but full visual acceptance is still pending.
+Run `npm run test:hardening-ui` where Chromium is available, providing `PRIVATE_AI_TEST_CHROMIUM` when necessary. It covers the login form, Today/demo/evidence/follow-up navigation, Surveillance, Operations SBAR edits, Automation and all five workflow pages. The current checkup passed in Windows Edge after removing forced single-process launch flags and correcting the modal scope; the completed Today screenshot was visually inspected. Earlier supplemental DOM checks remain historical evidence. Full packaged-desktop, visual and keyboard acceptance is still pending.
+
+Current local verification: 370 regression tests and 23 hardening tests passed; production audit found zero vulnerabilities. `node --expose-gc tests/workflow-benchmark.cjs` provides a repeatable synthetic performance measurement without a timing-sensitive CI gate. Local release-file verification remains blocked on the two generated Windows binaries; consult branch CI separately.
 
 `npm run build` and `lint` are syntax checks only. `check:release` is the Windows input gate. Restored build scripts/icon are present; Windows helper/runtime binaries must be built by the documented workflow. Actual install, existing-data upgrade, vault, local inference and feature execution at the artifact SHA remain release requirements. Record exact passing/failing counts and all unperformed tests in PROJECT_STATUS; do not reuse historical claims as current evidence.
 
