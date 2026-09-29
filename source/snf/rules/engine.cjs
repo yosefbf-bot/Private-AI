@@ -86,22 +86,24 @@ async function runRulesEngine(user = 'System') {
 
     // RULE: NEW MEDICATION WATCH (Last 24 Hours)
     for (const chg of orderChanges) {
-      const isRecent = (now - chg.importTimestamp) <= (36 * 60 * 60 * 1000);
-      if (chg.changeType === 'New Order' && isRecent) {
+      const orderTime = Date.parse(chg.originalData ? chg.originalData.orderDate : chg.orderDate);
+      const dateKnown = Number.isFinite(orderTime);
+      const isRecent = dateKnown && orderTime <= now && (now - orderTime) <= (36 * 60 * 60 * 1000);
+      if (chg.changeType === 'New Order' && (isRecent || !dateKnown)) {
         const isHighAlert = chg.isHighAlert;
         this._createAlert({
           code: 'MED-NEW',
           severity: isHighAlert ? 'high' : 'review',
-          title: isHighAlert ? `HIGH-ALERT MEDICATION STARTED: ${chg.drugName.toUpperCase()}` : `NEW MEDICATION STARTED: ${chg.drugName}`,
-          message: `New order started for ${chg.drugName} (${chg.newDose || 'standard dose'}, ${chg.frequency || 'daily'}). Review indication and clinical monitoring.`,
+          title: isHighAlert ? `HIGH-ALERT NEW-ORDER REVIEW: ${chg.drugName.toUpperCase()}` : `NEW-ORDER REVIEW: ${chg.drugName}`,
+          message: `Imported new-order entry for ${chg.drugName} (${chg.newDose || 'dose not present in imported evidence'}; ${chg.frequency || 'frequency not present in imported evidence'}). ${dateKnown ? 'Recent order date is present in imported evidence.' : 'Order date is not present in imported evidence; start recency is unknown.'} Review indication and clinical monitoring.`,
           residentId: chg.residentId,
           residentName: chg.residentName,
           drug: chg.drugName,
           sources: [{ sourceReport: chg.sourceReport || 'Medication Order Changes', reportDateTime: this._safeISO(chg.reportDate), originalRow: chg.originalRow || 1 }],
           whyFlagged: [
-            `Medication order appeared as a newly started order in the last 24-48 hours.`,
+            `Source labels this entry as a new order; confirm actual start date in the complete clinical record.`,
             `Drug class classified as: ${chg.drugClass}.`,
-            isHighAlert ? `Facility high-alert medication policy requires prioritized clinical surveillance.` : `Standard new medication baseline review.`
+            isHighAlert ? `Potential high-alert medication; review against the facility's approved policy.` : `New-order evidence requires human review.`
           ]
         });
       }
