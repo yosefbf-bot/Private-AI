@@ -17,6 +17,7 @@ test('legacy plaintext copies are removed only after encrypted persistence succe
 test('repository policy rejects forced runtime/key additions without printing secrets',()=>{
  const {inspect}=require('../scripts/check-repository.cjs');for(const file of ['app-data/privateai.db','x.db-wal','x.db-shm','vault.key','.env','logs/test.log','credentials.json'])assert.ok(inspect(file).length);
  assert.ok(inspect('source/secret-test.cjs','const value = "'+'sk-'+'A'.repeat(40)+'"').length);assert.ok(inspect('.env.example','KEY=anything').length);assert.deepEqual(inspect('.env.example','KEY=\n'),[]);
+ for(const file of ['privateai.db-journal','x.sqlite3-wal','recordings/sample.bin','meeting.wav','voice.webm','model.gguf'])assert.ok(inspect(file).length,file);
 });
 test('mapped CSV preserves quoted evidence and rejects column drift',async()=>{
  const {parseCSV}=await import('../source/ui/snf/import-center.mjs');assert.equal(parseCSV('residentId,text\n1,"quoted, evidence"').rows[0].text,'quoted, evidence');assert.throws(()=>parseCSV('id,id\n1,2'));assert.throws(()=>parseCSV('id,text\n1'));assert.throws(()=>parseCSV('id,text\n1,"open'));

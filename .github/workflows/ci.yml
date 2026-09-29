@@ -37,6 +37,18 @@ jobs:
       - name: Build checksum-pinned Windows inference runtime
         run: node build/setup-runtime.cjs
       - run: npm run check:release
+      - name: Record Windows input hashes
+        run: find build/desktop-helper build/local-runtime -type f -print0 | sort -z | xargs -0 sha256sum > build/windows-input-sha256.txt
+      - name: Retain source-built Windows packaging inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-inputs-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            build/desktop-helper/
+            build/local-runtime/
+            build/windows-input-sha256.txt
   dependencies:
     runs-on: ubuntu-latest
     steps:

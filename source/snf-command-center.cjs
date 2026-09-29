@@ -623,7 +623,7 @@ class SNFCommandCenter {
         frequency: r.frequency,
         isPRN: !!(r.prn || (r.frequency && /prn/i.test(r.frequency))),
         prescriber: r.prescriber || r.physician,
-        orderDate: this._safeDateString(r.orderDate, this._safeDateString(reportDate)),
+        orderDate: r.orderDate && Number.isFinite(Date.parse(r.orderDate)) ? this._safeDateString(r.orderDate) : null,
         indication: r.indication || null,
         rationale: r.rationale || r.reason || null,
         sourceReport,

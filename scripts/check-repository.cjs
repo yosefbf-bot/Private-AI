@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
-const blockedPath = /(^|\/)(app-data|uploads|workspace|backups|cache|logs|tmp|temp|browser[_-]profiles|sessions?)(\/|$)|\.(db(?:-wal|-shm)?|sqlite3?(?:-wal|-shm)?|log|key|pem|pfx|p12)$/i;
+const blockedPath = /(^|\/)(app-data|uploads|workspace|backups|cache|logs|tmp|temp|browser[_-]profiles|sessions?|recordings)(\/|$)|\.(db(?:-wal|-shm|-journal)?|sqlite3?(?:-wal|-shm|-journal)?|gguf|wav|mp3|m4a|webm|log|key|pem|pfx|p12)$/i;
 const secretName = /(^|\/)(vault\.[^/]+|credentials[^/]*|secrets[^/]*|\.env(?:\.[^/]+)?)$/i;
 function inspect(file, content = '') {
   const issues = [];

@@ -43,6 +43,19 @@ test('critical findings persist across omissions, snoozes and audited resolution
 test('missing clinical fields remain unknown and old medication is not newly started on reimport',async t=>{
  const {core}=fixture(t);const med=medication();med.rows[0].startDate='2020-01-01';await core.snf.ingestReports([census(),med]);const stored=core.store.list('snf_med_order')[0];assert.equal(stored.dose,null);assert.equal(stored.route,null);assert.ok(!core.store.list('snf_alert').some(a=>a.code==='AP-001'));
 });
+
+test('new-order review never invents dose, frequency, start recency or approved facility policy',async t=>{
+ const {core}=fixture(t);await core.snf.ingestReports([census(),report('med_changes',[{residentId:'synthetic-1',medication:'insulin glargine',changeType:'New Order'}])]);
+ const entry=core.store.list('snf_med_change')[0];assert.equal(entry.orderDate,null);
+ const alert=core.store.list('snf_alert').find(a=>a.code==='MED-NEW');assert.ok(alert);
+ assert.match(alert.message,/dose not present in imported evidence/);assert.match(alert.message,/frequency not present in imported evidence/);assert.match(alert.message,/start recency is unknown/);
+ assert.doesNotMatch(alert.message,/standard dose|daily/);assert.doesNotMatch(alert.whyFlagged.join(' '),/policy requires|last 24-48/);assert.equal(alert.ruleVersion,'3.0.1-2');assert.ok(alert.sources.some(s=>s.batchId));
+});
+
+test('uploading an old explicitly dated new-order entry does not report a recent medication start',async t=>{
+ const {core}=fixture(t);await core.snf.ingestReports([census(),report('med_changes',[{residentId:'synthetic-1',medication:'insulin glargine',changeType:'New Order',orderDate:'2020-01-01'}])]);
+ assert.ok(!core.store.list('snf_alert').some(a=>a.code==='MED-NEW'));
+});
 test('parser failure rolls back the report and records a failed batch',async t=>{
  const {core}=fixture(t);core.snf._processCensus=function(){this.store.put('snf_resident','rollback',{id:'rollback'});throw Error('synthetic');};const r=await core.snf.ingestReports([census()]);assert.equal(r.success,false);assert.equal(core.store.count('snf_resident'),0);assert.equal(core.store.count('snf_import_row'),0);assert.equal(core.store.count('snf_import_batch'),1);
 });

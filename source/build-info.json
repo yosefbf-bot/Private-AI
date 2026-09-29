@@ -1,7 +1,8 @@
 {
   "version": "3.0.1-dev",
-  "updatedAt": "2026-09-23T00:00:00.000Z",
-  "baselineCommit": "baa2deeb32d10ec1b4b28c1626dc81198ecb514d",
+  "updatedAt": "2026-09-29T13:30:41.980Z",
+  "baselineCommit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a",
   "releaseStatus": "blocked",
-  "note": "Development source; no validated Windows artifact"
+  "note": "Windows validation artifacts built; isolated execution passed. Installer/installed-data and human acceptance remain incomplete.",
+  "sourceSHA256": "ea019f72eb90e2e8d5bfad123e92d7ba9db005f3801811ecf093b595312fe533"
 }

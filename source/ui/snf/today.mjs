@@ -206,14 +206,14 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
 
           <!-- 1. Today's Status Header (KPI Strip) -->
           <section class="today-kpi-grid">
-            <div class="today-kpi-card ${criticalAlerts.length > 0 ? 'kpi-critical' : 'kpi-success'}">
+            <div class="today-kpi-card ${criticalAlerts.length > 0 ? 'kpi-critical' : dataHealth.isSurveillanceComplete ? 'kpi-neutral' : 'kpi-warning'}">
               <div class="today-kpi-header">
                 <span>Critical Alerts</span>
-                <span>${criticalAlerts.length > 0 ? 'Action Req' : 'Clear'}</span>
+                <span>${criticalAlerts.length > 0 ? 'Action Req' : dataHealth.isSurveillanceComplete ? 'Review' : 'Incomplete'}</span>
               </div>
               <div class="today-kpi-val">${criticalAlerts.length}</div>
               <div class="today-kpi-sub">
-                ${criticalAlerts.length > 0 ? 'Unresolved critical findings requiring immediate review.' : 'No active critical alerts in imported data.'}
+                ${criticalAlerts.length > 0 ? 'Unresolved critical findings requiring immediate review.' : dataHealth.isSurveillanceComplete ? 'No active critical alerts in imported data; human review remains required.' : 'No imported critical alerts; missing or stale feeds prevent a complete assessment.'}
               </div>
             </div>
 
@@ -224,7 +224,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
               </div>
               <div class="today-kpi-val">${newAlerts24h.length}</div>
               <div class="today-kpi-sub">
-                ${newAlerts24h.length > 0 ? `${newAlerts24h.filter(a => a.severity === 'critical').length} critical, ${newAlerts24h.filter(a => a.severity === 'high').length} high severity.` : 'No new clinical alerts detected in past 24 hours.'}
+                ${newAlerts24h.length > 0 ? `${newAlerts24h.filter(a => a.severity === 'critical').length} critical, ${newAlerts24h.filter(a => a.severity === 'high').length} high severity.` : 'No new alerts in imported evidence during the past 24 hours; this does not establish clinical stability.'}
               </div>
             </div>
 
@@ -353,7 +353,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                     <div class="today-prn-item">
                       <div>
                         <strong>${esc(p.residentName)}</strong> — ${esc(p.drugName)} ${esc(p.dose || '')} PRN
-                        <span style="display:block;font-size:11px;color:#64748b;">Ordered ${esc(p.startDate || 'Unknown')} by ${esc(p.prescriber || 'Attending Physician')}</span>
+                        <span style="display:block;font-size:11px;color:#64748b;">Ordered ${esc(p.startDate || 'date not imported')} by ${esc(p.prescriber || 'prescriber not imported')}</span>
                       </div>
                       <div style="display:flex;align-items:center;gap:8px;">
                         <span class="today-tabular" style="font-weight:700;">Day ${p.elapsedDays} of 14</span>

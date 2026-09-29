@@ -17,6 +17,10 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   await page.getByRole('heading',{name:/Administrator Today/}).waitFor();
   assert.match(await page.locator('#development-mode-banner').textContent(),/Not for PHI/);
   assert.match(await page.locator('.today-page').textContent(),/incomplete|missing|stale/i);
+  const criticalCard=page.locator('.today-kpi-card').filter({hasText:'Critical Alerts'});
+  assert.match(await criticalCard.innerText(),/Incomplete/i);
+  assert.doesNotMatch(await criticalCard.innerText(),/\bClear\b/i);
+  assert.equal(await criticalCard.evaluate(el=>el.classList.contains('kpi-success')),false);
   await page.locator('#btn-toggle-demo').click();
   await page.locator('#btn-return-prod').waitFor();
   await page.locator('.today-page [data-act-evidence]').first().click();await page.locator('[data-evidence-target]:not([hidden])').first().waitFor();
@@ -29,6 +33,7 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   assert.doesNotMatch(await page.locator('.today-page').textContent(),/Eleanor Vance|Dorothy Zimmerman/);
   await page.getByRole('button',{name:'PCC Import Center',exact:true}).first().click();await page.getByRole('heading',{name:'PCC Import Center'}).waitFor();
   // Development mode must visibly block production import flow.
+  await page.locator('#content').getByText('Live PCC imports are disabled.',{exact:false}).waitFor();
   assert.match(await page.locator('#content').textContent(),/Development mode|No imports yet|disabled/i);
   await page.locator('#operations-sidebar-btn').click();
   await page.locator('.ops-page').waitFor();

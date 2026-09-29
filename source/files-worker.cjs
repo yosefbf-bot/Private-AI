@@ -143,7 +143,7 @@ async function main(workerData) {
       return { text: out };
     }
     if (ext === ".pdf") {
-      const pdf = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      const pdf = await require('./pdf-runtime.cjs').loadPdf();
       const job = pdf.getDocument({
         data: new Uint8Array(b),
         isEvalSupported: false,
