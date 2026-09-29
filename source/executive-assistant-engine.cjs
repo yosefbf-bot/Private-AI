@@ -16,7 +16,7 @@ const { fail, isId, text, uuid } = require('./security.cjs');
 
 class ExecutiveAssistantEngine {
   constructor(core) {
-    this.core = core;
+    this.core = require('./executive-workspace.cjs').scopedCore(core);
   }
 
   get store() {
@@ -28,98 +28,26 @@ class ExecutiveAssistantEngine {
   // -------------------------------------------------------------
   generateDraft(type, context = {}) {
     this.core.assertUnlocked();
-    const facilityName = context.facilityName || 'Meadowbrook Care & Rehabilitation Center';
-    const senderTitle = context.senderTitle || 'Facility Administrator (LNHA)';
-
-    switch (type) {
-      case 'family_inquiry': {
-        const familyName = context.familyName || 'Family Member';
-        const residentName = context.residentName || 'your loved one';
-        const topic = context.topic || 'their care plan and daily activities';
-        const department = context.department || 'Nursing and Therapy';
-
-        const subject = `Update regarding ${residentName} — ${facilityName}`;
-        const body = `Dear ${familyName},
-
-Thank you for reaching out to us regarding ${residentName} and ${topic}. We deeply appreciate your involvement in their care.
-
-I reviewed this directly with our Director of Nursing and the ${department} team this morning. We are actively ensuring that all individualized preferences and physician-directed interventions are being followed. ${context.specificUpdate || 'Their therapy progress is being documented daily, and our team is monitoring their nutrition and comfort closely.'}
-
-I want to make sure you have complete peace of mind. Would you have 10 minutes tomorrow afternoon to speak over the phone, or would you like to join us for a brief care conference with our team?
-
-Please don't hesitate to reach out to me directly at any time.
-
-Warm regards,
-
-Facility Administrator, LNHA
-${facilityName}`;
-        return { subject, body, type };
-      }
-
-      case 'corporate_staffing': {
-        const period = context.period || 'this past weekend';
-        const totalOT = context.totalOT || '18 hours';
-        const agencyShifts = context.agencyShifts || '2 CNA shifts';
-        const rootCause = context.rootCause || 'two acute short-notice call-offs on 3-11 West Wing';
-        const hiringAction = context.hiringAction || 'currently interviewing 3 CNA candidates with 1 conditional offer extended';
-
-        const subject = `Operations Brief: Weekend Staffing & Premium Hours Analysis — ${facilityName}`;
-        const body = `Hi Team,
-
-Below is the operational breakdown of our staffing hours and premium labor utilization for ${period}:
-
-1. Summary of Variances:
-   • Total Overtime Incurred: ${totalOT}
-   • Contract Agency Utilization: ${agencyShifts}
-   • Primary Driver: Direct-care coverage required due to ${rootCause}.
-
-2. Actions Taken to Minimize Spend:
-   • All available PRN and part-time staff were canvassed first; non-overtime options were exhausted before authorizing coverage.
-   • Direct-care CMS/State HPPD minimums were strictly maintained across all shifts without over-staffing.
-   • Overtime was contained to high-census subacute units rather than facility-wide.
-
-3. Ongoing Mitigation & Recruitment:
-   • Active Pipeline: We are ${hiringAction}.
-   • New hire orientation is scheduled for Monday, adding core hours to the 3-11 rotation to permanently eliminate this weekend agency gap.
-
-Please let me know if you would like me to review the detailed OnShift Schedule-vs-Actual report during our weekly ops review.
-
-Best,
-
-${senderTitle}
-${facilityName}`;
-        return { subject, body, type };
-      }
-
-      case 'physician_followup': {
-        const physicianName = context.physicianName || 'Dr. Smith';
-        const residentName = context.residentName || 'Resident in Room 204';
-        const clinicalNeed = context.clinicalNeed || 'signed telephone orders and a clarification on the antibiotic start';
-        const urgency = context.urgency || 'routine';
-
-        const subject = `${urgency === 'urgent' ? 'URGENT: ' : ''}Clinical Order Clarification — ${residentName} (Room ${context.room || '204'})`;
-        const body = `Dear ${physicianName},
-
-Good day. Our nursing team at ${facilityName} requires your review on ${residentName}:
-
-• Clinical Concern: ${clinicalNeed}
-• Current Vitals / Status: ${context.vitals || 'Vitals stable; no acute respiratory distress.'}
-• Order / Document Needed: ${context.documentNeeded || 'Signed clarification order via fax / portal.'}
-
-Could you please review and return your order at your earliest convenience? Our fax line is (555) 019-2834, or you may call the charge nurse station directly at (555) 019-2830.
-
-Thank you for your ongoing partnership in resident care.
-
-Sincerely,
-
-${senderTitle}
-${facilityName}`;
-        return { subject, body, type };
-      }
-
-      default:
-        throw fail('INVALID');
+    const value=(key,label)=>context[key] == null || String(context[key]).trim()==='' ? '['+label+' not provided]' : text(String(context[key]),4000);
+    const facility=value('facilityName','Facility name');
+    const review=(this.core.executiveDemo?'DEMO DATA — NOT FOR CLINICAL USE\n':'')+'DRAFT — verify every fact and recipient before sending.\n\n';
+    let subject,body;
+    switch(type){
+      case 'family_inquiry':
+        subject='Update regarding '+value('residentName','Resident')+' — '+facility;
+        body='Dear '+value('familyName','Recipient')+',\n\nThank you for contacting us regarding '+value('topic','Topic')+'.\n\nReviewed update: '+value('specificUpdate','Verified update')+'\n\n[Confirm the care team review and agree on any follow-up before sending.]';
+        break;
+      case 'corporate_staffing':
+        subject='Staffing review — '+facility;
+        body='Reporting period: '+value('period','Reporting period')+'\nOvertime: '+value('totalOT','Measured overtime')+'\nAgency shifts: '+value('agencyShifts','Measured agency shifts')+'\nReported cause: '+value('rootCause','Reviewed cause')+'\nRecruitment actions: '+value('hiringAction','Verified recruitment actions')+'\n\n[Review source coverage, dates and actual actions taken. This draft does not establish staffing compliance.]';
+        break;
+      case 'physician_followup':
+        subject='Clinical review request — '+value('residentName','Resident');
+        body='Dear '+value('physicianName','Clinician')+',\n\nResident: '+value('residentName','Resident')+'\nRoom: '+value('room','Room')+'\nConcern for review: '+value('clinicalNeed','Reviewed concern')+'\nRecorded vitals/status: '+value('vitals','Verified vitals/status')+'\nRequested document: '+value('documentNeeded','Requested document')+'\n\n[Verify the clinical record and approved contact details before sending.]';
+        break;
+      default: throw fail('INVALID');
     }
+    return {subject,body:review+body+'\n\n'+value('senderTitle','Sender title')+'\n'+facility,type,reviewRequired:true,demo:!!this.core.executiveDemo};
   }
 
   // -------------------------------------------------------------
@@ -148,7 +76,7 @@ ${facilityName}`;
       talkingPoints.push(`Address open physical plant/rounds findings: ${relatedRounds.map(r => `${r.location} (${r.description})`).join('; ')}`);
     }
     if (!openTasks.length) {
-      talkingPoints.push('All delegated tasks currently completed; focus on forward-looking QA and upcoming survey readiness.');
+      talkingPoints.push('No open delegated tasks are present in saved records. Verify task coverage before concluding that work is complete.');
     }
 
     return {
@@ -310,7 +238,7 @@ ${facilityName}`;
 
     // Get active admissions/census from store
     const residents = this.store.list('snf_resident') || [];
-    const activeCensus = residents.length ? residents.filter(r => r.status === 'Active').length : 118;
+    const activeCensus = residents.length ? residents.filter(r => r.status === 'Active').length : null;
 
     // Check open room readiness for admissions
     const roomReadiness = this.store.list('exec_room_readiness') || [];
@@ -326,20 +254,20 @@ ${facilityName}`;
     // Urgent regulatory
     const regulatory = this.store.list('ops_regulatory') || [];
     const urgentLicenses = regulatory.filter(r => {
-      const days = Math.ceil((new Date(r.expirationDate).getTime() - Date.now()) / 86400000);
-      return days <= 30;
+      const days = r.expirationDate ? Math.ceil((Date.parse(r.expirationDate) - Date.now()) / 86400000) : NaN;
+      return Number.isFinite(days) && days <= 30;
     });
 
-    const script = `Good morning. Here is your facility briefing for ${today}.
+    const script = `${this.core.executiveDemo ? 'DEMO DATA — NOT FOR CLINICAL USE\n' : ''}Good morning. Here is your facility briefing for ${today}.
 
-Current census is steady at ${activeCensus} residents. You have ${pendingAdmits.length} admission(s) planned for this afternoon: ${pendingAdmits.map(p => `${p.roomNumber} (${p.targetAdmitTime || 'afternoon'})`).join(', ') || 'none pending'}.
+Imported active-resident count: ${activeCensus ?? 'not available'}. Verify report dates; this is not current census confirmation. Recorded admission plans: ${pendingAdmits.length}: ${pendingAdmits.map(p => `${p.roomNumber} (${p.targetAdmitTime || 'time not recorded'})`).join(', ') || 'none recorded'}.
 
-Regarding overnight staffing: ${recentCallOffs.length ? `${recentCallOffs.length} call-off was logged on night shift: ${recentCallOffs.map(c => c.employeeName).join(', ')}.` : 'No critical overnight call-offs were reported.'}
+Regarding overnight staffing: ${recentCallOffs.length ? `${recentCallOffs.length} call-off record(s) found for this date: ${recentCallOffs.map(c => c.employeeName).join(', ')}.` : 'No call-offs are present in the records for this date; staffing coverage is not established.'}
 
 Your Top Non-Negotiable priorities for today:
-${top3Titles.length ? top3Titles.map((t, idx) => `${idx + 1}. ${t}`).join('\n') : '1. Set morning priorities in Executive Desk.\n2. Lead 10:00 AM Department Head Huddle.'}
+${top3Titles.length ? top3Titles.map((t, idx) => `${idx + 1}. ${t}`).join('\n') : 'No priorities recorded. Review and set them in Executive Desk.'}
 
-${urgentLicenses.length ? `Regulatory Reminder: ${urgentLicenses[0].title} is due for renewal in under 30 days.` : 'All primary facility licenses and CLIA certifications are in active standing.'}
+${urgentLicenses.length ? `Regulatory Reminder: ${urgentLicenses[0].title} is due for renewal in under 30 days.` : 'No near-term renewal is present in saved records; verify the complete license register.'}
 
 You are well prepared for the day ahead. Have a productive morning.`;
 
@@ -429,8 +357,8 @@ You are well prepared for the day ahead. Have a productive morning.`;
     switch (scenario) {
       case 'termination_attendance': {
         const employeeName = details.employeeName || 'Staff Member';
-        const points = details.points || '6.5 points (threshold is 5.0)';
-        const lastIncident = details.lastIncident || 'unexcused weekend call-off on Saturday';
+        const points = details.points || '[verified attendance record not provided]';
+        const lastIncident = details.lastIncident || '[reviewed incident not provided]';
 
         return {
           scenarioTitle: `Disciplinary Separation: Excessive Attendance Violations (${employeeName})`,
@@ -441,13 +369,13 @@ You are well prepared for the day ahead. Have a productive morning.`;
           ],
           talkingPoints: [
             `"${employeeName}, thank you for coming in today. I've asked you here to discuss your employment status with our facility."`,
-            `"As we discussed in your written warning on ${details.warningDate || 'last month'}, our facility attendance policy requires consistent presence to ensure direct-care resident coverage."`,
-            `"Following your ${lastIncident}, you have reached ${points}. Because this exceeds our attendance threshold, today will be your final day of employment with us."`,
-            `"We have your final paycheck prepared, including all accrued time. Our HR coordinator will walk you through your benefits continuation paperwork."`
+            `"As we discussed in your written warning on ${details.warningDate || '[verified warning date not provided]'}, our facility attendance policy requires consistent presence to ensure direct-care resident coverage."`,
+            `"Following your ${lastIncident}, you have reached ${points}. HR must verify applicable policy, protected leave, accommodations and the reviewed decision before this discussion."`,
+            `"[Have HR verify any decision, required notices, pay and benefits details before including them.]"`
           ],
           deEscalationTips: [
-            'Do NOT argue or re-litigate past call-off reasons. The decision is already made.',
-            'If they become upset: "I understand this is frustrating. The decision is final based on the objective attendance policy that applies to all staff."',
+            'DRAFT FOR HR REVIEW: hear and document relevant facts before deciding any action.',
+            'If they become upset: "I understand this is frustrating. We will review the documented facts and applicable policy with HR."',
             'Have a second supervisor or HR representative present as a witness.'
           ]
         };
@@ -455,8 +383,8 @@ You are well prepared for the day ahead. Have a productive morning.`;
 
       case 'irate_family_care': {
         const familyName = details.familyName || 'Family Member';
-        const residentName = details.residentName || 'your mother';
-        const concern = details.concern || 'call light wait times and laundry';
+        const residentName = details.residentName || '[resident not provided]';
+        const concern = details.concern || '[concern not provided]';
 
         return {
           scenarioTitle: `De-Escalation Conference: Upset Family Member (${familyName})`,
@@ -468,8 +396,8 @@ You are well prepared for the day ahead. Have a productive morning.`;
           talkingPoints: [
             `"${familyName}, I asked to meet with you because I want to hear directly from you about your experience regarding ${residentName}."`,
             `"First, I want to apologize that your experience did not meet the standard of care we hold ourselves to. You are right to want prompt attention for ${residentName}."`,
-            `"Here is what I am doing immediately: I am having our Director of Nursing audit the call light logs on this wing for the past 72 hours, and our housekeeping manager is personally inventorying ${residentName}'s wardrobe today."`,
-            `"I will call you personally on Thursday at 2:00 PM with the findings and the permanent resolution. Here is my direct facility extension."`
+            `"Here is what I am doing immediately: [Agree on appropriate review steps and owners for the reported concern; do not claim actions have already occurred.]"`,
+            `"[Confirm a follow-up date, responsible person and approved contact details together.]"`
           ],
           deEscalationTips: [
             'Never say "We are short-staffed." Families hear this as an excuse that compromises safety.',
@@ -510,11 +438,11 @@ You are well prepared for the day ahead. Have a productive morning.`;
     });
 
     // Simulated standard scheduled drills & corporate dates for facility calendar
-    const fixedMilestones = [
+    const fixedMilestones = this.core.executiveDemo ? [
       { date: new Date(now + (3 * 86400000)).toISOString().slice(0, 10), type: 'fire_drill', headline: 'Quarterly Unannounced Fire Drill (3-11 Evening Shift)', department: 'maintenance' },
       { date: new Date(now + (7 * 86400000)).toISOString().slice(0, 10), type: 'payroll_cutoff', headline: 'Bi-Weekly Payroll Final Approval & Timecard Lock (12:00 PM)', department: 'business_office' },
       { date: new Date(now + (10 * 86400000)).toISOString().slice(0, 10), type: 'generator_test', headline: 'Emergency Standby Generator Monthly Transfer Switch Test', department: 'maintenance' }
-    ];
+    ] : [];
 
     fixedMilestones.forEach(m => {
       conflicts.push({

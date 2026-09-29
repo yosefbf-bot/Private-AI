@@ -154,6 +154,8 @@ test('Executive Desk: Daily Rhythm, Action Queue, Delegation, Rounds, and HR Mil
   });
 
   await t.test('Admission Room Readiness Board', () => {
+    assert.deepEqual(execDispatch(core, 'execRoomReadinessList', {}), []);
+    for(let i=0;i<4;i++)execDispatch(core,'execRoomReadinessUpdate',{id:'synthetic-room-'+i,roomNumber:String(100+i)});
     const rooms = execDispatch(core, 'execRoomReadinessList', {});
     assert.ok(rooms.length >= 4);
 
@@ -202,6 +204,8 @@ test('Executive Desk: Daily Rhythm, Action Queue, Delegation, Rounds, and HR Mil
     assert.ok(alerts.some(a => a.employeeName === 'Sarah Connor'));
 
     // New Hire Milestones
+    assert.deepEqual(execDispatch(core, 'execNewHireList', {}), []);
+    for(let i=0;i<3;i++)execDispatch(core,'execNewHireSave',{employeeName:'Synthetic hire '+i,hireDate:'2026-09-01'});
     const milestones = execDispatch(core, 'execNewHireList', {});
     assert.ok(milestones.length >= 3);
 
@@ -224,6 +228,9 @@ test('Operations Analytics & Regulatory: OnShift Staffing and Compliance Sentine
   const engine = new OperationsAnalyticsEngine(core);
 
   await t.test('Regulatory Compliance Sentinel', () => {
+    assert.deepEqual(opsDispatch(core, 'regulatoryList', {}), []);
+    // Explicit synthetic fixtures, never automatic production seeding.
+    for(const item of require('../source/operations-analytics-engine.cjs').DEFAULT_REGULATORY_ITEMS)opsDispatch(core,'regulatorySave',item);
     const items = opsDispatch(core, 'regulatoryList', {});
     assert.ok(items.length >= 8);
 
@@ -256,7 +263,7 @@ ShiftKey Agency Aide,CNA,West Wing,11-7 Night,8.0,8.0,0.0,22:55,07:05,Yes`;
   });
 
   await t.test('Smart Shift Replacement Matcher', () => {
-    const matches = opsDispatch(core, 'staffingReplacementMatch', { openShift: { role: 'CNA', hours: 8.0 } });
+    const matches = opsDispatch(core, 'staffingReplacementMatch', { openShift: { role: 'CNA', hours: 8.0 }, roster: engine.getSampleRoster() });
     assert.ok(matches.length >= 4);
 
     // The top recommendation should be Tier 1 (PRN/Part-time with 0 OT)
@@ -346,7 +353,8 @@ test('Executive AI Assistant Suite: Ghostwriter, Voice Parser, Dossiers, Contrac
   await t.test('Commute Audio Briefing Generator', () => {
     const briefing = assistantDispatch(core, 'assistantCommuteBriefing', {});
     assert.ok(briefing.audioScript.includes('Good morning'));
-    assert.ok(briefing.activeCensus > 0);
+    assert.equal(briefing.activeCensus, null);
+    assert.match(briefing.audioScript,/not available/);
   });
 
   await t.test('Vendor Contract & Quote "Gotcha" Scanner', () => {
@@ -378,7 +386,11 @@ test('Executive AI Assistant Suite: Ghostwriter, Voice Parser, Dossiers, Contrac
 
   await t.test('14-Day Proactive Conflict Radar', () => {
     const radar = assistantDispatch(core, 'assistantConflictRadar', { daysAhead: 14 });
-    assert.ok(radar.length >= 2);
+    assert.deepEqual(radar, []);
+    core.store.put('ops_regulatory','synthetic-renewal',{id:'synthetic-renewal',title:'Synthetic renewal',expirationDate:new Date(Date.now()+7*86400000).toISOString().slice(0,10)});
+    const recorded=assistantDispatch(core,'assistantConflictRadar',{daysAhead:14});
+    assert.equal(recorded.length,1);
+    assert.equal(recorded[0].headline,'Regulatory Expiration: Synthetic renewal');
   });
 });
 
@@ -473,7 +485,7 @@ test('Consolidation and Architectural Invariants: Canonical Action Sync, Schedul
     assert.ok(regItem.id);
 
     // Verify canonical Action Center todo was created
-    const expectedTodoId = `todo_reg_${regItem.id}`;
+    const expectedTodoId = regItem.todoId;
     const todo = core.store.get('todo', expectedTodoId);
     assert.ok(todo, 'Expiring regulatory item must link to canonical Action Center todo');
     assert.equal(todo.priority, 'urgent');
@@ -525,4 +537,3 @@ test('Consolidation and Architectural Invariants: Canonical Action Sync, Schedul
     assert.equal(finalCheck.top3[0].completed, true);
   });
 });
-

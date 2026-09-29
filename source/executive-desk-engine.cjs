@@ -14,15 +14,15 @@
 const { fail, isId, text, uuid } = require('./security.cjs');
 
 const DEPARTMENTS = [
-  { id: 'don', name: 'Nursing / DON', title: 'Director of Nursing', defaultLeader: 'Sarah Jenkins, RN' },
-  { id: 'adon', name: 'Assistant DON', title: 'Assistant Director of Nursing', defaultLeader: 'Elena Rostova, RN' },
-  { id: 'maintenance', name: 'Maintenance & Plant', title: 'Director of Maintenance', defaultLeader: 'Marcus Vance' },
-  { id: 'dietary', name: 'Food & Nutrition', title: 'Dietary Director', defaultLeader: 'Chef Carlos Mendez' },
-  { id: 'housekeeping', name: 'Housekeeping & Laundry', title: 'Director of Environmental Services', defaultLeader: 'Maria Santos' },
-  { id: 'social_services', name: 'Social Services', title: 'Social Services Director', defaultLeader: 'Rachel Green, LCSW' },
-  { id: 'business_office', name: 'Business Office / Billing', title: 'Business Office Manager', defaultLeader: 'David Miller' },
-  { id: 'therapy', name: 'Rehabilitation / Therapy', title: 'Director of Rehab', defaultLeader: 'Laura Adams, PT' },
-  { id: 'activities', name: 'Activities & Life Enrichment', title: 'Activities Director', defaultLeader: 'Grace Kim' }
+  { id: 'don', name: 'Nursing / DON', title: 'Director of Nursing', defaultLeader: '' },
+  { id: 'adon', name: 'Assistant DON', title: 'Assistant Director of Nursing', defaultLeader: '' },
+  { id: 'maintenance', name: 'Maintenance & Plant', title: 'Director of Maintenance', defaultLeader: '' },
+  { id: 'dietary', name: 'Food & Nutrition', title: 'Dietary Director', defaultLeader: '' },
+  { id: 'housekeeping', name: 'Housekeeping & Laundry', title: 'Director of Environmental Services', defaultLeader: '' },
+  { id: 'social_services', name: 'Social Services', title: 'Social Services Director', defaultLeader: '' },
+  { id: 'business_office', name: 'Business Office / Billing', title: 'Business Office Manager', defaultLeader: '' },
+  { id: 'therapy', name: 'Rehabilitation / Therapy', title: 'Director of Rehab', defaultLeader: '' },
+  { id: 'activities', name: 'Activities & Life Enrichment', title: 'Activities Director', defaultLeader: '' }
 ];
 
 const ROOM_STAGES = [
@@ -35,7 +35,7 @@ const ROOM_STAGES = [
 
 class ExecutiveDeskEngine {
   constructor(core) {
-    this.core = core;
+    this.core = require('./executive-workspace.cjs').scopedCore(core);
   }
 
   get store() {
@@ -640,7 +640,7 @@ class ExecutiveDeskEngine {
   listRoomReadiness() {
     this.core.assertUnlocked();
     const rooms = this.store.list('exec_room_readiness') || [];
-    if (!rooms.length) {
+    if (!rooms.length && this.core.executiveDemo) {
       // Seed initial sample rooms so the board is ready to use immediately
       const defaultRooms = [
         { id: 'room_104b', roomNumber: '104-B', unit: 'West Wing', stage: 'discharged', targetAdmitTime: null, assignedHousekeeper: 'M. Santos', notes: 'Discharged 10 AM; needs full terminal clean' },
@@ -786,7 +786,7 @@ class ExecutiveDeskEngine {
   listNewHireMilestones() {
     this.core.assertUnlocked();
     const list = this.store.list('exec_hr_milestone') || [];
-    if (!list.length) {
+    if (!list.length && this.core.executiveDemo) {
       // Seed initial new hire examples
       const seeds = [
         { employeeName: 'Brittany Davis', role: 'CNA', department: 'Nursing', hireDate: new Date(Date.now() - (24 * 86400000)).toISOString().slice(0, 10), notes: 'Assigned to preceptor Sarah J.' },
