@@ -2,23 +2,24 @@
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
   "developmentBranch": "codex/release-validation-2026-09-28",
-  "lastVerifiedCommit": null,
+  "lastVerifiedCommit": "5d4772ee9fb70b324a61397ddde93c8b4d1e0f20",
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
   "webMode": "development-only",
   "hipaaMode": true,
   "hipaaModeMeaning": "Default policy setting; not a compliance certification",
   "currentPriorities": [
-    "Establish fresh validation baseline and build actual Windows artifacts, then validate isolated application, installer and data preservation",
-    "Windows install/upgrade/restore acceptance and real microphone/held-out speaker validation",
-    "Independent clinical validation with representative PCC and aggregate staffing/census imports",
-    "Full Chromium visual/keyboard acceptance of consolidated workflows"
+    "Review the release-validation fixes and unsigned Windows artifact; complete spare-account installer/upgrade/uninstall acceptance",
+    "Administrator-approved same-account backup/restore and legacy-data review; remediate historical exposure",
+    "Representative de-identified PCC/clinical acceptance and real microphone/held-out speaker validation",
+    "Full packaged UI/account/Bitwarden/native-companion acceptance and sustained resource testing"
   ],
   "knownCriticalIssues": [
-    "Historical vault/key exposure remains in other refs/history; owner remediation and credential rotation remain required",
-    "Windows helper/runtime binaries absent locally; base CI built them, but actual packaged Windows acceptance remains pending",
-    "Legacy seeded clinical, speaker or SBAR records require user review before live use; no silent deletion",
-    "Edge smoke and Today screenshot passed; comprehensive visual/keyboard and packaged desktop acceptance remain pending"
+    "Historical vault/database objects and credential-shaped strings remain in Git history; owner investigation and authorized remediation required",
+    "Windows artifact built and isolated execution passed; installer, existing-install upgrade, uninstall/reinstall and production vault acceptance unperformed",
+    "High 4B inference passed once but repeated execution triggered low-memory protection; no resource protections weakened",
+    "Legacy clinical/speaker/SBAR/credential records require reviewed disposition; no silent deletion",
+    "Representative clinical, real-speaker, account and full UI acceptance remain incomplete"
   ],
   "completedFeatures": [
     "Runtime data removed from hardening branch tip; repository policy scanner and CI",
@@ -52,7 +53,11 @@
     "Selected-workspace surveillance alert summary restored without mixing demo and production totals",
     "Workflow document metadata reads, incremental job projection and linear review membership comparison",
     "Per-recipe Chrome/Edge/managed Firefox/Chromium and optional Brave/Vivaldi selection with separate persistent profiles",
-    "Browser/Bitwarden sign-in handoff without password extraction; selected-text capture shares sensitive-field exclusions"
+    "Browser/Bitwarden sign-in handoff without password extraction; selected-text capture shares sensitive-field exclusions",
+    "Windows packaging with hashed CI helper/runtime inputs and structural PE gate",
+    "Packaged PDF utility-process worker repair; isolated DPAPI restart/backup/restore and 21-view smoke",
+    "Unknown medication dose/frequency/date and incomplete-feed labels preserve evidence limits",
+    "Strict aggregate import numbers and incomplete-unit/day HPPD regression coverage"
   ],
   "experimentalFeatures": [
     "Heuristic SNF surveillance requires independent clinical validation",
@@ -71,33 +76,33 @@
     "PHI realtime voice approval"
   ],
   "lastTested": {
-    "date": "2026-09-28",
+    "date": "2026-09-29",
     "platform": "win32",
+    "windows": "Windows 11 Pro 10.0.26200 x64",
     "node": "24.19.0",
-    "command": "npm test",
-    "passed": 380,
+    "command": "npm test (TAP)",
+    "passed": 384,
     "failed": 0,
     "cancelled": 0,
     "skipped": 0,
     "hardening": {
-      "passed": 23,
+      "passed": 25,
       "failed": 0
     },
-    "dependencyInstall": "npm ci --ignore-scripts passed using unchanged package-lock.json",
-    "syntax": "Passed final syntax checks",
-    "repositoryPolicy": "Passed tracked-file policy check; no runtime data or credentials committed",
-    "dependencyAudit": "High-severity gate passed: 0 high/critical; 2 moderate mailparser/nodemailer findings (GHSA-6vj9-mwq6-2f5v), unrelated dependency upgrades deferred.",
-    "releaseManifest": "blocked: locally unbuilt Windows helper and inference runtime executables",
-    "browserDOM": "Earlier supplemental coverage is recorded in docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md; current browser scope is below",
-    "browserUI": "Passed synthetic report/sign-in, protected capture and save/edit/reload/use in Chrome, Edge, managed Firefox and Chromium. Real Bitwarden and packaged native messaging not exercised.",
-    "windowsValidation": "Source tests and Edge smoke passed on Windows; packaged install/upgrade, vault, inference, real microphone and live provider acceptance not performed",
-    "performance": "Prior checkup measurement retained in docs/APPLICATION_CHECKUP_2026-09-28.md; not remeasured in this browser change.",
-    "reviewNotes": "docs/BROWSER_PASSWORDS_2026-09-28.md",
-    "githubActions": "Latest main run 36499532128 passed; fetched via gh on 2026-09-28",
-    "evidenceStatus": "Historical PR #8 results; release-validation baseline has not yet run"
+    "dependencyInstall": "Clean npm ci --ignore-scripts: 603 packages added, 604 audited; transitive deprecation warnings retained in dated report",
+    "syntax": "158 tracked JS files passed",
+    "repositoryPolicy": "255 tracked files at code checkpoint passed; 256 after final human-action document. Final scan includes the new document.",
+    "dependencyAudit": "0 vulnerabilities",
+    "releaseManifest": "Passed: 406 helper/runtime PE binaries. Complete packaged tree: 415 PE binaries.",
+    "browserUI": "27 synthetic Edge UI/keyboard checks; hardening UI and messaging UI passed; Chrome/Edge/managed Firefox/Chromium browser suite passed",
+    "windowsValidation": "Unsigned NSIS built. Fresh and restart packaged app runs passed 12 acceptance checks each plus 12 built-in checks each: DPAPI, synthetic restore, helper, file formats, IPC lock and 21 views. Installer NOT executed; installed-data upgrade NOT performed.",
+    "localInference": "Small/Medium passed repeated actual inference. High initially passed but final repeat failed and targeted retry confirmed low-memory protection. Extra High absent. Cloud policies are source-test coverage, not live-provider acceptance.",
+    "performance": "Synthetic 400 documents / 80 jobs / 1500 actions median 206.69 ms vs 220.43 ms baseline; no optimization claim. Loaded packaged app ~932 MiB aggregate working set after short settle.",
+    "reviewNotes": "docs/WINDOWS_RELEASE_VALIDATION_2026-09-28.md",
+    "githubActions": "Source checkpoint 5d4772ee9fb70b324a61397ddde93c8b4d1e0f20: run 36575990119 regression/dependencies passed, release-files runtime build in progress at documentation time. Final publication status is recorded in PR checks and external final-revision.json."
   },
   "reviewBaseCommit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a",
-  "verificationScope": "Repository synchronization only at this phase. Fresh source suite and Windows artifact acceptance pending. Historical browser/source evidence retained explicitly; no active vault or clinical data accessed.",
+  "verificationScope": "Bounded source and synthetic UI regression plus actual packaged Windows application, DPAPI synthetic restart/restore and local model execution. No installed vault contents, PHI, real accounts or human voice samples accessed. See acceptance report for failures and unperformed tests.",
   "baseIntegration": {
     "pr": 8,
     "merged": true,
@@ -111,5 +116,18 @@
     ],
     "checks": "Main CI success: https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/36499532128"
   },
-  "currentMainCommit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a"
+  "currentMainCommit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a",
+  "windowsAcceptance": {
+    "artifactBuilt": true,
+    "isolatedApplication": true,
+    "syntheticDPAPIRestore": true,
+    "installerExecuted": false,
+    "installedDataUpgrade": false,
+    "uninstallReinstall": false,
+    "windowsRestart": false,
+    "productionReady": false
+  },
+  "speakerValidation": "Human participation required; conservative feature preserved, no accuracy claim",
+  "clinicalValidation": "Synthetic technical contracts passed; representative de-identified PCC and clinical review pending",
+  "installerSHA256": "24084a22e37846203119bf023cfa045b65bdf34a0a70e2d1cba1617a727cbf22"
 }
