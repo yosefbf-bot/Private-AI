@@ -34,3 +34,16 @@ test('prepackaged validation requires an x64 launcher and checks nested binaries
   assert.throws(() => validateTree(root), /truncated section/);
 });
 
+test('release input gate rejects placeholders, truncated runtime dependencies and wrong architecture', t => {
+  const {validate}=require('../scripts/check-release-files.cjs');
+  const root=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'private-ai-release-inputs-'));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  for(const file of require('../scripts/release-manifest.json').required){const target=path.join(root,file);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,file.endsWith('.exe')?fixture():'Synthetic test input');}
+  assert.equal(validate(root).binaries,2);
+  const runtime=path.join(root,'build/local-runtime/llama-server.exe');
+  fs.writeFileSync(runtime,'MZ placeholder');assert.throws(()=>validate(root),/missing DOS header/);
+  const wrong=fixture();wrong.writeUInt16LE(0x14c,132);fs.writeFileSync(runtime,wrong);assert.throws(()=>validate(root),/x64 binary required/);
+  fs.writeFileSync(runtime,fixture());fs.writeFileSync(path.join(root,'build/local-runtime/ggml.dll'),fixture().subarray(0,1100));
+  assert.throws(()=>validate(root),/truncated section/);
+});
+
