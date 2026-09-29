@@ -28,13 +28,13 @@ Environment: Windows 11 Pro 10.0.26200 x64; Node 24.19.0. Synthetic test data on
 | `npm test` | 414 passed, 0 failed/skipped/cancelled; final run 11,620.6746 ms |
 | `npm run test:hardening` | 25 passed, 0 failed/skipped/cancelled; overlapping subset, 1,825.3595 ms |
 | `npm run lint` | 166 tracked JS files passed |
-| `npm run check:repository` | 265 tracked files at code checkpoint passed; final documentation scanned separately |
+| `npm run check:repository` | 265 tracked files at code checkpoint; 267 including final documentation passed |
 | `npm audit --omit=dev --audit-level=high` | 0 vulnerabilities |
 | `npm run test:hardening-ui` | Edge passed existing workflows plus new Production empty states, Demo boundary, sample-import restriction and remote-only TTS refusal |
 | `npm run check:release` | Required files and 406 structurally valid Windows PE binaries passed |
 | Git diff review | Restored files match verified parent; no unrelated deletion or dependency change |
 
-Local release checking used copies of the previously verified source-built helper/runtime from the release-validation worktree; helper/runtime sources are unchanged. GitHub independently rebuilds them. This is not a new Electron/NSIS build, installer test or production upgrade acceptance. No new installer hash is claimed.
+Local release checking used copies of the previously verified source-built helper/runtime from the release-validation worktree; all 411 copied files matched the prior CI SHA-256 manifest and helper/runtime sources are unchanged. GitHub independently rebuilds them. This is not a new Electron/NSIS build, installer test or production upgrade acceptance. No new installer hash is claimed.
 
 The three new database tests first reproduced failures before repair, then passed. Existing mock tests now supply explicit synthetic fixtures instead of depending on automatic Production seeding; expected behaviors were not disabled. One concurrent full-suite/UI invocation failed session authentication because both used port 3000 (413/414). Serial reruns passed 414/414. Run server-based suites serially. An intermediate UI test navigation failure was corrected to close its modal before navigating; the completed Edge run passed.
 
