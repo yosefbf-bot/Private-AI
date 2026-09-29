@@ -211,7 +211,10 @@ let browser;
   assert.equal(core.settings().keepBrainMinutes,2);
   await desktop.screenshot({path:path.join(root,'build/screenshots/health-recovery.png')});
   checks.push('Health screen saves validated settings through the real Core');
-  await desktop.locator('.new-chat').click();
+  await desktop.keyboard.press('Control+k');
+  await desktop.locator('#prompt').waitFor();
+  assert.equal(await desktop.locator('#prompt').evaluate(el=>el===document.activeElement),true);
+  checks.push('Ctrl K opens chat and focuses the prompt');
 
   await desktop
     .locator("#prompt")
@@ -279,6 +282,10 @@ let browser;
     .waitFor();
   checks.push("Project creation saves through the real Core");
   await desktop.locator('#sidebar [data-view="schedules"]').click();
+  await desktop.locator('[data-act="schedule-new"]').click();
+  assert.equal(await desktop.locator('#modal input').first().evaluate(el=>el===document.activeElement),true);
+  await desktop.keyboard.press('Escape');assert.equal(await desktop.locator('#modal').evaluate(el=>el.open),false);
+  checks.push('Dialog focuses its first input and Escape cancels');
   await desktop.locator('[data-act="schedule-new"]').click();
   await desktop.locator('[name="name"]').fill("Morning report");
   await desktop

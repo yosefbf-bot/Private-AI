@@ -6,6 +6,11 @@ const {ModelManager}=require('../source/model-manager.cjs');
 const {LocalBrain}=require('../source/local-brain.cjs');
 const {HYBRID_DEFAULTS}=require('../source/hybrid-settings.cjs');
 const {sampleProcessMemory}=require('../source/process-memory.cjs');
+async function cpuMilliseconds(pid){
+ if(!Number.isSafeInteger(pid)||pid<=0)throw Error('Invalid process');
+ const {stdout}=await require('node:util').promisify(require('node:child_process').execFile)(path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe'),['-NoProfile','-NonInteractive','-Command',`[Console]::Write(([System.Diagnostics.Process]::GetProcessById(${pid})).TotalProcessorTime.TotalMilliseconds.ToString([System.Globalization.CultureInfo]::InvariantCulture))`],{windowsHide:true,timeout:5000});
+ return Number(stdout.trim());
+}
 async function run(directory){
  if(process.platform!=='win32'||!path.isAbsolute(directory))throw Error('Windows and an absolute evidence directory required');
  fs.mkdirSync(directory,{recursive:true});
@@ -17,15 +22,19 @@ async function run(directory){
  try{
   for(const tier of ['small','medium','high','extra']){
    const row=manager.catalog(settings).find(r=>r.tier===tier);
-   if(!row?.installed){evidence.results.push({tier,status:'unavailable'});continue;}
+   if(!row?.installed){(evidence.unavailableTiers??=[]).push(tier);continue;}
    const start=performance.now();await manager.verifyTier(tier,settings);const checksumMs=performance.now()-start;
    settings={...settings,localModelPath:row.file};
    const record={tier,checksumVerified:true,checksumMs:Math.round(checksumMs),freeMemoryBeforeLoad:os.freemem()};
    try{
     const load=performance.now();await brain.load(settings);record.loadMs=Math.round(performance.now()-load);
     record.peakWorkingSetBytes=await sampleProcessMemory(brain.child.pid);
+    const cpuBefore=await cpuMilliseconds(brain.child.pid),cpuStart=performance.now();
     const generated=performance.now();const result=await brain.generate(settings,[{role:'user',content:'Reply with the word READY. This is a synthetic installation test.'}]);
     assert.ok(result.text.trim());record.response=result.text;record.generationMs=Math.round(performance.now()-generated);record.peakWorkingSetBytes=await sampleProcessMemory(brain.child.pid);record.status='passed';evidence.actualModelInferenceExecuted=true;
+    record.cpuTimeMs=await cpuMilliseconds(brain.child.pid)-cpuBefore;
+    record.cpuSampleElapsedMs=Math.round(performance.now()-cpuStart);
+    record.meanCpuPercentOfAllLogicalProcessors=+(100*record.cpuTimeMs/record.cpuSampleElapsedMs/os.cpus().length).toFixed(1);
     const cancellation=new AbortController();const pending=brain.generate(settings,[{role:'user',content:'Write a long numbered list of household objects.'}],{signal:cancellation.signal});setTimeout(()=>cancellation.abort(),100);await assert.rejects(pending,{code:'CANCELLED'});await brain.waitStopped();assert.equal(brain.child,null);record.cancellation='passed';
     brain.browserBusy=true;await assert.rejects(brain.generate(settings,[{role:'user',content:'Synthetic browser lane test'}]),{code:'LOW_MEMORY'});brain.browserBusy=false;record.browserLaneBlock='passed';
    }catch(e){record.status='blocked';record.errorCode=e.code||'UNKNOWN';}
