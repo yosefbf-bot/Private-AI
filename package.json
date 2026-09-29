@@ -92,7 +92,7 @@
     "dompurify": "3.4.15",
     "exceljs": "4.4.0",
     "express": "^5.2.1",
-    "mailparser": "3.9.23",
+    "mailparser": "3.9.31",
     "mammoth": "1.12.2",
     "marked": "18.0.12",
     "pdfjs-dist": "6.3.289",
