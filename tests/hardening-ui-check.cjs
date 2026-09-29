@@ -29,6 +29,7 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   assert.doesNotMatch(await page.locator('.today-page').textContent(),/Eleanor Vance|Dorothy Zimmerman/);
   await page.getByRole('button',{name:'PCC Import Center',exact:true}).first().click();await page.getByRole('heading',{name:'PCC Import Center'}).waitFor();
   // Development mode must visibly block production import flow.
+  await page.locator('#content').getByText('Live PCC imports are disabled.',{exact:false}).waitFor();
   assert.match(await page.locator('#content').textContent(),/Development mode|No imports yet|disabled/i);
   await page.locator('#operations-sidebar-btn').click();
   await page.locator('.ops-page').waitFor();

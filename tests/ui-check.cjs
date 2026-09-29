@@ -45,6 +45,8 @@ const access = new AccessManager(core, async (d) => {
 let desktop, panel, requestedModel;
 core.resources.approve=async detail=>{assert.ok(detail);return true;}; // Explicit synthetic approval for the read-access UI fixture.
 async function dispatch(op, data = {}, native = false) {
+  if(op.startsWith('snf')) return require('../source/snf/index.cjs').dispatch(core,op,data);
+  if(op.startsWith('workflow')) return require('../source/workflows/index.cjs').dispatch(core,op,data);
   switch (op) {
     case "userGuide": return require("../source/app-guide.json");
     case "saveDraft": return core.saveDraft(data.id,data.text);
@@ -185,6 +187,10 @@ let browser;
     };
   });
   await desktop.goto(base + "/source/ui/index.html");
+  await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
+  // Current navigation starts at Today and groups less-used tools in disclosure menus.
+  for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator('summary').click();
+  await desktop.locator('.new-chat').click();
   await desktop.locator(".welcome h1").waitFor();
   assert.match(await desktop.locator('#last-updated').textContent(),/Last updated: /);
   assert.doesNotMatch(await desktop.locator('#last-updated').textContent(),/unavailable|Invalid Date/);
@@ -211,7 +217,8 @@ let browser;
     .locator("#prompt")
     .fill("Prepare a weekly operations report from these synthetic notes.");
   await desktop.locator("#send").click();
-  await desktop.locator(".usage").first().waitFor();
+  await desktop.getByText('Token usage',{exact:true}).first().click();
+  await desktop.locator('details').filter({has:desktop.locator('summary').getByText('Token usage',{exact:true})}).locator('.usage').waitFor();
   assert.equal(await desktop.locator(".message.assistant table").count(), 1);
   checks.push("Streaming answer renders a table and token counts");
   await desktop.screenshot({
@@ -221,6 +228,7 @@ let browser;
   noted.messages = [{role:"assistant",text:"The recommended larger model was unavailable or did not fit. Review this Small-model draft.\n\nLocal draft — not sufficiently verified. No OpenAI call was made.\n\nYes. Open **User guide** in the sidebar for instructions on models, files, schedules and privacy. You can also ask me how to use a feature."}];
   core.saveChat(noted);
   await desktop.reload();
+  for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator('summary').click();
   await desktop.locator(`[data-id="${noted.id}"]`).click();
   const body = desktop.locator('.message.assistant .message-body');
   const notes = desktop.locator('.response-footnotes');
@@ -233,7 +241,7 @@ let browser;
   checks.push('Grey answer bubble keeps both compact notices below the response');
   await desktop.locator('#sidebar [data-view="guide"]').click();
   await desktop.locator('#guide-search').waitFor();
-  assert.equal(await desktop.locator('#guide-topics details').count(),24);
+  assert.equal(await desktop.locator('#guide-topics details').count(),require('../source/app-guide.json').topics.length);
   await desktop.locator('#guide-search').fill('RAM');
   assert.ok(await desktop.locator('#guide-topics details').count()>0);
   await desktop.locator('#guide-search').fill('ShareSync');
@@ -301,7 +309,7 @@ let browser;
   await desktop.locator("#modal-submit").click();
   await desktop
     .locator("#attachments")
-    .getByText("Outlook message.txt", { exact: false })
+    .getByText("Outlook: Synthetic inbox item.txt", { exact: false })
     .waitFor();
   checks.push(
     "Outlook is denied until granted, then a chosen message is previewed and attached without sending",
@@ -350,6 +358,7 @@ let browser;
   ];
   core.saveChat(unsafe);
   await desktop.reload();
+  for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator('summary').click();
   await desktop.locator(`[data-id="${unsafe.id}"]`).click();
   assert.equal(
     await desktop.locator(".message-body img,.message-body script").count(),
@@ -463,7 +472,7 @@ let browser;
   await desktop.locator('#sidebar [data-view="processing"]').click();
   await desktop.locator('[name="processingMode"]').selectOption('local-only');
   await desktop.locator('[data-act="hybrid-save"]').click();
-  await desktop.waitForFunction(()=>document.querySelector('#model-label').textContent==='Local Only');
+  await desktop.waitForFunction(()=>document.querySelector('#model-label').textContent.startsWith('Local Only · '));
   assert.equal(core.settings().processingMode,'local-only');
   await desktop.screenshot({path:path.join(root,'build/screenshots/ai-processing.png')});
   assert.equal(await desktop.locator('[data-act="hybrid-runtime"]').count(),0);
@@ -517,8 +526,10 @@ let browser;
   );
   console.log(JSON.stringify(result, null, 2));
 })()
-  .catch((e) => {
+  .catch(async (e) => {
     console.error(e);
+    console.error('Browser errors:',errors);
+    if(desktop&&!desktop.isClosed())console.error('Visible UI:',(await desktop.locator('#content').innerText()).slice(0,1500),'Notice:',await desktop.locator('#toast').textContent());
     process.exitCode = 1;
   })
   .finally(async () => {
