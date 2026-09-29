@@ -16,6 +16,8 @@
 
 The implementation matrix in `docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md` covers navigation consolidation, unified action/review/decision workflows, evidence packets, versioned mappings, measured staffing/census imports, document sections, playbook previews and local budget limits. PR #6 merged these changes. PR #7 (checkup) and PR #8 (browsers/Bitwarden) also merged. Main re-fetched on 2026-09-29 is `1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a`; CI run 36499532128 passed. Release validation has established a fresh baseline and Windows artifact evidence, but installer/clinical/speaker acceptance remains incomplete. Read the dated Windows validation and human acceptance documents before next-stage enhancements.
 
+Operational and executive roadmap for the daily Executive Desk, OnShift staffing analytics, regulatory sentinel, and the AI Chief of Staff assistant suite is documented in `docs/EXECUTIVE_DESK_AND_OPERATIONS_ROADMAP.md`.
+
 Remaining product extensions: scheduled revision-pinned playbooks, deterministic validated calculation definitions, document OCR and semantic retrieval, automatic staffing/payroll connections and facility-specific approved scoring. Current CSV unit metrics do not establish facility-wide coverage or regulatory compliance.
 
 Validate experimental speaker signatures on Windows and held-out real speakers. Evaluate a proper local speaker-embedding model and offline transcription before continuous diarization. Keep manual attribution and abstention available.

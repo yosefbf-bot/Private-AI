@@ -1,5 +1,6 @@
 import { captureSpeakerSample } from './speaker-capture.mjs';
 import { browserSpeechAllowed } from './speech-policy.mjs';
+import { createOperationsAnalyticsUI } from './operations-analytics.mjs';
 // Operations Intelligence + Meeting Copilot + Interactive SBAR + Shift Handoff UI Module
 // Comprehensive operational command center, morning standup briefing,
 // real-time live meeting copilot with audio pipeline, non-speech filtering, speaker recognition,
@@ -17,6 +18,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
   let meetingHistory = [];
   let opsData = null;
   let historySearch = '';
+  let currentOptions = {};
+  const analyticsUI = createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPage, getState });
 
   // Audio Pipeline & Speaker Recognition State
   let audioQuality = { status: 'Unmeasured', noiseFloorDb: 'Unknown', snrDb: 'Unknown', warning: 'Local speaker recording is available for one speaker at a time. Automatic names are experimental suggestions; confirm identity before assigning work.' };
@@ -59,6 +62,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
   return {
     async render(container, options = {}) {
+      currentOptions = options;
       if (options.tab) activeTab = options.tab;
       if (options.alertId || options.residentName) {
         activeTab = 'sbar';
@@ -153,6 +157,9 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               <button type="button" class="ops-tab-btn ${activeTab === 'operations' ? 'active' : ''}" data-ops-tab="operations">
                 📊 Operations Radar
               </button>
+              <button type="button" class="ops-tab-btn ${activeTab === 'analytics' ? 'active' : ''}" data-ops-tab="analytics">
+                📈 Staffing &amp; Overtime Analytics
+              </button>
               <button type="button" class="ops-tab-btn ${activeTab === 'copilot' ? 'active' : ''}" data-ops-tab="copilot">
                 🎙 Live Meeting Copilot ${activeMeeting && activeMeeting.status === 'live' ? '<span class="ops-tab-badge pulse">LIVE</span>' : ''}
               </button>
@@ -178,6 +185,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
           <!-- Main Content Area -->
           <main class="ops-body">
             ${activeTab === 'operations' ? this.renderOperationsRadar(ops) : ''}
+            ${activeTab === 'analytics' ? '<div id="ops-analytics-mount"></div>' : ''}
             ${activeTab === 'copilot' ? this.renderCopilotView() : ''}
             ${activeTab === 'speaker_review' ? this.renderSpeakerReviewView() : ''}
             ${activeTab === 'sbar' ? this.renderSbarView() : ''}
@@ -189,6 +197,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       `;
 
       this.attachEvents(container);
+
+      if (activeTab === 'analytics') {
+        const mount = container.querySelector('#ops-analytics-mount');
+        if (mount) analyticsUI.render(mount, currentOptions);
+      }
     },
 
     // -------------------------------------------------------------

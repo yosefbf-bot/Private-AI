@@ -356,6 +356,9 @@ async function dispatch(
   if (op.startsWith("snf")) return require("./snf/index.cjs").dispatch(core,op,data);
   if (op.startsWith("workflow")) return require("./workflows/index.cjs").dispatch(core,op,data);
   if (/^(operations|meeting|sbar|speaker|audio)/.test(op)) return require("./operations-copilot.cjs").dispatch(core,op,data);
+  if (op.startsWith("exec")) return require("./executive-desk-engine.cjs").dispatch(core,op,data);
+  if (/^(regulatory|staffing)/.test(op)) return require("./operations-analytics-engine.cjs").dispatch(core,op,data);
+  if (op.startsWith("assistant")) return require("./executive-assistant-engine.cjs").dispatch(core,op,data);
   switch (op) {
     case "userGuide": return require('./app-guide.cjs').guide;
     case "discardRecovery": return core.discardRecovery(data.id);

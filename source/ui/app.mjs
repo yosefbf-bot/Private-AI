@@ -12,6 +12,8 @@ import { VoiceManager } from "./voice.mjs";
 import { createSNFUI } from "./snf-ui.mjs";
 import { createAutomationCenterUI } from "./automation-center.mjs";
 import { createOperationsCopilotUI } from "./operations-copilot.mjs";
+import { createExecutiveDeskUI } from "./executive-desk.mjs";
+import { createOperationsAnalyticsUI } from "./operations-analytics.mjs";
 const $ = (id) => document.getElementById(id),
   esc = (v) =>
     String(v ?? "").replace(
@@ -102,6 +104,22 @@ const operationsCopilotUI = createOperationsCopilotUI({
   refresh,
   renderPage
 });
+const executiveDeskUI = createExecutiveDeskUI({
+  getState: () => state,
+  api,
+  esc,
+  toast,
+  refresh,
+  renderPage
+});
+const operationsAnalyticsUI = createOperationsAnalyticsUI({
+  getState: () => state,
+  api,
+  esc,
+  toast,
+  refresh,
+  renderPage
+});
 const formatOptions =
   '<option value="">Save as…</option>' +
   ["pdf", "docx", "xlsx", "csv", "md", "txt"]
@@ -163,6 +181,8 @@ function updateTop() {
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
   const names = {
     today: "Today",
+    execdesk: "👔 Executive Desk",
+    opanalytics: "📈 Operations Analytics & Compliance",
     actions: "Action Center", decisions: "Decision log", metrics: "Data sources", workspace: "Projects & Documents", playbooks: "Playbooks & Budgets",
     operations: "📊 Operations Intelligence & Meeting Copilot",
     automation: "⚡ Automation & Agent Center",
@@ -1461,6 +1481,16 @@ function renderPage(name, options = {}) {
   if (["today","pcc"].includes(name)) {
     $("content").innerHTML="<p>Loading…</p>";
     (name==="today"?todayUI:importUI).render($("content")).catch(e=>toast(e.message));return;
+  }
+  if (name === "execdesk") {
+    $("content").innerHTML="<p>Loading Executive Desk…</p>";
+    executiveDeskUI.render($("content"),options).catch(e=>toast(e.message));
+    return;
+  }
+  if (name === "opanalytics") {
+    $("content").innerHTML="<p>Loading Operations Analytics…</p>";
+    operationsCopilotUI.render($("content"), { ...options, tab: "analytics" }).catch(e=>toast(e.message));
+    return;
   }
   if (name === "operations") {
     $("content").innerHTML="<p>Loading Operations Intelligence…</p>";
