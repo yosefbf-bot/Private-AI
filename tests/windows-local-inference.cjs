@@ -17,10 +17,12 @@ async function run(directory){
  const runtime=path.resolve(__dirname,'../dist/win-unpacked/resources/local-runtime/llama-server.exe');
  const manager=new ModelManager({directory:path.join(process.env.LOCALAPPDATA,'PrivateAIModels')});
  let settings={...HYBRID_DEFAULTS,processingMode:'local-only',allowCloud:false,localMaxOutput:128};
- const brain=new LocalBrain({runtime,settings:()=>settings});
+ const events=[];const brain=new LocalBrain({runtime,settings:()=>settings,emit:event=>events.push({at:new Date().toISOString(),...event})});
  const evidence={version:require('../package.json').version,platform:process.platform,passed:false,actualModelInferenceExecuted:false,runtimeSHA256:crypto.createHash('sha256').update(fs.readFileSync(runtime)).digest('hex'),started:new Date().toISOString(),totalMemoryBytes:os.totalmem(),initialFreeMemoryBytes:os.freemem(),results:[],checks:[],limitations:['No cloud/provider request is made. Policy modes are covered separately by source regression tests.','Generation uses the existing non-streaming transport; time to first token is not measured.','Measurements are observations on this PC, not performance guarantees.']};
  try{
-  for(const tier of ['small','medium','high','extra']){
+  const tiers=process.argv[3]?process.argv[3].split(','):['small','medium','high','extra'];
+  if(tiers.some(t=>!['small','medium','high','extra'].includes(t)))throw Error('Invalid tier');
+  for(const tier of tiers){
    const row=manager.catalog(settings).find(r=>r.tier===tier);
    if(!row?.installed){(evidence.unavailableTiers??=[]).push(tier);continue;}
    const start=performance.now();await manager.verifyTier(tier,settings);const checksumMs=performance.now()-start;
@@ -37,12 +39,12 @@ async function run(directory){
     record.meanCpuPercentOfAllLogicalProcessors=+(100*record.cpuTimeMs/record.cpuSampleElapsedMs/os.cpus().length).toFixed(1);
     const cancellation=new AbortController();const pending=brain.generate(settings,[{role:'user',content:'Write a long numbered list of household objects.'}],{signal:cancellation.signal});setTimeout(()=>cancellation.abort(),100);await assert.rejects(pending,{code:'CANCELLED'});await brain.waitStopped();assert.equal(brain.child,null);record.cancellation='passed';
     brain.browserBusy=true;await assert.rejects(brain.generate(settings,[{role:'user',content:'Synthetic browser lane test'}]),{code:'LOW_MEMORY'});brain.browserBusy=false;record.browserLaneBlock='passed';
-   }catch(e){record.status='blocked';record.errorCode=e.code||'UNKNOWN';}
+   }catch(e){record.status='blocked';record.errorCode=brain.status().error?.code||e.code||'UNKNOWN';record.engineStatus=brain.status();}
    finally{brain.stop('validation');await brain.waitStopped();}
    evidence.results.push(record);console.log(JSON.stringify(record));
   }
   evidence.passed=evidence.results.filter(r=>r.status!=='unavailable').every(r=>r.status==='passed')&&evidence.actualModelInferenceExecuted;
- }finally{brain.close();await brain.waitStopped();evidence.completed=new Date().toISOString();fs.writeFileSync(path.join(directory,'inference-evidence.json'),JSON.stringify(evidence,null,2));}
+ }finally{brain.close();await brain.waitStopped();evidence.events=events;evidence.completed=new Date().toISOString();fs.writeFileSync(path.join(directory,'inference-evidence.json'),JSON.stringify(evidence,null,2));}
  if(!evidence.passed)process.exitCode=1;
 }
 run(process.argv[2]||'').catch(e=>{console.error(e.code||e.message);process.exitCode=1;});

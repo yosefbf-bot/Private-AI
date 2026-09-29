@@ -11,6 +11,13 @@ async function run({core,win,reportPath,exe,asar}){
   const deadline=Date.now()+45000;let ready=false;
   while(Date.now()<deadline){if(win.isDestroyed())throw Error('Window destroyed');try{ready=await win.webContents.executeJavaScript("!!document.querySelector('#sidebar') && !!window.privateAI && !!document.querySelector('#content')");}catch{}if(ready&&!win.webContents.isLoading())break;await new Promise(r=>setTimeout(r,200));}
   assert.equal(ready,true);evidence.checks.push('packaged renderer loaded with isolated preload');
+  win.webContents.setBackgroundThrottling(false);
+  const capture=async()=>{
+   // Hidden/minimized Windows test launches can retain an older compositor frame.
+   await win.webContents.executeJavaScript('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+   await new Promise(r=>setTimeout(r,250));
+   return win.webContents.capturePage();
+  };
   evidence.rendererReadyMs=Date.now()-Date.parse(evidence.started);
   await new Promise(r=>setTimeout(r,1500));
   evidence.loadedApplicationWorkingSetKiB=require('electron').app.getAppMetrics().reduce((n,p)=>n+(p.memory?.workingSetSize||0),0);
@@ -20,7 +27,7 @@ async function run({core,win,reportPath,exe,asar}){
   const messaging=await win.webContents.executeJavaScript("window.privateAI.call('messagingStatus')");assert.equal(messaging.ok,true);assert.equal(messaging.result.settings.readAll,true);assert.equal(messaging.result.settings.enabled,false);evidence.checks.push('packaged messaging permissions initialized');
   await win.webContents.executeJavaScript("document.querySelector('[data-view=\"messaging\"]').click()");
   let controls=false;for(let n=0;n<50;n++){controls=await win.webContents.executeJavaScript("!!document.querySelector('[name=\"wa-readAll\"]') && !!document.querySelector('[name=\"wa-disableAllWriting\"]')");if(controls)break;await new Promise(r=>setTimeout(r,100));}assert.equal(controls,true);evidence.checks.push('packaged Messaging page renders independent controls');
-  const image=await win.webContents.capturePage();fs.writeFileSync(path.join(path.dirname(reportPath),'application.png'),image.toPNG());
+  const image=await capture();fs.writeFileSync(path.join(path.dirname(reportPath),'application.png'),image.toPNG());
   assert.ok(fs.existsSync(path.join(core.root,'vault.dpapi')));assert.ok(core.store.db);evidence.checks.push('real Windows DPAPI vault and SQLite startup completed');
   const vaultHash=sha(path.join(core.root,'vault.dpapi'));
   const marker=core.store.get('validation','checkpoint');
@@ -60,12 +67,21 @@ async function run({core,win,reportPath,exe,asar}){
   });
   assert.ok(selfCheck.result.checks.every(c=>c.status==='pass'),'Bundled self-check must pass every check');
   evidence.checks.push('packaged helper, ACL, named pipe, encrypted backup, DOCX/XLSX/PDF self-checks passed');
-  const views=['today','actions','decisions','workspace','playbooks','metrics','pcc','snf','operations','automation','projects','files','agents','schedules','worker','settings','processing','usage','browser','apps','guide'];
-  for(const view of views){
+  const views={today:'Administrator Today',actions:'Action Center',decisions:'Decision log',workspace:'Projects & documents',playbooks:'Playbooks & cloud budgets',metrics:'Set up data sources',pcc:'PCC Import Center',snf:'SNF Clinical Surveillance Command Center',operations:'Operations Intelligence & Meeting Copilot',automation:'Automation & Agent Center',projects:'A place for each project',files:'Your working files',agents:'Your reusable assistants',schedules:'Have reports ready for you',worker:'Let another PC handle the work',settings:'Make Private AI yours',processing:'AI Processing',usage:'API Usage',browser:'Browser reports',apps:'Your apps. Your permission.',guide:'User guide'};
+  evidence.navigation=[];
+  for(const [view,heading] of Object.entries(views)){
    await win.webContents.executeJavaScript(`document.querySelectorAll('#sidebar details').forEach(e=>e.open=true);document.querySelector('#sidebar [data-view="${view}"]').click()`);
-   let content='';for(let n=0;n<100;n++){await new Promise(r=>setTimeout(r,50));content=await win.webContents.executeJavaScript("document.querySelector('#content').innerText");if(content.trim()&&!/^Loading/.test(content.trim()))break;}
-   assert.ok(content.trim()&&!/^Loading/.test(content.trim()),'Page completed: '+view);assert.doesNotMatch(content,/Error loading|is not defined|Cannot read properties/);
-   if(['today','operations','settings','processing'].includes(view))fs.writeFileSync(path.join(path.dirname(reportPath),'screen-'+view+'.png'),(await win.webContents.capturePage()).toPNG());
+   // Navigation refreshes state before rendering. Old nonempty content is not readiness.
+   let page,complete=false;
+   for(let n=0;n<300;n++){
+    await new Promise(r=>setTimeout(r,100));
+    page=await win.webContents.executeJavaScript(`({active:document.querySelector('#sidebar [data-view="${view}"]').classList.contains('active'),heading:document.querySelector('#content h1')?.innerText||'',content:document.querySelector('#content').innerText,guideReady:!!document.querySelector('#guide-search')})`);
+    complete=page.active&&page.heading.includes(heading)&&(view!=='guide'||page.guideReady);
+    if(complete)break;
+   }
+   assert.ok(complete,'Expected page '+view+'; observed heading: '+page?.heading);assert.doesNotMatch(page.content,/Error loading|is not defined|Cannot read properties/);
+   evidence.navigation.push({view,heading:page.heading});
+   if(['today','operations','settings','processing'].includes(view))fs.writeFileSync(path.join(path.dirname(reportPath),'screen-'+view+'.png'),(await capture()).toPNG());
   }
   evidence.checks.push('21 packaged navigation views rendered without loading/error states; four screenshots captured');
   const call=async(op,data={})=>win.webContents.executeJavaScript('window.privateAI.call('+JSON.stringify(op)+','+JSON.stringify(data)+')');
