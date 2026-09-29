@@ -1,7 +1,7 @@
 {
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
-  "developmentBranch": "chatgpt/browser-compatibility-2026-09-28",
+  "developmentBranch": "codex/release-validation-2026-09-28",
   "lastVerifiedCommit": null,
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
@@ -9,7 +9,7 @@
   "hipaaMode": true,
   "hipaaModeMeaning": "Default policy setting; not a compliance certification",
   "currentPriorities": [
-    "Review browser compatibility and Bitwarden handoff, then merge and rebuild the desktop app",
+    "Establish fresh validation baseline and build actual Windows artifacts, then validate isolated application, installer and data preservation",
     "Windows install/upgrade/restore acceptance and real microphone/held-out speaker validation",
     "Independent clinical validation with representative PCC and aggregate staffing/census imports",
     "Full Chromium visual/keyboard acceptance of consolidated workflows"
@@ -93,14 +93,23 @@
     "windowsValidation": "Source tests and Edge smoke passed on Windows; packaged install/upgrade, vault, inference, real microphone and live provider acceptance not performed",
     "performance": "Prior checkup measurement retained in docs/APPLICATION_CHECKUP_2026-09-28.md; not remeasured in this browser change.",
     "reviewNotes": "docs/BROWSER_PASSWORDS_2026-09-28.md",
-    "githubActions": "Review branch CI pending publication"
+    "githubActions": "Latest main run 36499532128 passed; fetched via gh on 2026-09-28",
+    "evidenceStatus": "Historical PR #8 results; release-validation baseline has not yet run"
   },
-  "reviewBaseCommit": "f0b6d88e274a77e38fb7ee67a686b5e1b81251b2",
-  "verificationScope": "Browser changes based on merged PR #7: real Core/SQLite, desktop IPC and authenticated development HTTP policy tests; synthetic browser automation in four engines. No installed personal profiles, passwords or Bitwarden vault accessed. Native extension installation and real autofill remain acceptance tasks.",
+  "reviewBaseCommit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a",
+  "verificationScope": "Repository synchronization only at this phase. Fresh source suite and Windows artifact acceptance pending. Historical browser/source evidence retained explicitly; no active vault or clinical data accessed.",
   "baseIntegration": {
-    "pr": 7,
+    "pr": 8,
     "merged": true,
-    "commit": "f0b6d88e274a77e38fb7ee67a686b5e1b81251b2",
-    "checks": "Merge verified through gh; browser branch checks recorded separately"
-  }
+    "commit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a",
+    "mergedPRs": [
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "checks": "Main CI success: https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/36499532128"
+  },
+  "currentMainCommit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a"
 }

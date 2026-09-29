@@ -12,7 +12,9 @@ PR #6 is merged into main at `a897ba7a6f7ea0d79ec4e3593cc1260396e03a7e`; regress
 
 PR #7 is merged at `f0b6d88e274a77e38fb7ee67a686b5e1b81251b2`. Its checkup findings remain in `docs/APPLICATION_CHECKUP_2026-09-28.md`.
 
-Current branch: `chatgpt/browser-compatibility-2026-09-28`, based on merged PR #7. Read `docs/BROWSER_PASSWORDS_2026-09-28.md` for browser choices, Bitwarden handoff, setup and acceptance limits. This branch requires review/merge before AI Studio's main-only project can sync it. Preserve dated earlier reports as historical evidence.
+PR #8 is merged at `1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a`, the latest main fetched on 2026-09-28. Main CI run [36499532128](https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/36499532128) passed. Read `docs/BROWSER_PASSWORDS_2026-09-28.md` for browser choices, Bitwarden handoff and acceptance limits. PRs #6–#8 no longer require merging.
+
+Current validation branch: `codex/release-validation-2026-09-28` (explicit user-requested naming), based on that main SHA. Preserve dated earlier reports as historical evidence. The previous 380 regression/23 hardening counts are historical until rerun at this checkpoint. Windows packaging/upgrade/restore, real speakers and representative de-identified PCC acceptance remain pending; source/CI checks do not establish production readiness.
 
 ## Non-negotiable implementation rules
 
