@@ -1,5 +1,9 @@
 # Google AI Studio / Gemini handoff
 
+## HIGH PRIORITY — read before every change
+
+Follow [Google AI Studio guardrails](docs/GOOGLE_AI_STUDIO_GUARDRAILS.md) before editing or publishing. In particular, preserve the dependency lockfile and all tracked Windows build assets; a partial preview must never replace the repository. Keep all examples in the isolated Demo workspace and never manufacture production facts. These instructions were explicitly requested after the Google update on 2026-09-29 broke all three CI jobs. Copy the guardrails into AI Studio's project system instructions as well; this file does not configure external memory automatically.
+
 Read `AGENTS.md`, `AI_HANDOFF.md`, `PROJECT_STATUS.json`, and `docs/AI_STUDIO_REVIEW_2026-09-25.md` first.
 
 The user's AI Studio integration uses `main`. PRs #4–#8 are merged. The latest main fetched on 2026-09-28 is `1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a`; main CI run 36499532128 passed. Administrator workflows, application checkup and browser/Bitwarden changes are already on main. Read `docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md`, `docs/APPLICATION_CHECKUP_2026-09-28.md` and `docs/BROWSER_PASSWORDS_2026-09-28.md`. Refresh from GitHub; do not overwrite the repository from an older export. Windows release validation is proceeding separately on `codex/release-validation-2026-09-28` and does not yet establish release readiness.

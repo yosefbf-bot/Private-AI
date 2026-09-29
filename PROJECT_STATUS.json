@@ -1,14 +1,15 @@
 {
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
-  "developmentBranch": "codex/release-validation-2026-09-28",
-  "lastVerifiedCommit": "5d4772ee9fb70b324a61397ddde93c8b4d1e0f20",
+  "developmentBranch": "chatgpt/google-main-ci-repair-2026-09-29",
+  "lastVerifiedCommit": "ec0ae9c74123eb74c410e8865609ddcf8aeacbe5",
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
   "webMode": "development-only",
   "hipaaMode": true,
   "hipaaModeMeaning": "Default policy setting; not a compliance certification",
   "currentPriorities": [
+    "Review Google main repair and exact-head CI; save Google guardrails in AI Studio system instructions",
     "Review the release-validation fixes and unsigned Windows artifact; complete spare-account installer/upgrade/uninstall acceptance",
     "Administrator-approved same-account backup/restore and legacy-data review; remediate historical exposure",
     "Representative de-identified PCC/clinical acceptance and real microphone/held-out speaker validation",
@@ -19,7 +20,8 @@
     "Windows artifact built and isolated execution passed; installer, existing-install upgrade, uninstall/reinstall and production vault acceptance unperformed",
     "High 4B inference passed once but repeated execution triggered low-memory protection; no resource protections weakened",
     "Legacy clinical/speaker/SBAR/credential records require reviewed disposition; no silent deletion",
-    "Representative clinical, real-speaker, account and full UI acceptance remain incomplete"
+    "Representative clinical, real-speaker, account and full UI acceptance remain incomplete",
+    "Existing executive sample records or duplicate renewal tasks created by the faulty Google version require reviewed disposition; repair does not silently delete them"
   ],
   "completedFeatures": [
     "Runtime data removed from hardening branch tip; repository policy scanner and CI",
@@ -61,7 +63,8 @@
     "Administrator Executive Desk daily rhythm, inbound triage, department head delegation board and rounds punch list with canonical Action Center synchronization",
     "Operations Analytics OnShift/universal staffing ingestion, deterministic approaching-OT and punch leakage audit, and FTE deficit calculator",
     "Regulatory and License Renewal Sentinel for CLIA, BNE/CDS, DOH operating, Life Safety and physician credentials with canonical Action Center renewals",
-    "Executive AI Assistant suite with context ghostwriter, meeting prep dossiers, voice memo multi-action parser, commute audio briefing, contract scanner, difficult conversation coach, and 14-day conflict radar"
+    "Executive AI Assistant suite with context ghostwriter, meeting prep dossiers, voice memo multi-action parser, commute audio briefing, contract scanner, difficult conversation coach, and 14-day conflict radar",
+    "Executive Demo canonical task isolation, no automatic Production sample facts, review-required missing-fact drafts, stable renewal task IDs and local-only briefing speech"
   ],
   "experimentalFeatures": [
     "Heuristic SNF surveillance requires independent clinical validation",
@@ -73,7 +76,8 @@
     "Playbook heading checks do not validate facts/calculations; scheduling/delivery and deterministic formula definitions remain future work",
     "Budget allowances use configured rates and conservative estimates, not invoice guarantees; external apps/PCs excluded",
     "Extracted document text only: OCR, semantic retrieval and automatic whole-document synthesis are not implemented",
-    "Brave/Vivaldi, real Bitwarden unlock/autofill and packaged native companion connectivity require on-PC acceptance; managed Firefox/Chromium runtimes are optional per-user installs"
+    "Brave/Vivaldi, real Bitwarden unlock/autofill and packaged native companion connectivity require on-PC acceptance; managed Firefox/Chromium runtimes are optional per-user installs",
+    "Executive assistant functions are deterministic templates/heuristics; comprehensive operational and clinical acceptance pending"
   ],
   "deferredFeatures": [
     "Production network hosting",
@@ -84,8 +88,8 @@
     "platform": "win32",
     "windows": "Windows 11 Pro 10.0.26200 x64",
     "node": "24.19.0",
-    "command": "npm test (TAP)",
-    "passed": 384,
+    "command": "npm test",
+    "passed": 414,
     "failed": 0,
     "cancelled": 0,
     "skipped": 0,
@@ -93,34 +97,32 @@
       "passed": 25,
       "failed": 0
     },
-    "dependencyInstall": "Clean npm ci --ignore-scripts: 603 packages added, 604 audited; transitive deprecation warnings retained in dated report",
-    "syntax": "158 tracked JS files passed",
-    "repositoryPolicy": "255 tracked files at code checkpoint passed; 256 after final human-action document. Final scan includes the new document.",
+    "dependencyInstall": "npm ci --ignore-scripts: 603 added, 604 audited",
+    "syntax": "166 tracked JS files passed",
+    "repositoryPolicy": "265 tracked files at code checkpoint passed; final documentation scanned separately",
     "dependencyAudit": "0 vulnerabilities",
-    "releaseManifest": "Passed: 406 helper/runtime PE binaries. Complete packaged tree: 415 PE binaries.",
-    "browserUI": "27 synthetic Edge UI/keyboard checks; hardening UI and messaging UI passed; Chrome/Edge/managed Firefox/Chromium browser suite passed",
-    "windowsValidation": "Unsigned NSIS built. Fresh and restart packaged app runs passed 12 acceptance checks each plus 12 built-in checks each: DPAPI, synthetic restore, helper, file formats, IPC lock and 21 views. Installer NOT executed; installed-data upgrade NOT performed.",
-    "localInference": "Small/Medium passed repeated actual inference. High initially passed but final repeat failed and targeted retry confirmed low-memory protection. Extra High absent. Cloud policies are source-test coverage, not live-provider acceptance.",
-    "performance": "Synthetic 400 documents / 80 jobs / 1500 actions median 206.69 ms vs 220.43 ms baseline; no optimization claim. Loaded packaged app ~932 MiB aggregate working set after short settle.",
-    "reviewNotes": "docs/WINDOWS_RELEASE_VALIDATION_2026-09-28.md",
-    "githubActions": "Source checkpoint 5d4772ee9fb70b324a61397ddde93c8b4d1e0f20: run 36575990119 regression/dependencies passed, release-files runtime build in progress at documentation time. Final publication status is recorded in PR checks and external final-revision.json."
+    "browserUI": "Edge hardening UI passed, including executive Production empty states and refusal of remote-only speech voices",
+    "releaseManifest": "Required files and 406 PE binaries passed using previously verified source-built inputs; no new installer claim",
+    "githubActions": "Restoration checkpoint e3f9483: all three jobs passed, run 36641696462. Final publication checked through the PR.",
+    "reviewNotes": "docs/GOOGLE_MAIN_REPAIR_2026-09-29.md"
   },
-  "reviewBaseCommit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a",
-  "verificationScope": "Bounded source and synthetic UI regression plus actual packaged Windows application, DPAPI synthetic restart/restore and local model execution. No installed vault contents, PHI, real accounts or human voice samples accessed. See acceptance report for failures and unperformed tests.",
+  "reviewBaseCommit": "a5d22b623c5c49fccd36b41bd4488d2a64fac346",
+  "verificationScope": "Bounded repair of the Google main update: restored exact release files, real Core/SQLite Demo and Production regressions, Edge UI, full source tests and release-input verification. Prior Windows artifact evidence remains separate; no new installer or installed-data acceptance.",
   "baseIntegration": {
-    "pr": 8,
+    "pr": 9,
     "merged": true,
-    "commit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a",
+    "commit": "a4127e09472b03337346c47be8fee964330854cf",
     "mergedPRs": [
       4,
       5,
       6,
       7,
-      8
+      8,
+      9
     ],
-    "checks": "Main CI success: https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/36499532128"
+    "checks": "PR #9 merged and main run 36587165573 passed; subsequent Google main run 36640248873 failed after deleting required files."
   },
-  "currentMainCommit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a",
+  "currentMainCommit": "a5d22b623c5c49fccd36b41bd4488d2a64fac346",
   "windowsAcceptance": {
     "artifactBuilt": true,
     "isolatedApplication": true,
@@ -133,5 +135,36 @@
   },
   "speakerValidation": "Human participation required; conservative feature preserved, no accuracy claim",
   "clinicalValidation": "Synthetic technical contracts passed; representative de-identified PCC and clinical review pending",
-  "installerSHA256": "24084a22e37846203119bf023cfa045b65bdf34a0a70e2d1cba1617a727cbf22"
+  "installerSHA256": "24084a22e37846203119bf023cfa045b65bdf34a0a70e2d1cba1617a727cbf22",
+  "previousWindowsCheckpoint": {
+    "lastVerifiedCommit": "5d4772ee9fb70b324a61397ddde93c8b4d1e0f20",
+    "lastTested": {
+      "date": "2026-09-29",
+      "platform": "win32",
+      "windows": "Windows 11 Pro 10.0.26200 x64",
+      "node": "24.19.0",
+      "command": "npm test (TAP)",
+      "passed": 384,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "hardening": {
+        "passed": 25,
+        "failed": 0
+      },
+      "dependencyInstall": "Clean npm ci --ignore-scripts: 603 packages added, 604 audited; transitive deprecation warnings retained in dated report",
+      "syntax": "158 tracked JS files passed",
+      "repositoryPolicy": "255 tracked files at code checkpoint passed; 256 after final human-action document. Final scan includes the new document.",
+      "dependencyAudit": "0 vulnerabilities",
+      "releaseManifest": "Passed: 406 helper/runtime PE binaries. Complete packaged tree: 415 PE binaries.",
+      "browserUI": "27 synthetic Edge UI/keyboard checks; hardening UI and messaging UI passed; Chrome/Edge/managed Firefox/Chromium browser suite passed",
+      "windowsValidation": "Unsigned NSIS built. Fresh and restart packaged app runs passed 12 acceptance checks each plus 12 built-in checks each: DPAPI, synthetic restore, helper, file formats, IPC lock and 21 views. Installer NOT executed; installed-data upgrade NOT performed.",
+      "localInference": "Small/Medium passed repeated actual inference. High initially passed but final repeat failed and targeted retry confirmed low-memory protection. Extra High absent. Cloud policies are source-test coverage, not live-provider acceptance.",
+      "performance": "Synthetic 400 documents / 80 jobs / 1500 actions median 206.69 ms vs 220.43 ms baseline; no optimization claim. Loaded packaged app ~932 MiB aggregate working set after short settle.",
+      "reviewNotes": "docs/WINDOWS_RELEASE_VALIDATION_2026-09-28.md",
+      "githubActions": "Source checkpoint 5d4772ee9fb70b324a61397ddde93c8b4d1e0f20: run 36575990119 regression/dependencies passed, release-files runtime build in progress at documentation time. Final publication status is recorded in PR checks and external final-revision.json."
+    },
+    "installerSHA256": "24084a22e37846203119bf023cfa045b65bdf34a0a70e2d1cba1617a727cbf22",
+    "note": "Historical PR #9 evidence; not a package built from the Google update or repair."
+  }
 }
