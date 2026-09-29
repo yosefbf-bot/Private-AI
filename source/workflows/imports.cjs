@@ -120,6 +120,8 @@ async function mappedImport(snf, data) {
 }
 const number = (v, integer = false) => {
   if (
+    !['string','number'].includes(typeof v) ||
+    (typeof v === 'string' && !/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(v.trim())) ||
     v === "" ||
     v == null ||
     !Number.isFinite(Number(v)) ||
