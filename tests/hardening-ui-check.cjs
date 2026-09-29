@@ -17,6 +17,10 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   await page.getByRole('heading',{name:/Administrator Today/}).waitFor();
   assert.match(await page.locator('#development-mode-banner').textContent(),/Not for PHI/);
   assert.match(await page.locator('.today-page').textContent(),/incomplete|missing|stale/i);
+  const criticalCard=page.locator('.today-kpi-card').filter({hasText:'Critical Alerts'});
+  assert.match(await criticalCard.innerText(),/Incomplete/i);
+  assert.doesNotMatch(await criticalCard.innerText(),/\bClear\b/i);
+  assert.equal(await criticalCard.evaluate(el=>el.classList.contains('kpi-success')),false);
   await page.locator('#btn-toggle-demo').click();
   await page.locator('#btn-return-prod').waitFor();
   await page.locator('.today-page [data-act-evidence]').first().click();await page.locator('[data-evidence-target]:not([hidden])').first().waitFor();
