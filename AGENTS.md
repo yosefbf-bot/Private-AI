@@ -1,5 +1,7 @@
 # Instructions for ChatGPT / Codex and other coding agents
 
+High-priority persistent project policy: read `docs/GOOGLE_AI_STUDIO_GUARDRAILS.md` before every change. It records the user's required safeguards after the 2026-09-29 Google update removed release assets and reintroduced production sample data.
+
 Read `AI_HANDOFF.md`, `PROJECT_STATUS.json`, and `docs/AI_STUDIO_REVIEW_2026-09-25.md` and `docs/WORKFLOW_VOICE_REVIEW_2026-09-28.md` and `docs/ADMINISTRATOR_WORKFLOWS_2026-09-28.md` before edits. GitHub is authoritative. Record the base commit and inspect the current diff. Use a separate `chatgpt/*` branch for ChatGPT changes. Do not merge or overwrite `main` automatically.
 
 Preserve `package-lock.json`, the tracked `build/` scripts and icon, security boundaries, and native IPC restrictions. A web preview export is not a complete desktop checkout. Never remove files merely because the preview does not use them.

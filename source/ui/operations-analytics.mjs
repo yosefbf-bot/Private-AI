@@ -30,8 +30,10 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
+  let workspaceDemo=false;
   async function loadAllData() {
     try {
+      workspaceDemo=!!(await api('snfDashboard')).demo;
       const [regItems, regSum, staffAnalysis, conflicts] = await Promise.all([
         api('regulatoryList'),
         api('regulatorySummary'),
@@ -77,6 +79,7 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
 
     container.innerHTML = `
       <div class="ops-page ops-analytics-page">
+        <p class="error-note">${workspaceDemo ? 'DEMO DATA — NOT FOR CLINICAL USE' : 'Production — saved/imported records only; verify completeness and dates.'}</p>
         <!-- Top Operations Analytics Header -->
         <header class="exec-header">
           <div class="exec-header-main">
@@ -98,17 +101,17 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
         <div class="ops-command-strip">
           <div class="ops-command-card ${approachingOTCount > 0 ? 'card-attention' : ''}">
             <div class="ops-card-badge">APPROACHING OVERTIME</div>
-            <div class="ops-card-metric">${approachingOTCount} Staff</div>
+            <div class="ops-card-metric">${staffingAnalysis?.hasData ? approachingOTCount : 'Unknown'} Staff</div>
             <div class="ops-card-sub">At 32–36 hrs scheduled mid-week</div>
           </div>
           <div class="ops-command-card ${fteGap > 0 ? 'card-followup' : ''}">
             <div class="ops-card-badge">NET FTE DEFICIT</div>
-            <div class="ops-card-metric">${fteGap} FTEs</div>
+            <div class="ops-card-metric">${staffingAnalysis?.hasData ? fteGap : 'Unknown'} FTEs</div>
             <div class="ops-card-sub">Core positions needed to end agency spend</div>
           </div>
           <div class="ops-command-card card-commitments">
             <div class="ops-card-badge">PROJECTED MONTHLY SAVINGS</div>
-            <div class="ops-card-metric" style="color: #10b981;">+$${monthlySavings.toLocaleString()}</div>
+            <div class="ops-card-metric" style="color: #10b981;">${staffingAnalysis?.hasData ? '$'+monthlySavings.toLocaleString() : 'Unavailable'}</div>
             <div class="ops-card-sub">By replacing agency &amp; OT with core hires</div>
           </div>
           <div class="ops-command-card ${regCritical > 0 ? 'card-attention' : ''}">
@@ -127,7 +130,7 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
             🔄 Smart Shift Replacement Matcher
           </button>
           <button class="ops-tab-btn ${activeSubTab === 'regulatory' ? 'active' : ''}" data-subtab="regulatory">
-            🛡️ Regulatory &amp; License Sentinel (${regCritical ? `⚠️ ${regCritical}` : 'All Clear'})
+            🛡️ Regulatory &amp; License Sentinel (${regCritical ? `⚠️ ${regCritical}` : 'Review records'})
           </button>
           <button class="ops-tab-btn ${activeSubTab === 'contract_scanner' ? 'active' : ''}" data-subtab="contract_scanner">
             📜 Vendor Contract "Gotcha" Scanner
@@ -163,6 +166,7 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
 
   // 1. Staffing Analytics & Overtime Reduction View
   function renderStaffingView() {
+    if (staffingAnalysis?.hasData === false) return '<p>No staffing source imported. Staffing coverage and estimates are unavailable.</p>';
     if (!staffingAnalysis) return '<div class="ops-loading">Loading staffing analytics...</div>';
     const sum = staffingAnalysis.periodSummary || {};
     const gaps = staffingAnalysis.fteHiringGaps || {};
@@ -323,11 +327,11 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
                 <div class="license-card-top">
                   <span class="exec-pill pill-gray">${esc(item.category.replace('_', ' ').toUpperCase())}</span>
                   <span class="exec-pill ${statusBadge}">
-                    ${item.daysUntil < 0 ? 'EXPIRED' : `${item.daysUntil} Days Left`}
+                    ${item.daysUntil === null ? 'Date unknown' : item.daysUntil < 0 ? 'EXPIRED' : `${item.daysUntil} Days Left`}
                   </span>
                 </div>
                 <h4 class="license-title">${esc(item.title)}</h4>
-                <div class="license-meta"><strong>ID / Cert #:</strong> ${esc(item.identifierNumber || 'On file')}</div>
+                <div class="license-meta"><strong>ID / Cert #:</strong> ${esc(item.identifierNumber || 'Not recorded')}</div>
                 <div class="license-meta"><strong>Authority:</strong> ${esc(item.authority)}</div>
                 <div class="license-meta"><strong>Responsible:</strong> ${esc(item.responsibleParty)}</div>
                 <div class="license-meta"><strong>Expires:</strong> <span style="font-weight: 700; color: #1f2937;">${formatDate(item.expirationDate)}</span></div>
@@ -442,7 +446,7 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
               <p class="exec-text-sm">Paste exported data from <strong>OnShift Schedule vs. Actual</strong>, <strong>OnShift Overtime Watch</strong>, or any universal staffing CSV:</p>
               <textarea class="ops-input" id="input-csv-text" rows="8" placeholder="Employee Name,Role,Unit,Shift,Scheduled Hours,Actual Hours,Overtime Hours,Clock In,Clock Out,Agency...">${esc(csvInputText)}</textarea>
               <div style="display: flex; justify-content: space-between; margin-top: 10px;">
-                <button class="ops-btn ops-btn-secondary ops-btn-sm" id="btn-load-sample-csv">Load Sample OnShift Export</button>
+                <button class="ops-btn ops-btn-secondary ops-btn-sm" id="btn-load-sample-csv" ${workspaceDemo ? '' : 'disabled title="Open Demo Mode to use sample data"'}>Load Sample OnShift Export</button>
                 <button class="ops-btn ops-btn-primary" id="btn-submit-csv-parse">Parse &amp; Run Overtime Analysis &rarr;</button>
               </div>
             </div>
@@ -481,6 +485,7 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
     const btnLoadSampleCsv = container.querySelector('#btn-load-sample-csv');
     if (btnLoadSampleCsv) {
       btnLoadSampleCsv.addEventListener('click', () => {
+        if(!workspaceDemo)return;
         csvInputText = `Employee Name,Position,Unit,Shift,Scheduled Hours,Actual Hours,Overtime Hours,Clock In,Clock Out,Agency
 Tanya Rogers,CNA,West Wing,3-11 Evening,8.0,8.5,0.5,14:48,23:30,No
 Brittany Davis,CNA,West Wing,3-11 Evening,8.0,8.0,0.0,14:58,23:05,No

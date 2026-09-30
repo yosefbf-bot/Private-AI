@@ -58,8 +58,10 @@ export function createExecutiveDeskUI({ api, esc, toast, refresh, renderPage, ge
     return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   }
 
+  let workspaceDemo=false;
   async function loadAllData() {
     try {
+      workspaceDemo=!!(await api('snfDashboard')).demo;
       const [rhythm, actions, depts, dTasks, standup, rounds, rooms, attAlerts, newHires, coachings] = await Promise.all([
         api('execRhythmGet'),
         api('execActionList'),
@@ -114,6 +116,7 @@ export function createExecutiveDeskUI({ api, esc, toast, refresh, renderPage, ge
 
     container.innerHTML = `
       <div class="ops-page exec-desk-page">
+        <p class="error-note">${workspaceDemo ? 'DEMO DATA — NOT FOR CLINICAL USE' : 'Production — saved/imported records only; verify completeness and dates.'}</p>
         <!-- Top Executive Header -->
         <header class="exec-header">
           <div class="exec-header-main">
@@ -1185,7 +1188,10 @@ export function createExecutiveDeskUI({ api, esc, toast, refresh, renderPage, ge
       btnPlayAudio.addEventListener('click', () => {
         if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel();
+          const localVoice=window.speechSynthesis.getVoices().find(v=>v.localService===true);
+          if(!localVoice){toast('A local Windows voice is required. No briefing was sent to a remote voice service.', 'warn');return;}
           const utterance = new SpeechSynthesisUtterance(commuteBriefingData.audioScript);
+          utterance.voice = localVoice;
           utterance.rate = 1.05;
           window.speechSynthesis.speak(utterance);
           toast('Playing spoken morning briefing...', 'info');

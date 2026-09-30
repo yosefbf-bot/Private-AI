@@ -1,5 +1,7 @@
 # Executive Desk, Operations Analytics & AI Assistant Roadmap
 
+**Verification correction (2026-09-29):** This feature roadmap is not acceptance evidence. Read `GOOGLE_MAIN_REPAIR_2026-09-29.md`: the initial integration deleted release inputs and introduced Production sample seeding, Demo leakage and invented draft facts. The repair addresses those regressions with real database and Edge checks. Assistant functions currently use deterministic templates/heuristics; they do not demonstrate live provider execution or independently validated clinical/regulatory conclusions. Existing seeded data requires reviewed disposition.
+
 **Document Date**: 2026-09-28  
 **Scope**: Day-to-Day Facility Operations, Administrator Desk, Staffing & Overtime Analytics (OnShift + Universal), Regulatory & License Sentinel, and AI Chief-of-Staff Assistance.
 

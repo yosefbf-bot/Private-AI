@@ -114,7 +114,7 @@ const DEFAULT_REGULATORY_ITEMS = [
 
 class OperationsAnalyticsEngine {
   constructor(core) {
-    this.core = core;
+    this.core = require('./executive-workspace.cjs').scopedCore(core);
   }
 
   get store() {
@@ -127,7 +127,7 @@ class OperationsAnalyticsEngine {
   listRegulatoryItems() {
     this.core.assertUnlocked();
     let items = this.store.list('ops_regulatory') || [];
-    if (!items.length) {
+    if (!items.length && this.core.executiveDemo) {
       // Seed default profiles
       DEFAULT_REGULATORY_ITEMS.forEach(item => {
         this.saveRegulatoryItem(item);
@@ -137,11 +137,12 @@ class OperationsAnalyticsEngine {
 
     const now = Date.now();
     return items.map(item => {
-      const expTime = new Date(item.expirationDate).getTime();
-      const daysUntil = Math.ceil((expTime - now) / 86400000);
+      const expTime = item.expirationDate ? Date.parse(item.expirationDate) : NaN;
+      const daysUntil = Number.isFinite(expTime) ? Math.ceil((expTime - now) / 86400000) : null;
 
       let status = 'active'; // active (>90d), upcoming (60-90d), action_required (30-60d), critical (<30d), expired (<0)
-      if (daysUntil < 0) status = 'expired';
+      if (daysUntil === null) status = 'unknown';
+      else if (daysUntil < 0) status = 'expired';
       else if (daysUntil <= 30) status = 'critical';
       else if (daysUntil <= 60) status = 'action_required';
       else if (daysUntil <= 90) status = 'upcoming';
@@ -150,7 +151,7 @@ class OperationsAnalyticsEngine {
         ...item,
         daysUntil,
         status,
-        isRenewalWindowOpen: daysUntil <= (item.renewalWindowDays || 60)
+        isRenewalWindowOpen: daysUntil !== null && daysUntil <= (item.renewalWindowDays || 60)
       };
     }).sort((a, b) => a.daysUntil - b.daysUntil);
   }
@@ -159,14 +160,18 @@ class OperationsAnalyticsEngine {
     this.core.assertUnlocked();
     const id = isId(data.id) ? data.id : (data.id && typeof data.id === 'string' ? data.id : uuid());
 
+    const previous = this.store.get('ops_regulatory', id);
+    const expirationDate = data.expirationDate ?? previous?.expirationDate ?? null;
+    if (expirationDate && (!/^\d{4}-\d{2}-\d{2}$/.test(expirationDate) || !Number.isFinite(Date.parse(expirationDate)) || new Date(expirationDate).toISOString().slice(0,10) !== expirationDate)) throw fail('INVALID');
     const item = {
       id,
+      todoId: previous?.todoId || uuid(),
       category: ['facility_license', 'controlled_substances', 'life_safety', 'practitioner_credentialing', 'leadership_license', 'environmental'].includes(data.category) ? data.category : 'facility_license',
       title: text(data.title || 'License Item', 200),
       authority: text(data.authority || 'State Agency', 150),
       identifierNumber: text(data.identifierNumber || '', 100),
       responsibleParty: text(data.responsibleParty || '', 150),
-      expirationDate: data.expirationDate || new Date(Date.now() + (90 * 86400000)).toISOString().slice(0, 10),
+      expirationDate,
       renewalWindowDays: Number(data.renewalWindowDays) || 60,
       requiredDocuments: Array.isArray(data.requiredDocuments) ? data.requiredDocuments.map(d => text(d, 200)) : [],
       testMenu: Array.isArray(data.testMenu) ? data.testMenu.map(t => text(t, 100)) : [],
@@ -179,10 +184,10 @@ class OperationsAnalyticsEngine {
     this.store.put('ops_regulatory', id, item);
 
     // Canonical Action Center synchronization for renewals within window
-    const expTime = new Date(item.expirationDate).getTime();
+    const expTime = item.expirationDate ? Date.parse(item.expirationDate) : NaN;
     const daysUntil = Math.ceil((expTime - Date.now()) / 86400000);
     if (daysUntil <= (item.renewalWindowDays || 60) && item.renewalStatus !== 'renewed') {
-      const todoId = `todo_reg_${item.id}`;
+      const todoId = item.todoId;
       const canonicalTodo = {
         id: todoId,
         title: `[Renewal] ${item.title} (${daysUntil < 0 ? 'OVERDUE' : daysUntil + 'd remaining'})`,
@@ -333,7 +338,7 @@ class OperationsAnalyticsEngine {
   // Pre-Shift "Approaching OT" Warning Radar & Incidental Punch Audit
   analyzeStaffingRecords(records) {
     if (!Array.isArray(records) || !records.length) {
-      records = this.getSampleStaffingRecords();
+      records = this.core.executiveDemo ? this.getSampleStaffingRecords() : [];
     }
 
     const totalActual = records.reduce((s, r) => s + r.actualHours, 0);
@@ -455,6 +460,8 @@ class OperationsAnalyticsEngine {
     const monthlyNetSavingsFromHiring = Math.round((monthlyAgencySpend - monthlyAgencyReplacedWithCoreSpend) + (weeklyOTHours * 12 * 4.33));
 
     return {
+      hasData: records.length > 0,
+      demo: !!this.core.executiveDemo,
       periodSummary: {
         totalHoursWorked: Math.round(totalActual * 10) / 10,
         totalOvertimeHours: Math.round(totalOT * 10) / 10,
@@ -496,7 +503,7 @@ class OperationsAnalyticsEngine {
     const shiftHours = Number(openShift.hours) || 8.0;
 
     // Use sample roster if none provided
-    const pool = roster.length ? roster : this.getSampleRoster();
+    const pool = roster.length ? roster : this.core.executiveDemo ? this.getSampleRoster() : [];
 
     // Filter to matching role
     const candidates = pool.filter(c => c.role.toUpperCase() === role);

@@ -1,5 +1,7 @@
 # Private AI architecture — 3.0.1 development
 
+Executive Desk, Operations Analytics and the executive assistant resolve the selected SNF workspace through `source/executive-workspace.cjs`. Demo canonical task/metadata writes use the isolated encrypted namespace and do not emit live reminders. Production has no automatic executive sample seeding. Missing facts remain unknown; generated correspondence is a review-required template, not evidence of provider execution. Commute speech requires an explicitly local voice. See `docs/GOOGLE_MAIN_REPAIR_2026-09-29.md` for the bounded verification and legacy-data review limitation.
+
 ## Desktop boundary
 `source/main.cjs` boots Electron on Windows, restricts the local data folder ACL, opens a DPAPI-wrapped vault via `startup-storage.cjs`, and exposes validated IPC through `preload.cjs`. The renderer is sandboxed with context isolation. Native browser companion uses authenticated encrypted local IPC with a narrower allowlist. Desktop data remains `%LOCALAPPDATA%\PrivateAI2`; downloaded model paths and upgrade behavior are preserved.
 
