@@ -1,0 +1,17 @@
+{
+  "purpose": "Historical local 3.0.0 checkpoints; NOT the integrated GitHub app or a new release",
+  "archives": [
+    {
+      "name": "PrivateAI-3.0-Standalone-Source.zip",
+      "sha256": "8774c26abd96af57d7c0b1d661ec02e8a3c21b3a41639beb33e3c3a85fcec5df",
+      "bytes": 5814396,
+      "files": 194
+    },
+    {
+      "name": "PrivateAI-3.0-Standalone-Hardening-Handoff.zip",
+      "sha256": "900b53bdc9289420053b0b3014cb20764564e668c1932c3ad0622253f5c3533e",
+      "bytes": 5314566,
+      "files": 95
+    }
+  ]
+}
