@@ -1,8 +1,8 @@
 {
   "version": "3.0.1-dev",
-  "updatedAt": "2026-10-02T18:20:19.705Z",
+  "updatedAt": "2026-10-02T19:30:36.676Z",
   "baselineCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
   "releaseStatus": "blocked",
   "note": "Integrated 3.0.1-dev source; current source/UI validation does not establish Windows installer, installed-data, model or live-account acceptance.",
-  "sourceSHA256": "24b21fefbc6eba063d9fceb93badad047e40d4ed8455dcb3707fb8040be52192"
+  "sourceSHA256": "8c1a2a1312d23dd98f88513753bee003705a254a79588836199fc351cf92ed9e"
 }

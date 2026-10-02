@@ -48,4 +48,5 @@ desktop-helper/bin/
 desktop-helper/obj/
 coverage/
 test-results/
+Validation/
 .DS_Store
