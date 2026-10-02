@@ -1,6 +1,6 @@
 // SNF Command Center & Clinical Surveillance UI Module
 // Strictly read-only surveillance with persistent alert management
-// Pipeline: PCC Import → Medication Change Detector → Psych Watch → Persistent Alert Center → Morning Brief
+// Pipeline: Normalized clinical imports → Medication Change Detector → Psych Watch → Persistent Alert Center → Morning Brief
 
 export function createSNFUI({ api, toast, esc, renderPage }) {
   let activeTab = 'medchanges'; // 'feeds' | 'medchanges' | 'psychwatch' | 'alerts' | 'brief' | 'qm' | 'issues' | 'resident'
@@ -44,7 +44,8 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
     if (freshEl && alertsSummary.feedStatus) {
       const fs = alertsSummary.feedStatus;
-      freshEl.textContent = `PCC Current: ${fs.dataCurrentThroughFormatted} (${fs.isSurveillanceComplete ? 'Feeds current' : '⚠️ Feed Alert'})`;
+      freshEl.hidden=!fs.monitoringEnabled;
+      freshEl.textContent = `PCC report date: ${fs.monitoringCurrentThroughFormatted} (${fs.isSurveillanceComplete ? 'Feeds current' : '⚠️ Feed Alert'})`;
       freshEl.className = 'alert-bar-pcc-status ' + (fs.isSurveillanceComplete ? 'status-ok' : 'status-warn');
     }
 
@@ -95,6 +96,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     const qm = m.qmWatch;
     const fs = m.feedStatus;
     const alertSum = m.alerts;
+    if(activeTab==='feeds'&&!fs.monitoringEnabled)activeTab='medchanges';
 
     // Filter alerts
     let filteredAlerts = [...currentAlerts];
@@ -129,23 +131,23 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             <div class="snf-headline">
               <h1>SNF Clinical Surveillance Command Center</h1>
               <span class="snf-mode-badge ${fs.isSurveillanceComplete ? 'badge-ok' : 'badge-warn'}">
-                ${fs.isSurveillanceComplete ? '● Surveillance Engine Active' : '▲ Feeds Incomplete / Fail-Safe Alert'}
+                ${!fs.monitoringEnabled ? 'Imported clinical evidence · Review required' : fs.isSurveillanceComplete ? '● Surveillance Feeds Current' : '▲ Feeds Incomplete / Review Required'}
               </span>
             </div>
             <p class="snf-subtitle">
-              Continuous read-only surveillance for PointClickCare exports · Feed validation · human review &amp; persistent alert lifecycle
+              Clinical analysis of normalized imported records · Feed validation · human review &amp; persistent alert lifecycle
             </p>
           </div>
           <div class="snf-header-actions">
             <button class="primary" id="snf-btn-run-rules" title="Re-evaluate all clinical rules on current dataset">⚡ Run Surveillance Engine</button>
             <button class="secondary" id="snf-btn-morning-brief">📋 Daily Morning Brief</button>
             <button class="secondary snf-pdf-export-btn" id="snf-btn-quarterly-pdf" title="Generate formatted quarterly report summaries on demand (PDF)">📄 PDF Export</button>
-            <button class="secondary" data-act="view" data-view="today">Today / Demo workspace</button><button class="secondary" data-act="view" data-view="pcc">PCC Import Center</button>
+            <button class="secondary" data-act="view" data-view="today">Today / Demo workspace</button><button class="secondary" data-act="view" data-view="clinical-imports">Clinical imports</button>${fs.monitoringEnabled?`<button class="secondary" data-act="view" data-view="pcc">PCC Import Center</button>`:""}
           </div>
         </div>
 
         <!-- PERMANENT FAIL-SAFE NOTICE IF STALE OR MISSING -->
-        ${!fs.isSurveillanceComplete ? `
+        ${fs.monitoringEnabled && !fs.isSurveillanceComplete ? `
           <div class="snf-stale-banner" role="alert">
             <strong>⚠️ Fail-Safe Monitoring Alert:</strong> ${esc(fs.feedGapsSummary || 'Missing or stale PointClickCare data feeds detected.')}
             <span class="snf-rule-quote">Rule: Missing or unverified data = ALERT, never GREEN.</span>
@@ -154,15 +156,15 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
         <!-- 5-STEP CORE SURVEILLANCE PIPELINE STEPPER -->
         <div class="snf-pipeline-stepper" role="navigation" aria-label="Surveillance Pipeline">
-          <div class="pipeline-step ${activeTab === 'feeds' ? 'active' : ''}" data-nav="feeds" title="Step 1: PointClickCare Standardized Daily Feeds & Ingestion Freshness">
+          ${fs.monitoringEnabled ? `<div class="pipeline-step ${activeTab === 'feeds' ? 'active' : ''}" data-nav="feeds" title="Step 1: PointClickCare Standardized Daily Feeds & Ingestion Freshness">
             <div class="step-num">1</div>
             <div class="step-body">
               <div class="step-title">PCC Import</div>
-              <div class="step-sub">${fs.receivedFeedsCount}/16 Feeds Loaded</div>
+              <div class="step-sub">${fs.receivedFeedsCount}/${fs.expectedFeedsCount} Feeds Loaded</div>
             </div>
           </div>
           <div class="pipeline-arrow">➔</div>
-          <div class="pipeline-step ${activeTab === 'medchanges' ? 'active' : ''}" data-nav="medchanges" title="Step 2: Medication Change Detector & High-Alert Surveillance">
+          ` : ""}<div class="pipeline-step ${activeTab === 'medchanges' ? 'active' : ''}" data-nav="medchanges" title="Step 2: Medication Change Detector & High-Alert Surveillance">
             <div class="step-num">2</div>
             <div class="step-body">
               <div class="step-title">Med Changes</div>
@@ -174,7 +176,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             <div class="step-num">3</div>
             <div class="step-body">
               <div class="step-title">Psych Watch</div>
-              <div class="step-sub">${m.antipsychoticResidentsCount} on APs · Review required</div>
+              <div class="step-sub">${m.antipsychoticResidentsCount??"Unknown"} on APs · Review required</div>
             </div>
           </div>
           <div class="pipeline-arrow">➔</div>
@@ -201,17 +203,17 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             <div class="metric-label">ACTIVE CENSUS</div>
             <div class="metric-value">${m.totalCensus} <span class="metric-sub">residents</span></div>
             <div class="metric-details">
-              <span>Med A: ${m.medACensus || 0}</span> · 
-              <span>Med B: ${m.medBCensus || 0}</span> · 
+              <span>Med A: ${m.medACensus || 0}</span> ·
+              <span>Med B: ${m.medBCensus || 0}</span> ·
               <span>Long-Stay: ${qm.longStayDenominator}</span>
             </div>
           </div>
 
           <div class="snf-metric-card ${m.antipsychoticResidentsCount > 0 ? 'card-warning' : ''}">
             <div class="metric-label">PSYCHOTROPIC SURVEILLANCE</div>
-            <div class="metric-value">${m.antipsychoticResidentsCount} <span class="metric-sub">residents</span></div>
+            <div class="metric-value">${m.antipsychoticResidentsCount??"Unknown"} <span class="metric-sub">residents</span></div>
             <div class="metric-details">
-              <span>Rate: ${m.antipsychoticRate}%</span> · 
+              <span>Imported proportion: ${m.antipsychoticResidentsCount!=null && fs.feeds.census?.status==='ok' && m.totalCensus>0 ? (100*m.antipsychoticResidentsCount/m.totalCensus).toFixed(1)+"%":"Unknown"}</span> ·
               <span>New (24h): <strong>${m.antipsychoticMetrics.newAPs24h}</strong></span> · 
               <span>PRN Deadlines: <strong>${m.antipsychoticMetrics.prnDeadlines}</strong></span>
             </div>
@@ -229,10 +231,10 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
           <div class="snf-metric-card card-qm">
             <div class="metric-label">ESTIMATED QM EXPOSURE</div>
-            <div class="metric-value">${qm.estimatedRatePercentage}% <span class="metric-sub">est. rate</span></div>
+            <div class="metric-value">${qm.estimatedRatePercentage==null?"Unknown":esc(qm.estimatedRatePercentage)+"%"} <span class="metric-sub">est. rate</span></div>
             <div class="metric-details">
               <span>Numerator: ${qm.potentialNumeratorCount}</span> / 
-              <span>Denominator: ${qm.longStayDenominator}</span> · 
+              <span>Denominator: ${qm.longStayDenominator}</span> ·
               <span>Pending Verify: ${qm.possibleExclusionsToVerifyCount}</span>
             </div>
           </div>
@@ -244,7 +246,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             💊 Med Change Detector (${currentMedChanges.length})
           </button>
           <button class="snf-tab ${activeTab === 'psychwatch' ? 'active' : ''}" data-tab="psychwatch">
-            🧠 Psych Watch &amp; GDR (${m.antipsychoticResidentsCount})
+            🧠 Psych Watch &amp; GDR (${m.antipsychoticResidentsCount??"Unknown"})
           </button>
           <button class="snf-tab ${activeTab === 'alerts' ? 'active' : ''}" data-tab="alerts">
             🚨 Alert Center (${alertSum.totalUnresolved})
@@ -252,10 +254,10 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
           <button class="snf-tab ${activeTab === 'brief' ? 'active' : ''}" data-tab="brief">
             📋 Morning Brief
           </button>
-          <button class="snf-tab ${activeTab === 'feeds' ? 'active' : ''}" data-tab="feeds">
-            📡 PCC Import (${fs.receivedFeedsCount}/16)
+          ${fs.monitoringEnabled ? `<button class="snf-tab ${activeTab === 'feeds' ? 'active' : ''}" data-tab="feeds">
+            📡 PCC Import (${fs.receivedFeedsCount}/${fs.expectedFeedsCount})
           </button>
-          <button class="snf-tab ${activeTab === 'qm' ? 'active' : ''}" data-tab="qm">
+          ` : ""}<button class="snf-tab ${activeTab === 'qm' ? 'active' : ''}" data-tab="qm">
             📊 QM Exposure (CMS 2026)
           </button>
           <button class="snf-tab ${activeTab === 'issues' ? 'active' : ''}" data-tab="issues">
@@ -315,36 +317,36 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
   // ==========================================
   function renderFeedsTab(metrics) {
     const fs = metrics.feedStatus;
-    const feeds = fs.feeds || [];
+    const feeds = Object.values(fs.monitoringFeeds || {});
 
     return `
       <div class="feeds-pane">
         <div class="feeds-header">
           <h2>PointClickCare Daily Feeds &amp; Ingestion Freshness</h2>
           <p>
-            Private AI continuously monitors all 16 standardized daily PointClickCare report exports.
+            Private AI checks supplied PointClickCare reports when they are imported or rules are run. Automatic synchronization is not configured.
             Per fail-safe protocol: <strong>Missing or unverified data = ALERT, never GREEN.</strong>
           </p>
         </div>
 
         <div class="feed-rule-banner">
-          <div><strong>Surveillance Currency:</strong> Current through ${esc(fs.dataCurrentThroughFormatted)}</div>
+          <div><strong>Surveillance Currency:</strong> Oldest received PCC report: ${esc(fs.monitoringCurrentThroughFormatted)}</div>
           <div><strong>Verification Status:</strong> ${fs.isSurveillanceComplete ? '<span class="text-ok">✓ All critical feeds verified active</span>' : '<span class="text-crit">⚠️ Missing feeds require attention</span>'}</div>
         </div>
 
         <div class="feeds-grid" style="margin-top: 16px;">
           ${feeds.map(f => `
-            <div class="feed-card ${f.isStale ? 'feed-stale' : 'feed-ok'}">
+            <div class="feed-card ${f.status!=='ok' ? 'feed-stale' : 'feed-ok'}">
               <div class="feed-card-head">
                 <strong>${esc(f.name)}</strong>
-                <span class="feed-badge ${f.status === 'active' ? 'badge-ok' : f.status === 'stale' ? 'badge-stale' : 'badge-warn'}">
+                <span class="feed-badge ${f.status === 'ok' ? 'badge-ok' : f.status === 'stale' ? 'badge-stale' : 'badge-warn'}">
                   ${f.status.toUpperCase()}
                 </span>
               </div>
               <div class="feed-card-body">
-                <div>Imported Records: <strong>${f.recordCount || 0}</strong></div>
-                <div>Last Import: <small>${f.lastImported ? new Date(f.lastImported).toLocaleString() : 'Never'}</small></div>
-                <div>Freshness: <strong>${f.isStale ? '⚠️ Stale / Missing' : '✓ Current'}</strong></div>
+                <div>Imported Records: <strong>${f.lastRecordCount ?? "Unknown"}</strong></div>
+                <div>Last Import: <small>${f.lastReceived ? new Date(f.lastReceived).toLocaleString() : 'Never'}</small></div>
+                <div>Freshness: <strong>${f.status!=='ok' ? '⚠️ Unavailable / Stale / Incomplete' : '✓ Current'}</strong></div>
               </div>
             </div>
           `).join('')}
@@ -431,7 +433,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
         <div class="med-summary-card">
           <h2>Medication Change Detector (24–48h Surveillance)</h2>
           <p>
-            Deterministic detection of newly started medications, dose adjustments, and discontinuations from PointClickCare orders.
+            Deterministic detection of newly started medications, dose adjustments, and discontinuations from imported orders.
             Flags high-alert classes (antipsychotics, anticoagulants, insulins, opioids) and unverified clinical indications.
           </p>
           <div class="med-stat-grid">
@@ -487,7 +489,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
               <th>Prescriber</th>
               <th>Documented Indication</th>
               <th>Surveillance Flag</th>
-              <th>PCC Source</th>
+              <th>Imported source</th>
             </tr>
           </thead>
           <tbody>
@@ -531,7 +533,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
                       </button>
                     ` : '<span class="text-ok">✓ Routine</span>'}
                   </td>
-                  <td><small style="font-family:monospace; color:#64748b;">${esc(c.sourceReport || 'PCC Med Changes')}</small></td>
+                  <td><small style="font-family:monospace; color:#64748b;">${esc(c.sourceReport || 'Imported medication changes')}</small></td>
                 </tr>
               `;
             }).join('')}
@@ -588,7 +590,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
         <!-- FOCUSED SURVEILLANCE MODULES -->
         <div class="psych-modules-grid">
-          <div class="psych-module-card"><h4>Diagnosis / behavior documentation review</h4><p>Review the current alert list and imported source evidence. Missing documentation in an import does not prove documentation is absent from PCC.</p></div>
+          <div class="psych-module-card"><h4>Diagnosis / behavior documentation review</h4><p>Review the current alert list and imported source evidence. Missing documentation in an import does not prove documentation is absent from the complete clinical record.</p></div>
 
           <!-- 3. PRN 14-DAY LIMIT COUNTDOWN -->
           <div class="psych-module-card">
@@ -631,7 +633,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
                 <div>${esc(g.medication)} · Last GDR: ${g.lastGDRDate ? new Date(g.lastGDRDate).toLocaleDateString() : 'None documented'}</div>
                 <div style="color:#64748b; margin-top:2px;">Rationale: ${esc(g.clinicalRationale || 'No clinical rationale recorded.')}</div>
               </div>
-            `).join('') : '<p>No GDR tracking records found in imported data. Review PCC and data health before drawing conclusions.</p>'}
+            `).join('') : '<p>No GDR tracking records found in imported data. Review the complete record and data health before drawing conclusions.</p>'}
           </div>
         </div>
 
@@ -787,7 +789,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
         <!-- VIEW SOURCES COLLAPSIBLE -->
         <details class="alert-details-accordion">
-          <summary><strong>📁 VIEW SOURCES</strong> (PointClickCare Report File &amp; Row Evidence)</summary>
+          <summary><strong>📁 VIEW SOURCES</strong> (Imported Report File &amp; Row Evidence)</summary>
           <div class="accordion-content source-details-box">
             ${a.sources?.length ? a.sources.map(s => `
               <div class="source-item" style="padding:6px; border-bottom:1px solid #e2e8f0; margin-bottom:4px;">
@@ -795,7 +797,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
                 <div><strong>Imported / Processed:</strong> <small>${s.reportDateTime ? new Date(s.reportDateTime).toLocaleString() : 'Cycle Ingestion'}</small></div>
                 ${s.originalRow ? `<div><strong>Source Row:</strong> <code>${esc(s.originalRow)}</code></div>` : ''}
               </div>
-            `).join('') : '<p>Source metadata captured from PointClickCare report ingestion.</p>'}
+            `).join('') : '<p>Source metadata is captured during report ingestion.</p>'}
           </div>
         </details>
 
@@ -851,7 +853,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             <div class="resolve-form">
               <label>Resolution Category:
                 <select id="resolve-status-${esc(a.id)}">
-                  <option value="documentation_completed">Documentation Completed in PCC</option>
+                  <option value="documentation_completed">Documentation Completed in Clinical Record</option>
                   <option value="medication_discontinued">Medication Discontinued</option>
                   <option value="diagnosis_verified">Diagnosis Verified &amp; Documented by MD</option>
                   <option value="gdr_initiated">Gradual Dose Reduction (GDR) Initiated</option>
@@ -953,7 +955,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
           <div class="qm-score-display">
             <div class="qm-score-circle">
-              <span class="qm-percent">${qm.estimatedRatePercentage}%</span>
+              <span class="qm-percent">${qm.estimatedRatePercentage==null?"Unknown":esc(qm.estimatedRatePercentage)+"%"}</span>
               <span class="qm-label">Estimated Rate</span>
             </div>
             <div class="qm-breakdown-box">
@@ -1013,7 +1015,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
       <div class="issues-pane">
         <div class="issues-header">
           <h2>Open Clinical Issues Engine</h2>
-          <p>Continuous persistence across daily PointClickCare report imports until corrected in source records or clinically verified.</p>
+          <p>Continuous persistence across clinical report imports until corrected in source records or clinically verified.</p>
         </div>
 
         ${openIssues.length === 0 ? `
@@ -1060,7 +1062,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
   // ==========================================
   function renderRetentionTab(metrics) {
     const settings = metrics.settings || {};
-    const emrPlatform = settings.emrPlatform || 'PointClickCare (PCC)';
+    const emrPlatform = settings.emrPlatform || 'Generic imported clinical records';
 
     return `
       <div class="retention-pane">
@@ -1278,7 +1280,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
         btnRunRules.textContent = 'Running Rules Engine…';
         try {
           await api('snfRunRules', { user: 'Nurse Clinician' });
-          toast('Surveillance rules re-evaluated across all PointClickCare records.');
+          toast('Surveillance rules re-evaluated across the imported clinical records.');
           await loadData();
           renderHTML(container);
         } catch (e) {

@@ -35,3 +35,8 @@ Install from the updated package.json/package-lock.json with lifecycle scripts c
 
 The edits and tests here do not update the installed app or existing installer.
 
+
+
+## Integrated standalone and optional-source update
+
+See [Standalone clinical use and optional connections](INTEGRATED_STANDALONE_GUIDE.md) for PCC-off general analytics, optional AI providers and the opt-in WhatsApp report-job status alerts. The app version remains 3.0.1-dev; current source validation does not establish a new installer release.

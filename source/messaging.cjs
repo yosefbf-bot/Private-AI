@@ -2,13 +2,13 @@
 const crypto=require('node:crypto');
 const {fail,uuid,safeError,text}=require('./security.cjs');
 const {conversationId,conversations,selected,writable}=require('./messaging-policy.cjs');
-const DEFAULT={enabled:false,adapter:'web',groupId:'',groupName:'',senders:[],conversations:[],readAll:true,disableAllWriting:false,prefix:'AI:',allowTasks:false,notifyStarted:false,notifyProgress:false,notifyComplete:true,notifyFailure:true,sendSummaries:true,sendAttachments:false,forwardDesktop:false,allowWhileLocked:false,warningAccepted:false};
+const DEFAULT={enabled:false,adapter:'web',groupId:'',groupName:'',senders:[],conversations:[],readAll:true,disableAllWriting:false,prefix:'AI:',allowTasks:false,notifyStarted:false,notifyProgress:false,notifyComplete:true,notifyFailure:true,notifyJobs:false,sendSummaries:true,sendAttachments:false,forwardDesktop:false,allowWhileLocked:false,warningAccepted:false};
 class MessagingBridge{
  constructor(core){this.core=core;this.adapters={};this.busy=false;this.state='off';this.baselined=new Set();this.verified=new Set();this.generation=0;this.timer=setInterval(()=>this.tick().catch(()=>{this.state='unavailable';}),5000);this.timer.unref?.();}
  settings(){const saved=this.core.store.get('messaging','settings')||{};return {...DEFAULT,...saved,disableAllWriting:saved.disableAllWriting??saved.readOnly??false};}
  code(){let s=this.core.store.get('secret','messaging');if(!s){s={code:crypto.randomBytes(16).toString('base64url')};this.core.store.put('secret','messaging',s);}return s.code;}
  save(input){this.core.assertUnlocked();if(input.readOnly!==undefined&&input.disableAllWriting===undefined)input={...input,disableAllWriting:input.readOnly};const s={...this.settings()};for(const k of Object.keys(DEFAULT))if(input[k]!==undefined)s[k]=input[k];
-  for(const k of ['enabled','readAll','disableAllWriting','allowTasks','notifyStarted','notifyProgress','notifyComplete','notifyFailure','sendSummaries','sendAttachments','forwardDesktop','allowWhileLocked','warningAccepted'])if(typeof s[k]!=='boolean')throw fail('INVALID');
+  for(const k of ['enabled','readAll','disableAllWriting','allowTasks','notifyStarted','notifyProgress','notifyComplete','notifyFailure','notifyJobs','sendSummaries','sendAttachments','forwardDesktop','allowWhileLocked','warningAccepted'])if(typeof s[k]!=='boolean')throw fail('INVALID');
   if(!['web','windows'].includes(s.adapter)||!Array.isArray(s.senders)||s.senders.length>10||s.senders.some(v=>!/^\d{6,16}@(c\.us|s\.whatsapp\.net|lid)$/.test(v)))throw fail('INVALID');
   for(const [k,n] of [['groupId',100],['groupName',200],['prefix',30]])text(s[k],n);
   if(!Array.isArray(s.conversations)||s.conversations.length>50)throw fail('INVALID');
@@ -88,6 +88,21 @@ class MessagingBridge{
   try{await adapter.send(s,row.body);row.status='sent';}catch(e){if(e.code==='POLICY'){row.status='blocked';this.state='permissions-changed';return {blocked:true};}if(['INTERFERENCE','DEFERRED'].includes(e.code)){row.status='deferred';this.state='paused-interference';return {deferred:true};}row.status='delivery-uncertain';this.core.store.put('messaging','settings',{...this.settings(),enabled:false});this.state='delivery-uncertain';throw fail('MESSAGING');}finally{this.core.store.put('messageOut',id,row,{expires:this.core.settings().retentionDays?Date.now()+this.core.settings().retentionDays*86400000:null});}
  }
  async desktopResult(text,override='default'){const s=this.settings();if(!s.enabled||override==='never'||(override!=='send'&&!s.forwardDesktop)||!s.notifyComplete)return;const a=this.adapters[s.adapter];if(!a)return;try{await this.send(a,s,uuid(),s.sendSummaries?text.slice(0,12000):'Your desktop task is complete. Open Private AI to review it.');}catch{}}
- close(){clearInterval(this.timer);for(const a of Object.values(this.adapters))a.close?.();}
+ async jobFinished(id){
+  if(this.closed)return;
+  const s=this.settings(),job=this.core.store.get('job',id);
+  if(!s.enabled||!s.notifyJobs||!job||!['completed','failed'].includes(job.status)||this.core.settings().workerPaused)return;
+  if(job.status==='completed'?!s.notifyComplete:!s.notifyFailure)return;
+  const c=selected(s,s),adapter=this.adapters[s.adapter];if(!c||!adapter)return;
+  const target={...s,...c,generation:this.generation};
+  if(!require('./messaging-policy.cjs').backgroundReplyAllowed(this.core,target))return;
+  const claim=crypto.createHmac('sha256',this.code()).update([id,job.completed||job.started||0,job.status].join('|')).digest('hex');
+  if(!this.core.store.claim('wa-job-'+claim))return;
+  // Only task state is disclosed: no resident names, report titles, paths,
+  // findings or document contents. No backlog or retry of uncertain delivery.
+  const body='Report task '+id.slice(0,8)+(job.status==='completed'?' completed.':' did not complete.')+' Open Private AI to review '+(job.status==='completed'?'the saved report.':'the task details.');
+  await this.core.runMessagingBackground(()=>this.send(adapter,target,uuid(),body));
+ }
+ close(){this.closed=true;clearInterval(this.timer);for(const a of Object.values(this.adapters))a.close?.();}
 }
 module.exports={MessagingBridge,DEFAULT};

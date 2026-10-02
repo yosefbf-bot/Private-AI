@@ -16,6 +16,8 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   await page.getByRole('button',{name:'Connect',exact:true}).click();
   await page.getByRole('heading',{name:/Administrator Today/}).waitFor();
   assert.match(await page.locator('#development-mode-banner').textContent(),/Not for PHI/);
+  const blocked=await page.evaluate(()=>window.privateAI.call('integrationSave',{id:'pcc',settings:{enabled:true,mode:'manual'}}));assert.equal(blocked.ok,false);assert.equal(blocked.error.code,'POLICY');
+  for(const op of ['companionStatus','companionSave','companionPair','companionRevoke']){const result=await page.evaluate(op=>window.privateAI.call(op,{}),op);assert.equal(result.ok,false);assert.equal(result.error.code,'POLICY');}
   assert.match(await page.locator('.today-page').textContent(),/incomplete|missing|stale/i);
   const criticalCard=page.locator('.today-kpi-card').filter({hasText:'Critical Alerts'});
   assert.match(await criticalCard.innerText(),/Incomplete/i);
@@ -23,6 +25,7 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   assert.equal(await criticalCard.evaluate(el=>el.classList.contains('kpi-success')),false);
   await page.locator('#btn-toggle-demo').click();
   await page.locator('#btn-return-prod').waitFor();
+  await page.locator('#section-data-health').waitFor();assert.equal(await page.locator('#btn-goto-pcc').isVisible(),true);
   await page.locator('.today-page [data-act-evidence]').first().click();await page.locator('[data-evidence-target]:not([hidden])').first().waitFor();
   await page.locator('.today-page [data-act-followup]').first().click();
   const form=page.locator('dialog.today-modal form');await form.locator('[name=reviewer]').fill('Synthetic UI reviewer');await form.locator('[name=status]').selectOption('waiting');await form.locator('[name=note]').fill('Synthetic review pending');await form.getByRole('button',{name:/Save/i}).click();await page.locator('dialog.today-modal').waitFor({state:'detached'});
@@ -31,9 +34,11 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   await page.locator('#btn-goto-snf').click();await page.locator('.snf-headline').waitFor();await page.locator('.snf-page').getByText('DEMO DATA — NOT FOR CLINICAL USE',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Today / Demo workspace'}).click();await page.locator('#btn-reset-demo').click();await page.locator('#btn-toggle-demo').waitFor();
   assert.doesNotMatch(await page.locator('.today-page').textContent(),/Eleanor Vance|Dorothy Zimmerman/);
-  await page.getByRole('button',{name:'PCC Import Center',exact:true}).first().click();await page.getByRole('heading',{name:'PCC Import Center'}).waitFor();
+  assert.equal(await page.locator('#sidebar [data-view=pcc]').isVisible(),false);
+  assert.equal(await page.locator('#section-data-health').count(),0);
+  await page.getByRole('button',{name:'Clinical imports',exact:true}).first().click();await page.getByRole('heading',{name:'Clinical imports',exact:true}).waitFor();
   // Development mode must visibly block production import flow.
-  await page.locator('#content').getByText('Live PCC imports are disabled.',{exact:false}).waitFor();
+  await page.locator('#content').getByText('Live clinical imports are disabled.',{exact:false}).waitFor();
   assert.match(await page.locator('#content').textContent(),/Development mode|No imports yet|disabled/i);
   await page.locator('#sidebar [data-view="today"]').click();
   await page.locator('#content [data-view="execdesk"]').click();

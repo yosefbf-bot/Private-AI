@@ -304,3 +304,10 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** This is a source-build timestamp, not evidence of an automatic update or completed release validation.
 
+
+
+## Integrated standalone and optional-source update
+
+See [Standalone clinical use and optional connections](INTEGRATED_STANDALONE_GUIDE.md) for PCC-off general analytics, optional AI providers and the opt-in WhatsApp report-job status alerts. The app version remains 3.0.1-dev; current source validation does not establish a new installer release.
+
+See [Android companion setup and developer contract](ANDROID_COMPANION_CONTRACT.md) for the optional HTTPS gateway, pairing, supported endpoints and required Android changes.

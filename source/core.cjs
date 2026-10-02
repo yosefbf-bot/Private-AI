@@ -80,7 +80,9 @@ class Core {
       });
     this.stability = new (require("./stability.cjs").Stability)(this);
     this.stability.start();
+    this.integrations = new (require("./integrations.cjs").Integrations)(this);
     this.snf = new (require("./snf-command-center.cjs").SNFCommandCenter)({
+      integrations: this.integrations,
       store: this.store,
       root: this.root,
     });
@@ -144,6 +146,8 @@ class Core {
         custom: !!this.key("custom"),
       },
       providers: require("./providers.cjs").PROVIDERS,
+      integrations: this.integrations.summary(),
+      providerCapabilities: {local:{configured:require("./routing-capabilities.cjs").localConfigured(s,this.modelManager?.catalog(s)||[])},selected:require("./routing-capabilities.cjs").transportCapability(s,this.key(s.provider))},
       chats: this.store.summaries("chat").map((c) => ({
         id: c.id,
         title: c.title,
@@ -315,7 +319,7 @@ class Core {
     this.assertUnlocked();
     const prov = provider || this.settings().provider || "openai";
     if (prov === "local") {
-      return { ok: true, note: "Local Assistant is active and ready (no API key required)." };
+      return { ok: true, note: "Built-in references and templates are available. This check does not test model inference; configure a model in AI Processing." };
     }
     if (prov === "ollama") {
       try {
@@ -655,12 +659,12 @@ class Core {
     }
     return { messages, omitted };
   }
-  async send(data,onDelta=()=>{}) {
+  async send(data,onDelta=()=>{},{allowTools=true}={}) {
     this.assertUnlocked();
     if(this.requests.has(data.chatId))throw fail('BUSY');
     const controller=new AbortController();this.requests.set(data.chatId,controller);
     const kind=this.backgroundContext.getStore()===this.backgroundToken?'background':'foreground';
-    try{return await this.resources.task(kind,()=>this.sendCoordinated(data,onDelta,controller),{signal:controller.signal});}
+    try{return await this.resources.task(kind,()=>this.sendCoordinated(data,onDelta,controller,allowTools),{signal:controller.signal});}
     finally{this.requests.delete(data.chatId);}
   }
   async sendCoordinated(
@@ -675,6 +679,7 @@ class Core {
     },
     onDelta = () => {},
     controller,
+    allowTools = true,
   ) {
     this.assertUnlocked();
     this.touch();
@@ -742,6 +747,7 @@ class Core {
         input.messages,
         {
           instructions: this.getInstructions(c),
+          allowTools,
           omitted: input.omitted,
           web,
           signal: ctrl.signal,
@@ -953,7 +959,7 @@ class Core {
     update('waiting','Queued for a safe resource boundary.');
     try{return await this.resources.task('background',()=>this.runJobCoordinated(j,remote,background,controller),{signal:controller.signal,update});}
     catch(e){update('failed',safeError(e).message);}
-    finally{this.requests.delete(j.id);this.emit({type:'jobs_changed'});}
+    finally{this.requests.delete(j.id);this.emit({type:'jobs_changed'});const finished=this.store.get('job',j.id);if(['completed','failed'].includes(finished?.status))this.emit({type:'job_finished',jobId:j.id});}
   }
   async runJobCoordinated(input, remote = false, background = false, controller) {
     if (!background) this.assertUnlocked();
@@ -1284,6 +1290,7 @@ class Core {
     return true;
   }
   close() {
+    this.integrations.close();
     this.router.local?.close();
     for (const controller of this.requests.values()) controller.abort();
     this.temporary.clear();

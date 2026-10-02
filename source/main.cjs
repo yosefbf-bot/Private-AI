@@ -40,10 +40,11 @@ const {cloudAllowed}=require("./hybrid-settings.cjs");
 const {createTools}=require("./local-tools.cjs");
 const {BrowserWorker,validateRecipe,validateBrowserTarget}=require("./browser-worker.cjs");
 const {MessagingBridge}=require("./messaging.cjs");
+const {CompanionGateway}=require("./companion-gateway.cjs");
 const {WhatsAppWeb}=require("./whatsapp-web.cjs");
 const {WhatsAppWindows}=require("./whatsapp-windows.cjs");
 let samplingMemory=false;
-let modelManager,browserWorker,messaging,rendererRecoveries=0,rendererNeedsReload=false;
+let modelManager,browserWorker,messaging,companion,rendererRecoveries=0,rendererNeedsReload=false;
 const { loadVault, startupMessage } = require("./startup-storage.cjs");
 const { AccessManager, helperCall } = require("./access.cjs");
 let access;
@@ -120,6 +121,7 @@ function loadCipher(create) {
   return loadVault(localRoot, safeStorage, create);
 }
 function emit(event) {
+  if(event.type==='job_finished')messaging?.jobFinished(event.jobId).catch(()=>{});
   if (win && !win.isDestroyed()) win.webContents.send("privateai:event", event);
   bridge?.broadcast(event);
 }
@@ -422,6 +424,11 @@ async function dispatch(
       modelManager.download(modelId).then(modelPath=>{const tier=TIERS.find(t=>t.id===modelId).tier;core.saveSettings({[tier+'ModelPath']:modelPath});emit({type:"model-download",state:"selected"});}).catch(e=>emit({type:"model-download",state:"failed",error:safeError(e)}));return modelManager.status();
     }
     case "cancelModelDownload": modelManager.cancel(); return true;
+    case "integrationSave": return core.integrations.configure(data.id, data.settings);
+    case "companionStatus": return companion.status();
+    case "companionSave": return companion.configure(data);
+    case "companionPair": return companion.pair(data);
+    case "companionRevoke": return companion.revoke(data.id);
     case "usageSummary": return core.router.meter.summary();
     case "ping":
       return { ok: true };
@@ -432,7 +439,7 @@ async function dispatch(
           settings: { hipaa: s.settings.hipaa, model: s.settings.model,processingMode:s.settings.processingMode },
           chats: s.chats.slice(0, 60),
         };
-      return { ...s, autostart: app.getLoginItemSettings().openAtLogin };
+      return { ...s, companion: companion.status(), autostart: app.getLoginItemSettings().openAtLogin };
     }
     case "createChat": {
       const c = core.createChat(data);
@@ -952,6 +959,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       messaging.adapters.web=new WhatsAppWeb(core);
       messaging.adapters.windows=new WhatsAppWindows(core,access);
       messaging.adapters.windows.webFallback=messaging.adapters.web;
+      companion = new CompanionGateway(core);
       bridge = startBridge(
         pipe,
         cipher,
@@ -1009,6 +1017,8 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       });
       createTray();
       if (core.store.get("secret", "applock")) core.locked = true;
+      // Optional gateway failures stay in Settings; offline/keyless startup remains usable.
+      companion.start().catch(() => {});
       timer = setInterval(() => {
         const brain=core.router.local,child=brain.child;
         if(child&&!samplingMemory){samplingMemory=true;const settings=brain.activeSettings;require('./process-memory.cjs').sampleProcessMemory(child.pid).then(bytes=>{if(bytes&&brain.child===child){const row=modelManager.catalog(settings).find(t=>t.file===settings.localModelPath);if(row)core.stability.observePeak(row.tier,settings.localContext,bytes);}}).catch(()=>{}).finally(()=>{samplingMemory=false;});}
@@ -1055,7 +1065,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
     });
 }
 app.on("window-all-closed", () => {
-  if (!isNative && !core?.settings().workerEnabled && !messaging?.settings().enabled) app.quit();
+  if (!isNative && !core?.settings().workerEnabled && !messaging?.settings().enabled && !companion?.settings().enabled) app.quit();
 });
 app.on("before-quit", () => {
   quitting = true;
@@ -1064,6 +1074,7 @@ app.on("before-quit", () => {
   nativeLink?.close();
   modelManager?.cancel();
   messaging?.close();
+  companion?.close();
   browserWorker?.close();
   try {
     core?.close();

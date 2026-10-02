@@ -2,11 +2,12 @@
 const {uuid}=require('../../security.cjs');
 const {canonical,hash,validate}=require('./validation.cjs');
 const PARSERS={census:'_processCensus',adt:'_processCensus',admissions:'_processAdmissions',transfers:'_processTransfers',clinical24:'_processClinical24',orders:'_processOrderChanges',med_changes:'_processOrderChanges',med_profile:'_processMedProfile',emar_exceptions:'_processEmarExceptions',diagnoses:'_processDiagnoses',behaviors:'_processBehaviors',falls:'_processFalls',infections:'_processInfections',wounds:'_processWounds',labs:'_processLabs',progress_notes:'_processProgressNotes',gdr_tracker:'_processGDR',psych_report:'_processSupplemental',pharmacist_review:'_processSupplemental',weights:'_processSupplemental',care_plans:'_processSupplemental'};
-async function ingestReports(reports,user='Operator'){
+async function ingestReports(reports,user='Operator',{sourceProvider='generic'}={}){
  if(!Array.isArray(reports)||reports.length>100)return {success:false,totalRecords:0,results:[],validationErrors:['Expected an array of at most 100 mapped reports.']};
  if(this.demoMode&&!this._seedingDemo)throw Error('Live imports are disabled in Demo Mode.');
- const batch={id:uuid(),importTime:Date.now(),operator:String(user).slice(0,120),demo:!!this.demoMode,reports:[],validationWarnings:[],acceptedRows:0,rejectedRows:0};
+ const batch={sourceProvider,id:uuid(),importTime:Date.now(),operator:String(user).slice(0,120),demo:!!this.demoMode,reports:[],validationWarnings:[],acceptedRows:0,rejectedRows:0};
  const status=this.store.get('config',this.feedStatusKey)||{feeds:{}};
+ const pccStatus=sourceProvider==='pcc'?(this.store.get('config',this.pccFeedStatusKey)||{feeds:{}}):null;
  // Census matching must complete before dependent reports in this batch.
  const ordered=[...reports].sort((a,b)=>Number(this._mapReportNameToFeedType(b?.type||b?.reportType||b?.name)==='census')-Number(this._mapReportNameToFeedType(a?.type||a?.reportType||a?.name)==='census'));
  this._tx(()=>{
@@ -16,15 +17,15 @@ async function ingestReports(reports,user='Operator'){
   const checked=validate(report,type,this.store),filename=String(report.filename||'unnamed mapped report').slice(0,250);
   const content=typeof report.rawText==='string'&&report.rawText?report.rawText:canonical(report.rows||[]);
   const fileHash=hash(content),reportHash=hash(canonical({type,date:checked.reportDate,rows:Array.isArray(report.rows)?report.rows.map(canonical).sort():[]}));
-  const item={id:uuid(),batchId:batch.id,filename,type,reportDate:checked.reportDate,reportRange:report.range||null,fileHash,hashScope:report.rawText?'source-text-bytes':'mapped-data',reportHash,rowCount:Array.isArray(report.rows)?report.rows.length:0,acceptedRows:0,rejectedRows:checked.rejected.length,rejections:checked.rejected,mappingErrors:checked.mappingErrors,unmatchedResidents:checked.unmatched,importTime:batch.importTime,operator:batch.operator};
+  const item={sourceProvider,id:uuid(),batchId:batch.id,filename,type,reportDate:checked.reportDate,reportRange:report.range||null,fileHash,hashScope:report.rawText?'source-text-bytes':'mapped-data',reportHash,rowCount:Array.isArray(report.rows)?report.rows.length:0,acceptedRows:0,rejectedRows:checked.rejected.length,rejections:checked.rejected,mappingErrors:checked.mappingErrors,unmatchedResidents:checked.unmatched,importTime:batch.importTime,operator:batch.operator};
   if(!PARSERS[type])item.mappingErrors.push('Unsupported report type; mapping required.');
-  const duplicate=this.store.list('snf_import_report').find(r=>r.status!=='error'&&(r.fileHash===fileHash&&r.type===type&&r.rowCount>0||r.reportHash===reportHash));
+  const duplicate=this.store.list('snf_import_report').find(r=>r.status!=='error'&&(r.sourceProvider||'pcc')===sourceProvider&&(r.fileHash===fileHash&&r.type===type&&r.rowCount>0||r.reportHash===reportHash));
   if(duplicate){item.status='duplicate';item.duplicateOf=duplicate.id;item.duplicateFileHash=duplicate.fileHash===fileHash;batch.reports.push(item);continue;}
   if(!item.mappingErrors.length){
-   this._batchContext={batchId:batch.id,reportId:item.id,fileHash,filename,type,reportDate:checked.reportDate,rows:checked.accepted};
+   this._batchContext={sourceProvider,batchId:batch.id,reportId:item.id,fileHash,filename,type,reportDate:checked.reportDate,rows:checked.accepted};
    this.store.db.exec('SAVEPOINT snf_report');
    try{
-    for(const row of checked.accepted)this.store.put('snf_import_row',item.id+':'+row.index,{id:item.id+':'+row.index,batchId:batch.id,reportId:item.id,sourceFile:filename,reportDate:checked.reportDate,residentId:row.residentId,sourceRow:row.index,importTimestamp:batch.importTime,originalData:row.row,demo:!!this.demoMode});
+    for(const row of checked.accepted)this.store.put('snf_import_row',item.id+':'+row.index,{sourceProvider,id:item.id+':'+row.index,batchId:batch.id,reportId:item.id,sourceFile:filename,reportDate:checked.reportDate,residentId:row.residentId,sourceRow:row.index,importTimestamp:batch.importTime,originalData:row.row,demo:!!this.demoMode});
     item.acceptedRows=this[PARSERS[type]](checked.accepted.map(r=>({...r.row,residentId:r.residentId})),filename,checked.reportDate,batch.importTime);
     item.status=item.rejectedRows?'partial':'success';
     this.store.db.exec('RELEASE snf_report');
@@ -33,14 +34,16 @@ async function ingestReports(reports,user='Operator'){
   }else item.status='error';
   if(item.status==='error')item.rejectedRows=item.rowCount;
   if(!status.feeds[type]||!status.feeds[type].reportDate||checked.reportDate>=status.feeds[type].reportDate||item.status==='error'){
-   status.feeds[type]={...(status.feeds[type]||{}),id:type,name:status.feeds[type]?.name||type,critical:!!status.feeds[type]?.critical,lastReceived:batch.importTime,reportDate:checked.reportDate,lastRecordCount:item.acceptedRows,filename,batchId:batch.id,reportId:item.id,status:item.status==='success'?'ok':item.status,error:item.status==='success'?null:'Import incomplete; review batch validation.'};
+   status.feeds[type]={...(status.feeds[type]||{}),sourceProvider,id:type,name:status.feeds[type]?.name||type,critical:!!status.feeds[type]?.critical,lastReceived:batch.importTime,reportDate:checked.reportDate,lastRecordCount:item.acceptedRows,filename,batchId:batch.id,reportId:item.id,status:item.status==='success'?'ok':item.status,error:item.status==='success'?null:'Import incomplete; review batch validation.'};
   }else item.mappingErrors.push('Older report retained as evidence; latest feed date unchanged.');
   if(type==='census'&&item.status==='success'&&item.acceptedRows<this.store.count('snf_resident')*.5){status.feeds[type].status='partial';item.mappingErrors.push('Census count dropped by over half; review omissions.');}
+  if(pccStatus && (!pccStatus.feeds[type]?.reportDate || checked.reportDate>=pccStatus.feeds[type].reportDate || item.status==='error'))pccStatus.feeds[type]={id:type,name:status.feeds[type]?.name||type,critical:!!status.feeds[type]?.critical,sourceProvider,lastReceived:batch.importTime,reportDate:checked.reportDate,lastRecordCount:item.acceptedRows,filename,batchId:batch.id,reportId:item.id,status:item.status==='success'?'ok':item.status,error:item.status==='success'?null:'Import incomplete; review batch validation.'};
   batch.acceptedRows+=item.acceptedRows;batch.rejectedRows+=item.rejectedRows;
   this.store.put('snf_import_report',item.id,item);batch.reports.push(item);
  }
  status.lastSuccessfulCycle=batch.reports.some(r=>r.status==='success')?batch.importTime:status.lastSuccessfulCycle;
  status.validationErrors=batch.reports.flatMap(r=>r.mappingErrors||[]);this.store.put('config',this.feedStatusKey,status);
+ if(pccStatus){pccStatus.lastSuccessfulCycle=status.lastSuccessfulCycle;this.store.put('config',this.pccFeedStatusKey,pccStatus);}
  this._invalidateCache();const health=this.getFeedStatus();batch.missingExpectedFeeds=health.missingCriticalFeeds.map(f=>f.id);batch.staleFeeds=Object.values(health.feeds).filter(f=>f.status==='stale').map(f=>f.id);
  batch.validationWarnings.push(...status.validationErrors);this.store.put('snf_import_batch',batch.id,batch);
  });

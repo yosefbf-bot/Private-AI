@@ -289,15 +289,19 @@ const {MEDICATION_CLASSES,TARGET_BEHAVIORS,NON_PHARM_INTERVENTIONS,identifyMedic
  * SNFCommandCenter Surveillance Manager
  */
 class SNFCommandCenter {
-  constructor({ store, root, demoMode = false }) {
+  constructor({ store, root, demoMode = false, integrations = null }) {
     this.store = store;
     this.demoMode = demoMode;
     this.root = root;
     this.settingsKey = 'snf_surveillance_settings';
     this.feedStatusKey = 'snf_feed_status';
+    this.pccFeedStatusKey = 'snf_pcc_feed_status';
     this.auditEvent = 'clinical_surveillance';
     this._cache = new Map();
     this._cacheTTL = 5000;
+    this.integrations = integrations || new (require('./integrations.cjs').Integrations)({store, assertUnlocked() {}});
+    require('./snf/sources/pcc.cjs').attach(this);
+    this.integrations.onChange = () => this._invalidateCache();
     this.ensureInitialized();
     if (demoMode) {
       for (const name of Object.getOwnPropertyNames(SNFCommandCenter.prototype).filter(n=>/Report$/.test(n)||n==='generateMorningBrief')) {
@@ -353,7 +357,7 @@ class SNFCommandCenter {
     if (!this.store.get('config', this.settingsKey)) {
       this.store.put('config', this.settingsKey, {
         facilityName: 'SNF Healthcare Center',
-        emrPlatform: 'PointClickCare (PCC)',
+        emrPlatform: 'Generic imported clinical records',
         emrReadOnly: true,
         retentionDays: 100,
         retentionReportsDays: 200,
@@ -443,9 +447,18 @@ class SNFCommandCenter {
   }
 
   /**
-   * Ingest a batch of PCC standardized reports
+   * Ingest normalized reports from a supported source into the shared clinical engine
    */
-  async ingestReports(reports, user) { return require('./snf/import/batch-manager.cjs').ingestReports.call(this, reports, user); }
+  async ingestReports(reports, user, options = {}) {
+    const sourceProvider = require('./snf/sources/pcc.cjs').sourceProvider(options.sourceProvider ?? (this._seedingDemo ? 'pcc' : 'generic'));
+    if (sourceProvider === 'pcc') {
+      reports = await this.integrations.read('pcc', 'import', reports);
+      this.integrations.assert('pcc', 'import');
+    }
+    return require('./snf/import/batch-manager.cjs').ingestReports.call(this, reports, user, {sourceProvider});
+  }
+  alertVisible(alert) { return require('./snf/sources/pcc.cjs').alertVisible(this, alert); }
+  issueVisible(issue) { return this.alertVisible(this.store.get('snf_alert', issue.alertId)); }
   _writeRecord(kind, id, value) { return require('./snf/import/provenance.cjs').writeRecord.call(this, kind, id, value); }
 
   // --- REPORT PARSERS WITH TRACEABILITY ---
@@ -992,7 +1005,7 @@ class SNFCommandCenter {
   }
 
   getActiveAlerts() {
-    return this.store.list('snf_alert').filter(a => a.status !== 'resolved' && a.status !== 'dismissed');
+    return this.store.list('snf_alert').filter(a => this.alertVisible(a) && a.status !== 'resolved' && a.status !== 'dismissed');
   }
 
   updateAlert(id, patch, user) { return require('./snf/alerts/lifecycle.cjs').updateAlert.call(this,id,patch,user); }
@@ -1019,7 +1032,7 @@ class SNFCommandCenter {
           severity: alt.severity,
           firstDetected: alt.firstDetected,
           lastDetected: alt.lastDetected,
-          source: alt.sources?.[0]?.sourceReport || 'PCC Daily Feeds',
+          source: alt.sources?.[0]?.sourceReport || 'Imported clinical records',
           owner: alt.assignedTo || 'Clinical Team',
           status: isOpen ? (alt.status === 'in_review' ? 'In Review' : 'Open') : 'Resolved',
           acknowledged: !!alt.acknowledgedAt,
@@ -1037,7 +1050,7 @@ class SNFCommandCenter {
    */
   getAlertSummary() {
     return this._getCached('alertSummary', () => {
-      const alerts = this.store.list('snf_alert').filter(a => a.status !== 'resolved');
+      const alerts = this.store.list('snf_alert').filter(a => this.alertVisible(a) && a.status !== 'resolved');
       const critical = alerts.filter(a => a.severity === 'critical').length;
       const high = alerts.filter(a => a.severity === 'high').length;
       const review = alerts.filter(a => a.severity === 'medium').length;
@@ -1066,7 +1079,7 @@ class SNFCommandCenter {
       const orderChanges = this.store.list('snf_med_change');
       const diagnoses = this.store.list('snf_diagnosis');
       const alerts = this.store.list('snf_alert');
-      const unresolvedAlerts = alerts.filter(a => a.status !== 'resolved');
+      const unresolvedAlerts = alerts.filter(a => this.alertVisible(a) && a.status !== 'resolved');
 
     const totalCensus = residents.length;
     const activeAPs = orders.filter(o => o.status === 'Active' && o.isAntipsychotic);
@@ -1131,15 +1144,17 @@ class SNFCommandCenter {
       }
     }
 
-    const estimatedQMRate = longStayResidents.length > 0
+    const coverage = this.getFeedStatus();
+    const qmInputsAvailable = ['census','med_profile','diagnoses'].every(id => coverage.feeds[id]?.status === 'ok');
+    const estimatedQMRate = qmInputsAvailable && longStayResidents.length > 0
       ? ((potentialNumerator.length / longStayResidents.length) * 100).toFixed(1)
-      : '0.0';
+      : null;
 
     return {
       totalCensus,
-      antipsychoticResidentsCount: apResidentIds.size,
+      antipsychoticResidentsCount: coverage.feeds.med_profile?.status==='ok'?apResidentIds.size:null,
       psychWatchCard: {
-        antipsychoticResidents: apResidentIds.size,
+        antipsychoticResidents: coverage.feeds.med_profile?.status==='ok'?apResidentIds.size:null,
         newAPs24h,
         documentationReview: docGaps,
         gdrReview: gdrAlerts,
@@ -1158,6 +1173,7 @@ class SNFCommandCenter {
       },
       qmWatch: {
         label: 'Estimated QM Exposure',
+        availability: qmInputsAvailable && longStayResidents.length > 0 ? 'available' : 'unknown',
         note: 'Exploratory imported-data estimate, not the official CMS measure. Exclusions, denominator and current methodology require independent verification.',
         longStayDenominator: longStayResidents.length,
         potentialNumeratorCount: potentialNumerator.length,
@@ -1197,26 +1213,26 @@ class SNFCommandCenter {
     const wounds = this.store.list('snf_wound');
     const labs = this.store.list('snf_lab');
     const clinical24 = this.store.list('snf_clinical24');
-    const openIssues = this.store.list('snf_open_issue').filter(i => i.status !== 'Resolved');
+    const openIssues = this.store.list('snf_open_issue').filter(i => this.issueVisible(i) && i.status !== 'Resolved');
 
     const now = Date.now();
     const oneDayAgo = now - 36 * 60 * 60 * 1000;
     const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     let brief = `# PRIVATE AI — MORNING ADMINISTRATOR & CLINICAL BRIEF\n`;
-    brief += `**Date**: ${dateStr} | **Census**: ${metrics.totalCensus} | **PCC Data Status**: ${metrics.feedStatus.dataCurrentThroughFormatted}\n\n`;
+    brief += `**Date**: ${dateStr} | **Census**: ${metrics.totalCensus} | **Imported Data Status**: ${metrics.feedStatus.dataCurrentThroughFormatted}\n\n`;
 
     // 1. TOP SECTION MUST ALWAYS BE: CRITICAL / UNRESOLVED
     brief += `## 🔴 CRITICAL / UNRESOLVED CLINICAL ITEMS\n`;
     if (criticalAlerts.length === 0 && metrics.feedStatus.isSurveillanceComplete) {
       brief += `*No unacknowledged critical clinical exceptions currently active across verified feeds.*\n\n`;
     } else {
-      if (!metrics.feedStatus.isSurveillanceComplete) {
+      if (metrics.feedStatus.monitoringEnabled && !metrics.feedStatus.isSurveillanceComplete) {
         brief += `⚠️ **SURVEILLANCE COMPLIANCE ALERT**: Data feeds are incomplete or stale. Review Feed Integrity below.\n`;
       }
       brief += `**${criticalAlerts.length} Critical Alert(s) Requiring Immediate Review:**\n`;
       for (const a of criticalAlerts) {
-        brief += `- **[${a.residentName || 'FACILITY'}] ${a.title}**: ${a.message} *(Source: ${a.sources?.[0]?.sourceReport || 'PCC'})*\n`;
+        brief += `- **[${a.residentName || 'FACILITY'}] ${a.title}**: ${a.message} *(Source: ${a.sources?.[0]?.sourceReport || 'Imported clinical records'})*\n`;
       }
       brief += `\n`;
     }
@@ -1236,7 +1252,7 @@ class SNFCommandCenter {
     brief += `### Overnight Clinical Events & 24h Reports\n`;
     const recentClin24 = clinical24.filter(c => (now - c.importTimestamp) <= oneDayAgo);
     if (recentClin24.length === 0) {
-      brief += `- No acute changes in condition logged overnight in imported 24h reports.\n`;
+      brief += `- No acute-change entries in supplied 24h reports; missing records do not establish stability.\n`;
     } else {
       for (const c of recentClin24) {
         brief += `- **${c.residentName}**: ${c.summary} (Provider notified: ${c.providerNotified ? 'Yes' : 'No'})\n`;
@@ -1248,35 +1264,35 @@ class SNFCommandCenter {
     brief += `### Hospital Transfers & New Admissions\n`;
     const recentTrans = transfers.filter(t => (now - t.importTimestamp) <= oneDayAgo);
     const recentAdm = admissions.filter(a => (now - a.importTimestamp) <= oneDayAgo);
-    brief += `- **Hospital Transfers Out**: ${recentTrans.length ? recentTrans.map(t => `${t.residentName} (${t.hospital} - ${t.reason})`).join(', ') : 'None'}\n`;
-    brief += `- **New Admissions**: ${recentAdm.length ? recentAdm.map(a => `${a.residentName} (Rm ${a.room || 'TBD'} - ${a.primaryDiagnosis})`).join(', ') : 'None'}\n\n`;
+    brief += `- **Hospital Transfers Out**: ${recentTrans.length ? recentTrans.map(t => `${t.residentName} (${t.hospital} - ${t.reason})`).join(', ') : 'Not recorded in supplied reports; status unknown'}\n`;
+    brief += `- **New Admissions**: ${recentAdm.length ? recentAdm.map(a => `${a.residentName} (Rm ${a.room || 'TBD'} - ${a.primaryDiagnosis})`).join(', ') : 'Not recorded in supplied reports; status unknown'}\n\n`;
 
     // 4. NEW MEDICATIONS & PSYCH WATCH
     brief += `### New Medications & Psych Watch Overview\n`;
     const pw = metrics.psychWatchCard;
-    brief += `**Psych Watch Metrics**: Antipsychotic Residents: **${pw.antipsychoticResidents}** | New (24h): **${pw.newAPs24h}** | Doc Reviews: **${pw.documentationReview}** | GDR Reviews: **${pw.gdrReview}** | PRN 14-Day Deadlines: **${pw.prnDeadlines}**\n`;
-    brief += `**Estimated QM Exposure**: **${metrics.qmWatch.estimatedRatePercentage}%** (${metrics.qmWatch.potentialNumeratorCount} of ${metrics.qmWatch.longStayDenominator} long-stay residents; ${metrics.qmWatch.knownExclusionsCount} diagnosis exclusion candidates requiring verification)\n\n`;
+    brief += `**Psych Watch Metrics**: Antipsychotic Residents: **${pw.antipsychoticResidents??"Unknown"}** | New (24h): **${pw.newAPs24h}** | Doc Reviews: **${pw.documentationReview}** | GDR Reviews: **${pw.gdrReview}** | PRN 14-Day Deadlines: **${pw.prnDeadlines}**\n`;
+    brief += `**Estimated QM Exposure**: **${metrics.qmWatch.estimatedRatePercentage==null?"Unknown":metrics.qmWatch.estimatedRatePercentage+"%"}** (${metrics.qmWatch.potentialNumeratorCount} of ${metrics.qmWatch.longStayDenominator} long-stay residents; ${metrics.qmWatch.knownExclusionsCount} diagnosis exclusion candidates requiring verification)\n\n`;
 
     // 5. INCIDENTS, INFECTIONS & EXCEPTIONS
     brief += `### Incidents, Infections & eMAR Exceptions\n`;
     const recentFalls = falls.filter(f => (now - f.importTimestamp) <= oneDayAgo);
     const recentEmar = emar.filter(e => (now - e.importTimestamp) <= oneDayAgo);
     const recentInf = infections.filter(i => (now - i.importTimestamp) <= oneDayAgo);
-    brief += `- **Falls in Last 24 Hours**: ${recentFalls.length ? `${recentFalls.length} fall(s) reported (${recentFalls.map(f => `${f.residentName} - ${f.location}, injury: ${f.injuryLevel}`).join('; ')})` : '0 falls reported'}\n`;
-    brief += `- **New Infection Surveillance**: ${recentInf.length ? recentInf.map(i => `${i.residentName} (${i.infectionType}, ABX: ${i.antibiotic || 'None'})`).join('; ') : 'No new active infections flagged'}\n`;
-    brief += `- **eMAR / eTAR Exceptions**: ${recentEmar.length ? `${recentEmar.length} exception(s) logged (${recentEmar.map(e => `${e.residentName}: ${e.medication} - ${e.exceptionType}`).slice(0, 5).join('; ')})` : '0 exceptions'}\n\n`;
+    brief += `- **Falls in Last 24 Hours**: ${recentFalls.length ? `${recentFalls.length} fall(s) reported (${recentFalls.map(f => `${f.residentName} - ${f.location}, injury: ${f.injuryLevel}`).join('; ')})` : 'No fall entries in supplied reports; status unknown'}\n`;
+    brief += `- **New Infection Surveillance**: ${recentInf.length ? recentInf.map(i => `${i.residentName} (${i.infectionType}, ABX: ${i.antibiotic || 'None'})`).join('; ') : 'No infection entries in supplied reports; status unknown'}\n`;
+    brief += `- **eMAR / eTAR Exceptions**: ${recentEmar.length ? `${recentEmar.length} exception(s) logged (${recentEmar.map(e => `${e.residentName}: ${e.medication} - ${e.exceptionType}`).slice(0, 5).join('; ')})` : 'No exception entries in supplied reports; status unknown'}\n\n`;
 
     // 6. PREVIOUSLY UNRESOLVED ISSUES (CARRY-FORWARD)
     brief += `### Previously Unresolved Open Issues\n`;
     if (openIssues.length === 0) {
-      brief += `- All previous high-priority issues have been documented as resolved.\n`;
+      brief += `- No open issues are recorded in the available evidence; this does not establish that all previous issues were resolved.\n`;
     } else {
       for (const iss of openIssues.slice(0, 5)) {
         const daysOpen = Math.max(1, Math.floor((now - iss.firstDetected) / (24 * 60 * 60 * 1000)));
         brief += `- **[Day ${daysOpen}] ${iss.residentName}**: ${iss.issue} (Status: ${iss.status}, Owner: ${iss.owner})\n`;
       }
     }
-    brief += `\n---\n*Report generated deterministically by Private AI SNF Command Center. Traceable to PointClickCare raw feeds.*`;
+    brief += `\n---\n*Report generated deterministically by Private AI SNF Command Center. Traceable to supplied clinical records; missing evidence remains unknown.*`;
 
     return brief;
     });
@@ -1287,14 +1303,14 @@ class SNFCommandCenter {
   getCriticalAlertsReport() {
     return this._getCached('report_critical_alerts', () => {
       const alerts = this.store.list('snf_alert').filter(a => a.severity === 'critical' && a.status !== 'resolved');
-      if (!alerts.length) return 'No unresolved critical alerts found across verified PCC data.';
+      if (!alerts.length) return 'No unresolved critical alerts in supplied records. Missing or incomplete data prevents an all-clear conclusion.';
       return `# UNRESOLVED CRITICAL CLINICAL ALERTS (${alerts.length})\n\n` +
         alerts.map((a, i) => `### ${i + 1}. [${a.residentName} - Rm ${a.residentRoom || 'N/A'}] ${a.title}\n` +
           `- **Message**: ${a.message}\n` +
           `- **Drug**: ${a.drug || 'N/A'}\n` +
           `- **Status**: ${a.status.toUpperCase()} | First Detected: ${new Date(a.firstDetected).toLocaleDateString()}\n` +
           `- **Why Flagged**:\n${(a.whyFlagged || []).map(w => `  * ${w}`).join('\n')}\n` +
-          `- **Source**: ${a.sources?.[0]?.sourceReport || 'PCC'} (${a.sources?.[0]?.reportDateTime || 'Recent'})\n`
+          `- **Source**: ${a.sources?.[0]?.sourceReport || 'Imported clinical records'} (${a.sources?.[0]?.reportDateTime || 'Recent'})\n`
         ).join('\n');
     });
   }
@@ -1307,7 +1323,7 @@ class SNFCommandCenter {
       const alerts = this.store.list('snf_alert').filter(a => a.status !== 'resolved' && (a.code.startsWith('AP-') || a.code === 'PRN-014' || a.code === 'GDR-001'));
 
       let out = `# PSYCH WATCH — ANTIPSYCHOTIC SURVEILLANCE\n\n`;
-      out += `**Overview Summary**: Antipsychotic Residents: **${pw.antipsychoticResidents}** | New Orders (24h): **${pw.newAPs24h}** | Doc Reviews Needed: **${pw.documentationReview}** | GDR Reviews: **${pw.gdrReview}** | PRN 14-Day Limit Deadlines: **${pw.prnDeadlines}**\n\n`;
+      out += `**Overview Summary**: Antipsychotic Residents: **${pw.antipsychoticResidents??"Unknown"}** | New Orders (24h): **${pw.newAPs24h}** | Doc Reviews Needed: **${pw.documentationReview}** | GDR Reviews: **${pw.gdrReview}** | PRN 14-Day Limit Deadlines: **${pw.prnDeadlines}**\n\n`;
       out += `### Active Antipsychotic Regimens (${orders.length}):\n`;
       for (const o of orders) {
         out += `- **${o.residentName}** (Rm ${o.room || 'Main'}): ${o.drugName} ${o.dose}, ${o.frequency} (${o.isPRN ? 'PRN' : 'Scheduled'}) — Prescriber: ${o.prescriber} | Started: ${o.startDate}\n`;
@@ -1334,7 +1350,7 @@ class SNFCommandCenter {
         out += `- **Start Date**: ${c.orderDate}\n`;
         out += `- **Indication**: ${c.indication || 'Not specified in order'}\n`;
         out += `- **High-Alert Status**: ${c.isHighAlert ? 'YES (Priority Surveillance)' : 'Standard'}\n`;
-        out += `- **Source**: ${c.sourceReport || 'PCC Medication Order Changes'} (Row ${c.originalRow || 1})\n\n`;
+        out += `- **Source**: ${c.sourceReport || 'Imported medication changes'} (Row ${c.originalRow || 1})\n\n`;
       }
       return out;
     });
@@ -1450,7 +1466,7 @@ class SNFCommandCenter {
 
   getUnresolvedIssuesReport() {
     return this._getCached('report_unresolved_issues', () => {
-      const issues = this.store.list('snf_open_issue').filter(i => i.status !== 'Resolved');
+      const issues = this.store.list('snf_open_issue').filter(i => this.issueVisible(i) && i.status !== 'Resolved');
       if (!issues.length) return 'No open clinical issues are currently pending in the Open Issues Engine.';
       let out = `# OPEN CLINICAL ISSUES (${issues.length})\n\n`;
       for (const iss of issues) {
@@ -1818,7 +1834,7 @@ class SNFCommandCenter {
     }
 
     return {
-      emrPlatform: settings.emrPlatform || 'PointClickCare (PCC)',
+      emrPlatform: settings.emrPlatform || 'Generic imported clinical records',
       emrReadOnly: true,
       rawRetentionDays: retentionDays,
       reportRetentionDays: retentionDays + 100, // 200 days total
@@ -1847,14 +1863,14 @@ class SNFCommandCenter {
     const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
     let report = `# SNF CLINICAL SURVEILLANCE — QUARTERLY REPORT SUMMARY\n`;
-    report += `**Quarter**: Q${currentQuarter} ${currentYear} | **Generated**: ${dateStr} | **Surveillance Engine**: ${metrics.feedStatus.isSurveillanceComplete ? 'Active & Verified' : 'Exceptions Flagged'}\n\n`;
+    report += `**Quarter**: Q${currentQuarter} ${currentYear} | **Generated**: ${dateStr} | **Surveillance Engine**: ${!metrics.feedStatus.monitoringEnabled ? 'Imported evidence only; coverage unknown' : metrics.feedStatus.isSurveillanceComplete ? 'Feeds current; review required' : 'Incomplete data; review required'}\n\n`;
 
     report += `## 1. Facility Clinical Summary & Census Distribution\n`;
     report += `- **Total Active Census**: ${metrics.totalCensus} residents\n`;
     report += `- **Medicare Part A (Med A)**: ${metrics.medACensus || 0} residents\n`;
     report += `- **Medicaid / Managed Care (Med B)**: ${metrics.medBCensus || 0} residents\n`;
     report += `- **Long-Stay Census (≥101 days)**: ${qm.longStayDenominator} residents\n`;
-    report += `- **Data Ingestion Status**: ${metrics.feedStatus.receivedFeedsCount}/16 PointClickCare feeds active (${metrics.feedStatus.dataCurrentThroughFormatted})\n\n`;
+    report += `- **Data Ingestion Status**: ${metrics.feedStatus.monitoringEnabled?metrics.feedStatus.receivedFeedsCount+" PCC feeds current":"General imported records; source coverage unverified"} (${metrics.feedStatus.dataCurrentThroughFormatted})\n\n`;
 
     report += `## 2. Exploratory QM Estimate & Antipsychotic Surveillance — Human Review Required\n`;
     report += `- **Estimated QM Antipsychotic Rate**: **${qm.estimatedRatePercentage}%**\n`;
@@ -1865,7 +1881,7 @@ class SNFCommandCenter {
 
     report += `## 3. Psychotropic Medication Stewardship & Compliance Audit\n`;
     const pw = metrics.psychWatchCard;
-    report += `- **Active Antipsychotic Residents**: ${pw.antipsychoticResidents}\n`;
+    report += `- **Active Antipsychotic Residents**: ${pw.antipsychoticResidents??"Unknown"}\n`;
     report += `- **New Starts within Past 24 Hours**: ${pw.newAPs24h}\n`;
     report += `- **Documentation / Indication Reviews Required**: ${pw.documentationReview}\n`;
     report += `- **Gradual Dose Reduction (GDR) Reviews Due**: ${pw.gdrReview}\n`;
@@ -1900,7 +1916,7 @@ class SNFCommandCenter {
     report += `\n`;
 
     report += `## 6. Retention Policy & Data Governance Verification\n`;
-    report += `*Operational Notice: Supplemental surveillance and clinical analytics only. Raw PointClickCare feeds are held read-only for 100 days for quarterly audits. Derived analytical reports and quarterly PDF summaries are archived for 200 days.*\n`;
+    report += `*Operational Notice: Supplemental surveillance and clinical analytics only. Imported source records follow configured retention and unresolved-evidence holds. Confirm organizational retention requirements before relying on archived reports.*\n`;
 
     return report;
   }

@@ -18,7 +18,7 @@ async function runRulesEngine(user = 'System') {
 
     this._tx(() => {
       // RULE 0: FAIL-SAFE SURVEILLANCE INTEGRITY
-      if (!feedStatus.isSurveillanceComplete) {
+      if (feedStatus.monitoringEnabled && !feedStatus.isSurveillanceComplete) {
       if (feedStatus.isStale) {
         this._createAlert({
           code: 'STALE-001',
@@ -31,7 +31,7 @@ async function runRulesEngine(user = 'System') {
           whyFlagged: [
             'Private AI fail-safe rules mandate: Missing or unverified data = ALERT, never GREEN.',
             `Freshness limit configured at ${settings.staleThresholdHours} hours.`,
-            `Last complete cycle was received at ${feedStatus.dataCurrentThroughFormatted}.`
+            `Oldest received PCC report: ${feedStatus.monitoringCurrentThroughFormatted}. Missing feeds remain unknown.`
           ]
         });
       }
@@ -117,7 +117,7 @@ async function runRulesEngine(user = 'System') {
     }
     for(const review of this.store.list('snf_psych_review')) {
       const due=Date.parse(review.nextReviewDate||review.followUpDue||'');
-      if(Number.isFinite(due)&&due<=now&&review.status!=='completed')this._createAlert({code:'PSYCH-DUE',severity:'high',title:'PSYCHIATRY FOLLOW-UP DUE',message:'Imported psychiatry follow-up date is due. Verify whether follow-up occurred in PCC.',residentId:review.residentId,residentName:review.residentName,whyFlagged:['Explicit due date in imported report.']});
+      if(Number.isFinite(due)&&due<=now&&review.status!=='completed')this._createAlert({code:'PSYCH-DUE',severity:'high',title:'PSYCHIATRY FOLLOW-UP DUE',message:'Imported psychiatry follow-up date is due. Verify whether follow-up occurred in the clinical record.',residentId:review.residentId,residentName:review.residentName,whyFlagged:['Explicit due date in imported report.']});
     }
     for(const review of this.store.list('snf_pharmacist_review')) {
       if(review.recommendation&&!['completed','resolved'].includes(String(review.status||'').toLowerCase()))this._createAlert({code:'PHARM-PENDING',severity:'high',title:'PHARMACIST RECOMMENDATION PENDING REVIEW',message:'Resolution of the imported pharmacist recommendation was not found in imported data.',residentId:review.residentId,residentName:review.residentName,whyFlagged:['Imported recommendation with no documented resolved status.']});
@@ -174,7 +174,7 @@ async function runRulesEngine(user = 'System') {
             code: 'AP-002',
             severity: 'critical',
             title: 'ANTIPSYCHOTIC — DIAGNOSIS/INDICATION REVIEW',
-            message: 'Supporting diagnosis documentation was not found in the imported data. Review the order indication and the complete PCC record.',
+            message: 'Supporting diagnosis documentation was not found in the imported data. Review the order indication and the complete clinical record.',
             residentId,
             residentName,
             residentRoom,
@@ -216,7 +216,7 @@ async function runRulesEngine(user = 'System') {
             whyFlagged: [
               `Diagnosis of ${recentSchizophrenia.description} first appeared in records on ${recentSchizophrenia.onsetDate}.`,
               `Verify the new diagnosis and its relationship to the medication using the complete clinical record.`,
-              `Recommend verifying presence of comprehensive psychiatric evaluation, PASARR Level II (if applicable), and detailed clinical history in PCC.`
+              `Recommend verifying presence of comprehensive psychiatric evaluation, PASARR Level II (if applicable), and detailed clinical history in the clinical record.`
             ]
           });
         }
@@ -231,7 +231,7 @@ async function runRulesEngine(user = 'System') {
             code: 'AP-004',
             severity: 'critical',
             title: 'ANTIPSYCHOTIC — TARGET SYMPTOM DOCUMENTATION NOT FOUND',
-            message: `Resident receives ${drugName} for behavioral management, but no specific target symptom documentation was located in imported PCC records during the look-back window.`,
+            message: `Resident receives ${drugName} for behavioral management, but no specific target symptom documentation was located in imported clinical records during the look-back window.`,
             residentId,
             residentName,
             residentRoom,

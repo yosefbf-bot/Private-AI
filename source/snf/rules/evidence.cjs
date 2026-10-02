@@ -8,7 +8,8 @@ function capture(code,residentId,message,whyFlagged){
  const records=Object.values(inputData).flat();
  const sources=records.map(r=>({...r.provenance,recordId:r.id,sourceReport:r.sourceReport,reportDateTime:Number.isFinite(r.reportDate)?new Date(r.reportDate).toISOString():null,originalRow:r.originalRow||null}));
  const missingEvidence=rule.required_feeds.filter(feed=>health.feeds[feed]?.status!=='ok'||(residentId&&inputData[feed].length===0));
- const evidence={ruleId:code,ruleVersion:rule.rule_version,ruleSnapshot:rule,inputData,sources,sourceReports:[...new Set(sources.map(s=>s.sourceReport).filter(Boolean))],sourceReportDates:[...new Set(sources.map(s=>s.reportDateTime).filter(Boolean))],batchIds:[...new Set(sources.map(s=>s.batchId).filter(Boolean))],evidence:whyFlagged,missingEvidence,result:'review_required',explanation:message,reviewRequired:true,demo:!!this.demoMode};
+ const dataAvailability=Object.fromEntries(rule.required_feeds.map(feed=>[feed,inputData[feed].length ? health.feeds[feed]?.availability||'unknown' : 'unknown']));
+ const evidence={dataAvailability,ruleId:code,ruleVersion:rule.rule_version,ruleSnapshot:rule,inputData,sources,sourceReports:[...new Set(sources.map(s=>s.sourceReport).filter(Boolean))],sourceReportDates:[...new Set(sources.map(s=>s.reportDateTime).filter(Boolean))],batchIds:[...new Set(sources.map(s=>s.batchId).filter(Boolean))],evidence:whyFlagged,missingEvidence,result:'review_required',explanation:message,reviewRequired:true,demo:!!this.demoMode};
  const id='evaluation-'+hash(canonical(evidence));
  const evaluation=this.store.get('snf_rule_evaluation',id)||{id,...evidence,generationTime:Date.now()};
  this.store.put('snf_rule_evaluation',id,evaluation);

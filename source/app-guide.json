@@ -30,6 +30,47 @@
       "note": "The guide explains supported features. Asking for instructions does not itself change settings or grant permissions."
     },
     {
+      "id": "clinicalsources",
+      "title": "Clinical analytics with optional PointClickCare",
+      "location": "Clinical imports; Settings → Integrations → PointClickCare; Today",
+      "aliases": [
+        "pointclickcare",
+        "pcc",
+        "clinical imports",
+        "clinical analytics",
+        "pcc disabled",
+        "data source",
+        "medication feed"
+      ],
+      "steps": [
+        "Clinical rules, nursing-home references, projects and document analysis work without PCC or an API key. Configure a local model in AI Processing for AI reasoning.",
+        "Use Clinical imports for reviewed CSV/JSON reports from any supported source. Generic and PCC reports use the same normalized clinical engine and source-evidence review workflow.",
+        "Enable PointClickCare manual imports in Settings → Integrations only when needed. Disabling it hides PCC panels and blocks PCC import/sync; it preserves data and general clinical findings.",
+        "Unknown, stale and incomplete data are not confirmed negative findings. Review original records and clinical findings before acting."
+      ],
+      "note": "Live PCC synchronization is not included. Existing legacy PCC imports preserve manual mode; explicit disabled settings remain disabled. Built-in reference/template replies are labeled and are not model inference."
+    },
+    {
+      "id": "android",
+      "title": "Pair the Android companion",
+      "location": "Settings → Android Companion Gateway",
+      "aliases": [
+        "android",
+        "phone pairing",
+        "companion gateway",
+        "mobile companion",
+        "pair a phone",
+        "phone connection"
+      ],
+      "steps": [
+        "Choose the actual private network interface and a free port, enable HTTPS and save. The default 127.0.0.1 is for testing on this PC only. No firewall rule is added automatically.",
+        "Pair a phone and transfer its one-time link privately. The Android app must support the documented pairing URI and verify the supplied certificate, fingerprint and host. Accepting every certificate is unsupported.",
+        "Keep the PC awake and Private AI running and unlocked, with background work resumed. Text questions use the existing desktop local/cloud privacy settings; select Local Only for local inference.",
+        "Optional task and clinical-alert access shares status metadata only. Review resident details, files and approvals on the desktop. Revoke a lost phone here; disabling the gateway closes connections while keeping saved chats."
+      ],
+      "note": "Android is maintained separately. Actual phone connectivity still needs validation against docs/ANDROID_COMPANION_CONTRACT.md. No mobile attachment upload, desktop tool commands, remote approvals or simulated success fallback. WhatsApp permissions remain independent."
+    },
+    {
       "id": "chat",
       "title": "Chat, edit and save a response",
       "location": "New chat",
@@ -134,16 +175,16 @@
         "api calls"
       ],
       "steps": [
-        "Open AI Processing → Processing mode. Local Only blocks every OpenAI request, including model-list and connection tests.",
-        "Local First and Smart Hybrid can use OpenAI only when cloud access is allowed and the required API/privacy settings are complete. Cloud First uses the configured API for AI reasoning.",
+        "Open AI Processing → Processing mode. Local Only blocks cloud providers; configured GGUF and loopback Ollama models remain available.",
+        "Local First and Smart Hybrid may escalate only to a configured, permitted provider. Cloud First uses local text when cloud is unconfigured or fails before producing output; it never bypasses privacy/authentication refusal.",
         "Ordinary local commands and built-in guide answers use local code, without a model or API key.",
         "Use Save processing settings after changing the mode. The provider information beneath a response shows how that response was produced."
       ],
-      "note": "Local Only cannot provide live web search through OpenAI. Some tasks may be refused or need a smaller scope when local capability or RAM is insufficient."
+      "note": "No model/key is required for saved data, clinical rules, references or deterministic tools. Model reasoning needs a configured local model or optional provider. Missing records remain unknown. Local drafts require review; image/web capability and RAM limits still apply."
     },
     {
       "id": "api",
-      "title": "Set up OpenAI API access",
+      "title": "Configure an optional AI provider",
       "location": "Settings; AI Processing; API Usage",
       "aliases": [
         "api key",
@@ -156,9 +197,9 @@
         "cost"
       ],
       "steps": [
-        "Open Settings to save your OpenAI API key and configure the model, organization or project fields when needed.",
+        "Open Settings to select an optional provider and save its key/model. OpenAI, other allowed cloud providers and local Ollama remain separate configurations.",
         "Complete the privacy approval shown by the app before using cloud requests in HIPAA mode.",
-        "In AI Processing, choose a mode that permits cloud use and enable Allow OpenAI when needed if appropriate. Local Only continues to block OpenAI.",
+        "Choose a processing mode that permits cloud use only when desired. HIPAA cloud approval remains bound to the approved OpenAI configuration; other cloud providers remain blocked in HIPAA mode.",
         "API Usage shows recorded usage. Configure price inputs for estimates; an unknown price is not a promise that a request is free."
       ],
       "note": "ChatGPT subscriptions do not supply an API key to this app. API billing is separate. Guide answers use no API credits, and no key belongs in a prompt or shared work folder."
@@ -412,7 +453,8 @@
         "Disable all writing overrides every WhatsApp reply and forwarding option and pauses incoming task execution; reading continues according to the read settings. Enable actual response text and task-start commands separately as needed.",
         "Show latest observed messages to inspect encrypted local observations. Reading does not automatically send messages to an AI model. Clear locally observed messages removes those app records, not messages in WhatsApp.",
         "Follow-up context is kept separately per conversation and sender. Send /new to start fresh; approved-command mode also requires the configured prefix and PC code.",
-        "Enable progress notices for a running-time notice each minute. Actual response text is on by default for new configurations, and long answers are split into numbered messages. Existing saved preferences are preserved."
+        "Enable progress notices for a running-time notice each minute. Actual response text is on by default for new configurations, and long answers are split into numbered messages. Existing saved preferences are preserved.",
+        "Notify when report jobs finish or fail is optional and off by default. It sends task ID/status only to the selected default destination, subject to background/write/lock permissions and the complete/failure switches. It never includes report contents or resident names."
       ],
       "note": "The Web account receives new text-message events across conversations and refreshes up to 100 available recent messages per conversation. It does not download media, recover unavailable history, or operate while the PC/app/connection is offline. History never starts tasks. Windows-native intake remains open-conversation-only. The unofficial whatsapp-web.js connection needs live account validation before release."
     },

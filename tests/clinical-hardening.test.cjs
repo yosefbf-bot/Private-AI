@@ -23,7 +23,7 @@ test('PCC duplicate hashes and semantic imports are idempotent with row provenan
  const batch=core.store.get('snf_import_batch',first.batchId);assert.equal(batch.operator,'Synthetic operator');assert.equal(batch.reports[0].acceptedRows,1);
 });
 test('old uploads, missing feeds and rejected mappings cannot produce an all-clear',async t=>{
- const {core}=fixture(t);const old=new Date(Date.now()-3*86400000).toISOString();await core.snf.ingestReports([report('census',census().rows,old)]);
+ const {core}=fixture(t);core.integrations.configure('pcc',{enabled:true,mode:'manual'});const old=new Date(Date.now()-3*86400000).toISOString();await core.snf.ingestReports([report('census',census().rows,old)]);
  const health=core.snf.getFeedStatus();assert.equal(health.isSurveillanceComplete,false);assert.equal(health.feeds.census.status,'stale');assert.equal(health.dataCurrentThrough,Date.parse(old));assert.ok(health.missingCriticalFeeds.some(f=>f.id==='diagnoses'));
  const bad=await core.snf.ingestReports([report('med_profile',[{name:'Name only',medication:'test'}])]);assert.equal(bad.success,false);assert.equal(core.store.count('snf_med_order'),0);assert.equal(bad.results[0].rejectedRows,1);
  const missingDate=await core.snf.ingestReports([{type:'census',rows:[]}]);assert.equal(missingDate.success,false);

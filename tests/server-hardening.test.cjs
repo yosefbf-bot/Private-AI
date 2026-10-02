@@ -6,7 +6,7 @@ test('development server requires explicit token, loopback binding and external 
  assert.equal(configuration(env).host,'127.0.0.1');assert.throws(()=>configuration({}));
  assert.throws(()=>configuration({...env,PRIVATE_AI_HOST:'0.0.0.0'}));
  assert.throws(()=>configuration({...env,PRIVATE_AI_DEV_DATA:process.cwd()}));
- for(const op of ['browserRun','runJob','grantFolder','folderReadText','backup','snfSeedData','snfIngest']) assert.throws(()=>assertOperation(op,{}));
+ for(const op of ['browserRun','runJob','grantFolder','folderReadText','backup','snfSeedData','snfIngest','integrationSave','companionStatus','companionSave','companionPair','companionRevoke']) assert.throws(()=>assertOperation(op,{}));
  assert.throws(()=>assertOperation('settings',{approved:true}));
  assert.throws(()=>assertOperation('settings',{workspace:'/'}));
 });

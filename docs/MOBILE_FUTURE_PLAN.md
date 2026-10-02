@@ -1,8 +1,12 @@
-> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+# Mobile companion — implemented desktop transport and future layout
 
-# Future mobile companion — deferred beyond 3.0
-
-Mobile implementation is explicitly out of the current release scope. WhatsApp is the primary remote interface for jobs, tasks, progress, results, and ordinary AI questions. No mobile server, remote-access port, APK, or phone installer is being added by this plan.
+Update 2026-10-02: the user supplied the separately developed Android companion's
+four endpoint paths. The desktop now has an optional, authenticated HTTPS gateway
+with per-phone pairing/revocation. See [the implemented contract and Android changes](ANDROID_COMPANION_CONTRACT.md).
+Android itself is maintained separately; no APK or physical-phone validation is
+included here. WhatsApp remains the primary remote interface for jobs, progress,
+results and ordinary questions. The broader UI/actions below remain a layout plan,
+not a claim that every mobile feature is implemented.
 
 ## Proposed layout
 
@@ -21,7 +25,10 @@ The companion would send authenticated requests to Private AI on the PC. The PC 
 
 The PC must be on and reachable for PC tasks and local inference. Design an explicit offline state; do not imply that a disconnected phone can complete PC work. Any later cloud-only mode is a separate feature with its own consent, data policy, and storage design.
 
-Before implementation, choose a secure transport and hosting approach, add device pairing and revocation, authorize every operation on the PC, and test network loss, replay protection, and result delivery. Do not expose the desktop IPC directly over the network.
+The desktop transport implements HTTPS, explicit interface binding, device pairing,
+revocation, bounded requests and cached responses for stable request IDs. Android
+must implement the documented certificate trust and error behavior, and complete
+LAN/sleep/reconnect acceptance. Desktop IPC and the development server remain private.
 
 A Windows EXE cannot run on Android or iOS. The desktop installer could eventually include the PC side of the companion and pairing instructions; the phone would use a separately delivered web interface or native app.
 

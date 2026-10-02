@@ -3,6 +3,15 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const CODES = Object.freeze({
+  COMPANION_TLS: "The companion certificate could not be created or is expired. Enable the gateway again on Windows, then pair your phone with the new certificate. Certificate validation must remain enabled.",
+  COMPANION_BIND: "The companion gateway could not listen on the selected address and port. Select a current private network address, check for a port conflict, and save again.",
+  COMPANION_AUTH: "Pair this phone in the desktop app or replace its revoked pairing key.",
+  COMPANION_ATTACHMENT: "Attachment names do not upload file contents. This companion endpoint currently accepts text only. Import the file on the desktop.",
+  COMPANION_PAUSED: "Background work is paused on the desktop. Review Health & recovery and resume it before sending companion requests.",
+  AI_SETUP: "Choose a local model in AI Processing or configure an optional AI provider in Settings. Local tools, clinical references and saved data remain available.",
+  LOCAL_CAPABILITY: "This local path supports text. Extract document text or choose an approved provider that supports the requested image or web capability.",
+  PROVIDER_CHANGED: "The provider settings or credentials changed while this request was waiting. Review the current settings and retry.",
+  INTEGRATION_UNAVAILABLE: "This data source or operation is disabled or unavailable. General clinical analysis and saved data remain available.",
   BROWSER_SETUP: "The selected browser could not start. Install Chrome/Edge/Brave/Vivaldi, or have your administrator install the matching managed Firefox/Chromium automation runtime. No other browser was substituted.",
   BROWSER_LOGIN: "Sign-in is not ready. Use the browser or Bitwarden to fill the login, complete unlock/MFA, then retry. Passwords must not be entered in workflow steps.",
   REVIEW_CHANGED: "The saved data changed. Reload and review the current revision before continuing.",
@@ -35,7 +44,7 @@ const CODES = Object.freeze({
   INVALID:
     "That request could not be used. Please check the entries and try again.",
   LOCKED: "Private AI is locked. Unlock it in the desktop app.",
-  KEY: "Add your OpenAI API key in Settings.",
+  KEY: "The selected optional provider needs an API key. Configure it in Settings or choose a local model in AI Processing.",
   AUTH: "OpenAI did not accept this API key. Replace it in Settings.",
   UNLOCK: "That app passphrase was not accepted. Please try again.",
   CREDITS:

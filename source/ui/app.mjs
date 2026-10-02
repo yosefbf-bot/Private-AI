@@ -1,3 +1,5 @@
+import {integrationSettings} from "./integrations.mjs";
+import {companionSettings} from "./companion.mjs";
 import {createWorkflowUI} from "./workflows.mjs";
 import {migrateLegacyStorage} from "./legacy-storage.mjs";
 import {createTodayUI} from "./snf/today.mjs";
@@ -186,7 +188,7 @@ function updateTop() {
     actions: "Action Center", decisions: "Decision log", metrics: "Data sources", workspace: "Projects & Documents", playbooks: "Playbooks & Budgets",
     operations: "📊 Operations Intelligence & Meeting Copilot",
     automation: "⚡ Automation & Agent Center",
-    pcc: "PCC Import Center",
+    pcc: "PCC Import Center", "clinical-imports": "Clinical imports",
     chat: chat?.title || "New chat",
     snf: "🏥 SNF Clinical Surveillance Command Center",
     projects: "Projects",
@@ -202,6 +204,7 @@ function updateTop() {
   $("view-title").textContent = names[view] || "Private AI";
   const provNames = Object.fromEntries(Object.values(state.providers || {}).map(p => [p.id, p.name]));
   const modeName = ({"smart-hybrid":"Smart Hybrid","local-first":"Local First","cloud-first":"Cloud First","local-only":"Local Only"}[state.settings.processingMode] || "Smart Hybrid");
+  document.querySelectorAll('#sidebar [data-view="pcc"]').forEach(el => {el.hidden=!state.integrations?.find(x=>x.id==='pcc')?.showDashboard;});
   const activeProv = state.settings.provider || (state.keySaved ? "openai" : "local");
   $("model-label").textContent = `${modeName} · ${provNames[activeProv] || activeProv}`;
   const hipaa =
@@ -217,16 +220,16 @@ function updateTop() {
       ? `${chat.temporary ? '<button data-act="save-temp">Save chat</button>' : '<button data-act="rename">Rename</button>'}<button data-act="delete-chat" title="Delete chat">Delete</button>`
       : "");
   $("compose").hidden = view !== "chat";
-  $("web").disabled = hipaa || state.settings.processingMode==="local-only" || !state.settings.allowCloud;
+  $("web").disabled = hipaa || state.settings.processingMode==="local-only" || !state.settings.allowCloud || !state.providerCapabilities?.selected?.ready || state.providerCapabilities.selected.classification!=="cloud";
   if ($("web").disabled) $("web").checked = false;
   $("composer-note").textContent = chat?.temporary
     ? "Temporary chat · Removed when closed · Explicit exports remain."
     : "Private AI can make mistakes. Review important information.";
   const isLocal = activeProv === "local" || activeProv === "ollama";
-  const incomplete = state.settings.processingMode==="cloud-first" && !isLocal && (!state.keySaved || !state.settings.model || (state.settings.hipaa && !state.settings.approved));
+  const incomplete = !isLocal && !state.providerCapabilities?.local?.configured && !state.providerCapabilities?.selected?.ready;
   $("notice").hidden = !incomplete;
   $("notice").innerHTML =
-    'Finish your API and privacy setup before sending. <button data-act="view" data-view="settings">Open Settings</button>';
+    'Choose a local model for AI reasoning, or configure an optional provider. Clinical rules, references, files and projects remain available. <button data-act="view" data-view="processing">AI Processing</button>';
 }
 const _mdCache = new Map();
 const md = (text) => {
@@ -913,8 +916,8 @@ function settingsHTML() {
   if (currentProvider === "local") {
     providerSection = `
       <div class="provider-box">
-        <div class="provider-badge success">✓ Active: Running 100% Locally on this PC (No API Key Required)</div>
-        <p class="provider-desc">Private AI operates offline with zero cloud API keys, zero network data transmission, and zero subscription or token costs. Geriatric and nursing home clinical guidelines, Beers criteria, SBAR triage, regulatory lookups, task automation, and deterministic tools operate securely on your PC.</p>
+        <div class="provider-badge success">Built-in references and templates (No API Key Required)</div>
+        <p class="provider-desc">Built-in clinical references, templates and deterministic tools work offline. For model-based reasoning, configure a GGUF model in AI Processing or a local Ollama provider. Separately enabled connectors and cloud features follow their own permissions.</p>
         <div class="button-row">
           <button class="secondary" data-act="test-api">Test Local Engine</button>
         </div>
@@ -926,7 +929,7 @@ function settingsHTML() {
           <option value="local-clinical-engine"></option>
           <option value="local-rules-engine"></option>
         </datalist>
-        <small>Select from built-in offline clinical, operations, and deterministic reasoning engines.</small>
+        <small>These names select the built-in reference/template helper; they do not install or run a language model.</small>
       </label>
     `;
   } else if (currentProvider === "ollama") {
@@ -1015,6 +1018,8 @@ function settingsHTML() {
       : "custom",
   )}${field("Custom retention in days", "customRetention", s.retentionDays || 100, "number")}</div><p>Cleanup covers expired local history, working files, memories, and job records (held 100 days; exported reports held an additional 100 days). It does not delete your original documents.</p><button class="secondary" data-act="cleanup">Run retention cleanup now</button></section>
   <div class="button-row"><button class="primary" data-act="save-settings">Save settings</button><button class="secondary" data-act="new">Start chatting</button></div>
+  ${integrationSettings(state.integrations, esc)}
+  ${companionSettings(state.companion, esc)}
   <section class="section"><h2>Browser Companion</h2><p>Ask beside your webpage. Pages are read only after you explicitly include a page and send your request.</p><button class="secondary" data-act="connect-chrome">Set up browser companion</button><details><summary>Browser installation steps</summary><p>Click the setup button above. For Chrome, Brave or Vivaldi, open chrome://extensions; for Edge, open edge://extensions. Enable Developer mode, click Load unpacked, and select the folder that opens. For Firefox, open about:debugging#/runtime/this-firefox, click Load Temporary Add-on, and choose manifest.json in the firefox subfolder. Temporary Firefox installation lasts until Firefox restarts; permanent installation needs Mozilla signing. Pin Private AI Companion. Compatible browsers without a sidebar use a toolbar popup. For Bitwarden and saved-password sign-in, see Browser reports. If your organization blocks extension installation, it needs to approve the extension.</p><button class="secondary" data-act="disconnect-chrome">Disconnect browser companions</button></details></section>
   <section class="section"><h2>Custom instructions</h2>${textarea("Instructions used across chats", "customInstructions", s.customInstructions||"")}<p>Project instructions are added for the current project.</p><button data-act="chat-archives">Manage archived chats</button></section><section class="section"><h2>Memory</h2><label class="check"><input name="memoryEnabled" type="checkbox" ${s.memoryEnabled ? "checked" : ""}> Use the memories I explicitly save</label><p>Memory is off by default. Private AI never silently creates permanent memory from chats.</p><button class="secondary" data-act="view" data-view="memory">Review saved memories</button></section><section class="section"><h2>To-Do &amp; Follow-Up Reminders</h2><label class="check"><input name="autoReminders" type="checkbox" ${s.autoReminders !== false ? "checked" : ""}> Remind me automatically on pending follow-ups</label><p>Private AI monitors follow-up dates and deadlines extracted from Outlook emails or manual to-dos, notifying you on this PC when a task is due.</p><button class="secondary" data-act="view" data-view="todos">View To-Do list &amp; reminders</button></section><section class="section clinical-surveillance-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h2 style="margin:0;display:flex;align-items:center;gap:8px;">🏥 Clinical Surveillance &amp; SNF Module <span class="clinical-status-badge ${s.snfEnabled !== false ? 'active' : 'disabled'}">${s.snfEnabled !== false ? '● ACTIVE' : '○ DISABLED'}</span></h2><label class="clinical-toggle-switch" title="Toggle Clinical Surveillance"><input name="snfEnabled" type="checkbox" ${s.snfEnabled !== false ? "checked" : ""}><span class="clinical-toggle-slider"></span></label></div><p style="margin-top:6px;">Continuous safety surveillance of PointClickCare daily orders, admissions, eMAR exceptions, and behavior logs. Surfaces new psychotropics, missing indications, PRN 14-day limits, and persistent clinical alerts. <strong>When turned off, all clinical surveillance banners, sidebar navigation, and healthcare features are completely hidden for a clean, distraction-free assistant.</strong></p>${s.snfEnabled !== false ? '<div style="margin-top:14px;"><button class="secondary" data-act="view" data-view="snf">Open SNF Command Center</button></div>' : ''}</section>
   <section class="section voice-transcripts-section" id="voice-transcripts-section">
@@ -1458,7 +1463,7 @@ async function init() {
     await migrateLegacyStorage(api,localStorage,AUTOSAVE_STORAGE_KEY,VOICE_TRANSCRIPTS_KEY);
     const isLocal = state.settings.provider === "local" || (!state.keySaved && state.settings.provider !== "openai");
     if (state.settings.snfEnabled!==false) {renderPage("today");return;}
-    if (!isLocal && !state.settings.localModelPath && (!state.keySaved || !state.settings.model)) {
+    if (!isLocal && !state.providerCapabilities?.local?.configured && !state.providerCapabilities?.selected?.ready) {
       view = "processing";
       renderPage(view);
     } else if(state.settings.snfEnabled!==false) renderPage("today"); else renderChat();
@@ -1478,9 +1483,9 @@ function renderPage(name, options = {}) {
   if (["actions","decisions","metrics","workspace","playbooks"].includes(name)) {
     $("content").innerHTML="<p>Loading…</p>";workflowUI.render($("content"),name).catch(e=>toast(e.message));return;
   }
-  if (["today","pcc"].includes(name)) {
+  if (["today","pcc","clinical-imports"].includes(name)) {
     $("content").innerHTML="<p>Loading…</p>";
-    (name==="today"?todayUI:importUI).render($("content")).catch(e=>toast(e.message));return;
+    (name==="today"?todayUI:importUI).render($("content"),{sourceProvider:name==="pcc"?"pcc":"generic"}).catch(e=>toast(e.message));return;
   }
   if (name === "execdesk") {
     $("content").innerHTML="<p>Loading Executive Desk…</p>";
@@ -2120,6 +2125,32 @@ document.addEventListener("click", async (e) => {
         toast(r?.note || "Connected successfully.");
         b.disabled = false;
         break;
+      }
+      case "integration-save": {
+        const enabled=document.querySelector(`[name="integration-${id}-enabled"]`).checked;
+        const mode=document.querySelector(`[name="integration-${id}-mode"]`).value;
+        await api("integrationSave",{id,settings:{enabled,mode}});
+        await refresh();renderPage("settings");toast("Integration settings saved. Clinical records were preserved.");break;
+      }
+      case "companion-save": {
+        b.disabled=true;
+        try {
+          await api("companionSave",{enabled:document.querySelector('[name="companion-enabled"]').checked,host:document.querySelector('[name="companion-host"]').value,port:Number(document.querySelector('[name="companion-port"]').value)});
+          await refresh();renderPage("settings");toast("Gateway settings saved.");
+        } finally { b.disabled=false; }
+        break;
+      }
+      case "companion-pair": {
+        const choice=await form("Pair a phone",`${field("Phone name","name", "My phone")}<p>Grant access only to a phone you control. Its pairing key gives access while the desktop is unlocked. Store it securely on the phone.</p><label class="check"><input name="chat" type="checkbox" checked> Text chat using desktop privacy settings</label><label class="check"><input name="tasks" type="checkbox"> Task status metadata</label><label class="check"><input name="alerts" type="checkbox"> Clinical alert metadata (no resident details)</label>`,"Create pairing key");
+        if(!choice)break;
+        const pairing=await api("companionPair",{name:choice.name,scopes:{chat:!!choice.chat,tasks:!!choice.tasks,alerts:!!choice.alerts}});
+        await refresh();renderPage("settings");
+        await form("Phone pairing — shown once",`<p>Transfer privately to your phone's Quick Paste. The Android app must import and verify the supplied certificate and host. Never paste this link into a website or chat; it contains a secret key.</p><label class="field">Pairing link<textarea readonly rows="5" autocomplete="off">${esc(pairing.pairingUrl)}</textarea></label><p>Address: ${esc(pairing.baseUrl)}</p><p>Certificate SHA-256: <code style="overflow-wrap:anywhere">${esc(pairing.fingerprint)}</code></p><p>If pairing is cancelled or unsupported, revoke this phone below.</p>`,"Done");
+        $("modal-content").replaceChildren();
+        break;
+      }
+      case "companion-revoke": {
+        await api("companionRevoke",{id});await refresh();renderPage("settings");toast("Phone access revoked. Saved chats were kept.");break;
       }
       case "save-settings":
         await saveSettings();
