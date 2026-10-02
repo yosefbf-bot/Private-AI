@@ -73,7 +73,7 @@ function createTools(core,access,browser){return async prompt=>{
    `- Unresolved Critical Alerts: ${metrics.unresolvedAlertCounts.critical}\n` +
    `- Unresolved High Alerts: ${metrics.unresolvedAlertCounts.high}\n` +
    `- Review Items: ${metrics.unresolvedAlertCounts.review}\n\n` +
-   `### 3. Data Integrity & PCC Feed Compliance\n` +
+   `### 3. Data Integrity & Source Coverage\n` +
    `- Surveillance Status: ${metrics.feedStatus.isSurveillanceComplete ? '✅ Complete' : '⚠️ Incomplete / Feeds Pending'}\n` +
    `- Data Freshness: ${metrics.feedStatus.dataCurrentThroughFormatted}\n`;
  }

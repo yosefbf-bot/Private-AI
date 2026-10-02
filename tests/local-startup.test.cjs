@@ -30,3 +30,20 @@ test('late health success after Unload cannot resurrect Ready',async t=>{
  t.after(()=>b.close());b.validate=()=>2019377696;b.port=async()=>12345;b.fetcher=async()=>{b.stop();return {ok:true};};
  await assert.rejects(b.load({localModelPath:'/llama.gguf',localContext:4096,resourceMode:'balanced'}),e=>e.code==='CANCELLED');assert.equal(b.state,'unloaded');assert.equal(b.lastError,null);
 });
+
+for(const scenario of ['low-memory','unsupported-cpu','cancelled'])test('inference transport failure preserves '+scenario+' diagnostic',async t=>{
+ const controller=new AbortController();let child;
+ const b=new LocalBrain({runtime:'/engine/server',settings:()=>({localIdleMinutes:5}),memory:()=>8*1024**3,spawnProcess:()=>{
+  child=new EventEmitter();child.kill=()=>child.emit('exit',0,null);return child;
+ }});
+ t.after(()=>b.close());b.validate=()=>1000000;b.port=async()=>12345;
+ b.fetcher=async url=>{
+  if(url.endsWith('/health'))return {ok:true};
+  if(scenario==='unsupported-cpu')child.emit('exit',0xc000001d,null);
+  else {if(scenario==='cancelled')controller.abort();b.stop('low-memory');}
+  throw new TypeError('private model path and raw transport error');
+ };
+ const code=scenario==='unsupported-cpu'?'LOCAL_CPU':scenario==='cancelled'?'CANCELLED':'LOW_MEMORY';
+ await assert.rejects(b.generate({localModelPath:'/model.gguf',localContext:2048,localMaxOutput:128,resourceMode:'balanced'},[{role:'user',content:'Hello'}],{signal:controller.signal}),e=>e.code===code&&!e.message.includes('private'));
+ assert.equal(b.busy,false);
+});

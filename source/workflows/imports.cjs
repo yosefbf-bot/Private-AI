@@ -76,6 +76,7 @@ function mappedPreview(snf, data) {
     ),
   );
   const report = {
+    sourceProvider: require('../snf/sources/pcc.cjs').sourceProvider(data.sourceProvider),
     type: p.type,
     date: data.date,
     rows,
@@ -101,6 +102,7 @@ async function mappedImport(snf, data) {
   const result = await snf.ingestReports(
     [checked.report],
     clean(data.reviewer, 100),
+    {sourceProvider: checked.report.sourceProvider},
   );
   // Preserve the exact reviewed mapping as provenance, separately from parser source hashes.
   const batchId = result.batch?.id || result.batchId;

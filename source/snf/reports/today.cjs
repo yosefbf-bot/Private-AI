@@ -16,7 +16,7 @@ function today(snf){
   allImports:snf.store.list('snf_import_batch'),
   recentResolved:snf.store.list('snf_alert').filter(a=>a.status==='resolved'&&(a.resolvedAt||0)>=since).map(a=>operational(a)),
   activeOrders:snf.store.list('snf_med_order').filter(o=>o.status==='Active'),
-  openIssues:snf.store.list('snf_open_issue').filter(i=>i.status!=='Resolved'),
+  openIssues:snf.store.list('snf_open_issue').filter(i=>snf.issueVisible(i)&&i.status!=='Resolved'),
   morningBrief:snf.generateMorningBrief()
  };
 }

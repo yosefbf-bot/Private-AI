@@ -24,3 +24,47 @@ test('WhatsApp follow-ups reuse context; new, deleted and archived chats reset i
 test('remote context is isolated by sender and conversation',t=>{const x=setup(t),target={adapter:'web',groupId:x.shot.groupId,groupName:x.shot.groupName};const a=x.bridge.sessionChat(target,'15550001111@c.us');assert.equal(x.bridge.sessionChat(target,'15550001111@c.us').id,a.id);assert.notEqual(x.bridge.sessionChat(target,'15550002222@c.us').id,a.id);assert.notEqual(x.bridge.sessionChat({...target,groupId:'other@g.us'},'15550001111@c.us').id,a.id);});
 test('long replies are split without truncation and stop on revocation',async t=>{const x=setup(t);await grantOpen(x);const target={...x.bridge.settings(),...x.bridge.settings().conversations[0]};await x.bridge.sendResponse(x.bridge.adapters.web,target,'response','a'.repeat(9000));assert.equal(x.sent.length,3);assert.equal(x.sent.map(s=>s.split('\n').slice(2).join('\n')).join(''),'a'.repeat(9000));let sent=0;x.bridge.adapters.web.send=async()=>{sent++;x.bridge.save({disableAllWriting:true});};await x.bridge.sendResponse(x.bridge.adapters.web,target,'next','b'.repeat(9000));assert.equal(sent,1);});
 test('progress notices stop after task completion and obey the writing override',async t=>{const x=setup(t);await grantOpen(x);const target={...x.bridge.settings(),...x.bridge.settings().conversations[0],notifyProgress:true};const progress=x.bridge.progress(x.bridge.adapters.web,target,'progress','test',5);await new Promise(r=>setTimeout(r,25));await progress.close();assert.ok(x.sent.length>0);assert.match(x.sent[0],/still running/);const count=x.sent.length;await new Promise(r=>setTimeout(r,15));assert.equal(x.sent.length,count);x.bridge.save({disableAllWriting:true});const blocked=x.bridge.progress(x.bridge.adapters.web,target,'progress','test',5);await new Promise(r=>setTimeout(r,15));await blocked.close();assert.equal(x.sent.length,count);});
+
+test('WhatsApp follow-ups reuse context; new, deleted and archived chats reset it',async t=>{const x=setup(t);await grantOpen(x);await x.bridge.tick();x.add('one','',{text:'/calc 1+1'});await x.bridge.tick();x.add('two','',{text:'/calc 2+2'});await x.bridge.tick();let chats=x.core.store.list('chat');assert.equal(chats.length,1);assert.equal(chats[0].messages.filter(m=>m.role==='user').length,2);x.add('new','',{text:'/new'});await x.bridge.tick();assert.equal(x.core.store.list('chat').length,2);assert.match(x.sent.at(-1),/new AI conversation/);const target={adapter:'web',...x.bridge.settings().conversations[0]};const current=x.bridge.sessionChat(target,'15550001111@c.us');x.core.archiveChat(current.id);const next=x.bridge.sessionChat(target,'15550001111@c.us');assert.notEqual(next.id,current.id);x.core.deleteChat(next.id);assert.notEqual(x.bridge.sessionChat(target,'15550001111@c.us').id,next.id);});
+test('remote context is isolated by sender and conversation',t=>{const x=setup(t),target={adapter:'web',groupId:x.shot.groupId,groupName:x.shot.groupName};const a=x.bridge.sessionChat(target,'15550001111@c.us');assert.equal(x.bridge.sessionChat(target,'15550001111@c.us').id,a.id);assert.notEqual(x.bridge.sessionChat(target,'15550002222@c.us').id,a.id);assert.notEqual(x.bridge.sessionChat({...target,groupId:'other@g.us'},'15550001111@c.us').id,a.id);});
+test('long replies are split without truncation and stop on revocation',async t=>{const x=setup(t);await grantOpen(x);const target={...x.bridge.settings(),...x.bridge.settings().conversations[0]};await x.bridge.sendResponse(x.bridge.adapters.web,target,'response','a'.repeat(9000));assert.equal(x.sent.length,3);assert.equal(x.sent.map(s=>s.split('\n').slice(2).join('\n')).join(''),'a'.repeat(9000));let sent=0;x.bridge.adapters.web.send=async()=>{sent++;x.bridge.save({disableAllWriting:true});};await x.bridge.sendResponse(x.bridge.adapters.web,target,'next','b'.repeat(9000));assert.equal(sent,1);});
+test('progress notices stop after task completion and obey the writing override',async t=>{const x=setup(t);await grantOpen(x);const target={...x.bridge.settings(),...x.bridge.settings().conversations[0],notifyProgress:true};const progress=x.bridge.progress(x.bridge.adapters.web,target,'progress','test',5);await new Promise(r=>setTimeout(r,25));await progress.close();assert.ok(x.sent.length>0);assert.match(x.sent[0],/still running/);const count=x.sent.length;await new Promise(r=>setTimeout(r,15));assert.equal(x.sent.length,count);x.bridge.save({disableAllWriting:true});const blocked=x.bridge.progress(x.bridge.adapters.web,target,'progress','test',5);await new Promise(r=>setTimeout(r,15));await blocked.close();assert.equal(x.sent.length,count);});
+
+test('WhatsApp clinical text reaches local AI with no API key and PCC disabled, including when broad reading is off',async t=>{
+ const x=setup(t);await grantOpen(x);x.bridge.save({readAll:false});x.core.deleteKey();x.core.integrations.configure('pcc',{enabled:false});
+ x.core.resources.memory=()=>8*1024**3;let localCalls=0;
+ x.core.router.local={validate:()=>0,modelName:()=> 'Synthetic local',close(){},generate:async(_s,_m,opts)=>{localCalls++;assert.match(opts.instructions,/unknown, not a confirmed negative/);return {text:JSON.stringify({answer:'The medication list was not supplied; medication status is unknown.',evidence:[],uncertainties:['Missing list']})};}};
+ const send=x.bridge.adapters.web.send;x.bridge.adapters.web.send=async(target,body)=>{await x.core.resources.preflight('messaging',target);return send(target,body);};
+ await x.bridge.tick();x.add('keyless-local','',{text:'Review the resident medication documentation'});await x.bridge.tick();
+ assert.equal(localCalls,1);assert.equal(x.calls.length,0);assert.match(x.sent[0],/medication status is unknown/);
+ assert.equal(x.core.integrations.status('pcc').state,'disabled');assert.equal(x.core.store.count('alert'),0);
+});
+
+test('WhatsApp reports missing local-model setup as a task failure without requiring a cloud account',async t=>{
+ const x=setup(t);await grantOpen(x);x.core.deleteKey();await x.bridge.tick();
+ x.add('no-model','',{text:'Review these observations'});await x.bridge.tick();
+ assert.equal(x.calls.length,0);assert.match(x.sent[0],/Task did not complete.*Choose a local model/);
+ assert.match(x.sent[0],/optional AI provider/);
+});
+
+test('opt-in report-job alerts flow from Core completion and reveal only task state',async t=>{
+ const x=setup(t);await grantOpen(x);x.core.deleteKey();x.bridge.save({notifyJobs:true,readAll:false});
+ const pending=[];x.core.emit=event=>{if(event.type==='job_finished')pending.push(x.bridge.jobFinished(event.jobId));};
+ const send=x.bridge.adapters.web.send;x.bridge.adapters.web.send=async(target,body)=>{await x.core.resources.preflight('messaging',target);return send(target,body);};
+ const id=require('../source/security.cjs').uuid();
+ await x.core.runJob({id,title:'SYNTHETIC_RESIDENT_PRIVATE_TITLE',prompt:'/calc 2+3',format:'txt',fileIds:[]});await Promise.all(pending);
+ assert.equal(x.sent.length,1);assert.match(x.sent[0],/Report task .* completed/);
+ assert.doesNotMatch(x.sent[0],/SYNTHETIC_RESIDENT|ShareSync|= 5/);
+ await x.bridge.jobFinished(id);assert.equal(x.sent.length,1,'duplicate completion event must not resend');
+ assert.equal(x.calls.length,0);
+});
+
+test('report alerts require opt-in, matching event switch, unattended grant and writing permission',async t=>{
+ const x=setup(t);await grantOpen(x);const makeJob=status=>{const id=require('../source/security.cjs').uuid();x.core.store.put('job',id,{id,status,completed:Date.now()});return id;};
+ assert.equal(x.bridge.settings().notifyJobs,false);await x.bridge.jobFinished(makeJob('completed'));assert.equal(x.sent.length,0);
+ x.bridge.save({notifyJobs:true,notifyFailure:false});await x.bridge.jobFinished(makeJob('failed'));assert.equal(x.sent.length,0);
+ x.bridge.save({notifyFailure:true,disableAllWriting:true});await x.bridge.jobFinished(makeJob('failed'));assert.equal(x.sent.length,0);
+ x.bridge.save({disableAllWriting:false});x.core.locked=true;await x.bridge.jobFinished(makeJob('completed'));assert.equal(x.sent.length,0);x.core.locked=false;
+ x.bridge.save({conversations:x.bridge.settings().conversations.map(c=>({...c,mode:'commands',backgroundReplies:false}))});await x.bridge.jobFinished(makeJob('completed'));assert.equal(x.sent.length,0);
+ x.bridge.save({conversations:x.bridge.settings().conversations.map(c=>({...c,backgroundReplies:true}))});await x.bridge.jobFinished(makeJob('failed'));assert.equal(x.sent.length,1);assert.match(x.sent[0],/did not complete/);
+});

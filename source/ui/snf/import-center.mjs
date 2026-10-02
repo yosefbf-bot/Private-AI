@@ -77,13 +77,16 @@ const fields = [
 ];
 export function createImportCenter({ api, esc, toast, form }) {
   return {
-    async render(container) {
+    async render(container, {sourceProvider="generic"} = {}) {
       const [batches, schema, dashboard, workflows] = await Promise.all([
         api("snfImports"),
         api("snfImportSchema"),
         api("snfDashboard"),
         api("workflowSummary"),
       ]);
+      if(sourceProvider==='pcc'&&!dashboard.integrations?.find(x=>x.id==='pcc')?.canImport){
+        container.innerHTML=`<div class="page"><h1>PointClickCare — Not connected</h1><p>General clinical imports remain available.</p><button data-act="view" data-view="settings">Configure integration</button><button data-act="view" data-view="clinical-imports">Clinical imports</button></div>`;return;
+      }
       let selected = null,
         profile = null;
       const mappings = workflows.mappings || [];
@@ -145,7 +148,7 @@ export function createImportCenter({ api, esc, toast, form }) {
           }
         };
       };
-      container.innerHTML = `<div class="page"><h1>PCC Import Center</h1><p>Import mapped CSV reports or a JSON array of report objects. Confirm the report date and column mappings before importing. PDF and spreadsheet mapping require a reviewed conversion first.</p>${dashboard.developmentMode ? '<p class="error-note">Development / Demo Mode — Not for PHI. Live PCC imports are disabled. Use the desktop application for approved clinical workflows.</p>' : dashboard.demo ? '<p class="error-note">DEMO DATA — Live imports are disabled. Return to production in Today.</p>' : `<form id="pcc-import-form"><label>Report file<input id="pcc-file" type="file" accept=".csv,.json" required></label><label>Report type<select id="pcc-type">${schema.map((t) => `<option value="${esc(t)}">${esc(t.replaceAll("_", " "))}</option>`).join("")}</select></label><label>Report date / range end<input id="pcc-date" type="datetime-local" required></label><label>Operator<input id="pcc-operator" required maxlength="120"></label><div id="pcc-mapping"></div><div id="pcc-profiles"></div><button class="primary" type="submit">Validate and import</button><p id="pcc-result" role="status"></p></form>`}<h2>Import history</h2>${batches.length ? batches.map((b) => `<details class="section"><summary>${esc(new Date(b.importTime).toLocaleString())} — ${b.acceptedRows} accepted, ${b.rejectedRows} rejected</summary><p>Operator: ${esc(b.operator)} · Batch: ${esc(b.id)}</p>${b.reports.map((r) => `<p>${esc(r.filename)} — ${esc(r.status)}, ${r.rowCount} rows, ${r.acceptedRows} accepted, ${r.rejectedRows} rejected ${r.duplicateOf ? "· duplicate detected" : ""}</p><pre>${esc([...(r.mappingErrors || []), ...(r.rejections || []).map((x) => `Row ${x.row}: ${x.reason}`)].join("\n"))}</pre>`).join("")}<p>Missing feeds: ${esc(b.missingExpectedFeeds?.join(", "))}. Stale feeds: ${esc(b.staleFeeds?.join(", "))}.</p></details>`).join("") : "<p>No imports yet.</p>"}</div>`;
+      container.innerHTML = `<div class="page"><h1>${sourceProvider==="pcc"?"PCC Import Center":"Clinical imports"}</h1><p>Import mapped CSV reports or a JSON array of report objects. Confirm the report date and column mappings before importing. PDF and spreadsheet mapping require a reviewed conversion first.</p>${dashboard.developmentMode ? '<p class="error-note">Development / Demo Mode — Not for PHI. Live clinical imports are disabled. Use the desktop application for approved clinical workflows.</p>' : dashboard.demo ? '<p class="error-note">DEMO DATA — Live imports are disabled. Return to production in Today.</p>' : `<form id="pcc-import-form"><label>Report file<input id="pcc-file" type="file" accept=".csv,.json" required></label><label>Report type<select id="pcc-type">${schema.map((t) => `<option value="${esc(t)}">${esc(t.replaceAll("_", " "))}</option>`).join("")}</select></label><label>Report date / range end<input id="pcc-date" type="datetime-local" required></label><label>Operator<input id="pcc-operator" required maxlength="120"></label><div id="pcc-mapping"></div><div id="pcc-profiles"></div><button class="primary" type="submit">Validate and import</button><p id="pcc-result" role="status"></p></form>`}<h2>Import history</h2>${batches.length ? batches.map((b) => `<details class="section"><summary>${esc(new Date(b.importTime).toLocaleString())} — ${b.acceptedRows} accepted, ${b.rejectedRows} rejected</summary><p>Operator: ${esc(b.operator)} · Batch: ${esc(b.id)}</p>${b.reports.map((r) => `<p>${esc(r.filename)} — ${esc(r.status)}, ${r.rowCount} rows, ${r.acceptedRows} accepted, ${r.rejectedRows} rejected ${r.duplicateOf ? "· duplicate detected" : ""}</p><pre>${esc([...(r.mappingErrors || []), ...(r.rejections || []).map((x) => `Row ${x.row}: ${x.reason}`)].join("\n"))}</pre>`).join("")}<p>Missing feeds: ${esc(b.missingExpectedFeeds?.join(", "))}. Stale feeds: ${esc(b.staleFeeds?.join(", "))}.</p></details>`).join("") : "<p>No imports yet.</p>"}</div>`;
       container
         .querySelector("#pcc-file")
         ?.addEventListener("change", async (e) => {
@@ -222,6 +225,7 @@ export function createImportCenter({ api, esc, toast, form }) {
             let previewToken;
             if (profile) {
               const preview = await api("workflowMappedPreview", {
+                  sourceProvider,
                 id: profile.id,
                 revision: profile.revision,
                 type: container.querySelector("#pcc-type").value,
@@ -244,6 +248,7 @@ export function createImportCenter({ api, esc, toast, form }) {
             }
             const result = profile
               ? await api("workflowMappedImport", {
+                  sourceProvider,
                   previewToken,
                   id: profile.id,
                   revision: profile.revision,
@@ -257,6 +262,7 @@ export function createImportCenter({ api, esc, toast, form }) {
                   reviewer: container.querySelector("#pcc-operator").value,
                 })
               : await api("snfIngest", {
+                  sourceProvider,
                   reports: reports.map((r) => ({
                     ...r,
                     filename: selected.file.name,
@@ -269,7 +275,7 @@ export function createImportCenter({ api, esc, toast, form }) {
                 ? "Import complete. Review data health and alerts."
                 : "Import needs review. See rejected rows and mapping errors.",
             );
-            await this.render(container);
+            await this.render(container,{sourceProvider});
           } catch (error) {
             toast(error.message);
           } finally {

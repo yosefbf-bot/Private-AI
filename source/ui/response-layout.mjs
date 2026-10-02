@@ -1,6 +1,8 @@
 // Preserve the underlying answer/history; present only known app-generated
 // leading notices as compact footnotes, including messages from older versions.
 const notices = [
+  'Local draft — not sufficiently verified.',
+  'Provider connection failed before an answer was received. Showing local output; a provider request was attempted.',
   'Local draft — not sufficiently verified. No OpenAI call was made.',
   'The recommended larger model was unavailable or did not fit. Review this Small-model draft.',
   'Your automatic tier cap prevented the recommended larger model. Review this Small-model draft.',

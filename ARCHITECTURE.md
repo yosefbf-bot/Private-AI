@@ -20,6 +20,20 @@ Executive Desk, Operations Analytics and the executive assistant resolve the sel
 ## Development web adapter
 `server.cjs` is loopback-only, requires an external random access token, sets an HttpOnly SameSite session and requires CSRF headers for mutations. Host/origin checks reject browser cross-origin access and DNS-rebinding hosts. Requests have an operation allowlist; filesystem grants, background automation, cloud approval, document uploads and exports are blocked. Data is outside the repository in a separate development directory. Its file-protected vault is not Windows DPAPI. No production network/TLS/reverse-proxy mode is supported. The UI must display Development / Demo Mode — Not for PHI.
 
+## Optional Android gateway
+
+`companion-gateway.cjs` is a separate desktop-owned HTTPS service, off by default,
+bound to one explicitly selected private IPv4 address. `companion-tls.cjs` creates
+the certificate in-process; private material uses the existing encrypted Store.
+Every `/mobile/api/v1` endpoint authenticates a revocable per-device key. Chat uses
+Core/router with desktop tools disabled and the background resource lane; local/cloud
+permissions, budgets, lock, pause and cancellation remain authoritative. Session IDs
+are scoped to devices. Optional task/clinical-alert projections contain status
+metadata, not patient identifiers/files. Configuration RPCs are desktop-only; native
+IPC and development HTTP allowlists are unchanged. The service never opens firewall
+rules. See `docs/ANDROID_COMPANION_CONTRACT.md` for Android certificate verification,
+payloads, limits, feature differences and remaining physical-phone acceptance.
+
 ## Clinical and PCC data
 `snf-command-center.cjs` remains the compatible orchestrator while domain modules under `source/snf` handle imports, evidence, rules, demos, alerts and summaries as implemented. It is read-only relative to PCC: reports are imported; there is no direct EMR write integration. Production initializes without sample residents. Human review is required for clinical, diagnosis, indication, GDR and regulatory conclusions.
 

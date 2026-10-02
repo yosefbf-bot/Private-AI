@@ -312,7 +312,7 @@ class Store {
     this.db.exec("BEGIN IMMEDIATE");
     let committed = false;
     try {
-      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession", "voice_transcript", "meeting", "sbar", "wf_decision", "wf_metric_import", "wf_action_meta", "wf_playbook_run"])
+      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession", "companion_request", "companion_session", "voice_transcript", "meeting", "sbar", "wf_decision", "wf_metric_import", "wf_action_meta", "wf_playbook_run"])
         for (const r of this.db
           .prepare("SELECT id,updated,expires FROM records WHERE kind=?")
           .all(kind)) {
@@ -339,7 +339,7 @@ class Store {
               counts.reports++;
             } else {
               counts[
-                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages", voice_transcript: "voiceTranscripts", meeting: "meetings", sbar: "sbars", wf_decision: "workflows", wf_metric_import: "workflows", wf_action_meta: "workflows", wf_playbook_run: "workflows" }[
+                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages", companion_request: "messages", companion_session: "messages", voice_transcript: "voiceTranscripts", meeting: "meetings", sbar: "sbars", wf_decision: "workflows", wf_metric_import: "workflows", wf_action_meta: "workflows", wf_playbook_run: "workflows" }[
                   kind
                 ]
               ]++;

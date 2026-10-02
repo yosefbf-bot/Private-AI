@@ -1,14 +1,15 @@
 {
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
-  "developmentBranch": "chatgpt/google-main-ci-repair-2026-09-29",
-  "lastVerifiedCommit": "ec0ae9c74123eb74c410e8865609ddcf8aeacbe5",
+  "developmentBranch": "chatgpt/import-local-hardening-2026-10-01",
+  "lastVerifiedCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
   "webMode": "development-only",
   "hipaaMode": true,
   "hipaaModeMeaning": "Default policy setting; not a compliance certification",
   "currentPriorities": [
+    "Review combined standalone/clinical/WhatsApp integration PR and exact-head CI; reconcile Android companion contract when supplied",
     "Review Google main repair and exact-head CI; save Google guardrails in AI Studio system instructions",
     "Review the release-validation fixes and unsigned Windows artifact; complete spare-account installer/upgrade/uninstall acceptance",
     "Administrator-approved same-account backup/restore and legacy-data review; remediate historical exposure",
@@ -64,7 +65,14 @@
     "Operations Analytics OnShift/universal staffing ingestion, deterministic approaching-OT and punch leakage audit, and FTE deficit calculator",
     "Regulatory and License Renewal Sentinel for CLIA, BNE/CDS, DOH operating, Life Safety and physician credentials with canonical Action Center renewals",
     "Executive AI Assistant suite with context ghostwriter, meeting prep dossiers, voice memo multi-action parser, commute audio briefing, contract scanner, difficult conversation coach, and 14-day conflict radar",
-    "Executive Demo canonical task isolation, no automatic Production sample facts, review-required missing-fact drafts, stable renewal task IDs and local-only briefing speech"
+    "Executive Demo canonical task isolation, no automatic Production sample facts, review-required missing-fact drafts, stable renewal task IDs and local-only briefing speech",
+    "PCC capability service with optional manual imports, source-specific feed monitoring and preservation on disable",
+    "General source-neutral clinical imports/rules with availability evidence and unknown-data UI",
+    "Keyless local clinical text and pre-output offline fallback preserving provider approval, cancellation and budgets",
+    "Opt-in WhatsApp task-status completion/failure notifications preserving write controls",
+    "Historical local source/handoff archives and future GitHub-first work instructions",
+    "DOMPurify 3.4.16 security patch synchronized across desktop/Chrome/Firefox assets",
+    "Optional authenticated Android HTTPS gateway with per-phone pairing/revocation, real Core text chat and status metadata; encrypted certificate and session/retry persistence"
   ],
   "experimentalFeatures": [
     "Heuristic SNF surveillance requires independent clinical validation",
@@ -84,12 +92,11 @@
     "PHI realtime voice approval"
   ],
   "lastTested": {
-    "date": "2026-09-29",
+    "date": "2026-10-02",
     "platform": "win32",
-    "windows": "Windows 11 Pro 10.0.26200 x64",
     "node": "24.19.0",
-    "command": "npm test",
-    "passed": 414,
+    "command": "node --test --test-concurrency=4 --test-timeout=60000 tests/*.test.cjs",
+    "passed": 471,
     "failed": 0,
     "cancelled": 0,
     "skipped": 0,
@@ -97,17 +104,17 @@
       "passed": 25,
       "failed": 0
     },
-    "dependencyInstall": "npm ci --ignore-scripts: 603 added, 604 audited",
-    "syntax": "166 tracked JS files passed",
-    "repositoryPolicy": "265 tracked files at code checkpoint passed; final documentation scanned separately",
-    "dependencyAudit": "0 vulnerabilities",
-    "browserUI": "Edge hardening UI passed, including executive Production empty states and refusal of remote-only speech voices",
-    "releaseManifest": "Required files and 406 PE binaries passed using previously verified source-built inputs; no new installer claim",
-    "githubActions": "Restoration checkpoint e3f9483: all three jobs passed, run 36641696462. Final publication checked through the PR.",
-    "reviewNotes": "docs/GOOGLE_MAIN_REPAIR_2026-09-29.md"
+    "dependencyInstall": "Clean locked npm ci --ignore-scripts --no-audit --no-fund: 627 packages",
+    "syntax": "178 JS files passed; PowerShell installer validator parsed without execution",
+    "repositoryPolicy": "292 staged/tracked files passed; historical ZIP members inspected separately",
+    "dependencyAudit": "0 vulnerabilities, including new pinned selfsigned 5.5.0 dependency set",
+    "browserUI": "29 Edge general checks including real Core/HTTPS gateway Settings; restricted development hardening UI; synthetic WhatsApp DOM/UI; PCC off/on/settings and companion screenshots inspected",
+    "releaseManifest": "Local gate blocked: generated helper/runtime EXEs absent in fresh clone. Exact-head CI builds them. No substitute binaries.",
+    "githubActions": "Exact pushed commit checks recorded on the integration PR after publication",
+    "reviewNotes": "docs/LOCAL_HARDENING_INTEGRATION_2026-10-01.md"
   },
-  "reviewBaseCommit": "a5d22b623c5c49fccd36b41bd4488d2a64fac346",
-  "verificationScope": "Bounded repair of the Google main update: restored exact release files, real Core/SQLite Demo and Production regressions, Edge UI, full source tests and release-input verification. Prior Windows artifact evidence remains separate; no new installer or installed-data acceptance.",
+  "reviewBaseCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
+  "verificationScope": "Integrated current GitHub 3.0.1-dev with real Core/SQLite/desktop IPC, loopback HTTPS, browser UI and synthetic adapters. No new packaged app, installer, physical phone, real model, live account or installed-data acceptance.",
   "baseIntegration": {
     "pr": 9,
     "merged": true,
@@ -122,16 +129,17 @@
     ],
     "checks": "PR #9 merged and main run 36587165573 passed; subsequent Google main run 36640248873 failed after deleting required files."
   },
-  "currentMainCommit": "a5d22b623c5c49fccd36b41bd4488d2a64fac346",
+  "currentMainCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
   "windowsAcceptance": {
-    "artifactBuilt": true,
-    "isolatedApplication": true,
-    "syntheticDPAPIRestore": true,
+    "artifactBuilt": false,
+    "isolatedApplication": false,
+    "syntheticDPAPIRestore": false,
     "installerExecuted": false,
     "installedDataUpgrade": false,
     "uninstallReinstall": false,
     "windowsRestart": false,
-    "productionReady": false
+    "productionReady": false,
+    "scope": "Current combined artifact only; previous evidence preserved in previousIntegrationCheckpoint / previousWindowsCheckpoint."
   },
   "speakerValidation": "Human participation required; conservative feature preserved, no accuracy claim",
   "clinicalValidation": "Synthetic technical contracts passed; representative de-identified PCC and clinical review pending",
@@ -166,5 +174,56 @@
     },
     "installerSHA256": "24084a22e37846203119bf023cfa045b65bdf34a0a70e2d1cba1617a727cbf22",
     "note": "Historical PR #9 evidence; not a package built from the Google update or repair."
+  },
+  "previousIntegrationCheckpoint": {
+    "developmentBranch": "chatgpt/google-main-ci-repair-2026-09-29",
+    "lastVerifiedCommit": "ec0ae9c74123eb74c410e8865609ddcf8aeacbe5",
+    "lastTested": {
+      "date": "2026-09-29",
+      "platform": "win32",
+      "windows": "Windows 11 Pro 10.0.26200 x64",
+      "node": "24.19.0",
+      "command": "npm test",
+      "passed": 414,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "hardening": {
+        "passed": 25,
+        "failed": 0
+      },
+      "dependencyInstall": "npm ci --ignore-scripts: 603 added, 604 audited",
+      "syntax": "166 tracked JS files passed",
+      "repositoryPolicy": "265 tracked files at code checkpoint passed; final documentation scanned separately",
+      "dependencyAudit": "0 vulnerabilities",
+      "browserUI": "Edge hardening UI passed, including executive Production empty states and refusal of remote-only speech voices",
+      "releaseManifest": "Required files and 406 PE binaries passed using previously verified source-built inputs; no new installer claim",
+      "githubActions": "Restoration checkpoint e3f9483: all three jobs passed, run 36641696462. Final publication checked through the PR.",
+      "reviewNotes": "docs/GOOGLE_MAIN_REPAIR_2026-09-29.md"
+    },
+    "verificationScope": "Bounded repair of the Google main update: restored exact release files, real Core/SQLite Demo and Production regressions, Edge UI, full source tests and release-input verification. Prior Windows artifact evidence remains separate; no new installer or installed-data acceptance.",
+    "windowsAcceptance": {
+      "artifactBuilt": true,
+      "isolatedApplication": true,
+      "syntheticDPAPIRestore": true,
+      "installerExecuted": false,
+      "installedDataUpgrade": false,
+      "uninstallReinstall": false,
+      "windowsRestart": false,
+      "productionReady": false
+    }
+  },
+  "androidCompanion": {
+    "status": "Desktop HTTPS contract implemented; Android changes and physical-phone acceptance pending",
+    "desktopTransportAdded": true,
+    "defaultEnabled": false,
+    "contract": "docs/ANDROID_COMPANION_CONTRACT.md",
+    "scopes": [
+      "text chat without desktop tools",
+      "task status metadata",
+      "clinical alert metadata"
+    ],
+    "physicalPhoneTested": false,
+    "firewallModified": false
   }
 }

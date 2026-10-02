@@ -12,7 +12,7 @@ function queue(core, snf, { includeClosed = false } = {}) {
     rows = [],
     todos = store.list("todo"),
     byTodo = new Map(todos.map((t) => [t.id, t]));
-  for (const a of store.list("snf_alert"))
+  for (const a of store.list("snf_alert").filter(a => snf.alertVisible(a)))
     rows.push({
       key: "alert:" + a.id,
       kind: "alert",

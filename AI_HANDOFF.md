@@ -1,4 +1,32 @@
 # Shared AI development handoff
+## Current integration — 2026-10-02
+
+GitHub main `0a7ec92fa18c52ed8983aa06803977e3a220cf02` was fetched/verified before
+integration and again before publication. Active branch:
+`chatgpt/import-local-hardening-2026-10-01`, version **3.0.1-dev**.
+Local 3.0.0 standalone work has been adapted into the newer clinical/provider/
+workflow architecture; the exact old archives are historical references under
+`handoff/local-3.0-2026-10-01`, never replacements for the current checkout.
+
+Read `docs/LOCAL_HARDENING_INTEGRATION_2026-10-01.md` and
+`docs/INTEGRATED_STANDALONE_GUIDE.md`. General clinical imports/rules remain available
+with PCC off. One capability service controls PCC manual import/monitoring.
+Optional cloud/local text routing retains newer privacy approvals and budgets.
+WhatsApp gains opt-in status-only report-job notifications and retains independent
+read/write permissions. Existing data is preserved. DOMPurify is patched to 3.4.16.
+
+Current local verification: 471 full-suite tests; 25 overlapping hardening tests;
+29 general Edge UI checks; restricted-development and synthetic WhatsApp UI passed;
+production audit zero vulnerabilities. Generated Windows helper/runtime inputs are
+absent in this fresh clone; exact-head Actions must build/check them. The combined
+artifact has not undergone actual installer, packaged application, local inference,
+installed-data or live-account acceptance. Earlier Windows results below are historical.
+The Android companion is developed separately. The desktop now implements the four
+authenticated HTTPS endpoints, explicit interface binding and per-phone pairing in
+`docs/ANDROID_COMPANION_CONTRACT.md`. Android must verify the paired certificate and
+implement the documented URI/error/null handling. Phone/LAN acceptance is pending.
+No firewall rule or development IPC exposure was added. Main is for the user to merge after review.
+
 
 Read `AGENTS.md`, `GEMINI.md`, `PROJECT_STATUS.json`, `ARCHITECTURE.md`, and `docs/AI_STUDIO_REVIEW_2026-09-25.md` before changes. GitHub is authoritative; record the exact base SHA and inspect the latest source/history. Roadmap entries, old manuals and UI mockups are not implemented-feature evidence.
 

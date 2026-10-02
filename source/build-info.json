@@ -1,8 +1,8 @@
 {
   "version": "3.0.1-dev",
-  "updatedAt": "2026-09-29T13:30:41.980Z",
-  "baselineCommit": "1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a",
+  "updatedAt": "2026-10-02T18:20:19.705Z",
+  "baselineCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
   "releaseStatus": "blocked",
-  "note": "Windows validation artifacts built; isolated execution passed. Installer/installed-data and human acceptance remain incomplete.",
-  "sourceSHA256": "ea019f72eb90e2e8d5bfad123e92d7ba9db005f3801811ecf093b595312fe533"
+  "note": "Integrated 3.0.1-dev source; current source/UI validation does not establish Windows installer, installed-data, model or live-account acceptance.",
+  "sourceSHA256": "24b21fefbc6eba063d9fceb93badad047e40d4ed8455dcb3707fb8040be52192"
 }

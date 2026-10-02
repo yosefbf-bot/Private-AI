@@ -186,19 +186,19 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                 <span class="today-badge">Command Center</span>
               </h1>
               <div class="today-header-meta">
-                <span>PCC Data Current Through: <strong class="today-tabular">${esc(dataHealth.dataCurrentThroughFormatted || 'No data imported')}</strong></span>
+                <span>${dataHealth.monitoringEnabled?"PCC Data":"Imported evidence"} Current Through: <strong class="today-tabular">${esc((dataHealth.monitoringEnabled?dataHealth.monitoringCurrentThroughFormatted:dataHealth.dataCurrentThroughFormatted) || 'No data imported')}</strong></span>
                 <span>·</span>
-                <span class="${dataHealth.isSurveillanceComplete ? 'today-health-status-ok' : 'today-health-status-err'}">
+                ${dataHealth.monitoringEnabled ? `<span class="${dataHealth.isSurveillanceComplete ? 'today-health-status-ok' : 'today-health-status-err'}">
                   ${dataHealth.isSurveillanceComplete ? '● Surveillance Feeds Current' : '▲ Surveillance Incomplete (Feeds Missing/Stale)'}
                 </span>
                 <span>·</span>
-                <span>Daily 60-Second Scan</span>
+                ` : ""}<span>Daily 60-Second Scan</span>
               </div>
             </div>
             <div class="today-header-actions"><button class="today-btn today-btn-primary" data-act="view" data-view="execdesk">👔 Executive Desk</button><button class="today-btn" data-act="view" data-view="actions">Actions &amp; changes since review</button><button class="today-btn" data-act="view" data-view="operations">Meetings</button>
               <input type="search" id="today-search" placeholder="Search resident, medication, rule..." value="${esc(searchQuery)}" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;width:220px;" />
               <button class="today-btn" id="btn-refresh">↻ Refresh</button>
-              <button class="today-btn" id="btn-goto-pcc" data-view="pcc" data-act="view">PCC Import Center</button>
+              <button class="today-btn" data-view="clinical-imports" data-act="view">Clinical imports</button>${dataHealth.monitoringEnabled?`<button class="today-btn" id="btn-goto-pcc" data-view="pcc" data-act="view">PCC Import Center</button>`:""}
               <button class="today-btn today-btn-primary" id="btn-goto-snf" data-view="snf" data-act="view">Full Surveillance Center</button>
               ${!data.demo ? `<button class="today-btn" id="btn-toggle-demo">Open Demo Mode</button>` : ''}
             </div>
@@ -213,7 +213,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
               </div>
               <div class="today-kpi-val">${criticalAlerts.length}</div>
               <div class="today-kpi-sub">
-                ${criticalAlerts.length > 0 ? 'Unresolved critical findings requiring immediate review.' : dataHealth.isSurveillanceComplete ? 'No active critical alerts in imported data; human review remains required.' : 'No imported critical alerts; missing or stale feeds prevent a complete assessment.'}
+                ${criticalAlerts.length > 0 ? 'Unresolved critical findings requiring immediate review.' : dataHealth.isSurveillanceComplete ? 'No active critical alerts in imported data; human review remains required.' : 'No critical alerts in supplied evidence; coverage is unknown. Import and review records before drawing conclusions.'}
               </div>
             </div>
 
@@ -250,7 +250,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
               </div>
             </div>
 
-            <div class="today-kpi-card ${dataHealth.isSurveillanceComplete ? 'kpi-success' : 'kpi-critical'}">
+            ${dataHealth.monitoringEnabled ? `<div class="today-kpi-card ${dataHealth.isSurveillanceComplete ? 'kpi-success' : 'kpi-critical'}">
               <div class="today-kpi-header">
                 <span>PCC Feed Health</span>
                 <span>${dataHealth.isSurveillanceComplete ? 'Feeds OK' : 'Warnings'}</span>
@@ -263,7 +263,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
               </div>
             </div>
 
-            <div class="today-kpi-card kpi-info today-clickable-kpi" id="today-operations-summary-card" style="cursor:pointer;" title="Click to open Operations Intelligence & Meeting Copilot">
+            ` : ""}<div class="today-kpi-card kpi-info today-clickable-kpi" id="today-operations-summary-card" style="cursor:pointer;" title="Click to open Operations Intelligence & Meeting Copilot">
               <div class="today-kpi-header">
                 <span>Operations &amp; Meetings</span>
                 <span>Copilot Radar →</span>
@@ -314,7 +314,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                 <div class="today-empty-state">
                   <div class="today-empty-state-icon">✓</div>
                   <strong>No unresolved Critical alerts found.</strong>
-                  <p>All imported records meet routine surveillance thresholds. Verify feed freshness in PCC Data Health below.</p>
+                  <p>No exceptions were identified in the evaluated records. Missing or incomplete records may conceal issues; review source coverage.</p>
                 </div>
               `}
             </div>
@@ -427,7 +427,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                 <div class="today-empty-state">
                   <div class="today-empty-state-icon">📋</div>
                   <strong>No medication changes matching current filter.</strong>
-                  <p>Filter: "${esc(medFilter)}". Check PCC import history if newer order reports are expected.</p>
+                  <p>Filter: "${esc(medFilter)}". Check clinical import history if newer order reports are expected.</p>
                 </div>
               `}
             </div>
@@ -450,7 +450,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
 
             <div class="today-safeguard-banner">
               <strong>Clinical Documentation Safeguard:</strong>
-              Documentation not present in imported reports indicates a surveillance exception in uploaded data; it does <em>not</em> independently verify absence in PointClickCare. Direct EMR chart audit is required prior to regulatory or clinical action.
+              Documentation not present in imported reports indicates a surveillance exception in uploaded data; it does <em>not</em> independently verify absence in the complete clinical record. Direct chart audit is required prior to regulatory or clinical action.
             </div>
 
             <div class="today-alert-list">
@@ -501,13 +501,13 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                 <div class="today-empty-state">
                   <div class="today-empty-state-icon">✓</div>
                   <strong>No clinical or documentation exceptions identified.</strong>
-                  <p>All evaluated residents have supporting diagnosis and behavior documentation present in the imported batches.</p>
+                  <p>No documentation exceptions are listed. This does not confirm that every resident has complete supporting documentation.</p>
                 </div>
               `}
             </div>
           </section>
 
-          <!-- 5. PCC Data Health (Compact Operational Status) -->
+          ${dataHealth.monitoringEnabled ? `<!-- 5. PCC Data Health (Compact Operational Status) -->
           <section class="today-section" id="section-data-health">
             <div class="today-section-header">
               <div class="today-section-title-wrap">
@@ -535,7 +535,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                 </h4>
                 <div class="today-health-row">
                   <span class="today-health-label">Data Current Through</span>
-                  <span class="today-tabular"><strong>${esc(dataHealth.dataCurrentThroughFormatted || 'None')}</strong></span>
+                  <span class="today-tabular"><strong>${esc(dataHealth.monitoringCurrentThroughFormatted || 'Not available')}</strong></span>
                 </div>
                 <div class="today-health-row">
                   <span class="today-health-label">Critical Feeds Status</span>
@@ -553,11 +553,11 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                   <span>Feed Freshness Breakdown</span>
                   <span style="font-size:11px;color:#64748b;">Daily Lookback</span>
                 </h4>
-                ${dataHealth.feeds ? Object.entries(dataHealth.feeds).slice(0, 5).map(([fid, f]) => `
+                ${dataHealth.monitoringFeeds ? Object.entries(dataHealth.monitoringFeeds).slice(0, 5).map(([fid, f]) => `
                   <div class="today-health-row">
                     <span class="today-health-label">${esc(f.name || fid)}</span>
                     <span class="today-tabular ${f.status === 'ok' ? 'today-health-status-ok' : f.status === 'stale' ? 'today-health-status-warn' : 'today-health-status-err'}">
-                      ${f.status === 'ok' ? 'Current' : f.status === 'stale' ? 'Stale' : 'Missing'} (${f.rowCount || 0} rows)
+                      ${f.status === 'ok' ? 'Current' : f.status === 'stale' ? 'Stale' : 'Missing'} (${f.lastRecordCount ?? "Unknown"} rows)
                     </span>
                   </div>
                 `).join('') : '<p style="color:#64748b;font-size:12px;">No feed status available.</p>'}
@@ -592,7 +592,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
             </div>
           </section>
 
-          <!-- 6. Follow-Up Queue -->
+          ` : ""}<!-- 6. Follow-Up Queue -->
           <section class="today-section" id="section-followup">
             <div class="today-section-header">
               <div class="today-section-title-wrap">
@@ -736,7 +736,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                 <h2 class="today-section-title">
                   <span>Administrator Morning Brief</span>
                 </h2>
-                <p class="today-section-desc">Automated executive summary synthesized from latest PCC surveillance imports.</p>
+                <p class="today-section-desc">Automated executive summary synthesized from available clinical imports.</p>
               </div>
               <div class="today-section-controls">
                 <button class="today-btn today-btn-sm" id="btn-copy-brief">Copy Brief</button>
@@ -1038,7 +1038,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
 
                 <div class="today-form-group" id="f-reason-group" style="${currentStatus === 'resolved' ? '' : 'display:none;'}">
                   <label for="f-reason">Resolution Reason / Clinical Rationale *</label>
-                  <input id="f-reason" name="reason" placeholder="e.g. Valid diagnosis verified in PCC chart; GDR attempted and documented" value="${esc(a.resolutionReason || '')}" />
+                  <input id="f-reason" name="reason" placeholder="e.g. Valid diagnosis verified in clinical record; GDR attempted and documented" value="${esc(a.resolutionReason || '')}" />
                 </div>
 
                 <div class="today-form-group">
@@ -1049,7 +1049,7 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
                 <div class="today-form-check" id="f-check-group" style="${currentStatus === 'resolved' ? '' : 'display:none;'}">
                   <input type="checkbox" id="f-evidence-check" name="evidence" />
                   <label for="f-evidence-check" style="margin:0;cursor:pointer;">
-                    <strong>Evidence Reviewed:</strong> I confirm that I have reviewed the underlying imported records or PointClickCare chart evidence before resolving this finding.
+                    <strong>Evidence Reviewed:</strong> I confirm that I have reviewed the underlying imported records or complete chart evidence before resolving this finding.
                   </label>
                 </div>
               </div>

@@ -14,7 +14,7 @@ async function boot(t,{background=false,existing=false,browserWorker}={}){
  fs.mkdirSync(root);
  if(existing){const s=new Store(path.join(root,'privateai.db'),cipher);s.put('settings','main',{workerPaused:true,processingMode:'local-only',allowCloud:false,retentionDays:90});s.put('chat','kept',{id:'kept',title:'Saved chat',messages:[],updated:Date.now()});s.close();}
  const errors=[],dialogs=[],windows=[],handlers=new Map();let core,ready;
- const app=new EventEmitter();Object.assign(app,{isPackaged:true,setName(){},setPath(){},requestSingleInstanceLock:()=>true,whenReady:()=>({then(fn){const p=Promise.resolve().then(fn);return {catch(fn){ready=p.catch(fn);return ready;}};}}),exit:code=>errors.push({exit:code}),quit:()=>app.emit('before-quit')});
+ const app=new EventEmitter();Object.assign(app,{isPackaged:true,setName(){},setPath(){},requestSingleInstanceLock:()=>true,getLoginItemSettings:()=>({openAtLogin:false}),whenReady:()=>({then(fn){const p=Promise.resolve().then(fn);return {catch(fn){ready=p.catch(fn);return ready;}};}}),exit:code=>errors.push({exit:code}),quit:()=>app.emit('before-quit')});
  class Window extends EventEmitter{
   constructor(options){super();this.options=options;this.visible=true;this.focused=true;this.webContents=new EventEmitter();Object.assign(this.webContents,{send(){},setWindowOpenHandler(){}});windows.push(this);}
   setMenuBarVisibility(){} loadURL(url){this.url=url;} isDestroyed(){return false;} isVisible(){return this.visible;} isFocused(){return this.focused;} show(){this.visible=true;} hide(){this.visible=false;} focus(){this.focused=true;}
@@ -101,4 +101,38 @@ test('desktop browser IPC saves and reloads browser choice, opens selected engin
  assert.equal((await call('browserOpen',{url:row.url,browser:row.browser})).ok,true);assert.equal(opened[0][3],'firefox');
  assert.equal((await call('browserRun',{id:row.id})).ok,true);assert.equal(runs[0].steps[0].op,'login');assert.equal(runs[0].browser,'firefox');
  b.core.locked=true;assert.equal((await call('browserOpen',row)).ok,false);assert.equal(opened.length,1);
+});
+
+
+test('desktop IPC saves PCC capability, preserves clinical analysis, and rejects writes while locked',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);assert.equal(b.core.key(),null);
+ const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ assert.equal((await call('summary')).result.integrations[0].state,'not_configured');
+ const report={type:'census',date:new Date().toISOString(),rows:[{residentId:'synthetic-ipc-pcc',name:'Synthetic IPC'}]};
+ assert.equal((await call('snfIngest',{reports:[report],sourceProvider:'pcc'})).error.code,'INTEGRATION_UNAVAILABLE');
+ assert.equal((await call('integrationSave',{id:'pcc',settings:{enabled:true,mode:'manual'}})).result.state,'manual_import');
+ assert.equal((await call('summary')).result.integrations[0].canImport,true);
+ assert.equal((await call('snfIngest',{reports:[report],sourceProvider:'pcc',user:'Synthetic'})).result.success,true);
+ assert.equal((await call('integrationSave',{id:'pcc',settings:{enabled:false}})).result.state,'disabled');
+ const today=(await call('snfToday')).result;assert.equal(today.dataHealth.monitoringEnabled,false);
+ assert.equal(b.core.store.count('snf_resident'),1);
+ b.core.locked=true;assert.equal((await call('integrationSave',{id:'pcc',settings:{enabled:true}})).error.code,'LOCKED');
+});
+
+test('desktop companion IPC saves and reloads, pairs over real HTTPS, revokes and respects app lock',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);
+ const {freePort,request}=require('./companion-fixture.cjs');
+ const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ assert.equal((await call('companionStatus')).result.state,'off');
+ const port=await freePort(),saved=await call('companionSave',{enabled:true,host:'127.0.0.1',port});assert.equal(saved.ok,true,JSON.stringify(saved));
+ const summary=(await call('summary')).result;assert.equal(summary.companion.settings.port,port);assert.equal(summary.companion.state,'listening');
+ const paired=await call('companionPair',{name:'Synthetic IPC phone',scopes:{chat:true}});assert.equal(paired.ok,true);
+ const gateway={settings:()=>({host:'127.0.0.1',port})};
+ assert.equal((await request(gateway,paired.result,'/status')).status,200);
+ const reloaded=(await call('companionStatus')).result;assert.equal(reloaded.devices[0].name,'Synthetic IPC phone');assert.equal(reloaded.devices[0].key,undefined);
+ b.core.lock();assert.equal((await call('companionPair',{name:'Blocked'})).error.code,'LOCKED');assert.equal((await request(gateway,paired.result,'/status')).status,423);
+ b.core.unlock();assert.equal((await call('companionRevoke',{id:paired.result.id})).ok,true);assert.equal((await request(gateway,paired.result,'/status')).status,401);
+ assert.equal((await call('companionSave',{enabled:false})).result.state,'off');
 });

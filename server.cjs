@@ -164,6 +164,12 @@ async function dispatch(op, data = {}) {
   if (op.startsWith("regulatory") || op.startsWith("staffing")) return require("./source/operations-analytics-engine.cjs").dispatch(core,op,data);
   if (op.startsWith("assistant")) return require("./source/executive-assistant-engine.cjs").dispatch(core,op,data);
   switch (op) {
+    // Deliberately unavailable in the development preview; desktop configures sources.
+    case "integrationSave": throw fail("POLICY");
+    case "companionStatus":
+    case "companionSave":
+    case "companionPair":
+    case "companionRevoke": throw fail("POLICY");
     case "userGuide":
       return require("./source/app-guide.json");
     case "summary": {

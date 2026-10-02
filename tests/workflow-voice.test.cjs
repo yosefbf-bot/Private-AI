@@ -52,7 +52,7 @@ test('briefing uses recorded tasks; generic checklist is opt-in and labeled',t=>
  assert.match(brief,/Review synthetic invoice/);assert.doesNotMatch(brief,/OPTIONAL GENERAL CHECKLIST|MDS:/);
  assert.match(dispatch(core,'operationsHuddleBrief',{includeChecklist:true}).text,/NOT GENERATED FINDINGS OR ASSIGNMENTS/);
 });
-test('bounded medication source extraction attempts local inference; advice still fails closed',async t=>{
+test('clinical text uses local inference with evidence instructions and review requirements',async t=>{
  const {core}=fixture(t);core.saveSettings({processingMode:'local-only',localTier:'selected'});
  let calls=0;const local={generate:async()=>{calls++;return {text:JSON.stringify({answer:'Synthetic medicine',evidence:['Synthetic medicine'],uncertainties:[]})};},modelName:()=> 'test'};
  // Isolate routing from the separately-tested runtime/RAM loader.
@@ -62,8 +62,8 @@ test('bounded medication source extraction attempts local inference; advice stil
  const messages=prompt=>[{role:'user',content:[{type:'input_text',text:prompt},{type:'input_text',text:'UNTRUSTED DOCUMENT REFERENCE: Synthetic medicine'}]}];
  const response=await router.generate('',core.settings(),messages('List medication names from the supplied report.'));
  assert.equal(response.provider,'local');assert.equal(calls,1);
- await assert.rejects(router.generate('',core.settings(),messages('Recommend medication treatment.')),{code:'LOCAL_ONLY'});
- assert.equal(calls,1);
+ const clinical=await router.generate('',core.settings(),messages('Review medication treatment documentation.'));
+ assert.equal(clinical.provider,'local');assert.match(clinical.reliability.label,/review/i);assert.equal(calls,2);
  }finally{core.resources=resources;}
 });
 test('non-OpenAI cloud usage retains tokens and reports unpriced instead of free/local',t=>{

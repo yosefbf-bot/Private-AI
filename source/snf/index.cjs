@@ -10,13 +10,13 @@ async function dispatch(core,op,data={}){
  case 'snfImportSchema':return Object.keys(require('./import/batch-manager.cjs').PARSERS).filter(t=>t!=='adt');
  case 'snfImports':return snf.store.list('snf_import_batch');
  case 'snfAlertEvidence':{const alert=snf.store.get('snf_alert',data.alertId);if(!alert)throw fail('INVALID');return (alert.evaluationHistory||[]).map(id=>snf.store.get('snf_rule_evaluation',id)).filter(Boolean);}
- case 'snfDashboard':return {...snf.getDashboardMetrics(),alerts:snf.getAlertSummary(),demo:snf.demoMode,developmentMode:!!core.developmentMode,productionAlerts:core.snf.getAlertSummary()};
- case 'snfAlerts':return snf.store.list('snf_alert').filter(a=>(!data.unresolvedOnly||a.status!=='resolved')&&(!data.severity||a.severity===data.severity)).map(a=>operational(a));
+ case 'snfDashboard':return {...snf.getDashboardMetrics(),alerts:snf.getAlertSummary(),integrations:snf.integrations.summary(),demo:snf.demoMode,developmentMode:!!core.developmentMode,productionAlerts:core.snf.getAlertSummary()};
+ case 'snfAlerts':return snf.store.list('snf_alert').filter(a=>snf.alertVisible(a)&&(!data.unresolvedOnly||a.status!=='resolved')&&(!data.severity||a.severity===data.severity)).map(a=>operational(a));
  case 'snfUpdateAlert':return snf.updateAlert(data.alertId,data.patch,data.user);
  case 'snfAcknowledgeAlert':return snf.acknowledgeAlert(data.alertId,data.user);
  case 'snfAssignAlert':return snf.assignAlert(data.alertId,data.assignedTo,data.user,data.note);
  case 'snfResolveAlert':return snf.resolveAlert(data.alertId,data.resolutionStatus,data.note,data.user);
- case 'snfOpenIssues':return snf.store.list('snf_open_issue');
+ case 'snfOpenIssues':return snf.store.list('snf_open_issue').filter(i=>snf.issueVisible(i));
  case 'snfMorningBrief':return {text:snf.generateMorningBrief()};
  case 'snfResidentTimeline':return {text:snf.getResidentTimelineReport(data.query)};
  case 'snfFeedStatus':return snf.getFeedStatus();
@@ -24,7 +24,7 @@ async function dispatch(core,op,data={}){
  case 'snfPsychWatch':return snf.getPsychWatchData();
  case 'snfPCCReports':return snf.getPCCReportCatalog();
  case 'snfRunRules':return snf.runRulesEngine(data.user);
- case 'snfIngest':if(core.developmentMode)throw fail('POLICY');return snf.ingestReports(data.reports,data.user);
+ case 'snfIngest':if(core.developmentMode)throw fail('POLICY');return snf.ingestReports(data.reports,data.user,{sourceProvider:data.sourceProvider});
  case 'snfSeedData':throw fail('POLICY');
  case 'snfRetentionCleanup':return snf.cleanup(snf.getSettings().retentionDays||100);
  case 'snfRetentionStatus':return snf.getRetentionStatus();

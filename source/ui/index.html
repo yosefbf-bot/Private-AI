@@ -34,7 +34,8 @@
         <button class="nav" data-act="view" data-view="automation" id="automation-sidebar-btn">Automation</button>
         <button class="nav" data-act="view" data-view="playbooks">Playbooks &amp; Budgets</button>
         <details><summary>Clinical &amp; data sources</summary>
-          <button class="nav" data-act="view" data-view="pcc">PCC Import Center</button>
+          <button class="nav" data-act="view" data-view="clinical-imports">Clinical imports</button>
+          <button class="nav" data-act="view" data-view="pcc" hidden>PCC Import Center</button>
           <button class="nav" data-act="view" data-view="metrics">Staffing &amp; Census</button>
           <button class="nav snf-sidebar-item" data-act="view" data-view="snf" id="snf-sidebar-btn">SNF Surveillance <span class="snf-sidebar-badge" id="snf-sidebar-badge">0 Alerts</span></button>
           <button class="nav" data-act="view" data-view="decisions">Decision log</button>
@@ -83,7 +84,7 @@
             <span class="alert-bar-critical-banner" id="bar-crit-banner" hidden>⚠️ CRITICAL CLINICAL ITEMS REQUIRE REVIEW</span>
           </div>
           <div class="alert-bar-right">
-            <span class="alert-bar-pcc-status" id="bar-pcc-freshness">PCC Data Current Through: Checking…</span>
+            <span class="alert-bar-pcc-status" id="bar-pcc-freshness">Imported clinical evidence</span>
             <button type="button" class="alert-bar-btn" data-act="production-today" title="Review production clinical alerts">Review production alerts →</button>
           </div>
         </div>

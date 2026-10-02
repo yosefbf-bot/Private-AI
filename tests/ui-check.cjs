@@ -23,6 +23,8 @@ const client = {
   },
 };
 const { core } = fixture({ after: (fn) => after.push(fn) }, client);
+const companion = new (require('../source/companion-gateway.cjs').CompanionGateway)(core);
+const {freePort:companionPort, request:companionRequest} = require('./companion-fixture.cjs');
 core.modelManager=new (require("../source/model-manager.cjs").ModelManager)({directory:path.join(core.root,"models")});
 const { AccessManager } = require("../source/access.cjs");
 const access = new AccessManager(core, async (d) => {
@@ -48,6 +50,11 @@ async function dispatch(op, data = {}, native = false) {
   if(op.startsWith('snf')) return require('../source/snf/index.cjs').dispatch(core,op,data);
   if(op.startsWith('workflow')) return require('../source/workflows/index.cjs').dispatch(core,op,data);
   switch (op) {
+    case "integrationSave": return core.integrations.configure(data.id,data.settings);
+    case "companionStatus": return companion.status();
+    case "companionSave": return companion.configure(data);
+    case "companionPair": return companion.pair(data);
+    case "companionRevoke": return companion.revoke(data.id);
     case "userGuide": return require("../source/app-guide.json");
     case "saveDraft": return core.saveDraft(data.id,data.text);
     case "healthAcknowledge": core.stability.acknowledge();return true;
@@ -57,7 +64,7 @@ async function dispatch(op, data = {}, native = false) {
     case "localStatus": return {brain:{state:"failed",error:{code:"LOCAL_DEPENDENCY",message:"Engine component missing",exitCode:"0xc0000135"}}};
     case "downloadModel": requestedModel=data.modelId; return {state:"downloading"};
     case "summary":
-      return { ...core.summary(), autostart: false };
+      return { ...core.summary(), companion:companion.status(), autostart: false };
     case "createChat":
       return core.createChat(data);
     case "chat":
@@ -190,6 +197,64 @@ let browser;
   await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
   // Current navigation starts at Today and groups less-used tools in disclosure menus.
   for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator('summary').click();
+  fs.mkdirSync(path.join(root,'build/screenshots'),{recursive:true});
+  await desktop.screenshot({path:path.join(root,'build/screenshots/clinical-pcc-off.png'),fullPage:true});
+  assert.equal(await desktop.locator('#sidebar [data-view=pcc]').isVisible(),false);
+  assert.equal(await desktop.locator('#section-data-health').count(),0);
+  await desktop.locator('#sidebar [data-view="clinical-imports"]').click();
+  await desktop.getByRole('heading',{name:'Clinical imports',exact:true}).waitFor();
+  const report={type:'census',date:new Date().toISOString(),rows:[{residentId:'synthetic-ui-source',name:'Synthetic UI Resident'}]};
+  await desktop.locator('#pcc-file').setInputFiles({name:'synthetic-census.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify([report]))});
+  await desktop.locator('#pcc-date').fill(new Date().toISOString().slice(0,16));
+  await desktop.locator('#pcc-operator').fill('Synthetic UI reviewer');
+  await desktop.locator('#pcc-import-form button[type=submit]').click();
+  await desktop.getByText('1 accepted, 0 rejected',{exact:false}).first().waitFor();
+  assert.equal(core.store.get('snf_resident','synthetic-ui-source').provenance.sourceProvider,'generic');
+  await desktop.locator('#sidebar [data-view=settings]').click();
+  await desktop.locator('[name="integration-pcc-enabled"]').check();
+  await desktop.locator('[data-act=integration-save]').click();
+  await desktop.locator('.integration-status').getByText('Manual import',{exact:true}).waitFor();
+  await desktop.reload();await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
+  for(const menu of await desktop.locator('#sidebar details').all()) if(!(await menu.evaluate(el=>el.open)))await menu.locator('summary').click();
+  assert.equal(await desktop.locator('#sidebar [data-view=pcc]').isVisible(),true);
+  await desktop.locator('#section-data-health').waitFor();
+  await desktop.locator('#sidebar [data-view=pcc]').click();await desktop.getByRole('heading',{name:'PCC Import Center',exact:true}).waitFor();
+  await desktop.locator('#sidebar [data-view=snf]').click();await desktop.locator('[data-tab=feeds]').click();await desktop.getByRole('heading',{name:/PointClickCare Daily Feeds/}).waitFor();
+  assert.doesNotMatch(await desktop.locator('.snf-page').innerText(),/undefined|NaN/);
+  assert.match(await desktop.locator('.feeds-pane').innerText(),/Oldest received PCC report: Not available/);
+  assert.doesNotMatch(await desktop.locator('.feeds-pane').innerText(),/✓ Current/);
+  await desktop.screenshot({path:path.join(root,'build/screenshots/clinical-pcc-on.png'),fullPage:true});
+  await desktop.locator('#sidebar [data-view=settings]').click();await desktop.locator('[name="integration-pcc-enabled"]').uncheck();await desktop.locator('[data-act=integration-save]').click();
+  await desktop.locator('.integration-status').getByText('Disabled',{exact:true}).waitFor();
+  await desktop.locator('[data-integration=pcc]').scrollIntoViewIfNeeded();await desktop.screenshot({path:path.join(root,'build/screenshots/pcc-settings-disabled.png')});
+  await desktop.locator('#sidebar [data-view=today]').click();await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
+  assert.equal(await desktop.locator('#section-data-health').count(),0);assert.equal(await desktop.locator('#sidebar [data-view=pcc]').isVisible(),false);assert.equal(core.store.count('snf_resident'),1);
+  checks.push('General clinical import reaches normalized records with PCC off; PCC settings save/reload controls dashboard/imports/feeds without deleting records');
+
+  await desktop.locator('#sidebar [data-view=settings]').click();
+  assert.equal(await desktop.locator('[name=companion-enabled]').isChecked(),false);
+  await desktop.locator('[name=companion-host]').selectOption('127.0.0.1');
+  const testPort=await companionPort();await desktop.locator('[name=companion-port]').fill(String(testPort));
+  await desktop.locator('[name=companion-enabled]').check();await desktop.locator('[data-act=companion-save]').click();
+  await desktop.locator('[data-act=companion-pair]').waitFor();
+  await desktop.reload();await desktop.locator('#sidebar [data-view=settings]').click();
+  assert.equal(await desktop.locator('[name=companion-port]').inputValue(),String(testPort));
+  await desktop.locator('[data-act=companion-pair]').click();await desktop.locator('#modal [name=name]').fill('Synthetic UI phone');
+  await desktop.locator('#modal [name=alerts]').check();await desktop.locator('#modal-submit').click();
+  await desktop.locator('#modal textarea[readonly]').waitFor();
+  const link=new URL(await desktop.locator('#modal textarea[readonly]').inputValue());
+  const syntheticPairing={key:link.searchParams.get('key'),certificate:link.searchParams.get('certificate')};
+  assert.equal((await companionRequest(companion,syntheticPairing,'/alerts')).status,200);
+  assert.equal((await companionRequest(companion,syntheticPairing,'/tasks')).status,403);
+  await desktop.locator('#modal-submit').click();assert.equal(await desktop.locator('#modal textarea').count(),0);
+  await desktop.setViewportSize({width:1280,height:1500});
+  await desktop.locator('#companion-settings').screenshot({path:path.join(root,'build/screenshots/companion-settings.png')});
+  await desktop.setViewportSize({width:1280,height:900});
+  await desktop.locator('[data-act=companion-revoke]').click();await desktop.getByText('No paired phones.',{exact:true}).waitFor();
+  assert.equal((await companionRequest(companion,syntheticPairing,'/status')).status,401);
+  await desktop.locator('[name=companion-enabled]').uncheck();await desktop.locator('[data-act=companion-save]').click();
+  await desktop.waitForFunction(()=>document.querySelector('#companion-settings .companion-status')?.textContent==='off');
+  checks.push('Gateway Settings save/reload, one-time pairing scopes, HTTPS alert read, revocation and disabling reach real Core');
   await desktop.locator('.new-chat').click();
   await desktop.locator(".welcome h1").waitFor();
   assert.match(await desktop.locator('#last-updated').textContent(),/Last updated: /);
@@ -541,6 +606,7 @@ let browser;
   })
   .finally(async () => {
     await browser?.close();
+    companion.close();
     server.close();
     for (const fn of after) fn();
   });

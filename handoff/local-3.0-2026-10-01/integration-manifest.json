@@ -1,0 +1,460 @@
+{
+  "base": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
+  "paths": [
+    {
+      "path": "README.md",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "build/Test-CleanWindowsInstall.ps1",
+      "status": "cleanly applicable",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "build/create-windows-candidate.cjs",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "build/export-work-handoff.py",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "build/installer.nsh",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "build/prepare-browser-assets.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "build/release-evidence-gate.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "build/run-windows-application.cjs",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "build/ui-results.json",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "build/validate-windows-inference.cjs",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "chrome_extension/background.mjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "chrome_extension/capture.mjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "chrome_extension/firefox/background.mjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "chrome_extension/firefox/capture.mjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "chrome_extension/firefox/icon128.png",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "chrome_extension/firefox/icon16.png",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "chrome_extension/firefox/icon48.png",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "chrome_extension/firefox/manifest.json",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "chrome_extension/firefox/panel.css",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "chrome_extension/firefox/panel.html",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "chrome_extension/firefox/panel.mjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "chrome_extension/firefox/vendor/marked.mjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "chrome_extension/firefox/vendor/purify.min.js",
+      "status": "already present",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "chrome_extension/manifest.json",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "chrome_extension/panel.mjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/ASSISTANT_GUIDE.md",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/BROWSER_COMPANION.md",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/HEALTHCARE_KNOWLEDGE_PLAN.md",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/HEALTHCARE_KNOWLEDGE_REQUIREMENTS.txt",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "docs/IMPLEMENTATION_TRACKER.md",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/MOBILE_FUTURE_PLAN.md",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "docs/RELEASE_CANDIDATE_STATUS.md",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/SECOND_PC_VALIDATION_PLAN.md",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/STANDALONE_ARCHITECTURE_AUDIT.md",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/STANDALONE_HARDENING_REPORT.md",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/USER_GUIDE.html",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "docs/USER_GUIDE.md",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "docs/WHATSAPP_PERMISSIONS.md",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "docs/validation/standalone-2048-memory-failure.json",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/validation/standalone-2048-retry-memory-failure.json",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/validation/standalone-application-evidence.json",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "docs/validation/standalone-validation-summary.json",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "package-lock.json",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "package.json",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/app-guide.json",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/browser-hosts.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "source/build-info.json",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/core.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/database.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "source/deterministic.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "source/hybrid-router.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/integrations.cjs",
+      "status": "cleanly applicable",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/local-brain.cjs",
+      "status": "cleanly applicable",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/local-tools.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/main.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/messaging-policy.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "source/messaging.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/provider-policy.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "source/resources.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "source/schedules.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "source/security.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/ui/app.mjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/ui/hybrid.mjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "source/ui/index.html",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/ui/integrations.mjs",
+      "status": "cleanly applicable",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/ui/messaging.mjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/ui/response-layout.mjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/ui/style.css",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "source/whatsapp-account.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "source/whatsapp-web.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "source/whatsapp-windows.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "source/windows-validation.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "source/worker.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "tests/access.test.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "tests/browser-compat.test.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "tests/chrome.test.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "tests/files-worker.test.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "tests/integrations.test.cjs",
+      "status": "cleanly applicable",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "tests/local-startup.test.cjs",
+      "status": "cleanly applicable",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "tests/local-tiers.test.cjs",
+      "status": "cleanly applicable",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "tests/main-startup.test.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "tests/messaging-hybrid.test.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "tests/messaging-permissions.test.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "tests/messaging-ui-check.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "tests/release-evidence.test.cjs",
+      "status": "divergent",
+      "disposition": "newer GitHub implementation retained; exact historical local file preserved in archive"
+    },
+    {
+      "path": "tests/resources.test.cjs",
+      "status": "cleanly applicable",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "tests/schedules.test.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "tests/standalone.test.cjs",
+      "status": "cleanly applicable",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "tests/troubleshooting.test.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    },
+    {
+      "path": "tests/ui-check.cjs",
+      "status": "divergent",
+      "disposition": "adapted into current architecture"
+    },
+    {
+      "path": "tests/whatsapp-account.test.cjs",
+      "status": "already present",
+      "disposition": "already represented in GitHub"
+    }
+  ]
+}

@@ -336,11 +336,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
             <details class="ops-card" style="padding:16px">
               <summary>Set up operational data sources</summary>${(ops.measuredOperations||[]).length?`<p>${ops.measuredOperations.length} dated unit snapshots available. Open staffing &amp; census sources for values, coverage and provenance.</p>`:""}<button class="ops-btn" data-act="view" data-view="metrics">Staffing &amp; census sources</button>
-              <p><strong>Census:</strong> Import mapped census records in PCC Import Center.</p>
+              <p><strong>Census:</strong> Import mapped census records in Clinical imports.</p>
               <p><strong>Staffing:</strong> Import reviewed daily aggregate RN/LPN/CNA hours by unit and shift. Full-day completeness is required for HPPD.</p>
               <p><strong>Payer / occupancy:</strong> Import dated unit census, capacity and payer counts. Missing values stay unknown.</p>
               <p><strong>Survey risk:</strong> No validated scoring method is available. Review the actual alert evidence.</p>
-              <button type="button" class="ops-btn" data-act="view" data-view="pcc">Open PCC Import Center</button>
+              <button type="button" class="ops-btn" data-act="view" data-view="clinical-imports">Open Clinical imports</button>
             </details>
           </div>
         </div>
@@ -891,7 +891,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 <div class="ops-sbar-section-body">
                   <label class="ops-field-label">Current Clinical Concern &amp; Immediate Observations:</label>
                   <textarea class="ops-textarea" id="sbar-edit-situation-concern" ${s.status === 'finalized' ? 'disabled' : ''} rows="3">${esc(s.situation?.concern || '')}</textarea>
-                  ${showSources ? `<div class="ops-source-attribution">Source: ${esc(s.situation?.source || 'PointClickCare 24-Hour Clinical Feed')} · Onset: ${esc(s.situation?.onset || 'Current shift')}</div>` : ''}
+                  ${showSources ? `<div class="ops-source-attribution">Source: ${esc(s.situation?.source || 'Source not supplied')} · Onset: ${esc(s.situation?.onset || 'Unknown')}</div>` : ''}
 
                   <div class="ops-vitals-badge-row">
                     <strong>Vitals at Detection:</strong>
@@ -902,7 +902,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                       <span>SpO2: ${esc(s.situation.vitalSigns.values.o2sat || 'N/A')}</span>
                     ` : `<span class="text-crit">${esc(s.situation?.vitalSigns?.status || 'No vitals recorded')}</span>`}
                   </div>
-                  ${showSources ? `<div class="ops-source-attribution">Source: ${esc(s.situation?.vitalSigns?.source || 'PCC Shift Vitals Report')}</div>` : ''}
+                  ${showSources ? `<div class="ops-source-attribution">Source: ${esc(s.situation?.vitalSigns?.source || 'Source not supplied')}</div>` : ''}
                 </div>
               </div>
 
@@ -920,7 +920,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                     <div class="ops-bg-item">
                       <span class="ops-bg-lbl">Active Diagnoses:</span>
                       <span>${(s.background?.primaryDiagnoses || []).map(d => d.name).join(', ')}</span>
-                      ${showSources ? `<span class="ops-src">Source: PCC Active Diagnosis List</span>` : ''}
+                      ${showSources ? `<span class="ops-src">Diagnosis source: review supplied documentation</span>` : ''}
                     </div>
                     <div class="ops-bg-item">
                       <span class="ops-bg-lbl">Allergies:</span>

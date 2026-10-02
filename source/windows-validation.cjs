@@ -5,7 +5,7 @@ const sha=f=>crypto.createHash('sha256').update(rawFs.readFileSync(f)).digest('h
 async function run({core,win,reportPath,exe,asar}){
  if(process.platform!=='win32')throw Error('Windows validation must execute on Windows');
  assert.equal(path.resolve(core.root),path.join(path.dirname(reportPath),'app-data'),'Acceptance must use isolated app-data');
- const evidence={version:require('../package.json').version,platform:process.platform,windowsApplicationExecuted:true,passed:false,started:new Date().toISOString(),executableSHA256:sha(exe),applicationArchiveSHA256:sha(asar),checks:[]};
+ const evidence={version:require('../package.json').version,platform:process.platform,windowsApplicationExecuted:true,actualModelInferenceExecuted:false,passed:false,started:new Date().toISOString(),executableSHA256:sha(exe),applicationArchiveSHA256:sha(asar),checks:[]};
  try{
   core.saveSettings({processingMode:'local-only',allowCloud:false,workspace:path.join(path.dirname(reportPath),'reports'),approved:true});
   const deadline=Date.now()+45000;let ready=false;
@@ -67,7 +67,7 @@ async function run({core,win,reportPath,exe,asar}){
   });
   assert.ok(selfCheck.result.checks.every(c=>c.status==='pass'),'Bundled self-check must pass every check');
   evidence.checks.push('packaged helper, ACL, named pipe, encrypted backup, DOCX/XLSX/PDF self-checks passed');
-  const views={today:'Administrator Today',actions:'Action Center',decisions:'Decision log',workspace:'Projects & documents',playbooks:'Playbooks & cloud budgets',metrics:'Set up data sources',pcc:'PCC Import Center',snf:'SNF Clinical Surveillance Command Center',operations:'Operations Intelligence & Meeting Copilot',automation:'Automation & Agent Center',projects:'A place for each project',files:'Your working files',agents:'Your reusable assistants',schedules:'Have reports ready for you',worker:'Let another PC handle the work',settings:'Make Private AI yours',processing:'AI Processing',usage:'API Usage',browser:'Browser reports',apps:'Your apps. Your permission.',guide:'User guide'};
+  const views={today:'Administrator Today',actions:'Action Center',decisions:'Decision log',workspace:'Projects & documents',playbooks:'Playbooks & cloud budgets',metrics:'Set up data sources','clinical-imports':'Clinical imports',snf:'SNF Clinical Surveillance Command Center',operations:'Operations Intelligence & Meeting Copilot',automation:'Automation & Agent Center',projects:'A place for each project',files:'Your working files',agents:'Your reusable assistants',schedules:'Have reports ready for you',worker:'Let another PC handle the work',settings:'Make Private AI yours',processing:'AI Processing',usage:'API Usage',browser:'Browser reports',apps:'Your apps. Your permission.',guide:'User guide'};
   evidence.navigation=[];
   for(const [view,heading] of Object.entries(views)){
    await win.webContents.executeJavaScript(`document.querySelectorAll('#sidebar details').forEach(e=>e.open=true);document.querySelector('#sidebar [data-view="${view}"]').click()`);
@@ -94,8 +94,33 @@ async function run({core,win,reportPath,exe,asar}){
   }finally{core.store.delete('secret','applock');core.unlock();}
   evidence.checks.push('real desktop IPC lock blocks requests, rejects wrong passphrase and unlocks with the test passphrase');
   require('whatsapp-web.js');evidence.checks.push('packaged account connector dependency resolves');
+  const sourceSummary=(await call('summary')).result;
+  assert.equal(sourceSummary.integrations.find(x=>x.id==='pcc').showDashboard,false);
+  assert.equal((await call('integrationSave',{id:'pcc',settings:{enabled:true,mode:'manual'}})).result.state,'manual_import');
+  assert.equal((await call('snfFeedStatus')).result.monitoringEnabled,true);
+  assert.equal((await call('integrationSave',{id:'pcc',settings:{enabled:false}})).result.state,'disabled');
+  assert.equal((await call('snfFeedStatus')).result.monitoringEnabled,false);
+  evidence.checks.push('real desktop IPC toggles optional PCC while general clinical tools remain available');
+  // Optional real inference uses only isolated synthetic input. Never confuse
+  // the built-in template helper with a loaded model or silently use a cloud key.
+  if(process.env.PRIVATE_AI_VALIDATION_MODEL){
+   const model=path.resolve(process.env.PRIVATE_AI_VALIDATION_MODEL);
+   const localContext=Number(process.env.PRIVATE_AI_VALIDATION_CONTEXT||2048),localMaxOutput=Number(process.env.PRIVATE_AI_VALIDATION_OUTPUT||256);
+   core.saveSettings({localModelPath:model,localTier:'selected',localContext,localMaxOutput});
+   assert.equal(core.key(),null);
+   const created=await call('createChat',{temporary:true});assert.equal(created.ok,true);
+   const response=await call('send',{chatId:created.result.id,prompt:'Use only this synthetic source. Medication feed: unavailable. Medication status: unknown. What is the medication status? Reply briefly using that word; do not infer absence.'});
+   const answer=response.result?.chat.messages.at(-1);
+   const hashFile=async file=>{const hash=crypto.createHash('sha256');for await(const chunk of rawFs.createReadStream(file))hash.update(chunk);return hash.digest('hex');};
+   evidence.actualModelInferenceExecuted=answer?.processing?.provider==='local'&&answer?.processing?.reason!=='local_offline_assistant'&&!!answer.text&&!answer.error;
+   evidence.inference={model:path.basename(model),modelSHA256:await hashFile(model),runtimeSHA256:await hashFile(core.router.local.runtime),localContext,localMaxOutput,response:answer?.text,error:answer?.error,provider:answer?.processing?.provider};
+   assert.equal(response.ok,true);assert.equal(answer?.error,undefined);assert.equal(evidence.actualModelInferenceExecuted,true);assert.match(answer.text,/unknown/i);
+   assert.equal(core.store.list('usage').filter(x=>!['local','deterministic'].includes(x.provider)).length,0);
+   evidence.checks.push('real local inference through renderer IPC/Core/router with no key and PCC disabled; synthetic missing information stays unknown');
+   core.router.local.stop('validation-complete');await core.router.local.waitStopped();
+  }
   evidence.passed=true;
- }catch(e){evidence.error={message:e.message,code:e.code||null};throw e;}finally{evidence.completed=new Date().toISOString();fs.writeFileSync(reportPath,JSON.stringify(evidence,null,2));}
+ }catch(e){evidence.error={message:e.message,code:e.code||null};throw e;}finally{if(process.env.PRIVATE_AI_VALIDATION_MODEL){core.router.local?.stop('validation-finished');await core.router.local?.waitStopped();}evidence.completed=new Date().toISOString();fs.writeFileSync(reportPath,JSON.stringify(evidence,null,2));}
  return evidence;
 }
 module.exports={run};
