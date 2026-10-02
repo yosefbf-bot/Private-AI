@@ -1,28 +1,26 @@
 {
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
-  "developmentBranch": "chatgpt/import-local-hardening-2026-10-01",
-  "lastVerifiedCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
+  "developmentBranch": "chatgpt/windows-validation-2026-10-02",
+  "lastVerifiedCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
   "webMode": "development-only",
   "hipaaMode": true,
   "hipaaModeMeaning": "Default policy setting; not a compliance certification",
   "currentPriorities": [
-    "Review combined standalone/clinical/WhatsApp integration PR and exact-head CI; reconcile Android companion contract when supplied",
-    "Review Google main repair and exact-head CI; save Google guardrails in AI Studio system instructions",
-    "Review the release-validation fixes and unsigned Windows artifact; complete spare-account installer/upgrade/uninstall acceptance",
-    "Administrator-approved same-account backup/restore and legacy-data review; remediate historical exposure",
-    "Representative de-identified PCC/clinical acceptance and real microphone/held-out speaker validation",
-    "Full packaged UI/account/Bitwarden/native-companion acceptance and sustained resource testing"
+    "Review Windows validation report and validation PR; keep the tested binary tied to its code checkpoint and hashes",
+    "Complete representative existing-data upgrade, Windows restart and interactive installer wizard acceptance; synthetic uninstall/reinstall and installed restart have passed",
+    "Complete representative de-identified clinical/PCC, microphone/speaker and live WhatsApp/phone/account acceptance",
+    "Administrator-approved legacy-data review and remediation of historical repository exposure",
+    "Configure local AI in the fresh installed app; monitor actual available RAM rather than assuming High always fits",
+    "Preserve GitHub-first work and Google guardrails in future AI Studio updates"
   ],
   "knownCriticalIssues": [
     "Historical vault/database objects and credential-shaped strings remain in Git history; owner investigation and authorized remediation required",
-    "Windows artifact built and isolated execution passed; installer, existing-install upgrade, uninstall/reinstall and production vault acceptance unperformed",
-    "High 4B inference passed once but repeated execution triggered low-memory protection; no resource protections weakened",
-    "Legacy clinical/speaker/SBAR/credential records require reviewed disposition; no silent deletion",
-    "Representative clinical, real-speaker, account and full UI acceptance remain incomplete",
-    "Existing executive sample records or duplicate renewal tasks created by the faulty Google version require reviewed disposition; repair does not silently delete them"
+    "Representative existing-install data upgrade, Windows restart and interactive installer wizard acceptance remain unperformed",
+    "Representative clinical, real-speaker, live WhatsApp/phone/account and full human UI acceptance remain incomplete",
+    "Legacy installation/data was retired after explicit replacement authorization; no representative legacy-record review or production-data upgrade was performed"
   ],
   "completedFeatures": [
     "Runtime data removed from hardening branch tip; repository policy scanner and CI",
@@ -72,7 +70,9 @@
     "Opt-in WhatsApp task-status completion/failure notifications preserving write controls",
     "Historical local source/handoff archives and future GitHub-first work instructions",
     "DOMPurify 3.4.16 security patch synchronized across desktop/Chrome/Firefox assets",
-    "Optional authenticated Android HTTPS gateway with per-phone pairing/revocation, real Core text chat and status metadata; encrypted certificate and session/retry persistence"
+    "Optional authenticated Android HTTPS gateway with per-phone pairing/revocation, real Core text chat and status metadata; encrypted certificate and session/retry persistence",
+    "Windows PowerShell 5.1 installer evidence written as BOM-free UTF-8, exercised through the unchanged release gate with actual PowerShell regression coverage",
+    "Today operations card distinguishes unavailable census/occupancy/HPPD and avoids green unmeasured HPPD; confirmed numeric zero is preserved"
   ],
   "experimentalFeatures": [
     "Heuristic SNF surveillance requires independent clinical validation",
@@ -85,7 +85,8 @@
     "Budget allowances use configured rates and conservative estimates, not invoice guarantees; external apps/PCs excluded",
     "Extracted document text only: OCR, semantic retrieval and automatic whole-document synthesis are not implemented",
     "Brave/Vivaldi, real Bitwarden unlock/autofill and packaged native companion connectivity require on-PC acceptance; managed Firefox/Chromium runtimes are optional per-user installs",
-    "Executive assistant functions are deterministic templates/heuristics; comprehensive operational and clinical acceptance pending"
+    "Executive assistant functions are deterministic templates/heuristics; comprehensive operational and clinical acceptance pending",
+    "Small/Medium/High real inference passed twice with approximately 5.9-6.5 GiB initially available; High remains conditional on RAM and workload; Extra 8B is absent and untested"
   ],
   "deferredFeatures": [
     "Production network hosting",
@@ -94,27 +95,32 @@
   "lastTested": {
     "date": "2026-10-02",
     "platform": "win32",
+    "windows": "Windows 11 Pro 10.0.26200 x64",
     "node": "24.19.0",
     "command": "node --test --test-concurrency=4 --test-timeout=60000 tests/*.test.cjs",
-    "passed": 471,
+    "passed": 472,
     "failed": 0,
     "cancelled": 0,
     "skipped": 0,
+    "linuxCIExpectedTests": 471,
+    "platformCountReason": "The additional evidence-finalization interoperability test executes Windows PowerShell 5.1 only on Windows; it is not registered on Linux.",
     "hardening": {
       "passed": 25,
       "failed": 0
     },
-    "dependencyInstall": "Clean locked npm ci --ignore-scripts --no-audit --no-fund: 627 packages",
-    "syntax": "178 JS files passed; PowerShell installer validator parsed without execution",
-    "repositoryPolicy": "292 staged/tracked files passed; historical ZIP members inspected separately",
-    "dependencyAudit": "0 vulnerabilities, including new pinned selfsigned 5.5.0 dependency set",
-    "browserUI": "29 Edge general checks including real Core/HTTPS gateway Settings; restricted development hardening UI; synthetic WhatsApp DOM/UI; PCC off/on/settings and companion screenshots inspected",
-    "releaseManifest": "Local gate blocked: generated helper/runtime EXEs absent in fresh clone. Exact-head CI builds them. No substitute binaries.",
-    "githubActions": "Exact pushed commit checks recorded on the integration PR after publication",
-    "reviewNotes": "docs/LOCAL_HARDENING_INTEGRATION_2026-10-01.md"
+    "dependencyInstall": "Existing clean locked 627-package integration installation retained; dependency and lockfile versions unchanged during this validation.",
+    "syntax": "178 JS files passed; the installer evidence finalization block executed in actual Windows PowerShell 5.1 with synthetic fixtures.",
+    "repositoryPolicy": "292 tracked files passed at the validated code checkpoint; final documentation is checked separately before publication.",
+    "dependencyAudit": "0 production dependency vulnerabilities; dependency versions unchanged.",
+    "browserUI": "29 Edge 154.0.4258.53 general checks; updated restricted-development hardening UI including empty-store Today unavailable labels/color; synthetic WhatsApp DOM/UI. No live WhatsApp messages.",
+    "releaseManifest": "406 genuine helper/runtime PE inputs passed; post-NSIS final packaged tree has 570 files and 415 PE binaries. The one standard NSIS elevate.exe addition matched pinned builder cache; all preceding 569 files were unchanged. ZIP roundtrip verified every file hash.",
+    "windowsValidation": "Final unpacked fresh/restart and installed application passed; 12 built-in checks, 21 navigation views, real DPAPI/SQLite synthetic persistence/restore, lock and PCC toggles. Actual NSIS install and reinstall exited 0 with matching EXE/ASAR; real uninstaller exited 0, removed folder/registry/shortcuts and preserved synthetic standard-path database/vault byte-for-byte. Installed second-process restart also preserved the original synthetic vault/records and passed 13 acceptance checks, 12 diagnostics and 21 views. Actual ZIP-extracted app passed 13 acceptance checks, 12 diagnostics and 21 views with matching EXE/ASAR.",
+    "localInference": "Small 1.7B, Medium 3B and High 4B each passed two real checksum/inference/cancellation/browser-lane rounds; Extra 8B absent. Real renderer/IPC/Core inference passed Small and installed High, without API key and with PCC off, preserving synthetic medication status as unknown.",
+    "githubActions": "Exact code checkpoint bc964e09 CI 37055284317: all three jobs passed; logs confirmed Linux 471 source tests, 25 hardening, 178 syntax, audit 0 and 406 PE inputs. Merged-main input CI 37050270590 also passed. Final supplemental-documentation publication CI is checked separately on the validation PR.",
+    "reviewNotes": "docs/WINDOWS_VALIDATION_2026-10-02.md"
   },
-  "reviewBaseCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
-  "verificationScope": "Integrated current GitHub 3.0.1-dev with real Core/SQLite/desktop IPC, loopback HTTPS, browser UI and synthetic adapters. No new packaged app, installer, physical phone, real model, live account or installed-data acceptance.",
+  "reviewBaseCommit": "114e0838fac230d33a9deb2996b7dfc736ce9d90",
+  "verificationScope": "Actual unsigned Windows 3.0.1-dev candidate at bc964e09: real package/installer/inference hash-bound evidence passed using isolated synthetic data, alongside real Core/SQLite/IPC/HTTP and browser regression coverage. Representative user-data upgrades, live accounts, physical phone, human clinical/speaker acceptance and Windows restart remain separate.",
   "baseIntegration": {
     "pr": 9,
     "merged": true,
@@ -125,25 +131,41 @@
       6,
       7,
       8,
-      9
+      9,
+      10,
+      11
     ],
-    "checks": "PR #9 merged and main run 36587165573 passed; subsequent Google main run 36640248873 failed after deleting required files."
+    "checks": "PR #9 merged and main run 36587165573 passed; subsequent Google main run 36640248873 failed after deleting required files.",
+    "latestMergedStandalonePR": {
+      "pr": 11,
+      "commit": "114e0838fac230d33a9deb2996b7dfc736ce9d90"
+    }
   },
-  "currentMainCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
+  "currentMainCommit": "114e0838fac230d33a9deb2996b7dfc736ce9d90",
   "windowsAcceptance": {
-    "artifactBuilt": false,
-    "isolatedApplication": false,
-    "syntheticDPAPIRestore": false,
-    "installerExecuted": false,
+    "artifactBuilt": true,
+    "isolatedApplication": true,
+    "packagedApplicationRestart": true,
+    "syntheticDPAPIRestore": true,
+    "installerExecuted": true,
+    "installedApplicationRestart": true,
+    "actualModelInferenceExecuted": true,
+    "releaseEvidenceGatePassed": true,
     "installedDataUpgrade": false,
-    "uninstallReinstall": false,
+    "uninstallReinstall": true,
     "windowsRestart": false,
+    "interactiveInstallerWizard": false,
+    "signed": false,
     "productionReady": false,
-    "scope": "Current combined artifact only; previous evidence preserved in previousIntegrationCheckpoint / previousWindowsCheckpoint."
+    "codeCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
+    "scope": "Current candidate only. Actual clean-app-state install, uninstall with synthetic standard-path SQLite/vault preservation, same-hash reinstall and installed-app restart passed after owner-authorized retirement of unused old app/data. ZIP roundtrip verified all 570 final staging files. No representative existing-data upgrade inferred; historical results remain in previous checkpoints. Actual extracted ZIP application also passed 13 acceptance checks, 12 built-in diagnostics and 21 views.",
+    "syntheticUninstallDataPreservation": true,
+    "zipRoundtripHashVerification": true,
+    "unpackedZipApplicationExecuted": true
   },
   "speakerValidation": "Human participation required; conservative feature preserved, no accuracy claim",
   "clinicalValidation": "Synthetic technical contracts passed; representative de-identified PCC and clinical review pending",
-  "installerSHA256": "24084a22e37846203119bf023cfa045b65bdf34a0a70e2d1cba1617a727cbf22",
+  "installerSHA256": "0aac1fd122501a336251dc7cf6b074a285a65c9cadd53131973494af99bb5ebe",
   "previousWindowsCheckpoint": {
     "lastVerifiedCommit": "5d4772ee9fb70b324a61397ddde93c8b4d1e0f20",
     "lastTested": {
@@ -225,5 +247,101 @@
     ],
     "physicalPhoneTested": false,
     "firewallModified": false
+  },
+  "previousStandaloneIntegrationCheckpoint": {
+    "developmentBranch": "chatgpt/import-local-hardening-2026-10-01",
+    "lastVerifiedCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
+    "lastTested": {
+      "date": "2026-10-02",
+      "platform": "win32",
+      "node": "24.19.0",
+      "command": "node --test --test-concurrency=4 --test-timeout=60000 tests/*.test.cjs",
+      "passed": 471,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "hardening": {
+        "passed": 25,
+        "failed": 0
+      },
+      "dependencyInstall": "Clean locked npm ci --ignore-scripts --no-audit --no-fund: 627 packages",
+      "syntax": "178 JS files passed; PowerShell installer validator parsed without execution",
+      "repositoryPolicy": "292 staged/tracked files passed; historical ZIP members inspected separately",
+      "dependencyAudit": "0 vulnerabilities, including new pinned selfsigned 5.5.0 dependency set",
+      "browserUI": "29 Edge general checks including real Core/HTTPS gateway Settings; restricted development hardening UI; synthetic WhatsApp DOM/UI; PCC off/on/settings and companion screenshots inspected",
+      "releaseManifest": "Local gate blocked: generated helper/runtime EXEs absent in fresh clone. Exact-head CI builds them. No substitute binaries.",
+      "githubActions": "Exact pushed commit checks recorded on the integration PR after publication",
+      "reviewNotes": "docs/LOCAL_HARDENING_INTEGRATION_2026-10-01.md"
+    },
+    "verificationScope": "Integrated current GitHub 3.0.1-dev with real Core/SQLite/desktop IPC, loopback HTTPS, browser UI and synthetic adapters. No new packaged app, installer, physical phone, real model, live account or installed-data acceptance.",
+    "windowsAcceptance": {
+      "artifactBuilt": false,
+      "isolatedApplication": false,
+      "syntheticDPAPIRestore": false,
+      "installerExecuted": false,
+      "installedDataUpgrade": false,
+      "uninstallReinstall": false,
+      "windowsRestart": false,
+      "productionReady": false,
+      "scope": "Current combined artifact only; previous evidence preserved in previousIntegrationCheckpoint / previousWindowsCheckpoint."
+    },
+    "knownCriticalIssues": [
+      "Historical vault/database objects and credential-shaped strings remain in Git history; owner investigation and authorized remediation required",
+      "Windows artifact built and isolated execution passed; installer, existing-install upgrade, uninstall/reinstall and production vault acceptance unperformed",
+      "High 4B inference passed once but repeated execution triggered low-memory protection; no resource protections weakened",
+      "Legacy clinical/speaker/SBAR/credential records require reviewed disposition; no silent deletion",
+      "Representative clinical, real-speaker, account and full UI acceptance remain incomplete",
+      "Existing executive sample records or duplicate renewal tasks created by the faulty Google version require reviewed disposition; repair does not silently delete them"
+    ],
+    "note": "Historical 10/1 source integration before the actual 10/2 Windows candidate validation; PR #11 subsequently merged into main."
+  },
+  "releaseStatusReason": "Unsigned 3.0.1-dev candidate passed actual Windows application, installer and local-model evidence gates; remaining human, representative-data and live-account acceptance prevents production readiness.",
+  "binaryCheckpoint": {
+    "version": "3.0.1-dev",
+    "codeCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
+    "sourceBaseCommit": "114e0838fac230d33a9deb2996b7dfc736ce9d90",
+    "executableSHA256": "4179dce6f3e57e1ea535ed0fa41093275e0e1ef7347d5fe264eb4b81db7e8921",
+    "applicationArchiveSHA256": "d82d1fb13cc37cddd26fe0f7d745533cdec773bc2c207ed05a4397fbf57bd6f1",
+    "runtimeSHA256": "a9a88ca88ef1f3c320c07afe38cf4ab7759cfdef1c692e430c2d32e33f4bcc15",
+    "ciInputRun": 37050270590,
+    "ciInputArtifact": 11247250109,
+    "ciInputSHA256": "cb1578401fad4f5f994269e35cc603afe562d9f78b735f341e8da2be838d0f42",
+    "supplementalDocumentation": "Later documentation commits do not change this tested installer. A rebuild requires new artifact hashes and actual acceptance evidence.",
+    "codeCIRun": 37055284317,
+    "packagedFiles": 570,
+    "packagedPEBinaries": 415,
+    "postNSISAddition": {
+      "path": "resources/elevate.exe",
+      "bytes": 107520,
+      "sha256": "9b1fbf0c11c520ae714af8aa9af12cfd48503eedecd7398d8992ee94d1b4dc37",
+      "provenance": "Standard 32-bit helper matched pinned NSIS 3.0.4.1 cache; existing 569 staging files retained unchanged hashes."
+    }
+  },
+  "localInferenceValidation": {
+    "passed": true,
+    "runtimeHashVerified": true,
+    "rounds": 2,
+    "passedTiers": [
+      "small",
+      "medium",
+      "high"
+    ],
+    "unavailableTiers": [
+      "extra"
+    ],
+    "engineContext": 4096,
+    "engineOutputLimit": 128,
+    "rendererContext": 2048,
+    "rendererOutputLimit": 128,
+    "keylessPCCOffRendererTests": [
+      "small",
+      "high"
+    ],
+    "initialFreeRAMGiB": [
+      5.9,
+      6.5
+    ],
+    "highMeasuredWorkingSetGiB": 4.6,
+    "conditionalOnResources": true
   }
 }

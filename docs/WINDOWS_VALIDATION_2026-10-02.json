@@ -1,0 +1,170 @@
+{
+  "schema": 1,
+  "version": "3.0.1-dev",
+  "codeCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
+  "baseCommit": "114e0838fac230d33a9deb2996b7dfc736ce9d90",
+  "date": "2026-10-02",
+  "platform": "win32",
+  "windows": "Windows 11 Pro 10.0.26200 x64",
+  "node": "24.19.0",
+  "electron": "44.3.0",
+  "syntheticDataOnly": true,
+  "windowsApplicationExecuted": true,
+  "windowsInstallerExecuted": true,
+  "actualModelInferenceExecuted": true,
+  "passed": true,
+  "productionReady": false,
+  "hashes": {
+    "installer": "0aac1fd122501a336251dc7cf6b074a285a65c9cadd53131973494af99bb5ebe",
+    "executable": "4179dce6f3e57e1ea535ed0fa41093275e0e1ef7347d5fe264eb4b81db7e8921",
+    "applicationArchive": "d82d1fb13cc37cddd26fe0f7d745533cdec773bc2c207ed05a4397fbf57bd6f1",
+    "runtime": "a9a88ca88ef1f3c320c07afe38cf4ab7759cfdef1c692e430c2d32e33f4bcc15",
+    "unpackedZIP": "247b371a926eaf2fbb974b0a5787c2e4cd9fb11dbf8b706641ae3da4abf33cd4"
+  },
+  "windowsAcceptance": {
+    "freshStartup": true,
+    "packagedRestart": true,
+    "installedRestart": true,
+    "syntheticDPAPIRestore": true,
+    "installerExitCode": 0,
+    "uninstallerExitCode": 0,
+    "reinstallerExitCode": 0,
+    "syntheticStandardDataRetained": true,
+    "installationRegistryAndShortcutsRemoved": true,
+    "unpackedZIPAllFileHashesMatched": true,
+    "unpackedZIPApplicationExecuted": true,
+    "navigationViews": 21,
+    "builtInChecks": 12,
+    "packagedFiles": 570,
+    "packagedPEBinaries": 415,
+    "extraStandardNSISHelper": {
+      "path": "resources/elevate.exe",
+      "bytes": 107520,
+      "machine": "0x14c",
+      "sections": 6,
+      "sha256": "9b1fbf0c11c520ae714af8aa9af12cfd48503eedecd7398d8992ee94d1b4dc37",
+      "source": "Checksum-verified electron-builder NSIS 3.0.4.1 cache"
+    }
+  },
+  "localInference": {
+    "context": 4096,
+    "maxOutput": 128,
+    "models": [
+      {
+        "tier": "small",
+        "modelSHA256": "72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb",
+        "checksumVerified": true,
+        "passed": true,
+        "rounds": 2,
+        "loadMs": [
+          1688,
+          1704
+        ],
+        "generationMs": [
+          1461,
+          1210
+        ],
+        "workingSetBytes": [
+          2337873920,
+          2338811904
+        ],
+        "cancellationPassed": true,
+        "browserLaneBlockPassed": true
+      },
+      {
+        "tier": "medium",
+        "modelSHA256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff",
+        "checksumVerified": true,
+        "passed": true,
+        "rounds": 2,
+        "loadMs": [
+          2501,
+          2925
+        ],
+        "generationMs": [
+          3503,
+          3083
+        ],
+        "workingSetBytes": [
+          3946024960,
+          3945578496
+        ],
+        "cancellationPassed": true,
+        "browserLaneBlockPassed": true
+      },
+      {
+        "tier": "high",
+        "modelSHA256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "checksumVerified": true,
+        "passed": true,
+        "rounds": 2,
+        "loadMs": [
+          2882,
+          2891
+        ],
+        "generationMs": [
+          3338,
+          4391
+        ],
+        "workingSetBytes": [
+          4954841088,
+          4955369472
+        ],
+        "cancellationPassed": true,
+        "browserLaneBlockPassed": true
+      }
+    ],
+    "unavailableTiers": [
+      "extra"
+    ],
+    "rendererCorePath": {
+      "small": true,
+      "installedHigh": true,
+      "context": 2048,
+      "maxOutput": 128,
+      "apiKeyRequired": false,
+      "pccEnabled": false,
+      "unknownMedicationStatusPreserved": true,
+      "clinicalAccuracyValidated": false
+    }
+  },
+  "sourceChecks": {
+    "windowsTests": 472,
+    "linuxTests": 471,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "hardeningTests": 25,
+    "syntaxFiles": 178,
+    "repositoryFilesAtCodeCheckpoint": 292,
+    "productionDependencyVulnerabilities": 0,
+    "edgeGeneralChecks": 29,
+    "edgeHardeningPassed": true,
+    "syntheticWhatsAppUIPassed": true
+  },
+  "ci": {
+    "inputMainRun": 37050270590,
+    "inputArtifact": 11247250109,
+    "inputZIPHash": "cb1578401fad4f5f994269e35cc603afe562d9f78b735f341e8da2be838d0f42",
+    "inputManifestFiles": 411,
+    "inputPEBinaries": 406,
+    "codeRun": 37055284317,
+    "codeJobsPassed": [
+      "dependencies",
+      "regression",
+      "release-files"
+    ],
+    "finalDocumentationCommitChecks": "See review PR checks; this summary does not predeclare a later commit passed"
+  },
+  "remainingAcceptance": [
+    "Representative existing-data upgrade",
+    "Windows reboot and interactive installer wizard",
+    "Live WhatsApp/account and native browser workflows",
+    "Physical Android pairing/network/certificate acceptance",
+    "Representative clinical/PCC human review",
+    "Real microphone/speaker trials",
+    "Comprehensive human accessibility/visual and sustained workload acceptance",
+    "Code signing and update infrastructure"
+  ],
+  "checkedAt": "2026-10-02T23:28:56.085Z"
+}
