@@ -27,7 +27,7 @@ function requiredString(value, max, allowEmpty = false) {
 }
 function deadline(value) {
   if (value == null) return null;
-  if (!Number.isSafeInteger(value) || value <= 0) throw fail('INVALID');
+  if (!Number.isSafeInteger(value) || value <= 0 || !Number.isFinite(new Date(value).getTime())) throw fail('INVALID');
   return value;
 }
 function assertFields(data, fields) {
@@ -98,7 +98,8 @@ function update(core, data, actor) {
   if (data.complete !== undefined && typeof data.complete !== 'boolean' || data.complete && !note) throw fail('INVALID');
   core.store.transaction(()=>{
     const todo = core.store.get('todo',data.id), meta = core.store.get('wf_action_meta','todo:'+data.id);
-    core.saveTodo({...todo,owner,dueAt,reminderEnabled:!!dueAt,status:data.complete?'completed':todo.status});
+    const reminderEnabled = !!dueAt && (todo.dueAt == null || todo.reminderEnabled !== false);
+    core.saveTodo({...todo,owner,dueAt,reminderEnabled,status:data.complete?'completed':todo.status});
     core.store.put('wf_action_meta','todo:'+data.id,{...meta,reviewRequired:false,note,updatedAt:Date.now(),history:[...(meta.history || []),{at:Date.now(),actorKey:ctx.key,note,owner,dueAt,complete:!!data.complete}].slice(-100)},{expires:expires(core)});
   });
   core.emit({type:'captures_changed'});

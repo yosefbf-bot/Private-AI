@@ -108,6 +108,73 @@ test('acknowledged reminder pages cannot starve older pending work', t => {
   assert.ok(!first.notifications.some(n => n.id === second.notifications[0].id));
 });
 
+test('review edits preserve disabled reminders and the first explicit deadline enables an unknown reminder', t => {
+  const { core } = fixture(t);
+  const actor = { kind: 'companion', id: crypto.randomUUID() };
+  const created = captures.create(core, { sourceId: 'synthetic-disabled-review', text: 'SYNTHETIC follow-up review', dueAt: Date.now() - 1000 }, actor);
+  core.saveTodo({ id: created.actions[0].id, reminderEnabled: false });
+  let item = captures.list(core, actor).actions[0];
+  item = captures.update(core, { id: item.id, revision: item.revision, owner: 'SYNTHETIC reviewer', note: 'Reviewed the source.' }, actor);
+  assert.equal(core.store.get('todo', item.id).reminderEnabled, false);
+  item = captures.update(core, { id: item.id, revision: item.revision, dueAt: Date.now() - 2000, note: 'Corrected the deadline.' }, actor);
+  assert.equal(core.store.get('todo', item.id).reminderEnabled, false);
+  assert.equal(captures.notifications(core, actor).notifications.length, 0);
+  const unknown = captures.create(core, { sourceId: 'synthetic-first-deadline', text: 'SYNTHETIC follow-up without a deadline' }, actor).actions[0];
+  assert.equal(core.store.get('todo', unknown.id).reminderEnabled, false);
+  captures.update(core, { id: unknown.id, revision: unknown.revision, dueAt: Date.now() - 1000, note: 'Confirmed first deadline.' }, actor);
+  assert.equal(core.store.get('todo', unknown.id).reminderEnabled, true);
+  assert.equal(captures.notifications(core, actor).notifications.length, 1);
+});
+
+test('capture deadlines reject unrepresentable dates without changing source or canonical follow-ups', t => {
+  const { core } = fixture(t);
+  const actor = { kind: 'companion', id: crypto.randomUUID() };
+  assert.throws(() => captures.create(core, { sourceId: 'synthetic-invalid-date', text: 'SYNTHETIC follow-up', dueAt: Number.MAX_SAFE_INTEGER }, actor), { code: 'INVALID' });
+  assert.equal(core.store.count('capture_note'), 0);
+  assert.equal(core.store.count('todo'), 0);
+  const item = captures.create(core, { sourceId: 'synthetic-valid-date', text: 'SYNTHETIC follow-up', dueAt: Date.now() + 3600000 }, actor).actions[0];
+  assert.throws(() => captures.update(core, { id: item.id, revision: item.revision, dueAt: Number.MAX_SAFE_INTEGER }, actor), { code: 'INVALID' });
+  assert.equal(core.store.get('todo', item.id).dueAt, item.dueAt);
+  assert.doesNotThrow(() => new Date(item.dueAt).toISOString());
+});
+
+test('locked WhatsApp due reminders require both the lock opt-in and selected background write permission', async t => {
+  const { core } = fixture(t);
+  const bridge = new MessagingBridge(core);
+  t.after(() => bridge.close());
+  const target = { adapter: 'web', groupId: '123456789@g.us', groupName: 'SYNTHETIC selected conversation', mode: 'commands', backgroundReplies: true, senders: ['123456789@c.us'] };
+  bridge.verified.add(JSON.stringify(['web', target.groupId, target.groupName]));
+  bridge.save({ enabled: true, warningAccepted: true, allowTasks: true, readAll: false, conversations: [target] });
+  const account = new WhatsAppAccount(core), messages = [];
+  account.state = 'connected';
+  account.client = {
+    getChatById: async id => ({ id, name: target.groupName, fetchMessages: async () => [] }),
+    sendMessage: async (id, body) => { messages.push(body); return { id: 'synthetic-sent-' + messages.length, fromMe: true, to: id, body }; }
+  };
+  bridge.adapters.web = account;
+  const capture = await bridge.captureCommand(account, { ...bridge.settings(), ...target, generation: bridge.generation }, { id: 'synthetic-locked-reminder', sender: target.senders[0], time: Date.now() }, '/remind 2026-01-01T09:00:00Z SYNTHETIC due follow-up');
+  assert.match(capture, /Saved note/);
+  core.locked = true;
+  await bridge.tick();
+  assert.equal(messages.length, 0, 'Locked sends remain off by default');
+  core.locked = false;
+  bridge.save({ allowWhileLocked: true, conversations: [{ ...target, backgroundReplies: false }] });
+  core.locked = true;
+  await bridge.tick();
+  assert.equal(messages.length, 0, 'The lock opt-in does not grant background conversation writes');
+  core.locked = false;
+  bridge.save({ conversations: [target] });
+  core.locked = true;
+  await bridge.tick();
+  assert.equal(messages.length, 1);
+  assert.match(messages[0], /saved follow-up is due/);
+  assert.doesNotMatch(messages[0], /SYNTHETIC due follow-up/);
+  assert.equal(core.store.list('capture_delivery')[0].status, 'sent');
+  assert.throws(() => core.summary(), { code: 'LOCKED' }, 'General desktop access remains locked');
+  await bridge.tick();
+  assert.equal(messages.length, 1, 'Confirmed reminders are not repeated');
+});
+
 test('draft bounds reject additional records while allowing existing drafts to be revised', t => {
   const { core } = fixture(t);
   const actor = { kind: 'companion', id: crypto.randomUUID() };

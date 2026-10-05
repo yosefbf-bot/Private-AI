@@ -82,7 +82,8 @@ class MessagingBridge{
   return `Saved note ${result.capture.id.slice(0,8)} and ${result.actions.length} review item(s). `+(dueAt?'Reminder deadline saved. ':'Owner and any ambiguous deadline need review in Notes and rounds. ')+(evidenceIds.length?'Attachment preserved as evidence; no image interpretation claimed. ':'')+(draftChannel?`${draftChannel==='outlook'?'Outlook':'WhatsApp'} draft prepared for review. Nothing sent. `:'')+'Open Private AI → Action Center → Notes and rounds.';
  }
  async reminders(adapter){
-  if(this.core.locked||!this.settings().enabled||!this.settings().allowTasks)return;
+  const settings=this.settings();
+  if(this.core.locked&&!settings.allowWhileLocked||!settings.enabled||!settings.allowTasks)return;
   for(const route of this.core.store.list('capture_whatsapp_route')){
    const current=this.settings(),c=selected(current,{...route,adapter:route.adapter});
    if(!c||!c.senders.includes(route.sender)||!writable(current,route)||!require('./messaging-policy.cjs').backgroundReplyAllowed(this.core,route))continue;

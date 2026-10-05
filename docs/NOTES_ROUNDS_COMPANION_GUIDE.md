@@ -47,5 +47,9 @@ WhatsApp reminders return to the source conversation only while current sender/d
 - Internal approval no longer claims an external dispatch.
 - Android real mode reports actual responses/unknown telemetry. Unsupported job controls report their limitation instead of simulated success; their planned screens remain.
 - Phone workflow views are bounded and show truncation. Review older records on the desktop. Phone chat history is its own or explicitly shared.
+- Follow-up edits preserve reminders explicitly disabled in Action Center. Giving an undated action its first confirmed deadline enables a reminder; invalid dates are rejected.
+- WhatsApp due reminders may run while the PC app is locked only with the existing explicit locked/background permissions. The general desktop lock stays in force.
+- Phone retries retain the original privacy requirements and device pairing. Re-pairing cannot silently move older pending work. A failed AI request does not prevent refreshing non-AI records.
+- A phone note saved locally stays saved if the later desktop refresh fails. Vault note summaries omit encoded photo bytes; the original encrypted evidence stays intact.
 
 Source/Core/SQLite/HTTPS and synthetic UI checks are distinct from physical Android, LAN, live WhatsApp/accounts and packaged Windows acceptance. No real messages/mailbox writes/PHI are required for development tests. New binaries require their own acceptance evidence; earlier Windows flags belong to the earlier candidate only.

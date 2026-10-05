@@ -610,6 +610,16 @@ let browser;
   await desktop.locator('#modal-submit').click();
   assert.equal(core.store.list('capture_draft')[0].body,'Please review the source observation.');
   checks.push('Notes and rounds saves source/evidence, reloads reviewed canonical follow-up and edits internal draft');
+  const captures=require('../source/capture-workflows.cjs');
+  for(let i=0;i<40;i++)captures.create(core,{sourceId:'synthetic-bounded-notes-'+i,text:'SYNTHETIC bounded note '+i+' '+ '#'.repeat(11800)});
+  const bounded=captures.list(core);
+  assert.equal(bounded.truncated,true);
+  assert.ok(bounded.captures.length<100,'The response byte limit is reached before the note-count limit');
+  await desktop.locator('#sidebar [data-view="actions"]').click();
+  await desktop.locator('#sidebar [data-view="captures"]').click();
+  await desktop.getByText('Showing a bounded set of recent notes; use Action Center for other follow-ups.',{exact:true}).waitFor();
+  assert.equal(await desktop.locator('#content article.card').count(),bounded.captures.length);
+  checks.push('Notes list explains byte-limited truncation and renders the actual bounded result');
   assert.deepEqual(errors, []);
   checks.push("No browser JavaScript errors");
   const result = {
