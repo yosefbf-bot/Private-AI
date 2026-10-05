@@ -1,5 +1,64 @@
 # Shared AI development handoff
-## Current integration — 2026-10-02
+## Current Windows validation — 2026-10-02
+
+PR #11 is merged. Latest GitHub main was fetched and verified as
+`114e0838fac230d33a9deb2996b7dfc736ce9d90`, matching the 10/1 integration tree.
+Validation branch: `chatgpt/windows-validation-2026-10-02`.
+The tested **3.0.1-dev** binary is built from code checkpoint
+`bc964e09c28e996178196661bfccdcef6d3fac41`; later handoff/guide commits are supplemental
+and do not change its hashes. Read [the dated Windows report](docs/WINDOWS_VALIDATION_2026-10-02.md)
+and `PROJECT_STATUS.json` before making release claims.
+
+Actual Windows application, installer and local-model execution now passed the
+unchanged hash-bound release evidence gate. The NSIS installer exited 0 and its
+installed EXE/ASAR match the tested package. Fresh/restart packaged runs passed
+real DPAPI/SQLite synthetic persistence/restore, 12 built-in diagnostics, 21 views,
+IPC lock, optional PCC and independent WhatsApp controls. No live messages were sent.
+With no API key and PCC off, real renderer/IPC/Core inference through Small and
+the installed High model kept synthetic unavailable medication status **unknown**.
+
+Small 1.7B, Medium 3B and High 4B passed two real inference rounds, including model
+checksums, cancellation and browser-lane guards. Initially available RAM was about
+5.9–6.5 GiB; High used about 4.6 GiB at context 4096. High remains conditional on
+available RAM/workload; no protection was weakened. Extra 8B is absent and untested.
+The earlier High low-memory failure is historical evidence, not this candidate's result.
+
+Source checks: **472 Windows tests**, **25 overlapping hardening tests**, **178 JS
+syntax checks**, repository policy and zero-vulnerability production audit; **29 Edge
+general UI checks**, updated restricted hardening UI and synthetic WhatsApp UI passed.
+Linux registers 471 tests because the added interoperability test genuinely requires
+Windows PowerShell 5.1. Merged-main CI run 37050270590 supplied hash-verified release
+inputs. Exact code-checkpoint CI run 37055284317 passed all three jobs, including
+471 Linux tests, 25 hardening, 178 syntax checks, zero audit findings and 406 PE inputs.
+Later supplemental-documentation publication CI is checked separately on the PR.
+
+Two bounded fixes are included: the installer validator writes BOM-free UTF-8 that
+the existing evidence gate can parse in PowerShell 5.1, and Today renders unavailable
+census/occupancy/HPPD explicitly with neutral styling while preserving confirmed zero.
+
+The owner authorized replacement of the unused old app/data; a recovery copy was
+preserved outside Git and was not used as clinical/test input. This is clean-app-state
+installation acceptance, not representative existing-data upgrade acceptance.
+The actual candidate uninstaller exited 0, preserved synthetic standard-path
+database/vault bytes and removed its folder/registry/shortcuts; same-hash reinstall
+and installed second-process restart passed with the original synthetic vault/records.
+The post-NSIS final stage has 570 files/415 PE binaries; its standard helper addition
+matched the pinned builder cache and every ZIP roundtrip file hash was verified.
+The actual ZIP-extracted application passed 13 acceptance checks, 12 diagnostics
+and 21 navigation views with the same EXE/ASAR hashes.
+Windows restart, interactive wizard, representative clinical/PCC, real speakers,
+live WhatsApp/accounts/native browser connections and physical Android acceptance
+remain pending. The installer is unsigned and the development candidate is not a
+production or HIPAA compliance certification. The fresh live app still requires
+local-model configuration; GGUF weights are not bundled.
+
+Use [the standalone guide](docs/INTEGRATED_STANDALONE_GUIDE.md) for local setup, optional
+PCC and Messaging. Android must implement the certificate and pairing contract in
+`docs/ANDROID_COMPANION_CONTRACT.md`; no phone acceptance or automatic firewall change
+is inferred. Keep the current GitHub architecture, earlier preserved functionality,
+all vault/security boundaries and the unchanged release gate.
+
+## Historical 10/1 standalone integration checkpoint
 
 GitHub main `0a7ec92fa18c52ed8983aa06803977e3a220cf02` was fetched/verified before
 integration and again before publication. Active branch:
@@ -30,7 +89,7 @@ No firewall rule or development IPC exposure was added. Main is for the user to 
 
 Read `AGENTS.md`, `GEMINI.md`, `PROJECT_STATUS.json`, `ARCHITECTURE.md`, and `docs/AI_STUDIO_REVIEW_2026-09-25.md` before changes. GitHub is authoritative; record the exact base SHA and inspect the latest source/history. Roadmap entries, old manuals and UI mockups are not implemented-feature evidence.
 
-## Current workstream
+## Historical workstreams and preserved implementation details
 
 PR #9 is merged at `a4127e09472b03337346c47be8fee964330854cf`; its main CI passed (36587165573). Latest main fetched on 2026-09-29 is `a5d22b623c5c49fccd36b41bd4488d2a64fac346`, whose Google update deleted the lockfile/build inputs and failed all three CI jobs (36640248873). Current repair branch: `chatgpt/google-main-ci-repair-2026-09-29`. Verified code checkpoint `ec0ae9c74123eb74c410e8865609ddcf8aeacbe5`: 414 tests, 25 hardening tests, Edge hardening UI, syntax/policy, zero-finding audit and 406 PE release inputs passed. Read `docs/GOOGLE_MAIN_REPAIR_2026-09-29.md` and the mandatory `docs/GOOGLE_AI_STUDIO_GUARDRAILS.md`. Previous packaged Windows evidence is historical; installer and human acceptance remain blocked. Existing faulty-version executive samples/tasks need reviewed disposition, not silent deletion.
 

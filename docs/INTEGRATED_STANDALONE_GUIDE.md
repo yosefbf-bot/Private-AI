@@ -1,9 +1,37 @@
 # Standalone clinical use and optional connections
 
-This supplement describes the combined **3.0.1-dev source branch**, not a newly
-validated installer. Existing user data and the installed application are unchanged
-by a GitHub branch. Review and merge the PR, then follow the release build and actual
-Windows acceptance process before distributing an installer or portable package.
+This supplement covers the combined **3.0.1-dev** application and the Windows
+candidate validated on 2026-10-02. Its actual application, installer and local-model
+checks passed; see [the tested hashes and scope](WINDOWS_VALIDATION_2026-10-02.md).
+It is an unsigned development candidate. Human clinical, live-account/phone and
+representative existing-data upgrade acceptance remain separate.
+
+## First use on this PC or a new PC
+
+1. Install the matching `PrivateAI-Setup-3.0.1-dev-x64.exe` candidate. A GitHub merge
+   alone does not update an installed application. Windows may show an unsigned-app
+   notice; verify the installer hash against the candidate report.
+2. Open **AI Processing**, choose **Local Only**, and select/configure a local model.
+   The installer includes the inference runtime, but does not include GGUF weights
+   or copy the acceptance tests' model settings into your live profile. Existing
+   downloaded models can be selected; a new PC needs a model download or an approved
+   local model file before model-based inference works offline.
+3. Start with **Small**. The tested PC had about 5.9–6.5 GiB available during model
+   checks; High worked in those conditions but still depends on current RAM and
+   workload. Prefer Small or Medium if other programs reduce available memory.
+   Extra 8B was not installed or tested. Keep the resource protections enabled.
+4. Use **Projects & Documents**, **Clinical imports**, **Operations & Meetings** and
+   the built-in guide as needed. Missing data remains unavailable/unknown. Today
+   now shows unmeasured census/occupancy/HPPD plainly in neutral styling; confirmed
+   zero remains a recorded zero.
+5. Configure **Messaging** only when ready to connect your WhatsApp account and
+   choose exactly which conversations may receive replies. No live WhatsApp account
+   was connected by the acceptance tests.
+
+The portable package launches the same desktop application; the actual extracted
+ZIP app passed its Windows acceptance checks with matching payload hashes. It needs
+the same model configuration. It is not a mobile app; Windows-protected data is not a
+portable vault that can be copied freely between Windows accounts or PCs.
 
 ## Use Private AI without cloud or PCC
 

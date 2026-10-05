@@ -50,6 +50,7 @@ try {
   throw
 } finally {
   $result.completed=[DateTime]::UtcNow.ToString('o')
-  $result | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidencePath 'installer-evidence.json') -Encoding UTF8
+  # Windows PowerShell 5.1's Set-Content UTF8 adds a BOM that Node JSON.parse rejects.
+  [IO.File]::WriteAllText((Join-Path $evidencePath 'installer-evidence.json'), ($result | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
 }
 Write-Output 'Actual clean Windows installer and installed application checks passed. Local-model inference and live integration acceptance are separate checks.'

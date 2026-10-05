@@ -23,6 +23,15 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   assert.match(await criticalCard.innerText(),/Incomplete/i);
   assert.doesNotMatch(await criticalCard.innerText(),/\bClear\b/i);
   assert.equal(await criticalCard.evaluate(el=>el.classList.contains('kpi-success')),false);
+  await page.locator('#today-ops-sub').filter({hasText:'Staffing data unavailable'}).waitFor();
+  const operationsCard=page.locator('#today-operations-summary-card');
+  const operationsText=await operationsCard.innerText();
+  assert.match(operationsText,/Imported resident count unavailable/);
+  assert.match(operationsText,/Occupancy unavailable/);
+  assert.match(operationsText,/HPPD unavailable/);
+  assert.doesNotMatch(operationsText,/Unknown%|0 active residents|Staffing data available/);
+  assert.equal(await operationsCard.locator('.today-ops-hppd').evaluate(el=>getComputedStyle(el).color),'rgb(100, 116, 139)','Unavailable HPPD must use neutral styling');
+  assert.equal(await operationsCard.evaluate(el=>el.classList.contains('kpi-success')),false);
   await page.locator('#btn-toggle-demo').click();
   await page.locator('#btn-return-prod').waitFor();
   await page.locator('#section-data-health').waitFor();assert.equal(await page.locator('#btn-goto-pcc').isVisible(),true);

@@ -764,7 +764,10 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
         const opsValEl = container.querySelector('#today-ops-val');
         const opsSubEl = container.querySelector('#today-ops-sub');
         if (opsValEl) {
-          opsValEl.innerHTML = `<span style="font-size:16px;">${census.activeResidents ?? 'Unknown'} imported residents (${census.occupancyRate ?? 'Unknown'}% occupancy)</span> · <span style="font-size:14px;color:#16a34a;">${staffing.actualTotalHppd ?? 'Unknown'} HPPD</span>`;
+          const residents = Number.isFinite(census.activeResidents) ? `${esc(String(census.activeResidents))} active residents in imported records` : 'Imported resident count unavailable';
+          const occupancy = Number.isFinite(census.occupancyRate) ? `${esc(String(census.occupancyRate))}% occupancy` : 'Occupancy unavailable';
+          const hppd = Number.isFinite(staffing.actualTotalHppd) ? `${esc(String(staffing.actualTotalHppd))} HPPD` : 'HPPD unavailable';
+          opsValEl.innerHTML = `<span style="font-size:16px;">${residents} · ${occupancy}</span> · <span class="today-ops-hppd" style="font-size:14px;color:#64748b;">${hppd}</span>`;
         }
         if (opsSubEl) {
           opsSubEl.textContent = `Staffing data unavailable · ${ops.meetings?.todayCount || 0} standups today · ${ops.meetings?.pendingActionItemsCount || 0} action items`;

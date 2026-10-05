@@ -6,11 +6,49 @@ Follow [Google AI Studio guardrails](docs/GOOGLE_AI_STUDIO_GUARDRAILS.md) before
 
 Read `AGENTS.md`, `AI_HANDOFF.md`, `PROJECT_STATUS.json`, and `docs/AI_STUDIO_REVIEW_2026-09-25.md` first.
 
-PRs #4–#9 are merged. Latest main fetched on 2026-09-29 is `a5d22b623c5c49fccd36b41bd4488d2a64fac346`; its Google update broke all three CI jobs by deleting the lockfile and Windows build assets. Repair PR #10 restores them and addresses executive Production/Demo regressions. Read `docs/GOOGLE_MAIN_REPAIR_2026-09-29.md` for current evidence and `PROJECT_STATUS.json` for the verified code checkpoint. Refresh from GitHub after reviewed fixes merge; do not overwrite the repository from an older export.
+PRs #4–#11 are merged. Latest main fetched and verified on 2026-10-02 is
+`114e0838fac230d33a9deb2996b7dfc736ce9d90`; it includes the newer architecture plus
+the preserved standalone/clinical/WhatsApp/Android gateway work. Active validation
+branch: `chatgpt/windows-validation-2026-10-02`. The actual **3.0.1-dev** binary is
+code checkpoint `bc964e09c28e996178196661bfccdcef6d3fac41`; later documentation is
+supplemental. Fetch main before every new task and again before publication.
+Refresh from GitHub after reviewed fixes merge; never replace it with an older export.
+
+Read [current Windows validation](docs/WINDOWS_VALIDATION_2026-10-02.md). Actual
+application, NSIS installation and real local-model inference passed the unchanged
+artifact-hash gate. Small/Medium/High passed twice with current available RAM;
+keyless/PCC-off renderer/IPC/Core inference passed Small and installed High using
+synthetic unknown medication status. Resource/privacy protections remain enabled.
+Extra is absent and untested. Source checks passed 472 tests on Windows, 25 hardening,
+178 syntax files, 29 Edge general checks, restricted hardening and synthetic Messaging
+UI, repository policy and zero production-audit vulnerabilities. Exact code-checkpoint
+CI 37055284317 passed all three jobs. Linux has 471 tests
+because actual Windows PowerShell 5.1 interoperability is Windows-only.
+
+The two behavior fixes are BOM-free installer evidence output and neutral, explicit
+unavailable Today metrics; confirmed numeric zero is retained. General clinical
+capabilities and optional PCC/WhatsApp/gateway permissions are preserved.
+Actual candidate uninstall/reinstall and installed restart passed, preserving
+synthetic database/vault bytes and reinstalling the same payload. The final
+post-NSIS stage is 570 files/415 PE binaries; its standard helper addition matched
+the pinned cache, and ZIP roundtrip hashes passed for every file.
+The actual ZIP-extracted app also passed 13 acceptance checks, 12 diagnostics and
+21 views; this does not make encrypted data portable across Windows accounts.
+Representative installed-data upgrade, Windows restart, interactive wizard,
+clinical/speaker/live WhatsApp/account/browser/physical-phone acceptance remain
+pending. The installer is unsigned; these are development-candidate results,
+not a production-readiness or HIPAA certification. Do not infer a configured local
+model in a fresh installation from isolated acceptance tests.
 
 Use an isolated `studio/*` branch and a pull request. If the integration cannot use a separate branch, provide a reviewable patch and stop publication. Never replace the full repository with the files visible in the web preview. Preserve lockfiles, Windows build assets and security gates. Read the current source before claiming a feature exists.
 
-Historical PR #9 release-validation evidence: 384 regression tests, 25 overlapping hardening tests, 27 Edge UI checks, four-browser synthetic checks and zero production audit findings. Its Windows package/unsigned installer was built; isolated packaged DPAPI restart/restore and built-in checks passed. This is not a package built from the newer Google update. Repair PR #10 passes 414 regression tests, 25 hardening tests and expanded Edge hardening UI; no new installer acceptance is claimed. Installer/installed-data, representative PCC, real speakers and real account/Bitwarden/native-companion acceptance remain unperformed. High-tier local inference is conditional on RAM: an initial pass was followed by a low-memory stop. Read `docs/WINDOWS_RELEASE_VALIDATION_2026-09-28.md` and `docs/HUMAN_ACCEPTANCE_2026-09-29.md`; do not promote these checkpoints to production-ready or overwrite installed vaults.
+Historical checkpoints remain in `PROJECT_STATUS.json` and the dated reports.
+PR #9 passed 384 source tests and isolated packaged checks but did not execute its
+installer. Repair PR #10 passed 414 source tests after the Google update deleted
+required build files; see `docs/GOOGLE_MAIN_REPAIR_2026-09-29.md`. The older High
+low-memory stop remains in that history. It must not be reported as the current
+candidate's outcome. Read `docs/HUMAN_ACCEPTANCE_2026-09-29.md` for remaining human
+tests; do not overwrite an installation/vault without its owner's authorization.
 
 Any UI task must include the backend contract and save/reload behavior. Do not create plausible sample clinical facts or fake audio telemetry to make a screen look finished. Use empty/unknown states and clearly describe unimplemented capabilities. Run the documented tests and report the exact failures; do not alter tests to expect fabricated production data.
 
