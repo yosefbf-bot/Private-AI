@@ -4,11 +4,14 @@ const https = require('node:https');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const net = require('node:net');
-const {fail, safeError, uuid} = require('./security.cjs');
+const {fail, safeError, uuid, isId} = require('./security.cjs');
+const captures = require('./capture-workflows.cjs');
 const {createCertificate, describeCertificate, tlsOptions} = require('./companion-tls.cjs');
 const DEFAULT = Object.freeze({enabled: false, host: '127.0.0.1', port: 8443});
 const PREFIX = '/mobile/api/v1';
 const MAX_BODY = 192 * 1024;
+const SCOPES = ['chat','tasks','alerts','workflow','notifications'];
+const CAPABILITIES = ['conversations','captures','actions','drafts','evidence-chunks','reminder-notifications'];
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const allowedId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 function privateAddress(host) {
@@ -43,7 +46,7 @@ class CompanionGateway {
     this.server = null; this.sockets = new Set(); this.active = new Map(); this.generation = 0; this.error = null; this.changing = false; this.closed = false; this.rate = new Map();
   }
   settings() { return {...DEFAULT, ...this.core.store.get('companion', 'settings')}; }
-  devices() { return this.core.store.list('companion_device').map(({id, name, scopes, created}) => ({id, name, scopes, created})); }
+  devices() { return this.core.store.list('companion_device').map(({id, name, scopes, created, sharedChats = [], notificationsWhileLocked = false}) => ({id, name, scopes, created, sharedChats, notificationsWhileLocked})); }
   status() {
     const settings = this.settings(), saved = this.core.store.get('secret', 'companion_tls');
     let certificate = null;
@@ -104,17 +107,33 @@ class CompanionGateway {
     this.error = null;
   }
   close() { this.closed = true; this.stop(); }
-  pair({name, scopes = {chat: true}}) {
+  pair({name, scopes = {chat: true}, sharedChats = [], notificationsWhileLocked = false}) {
     this.assertDesktop();
     if (!this.server?.listening || this.changing) throw fail('COMPANION_BIND');
-    if (typeof name !== 'string' || !name.trim() || name.length > 60 || /[\u0000-\u001f]/.test(name) || !scopes || typeof scopes !== 'object' || Array.isArray(scopes) || Object.entries(scopes).some(([k,v]) => !['chat','tasks','alerts'].includes(k) || typeof v !== 'boolean')) throw fail('INVALID');
+    if (typeof name !== 'string' || !name.trim() || name.length > 60 || /[\u0000-\u001f]/.test(name) || !scopes || typeof scopes !== 'object' || Array.isArray(scopes) || Object.entries(scopes).some(([k,v]) => !SCOPES.includes(k) || typeof v !== 'boolean')) throw fail('INVALID');
+    this.validateSharedChats(sharedChats);
+    if (sharedChats.length && !scopes.chat) throw fail('INVALID');
+    if (typeof notificationsWhileLocked!=='boolean' || notificationsWhileLocked && !scopes.notifications) throw fail('INVALID');
     if (this.devices().length >= 10) throw fail('LIMIT');
     const key = crypto.randomBytes(32).toString('base64url');
-    const device = {id: uuid(), name: name.trim(), scopes: {chat: false, tasks: false, alerts: false, ...scopes}, keyHash: digest(key), created: Date.now()};
+    const notificationKey = scopes.notifications ? crypto.randomBytes(32).toString('base64url') : null;
+    const device = {id: uuid(), name: name.trim(), scopes: Object.fromEntries(SCOPES.map(k=>[k,scopes[k]===true])), sharedChats, notificationsWhileLocked, keyHash: digest(key),notificationKeyHash:notificationKey?digest(notificationKey):null, created: Date.now()};
     this.core.store.put('companion_device', device.id, device);
     const s = this.settings(), certificate = describeCertificate(this.core.store.get('secret', 'companion_tls'),s.host);
     const params = new URLSearchParams({host:s.host, port:String(s.port), scheme:'https', key, fingerprint:certificate.fingerprint, certificate:certificate.certificate});
-    return {id:device.id, name:device.name, key, baseUrl:`https://${s.host}:${s.port}`, pairingUrl:`privateai://pair?${params}`, ...certificate};
+    if(notificationKey)params.set('notificationKey',notificationKey);
+    return {id:device.id, name:device.name, key,...(notificationKey?{notificationKey}:{}), baseUrl:`https://${s.host}:${s.port}`, pairingUrl:`privateai://pair?${params}`, ...certificate};
+  }
+  validateSharedChats(ids) {
+    if (!Array.isArray(ids) || ids.length>50 || new Set(ids).size!==ids.length || ids.some(id=>!isId(id) || !this.core.store.get('chat',id) || this.core.store.get('chat',id).archived)) throw fail('INVALID');
+  }
+  grant({id,sharedChats}) {
+    this.assertDesktop(); this.validateSharedChats(sharedChats);
+    const device = this.core.store.get('companion_device',id);
+    if (!device || !device.scopes.chat) throw fail('NOT_FOUND');
+    this.core.store.put('companion_device',id,{...device,sharedChats});
+    for (const job of this.active.values()) if (job.deviceId===id && job.session?.startsWith('shared_') && !sharedChats.includes(job.chatId)) { job.controller.abort(); this.core.stop(job.chatId); }
+    return this.status();
   }
   revoke(id) {
     this.assertDesktop();
@@ -127,15 +146,18 @@ class CompanionGateway {
     const key = req.headers['x-pair-key'];
     if (typeof key !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(key)) throw httpError('COMPANION_AUTH',401);
     const hash = Buffer.from(digest(key),'hex');
-    const device = this.core.store.list('companion_device').find(d => typeof d.keyHash === 'string' && /^[a-f0-9]{64}$/.test(d.keyHash) && crypto.timingSafeEqual(hash,Buffer.from(d.keyHash,'hex')));
+    const matches=value=>typeof value==='string' && /^[a-f0-9]{64}$/.test(value) && crypto.timingSafeEqual(hash,Buffer.from(value,'hex'));
+    const device = this.core.store.list('companion_device').find(d=>matches(d.keyHash)||matches(d.notificationKeyHash));
     if (!device) throw httpError('COMPANION_AUTH',401);
-    return device;
+    return {...device,notificationOnly:matches(device.notificationKeyHash)};
   }
   assertSession(device, generation, scope) {
     if (this.closed || generation !== this.generation || !this.settings().enabled || !this.server?.listening) throw httpError('COMPANION_AUTH',401);
     const current = this.core.store.get('companion_device',device.id);
     if (!current || current.keyHash !== device.keyHash) throw httpError('COMPANION_AUTH',401);
+    if (device.notificationOnly && (current.notificationKeyHash!==device.notificationKeyHash || scope && scope!=='notifications')) throw httpError('POLICY',403);
     if (scope && current.scopes[scope] !== true) throw httpError('POLICY',403);
+    if (this.core.locked && device.notificationOnly && scope==='notifications' && current.notificationsWhileLocked && current.scopes.notifications) return;
     if (this.core.locked) throw httpError('LOCKED',423);
     this.core.assertUnlocked();
   }
@@ -152,12 +174,13 @@ class CompanionGateway {
       if (req.headers.host !== `${s.host}:${s.port}` || req.headers.origin || req.headers['sec-fetch-site'] || !req.url.startsWith(PREFIX+'/') || req.url.includes('?') || req.url.includes('#')) throw httpError('POLICY',403);
       this.throttle(req.socket.remoteAddress || 'unknown');
       const device = this.authenticate(req), generation = this.generation;
-      this.assertSession(device,generation);
+      if(device.notificationOnly && !((req.method==='GET'&&req.url===PREFIX+'/notifications')||(req.method==='POST'&&req.url===PREFIX+'/notifications/ack')))throw httpError('POLICY',403);
+      this.assertSession(device,generation,device.notificationOnly?'notifications':undefined);
       let response;
       if (req.method === 'GET' && req.url === PREFIX+'/status') {
         const local = this.core.router.local?.status();
         const jobs = device.scopes.tasks ? this.core.store.list('job') : null;
-        response = {status:'ONLINE', serverName:os.hostname(), loadedModel:local?.state === 'ready' ? local.model : null, localModelState:local?.state || 'unavailable', cpuUsage:null, gpuUsage:null, vramUsedGb:null, vramTotalGb:null, activeJobs:jobs ? jobs.filter(j => ['queued','running','waiting','paused'].includes(j.status)).length : null, uptime:`${Math.floor((Date.now()-this.started)/1000)}s`, processingMode:this.core.settings().processingMode, provider:this.core.settings().provider, scopes:device.scopes, protocolVersion:1};
+        response = {status:'ONLINE', serverName:os.hostname(), loadedModel:local?.state === 'ready' ? local.model : null, localModelState:local?.state || 'unavailable', cpuUsage:null, gpuUsage:null, vramUsedGb:null, vramTotalGb:null, activeJobs:jobs ? jobs.filter(j => ['queued','running','waiting','paused'].includes(j.status)).length : null, uptime:`${Math.floor((Date.now()-this.started)/1000)}s`, processingMode:this.core.settings().processingMode, provider:this.core.settings().provider, scopes:device.scopes, protocolVersion:1,capabilities:CAPABILITIES};
       } else if (req.method === 'GET' && req.url === PREFIX+'/tasks') {
         this.assertSession(device,generation,'tasks');
         const rows = this.core.store.list('job');
@@ -170,20 +193,37 @@ class CompanionGateway {
         this.assertSession(device,generation,'chat');
         const data = await readJSON(req);
         response = await this.chat(device,generation,data,res);
+      } else if (req.method === 'GET' && req.url === PREFIX+'/conversations') {
+        this.assertSession(device,generation,'chat'); response = this.conversations(device);
+      } else if (req.method === 'POST' && req.url === PREFIX+'/conversations/history') {
+        this.assertSession(device,generation,'chat'); response = this.history(device,await readJSON(req));
+      } else if (req.method === 'GET' && req.url === PREFIX+'/actions') {
+        this.assertSession(device,generation,'workflow'); response = captures.list(this.core,{kind:'companion',id:device.id});
+      } else if (req.method === 'GET' && req.url === PREFIX+'/notifications') {
+        this.assertSession(device,generation,'notifications'); response = device.notificationOnly?captures.backgroundNotifications(this.core,device):captures.notifications(this.core,{kind:'companion',id:device.id});
+      } else if (req.method === 'POST' && ['/captures/create','/actions/update','/drafts/save','/evidence/write','/evidence/read','/notifications/ack'].some(p=>req.url===PREFIX+p)) {
+        const endpoint = req.url.slice(PREFIX.length);
+        this.assertSession(device,generation,endpoint==='/notifications/ack'?'notifications':'workflow');
+        const data = await readJSON(req); this.assertSession(device,generation,endpoint==='/notifications/ack'?'notifications':'workflow');
+        const fn = {'/captures/create':'create','/actions/update':'update','/drafts/save':'saveDraft','/evidence/write':'writeEvidence','/evidence/read':'readEvidence','/notifications/ack':'acknowledge'}[endpoint];
+        response = endpoint==='/notifications/ack'&&device.notificationOnly?captures.backgroundAcknowledge(this.core,data,device):captures[fn](this.core,data,{kind:'companion',id:device.id});
       } else throw httpError('NOT_FOUND',404);
-      this.assertSession(device,generation);
+      this.assertSession(device,generation,device.notificationOnly?'notifications':undefined);
       sendJSON(res,200,response);
-    } catch (e) { sendJSON(res,e.status || (e.code === 'BUSY' ? 409 : e.code === 'INVALID' ? 400 : e.code === 'LIMIT' ? 413 : e.code === 'LOCKED' ? 423 : e.code === 'POLICY' ? 403 : 503),{error:safeError(e)}); }
+    } catch (e) { sendJSON(res,e.status || (['BUSY','CHANGED','REVIEW_CHANGED'].includes(e.code) ? 409 : e.code === 'NOT_FOUND' ? 404 : e.code === 'INVALID' ? 400 : e.code === 'LIMIT' ? 413 : e.code === 'LOCKED' ? 423 : e.code === 'POLICY' ? 403 : 503),{error:safeError(e)}); }
   }
   async chat(device,generation,data,res) {
     this.assertSession(device,generation,'chat');
-    if (Object.keys(data).some(k => !['prompt','sessionId','requestId','attachmentName','attachmentType'].includes(k)) || typeof data.prompt !== 'string' || !data.prompt.trim() || data.prompt.length > 40000) throw httpError('INVALID',400);
+    if (Object.keys(data).some(k => !['prompt','sessionId','requestId','attachmentName','attachmentType','requireLocal','requireHipaa'].includes(k)) || typeof data.prompt !== 'string' || !data.prompt.trim() || data.prompt.length > 40000 || ['requireLocal','requireHipaa'].some(k=>data[k]!==undefined && typeof data[k]!=='boolean')) throw httpError('INVALID',400);
     if (data.attachmentName || data.attachmentType) throw httpError('COMPANION_ATTACHMENT',422);
     const session = data.sessionId ?? 'default';
     if (!allowedId(session) || data.requestId !== undefined && !allowedId(data.requestId)) throw httpError('INVALID',400);
     if (this.core.settings().workerPaused) throw httpError('COMPANION_PAUSED',409);
+    if (data.requireHipaa && !this.core.settings().hipaa) throw httpError('POLICY',403);
+    // Resolve grants before replay: removing a grant must also revoke saved answers.
+    const sharedChat = session.startsWith('shared_') ? this.sharedChat(device,session) : null;
     const requestKey = data.requestId ? digest(device.id+'|'+data.requestId) : null;
-    const inputHash = digest(JSON.stringify([session,data.prompt]));
+    const inputHash = digest(JSON.stringify([session,data.prompt,data.requireLocal || false,data.requireHipaa || false]));
     if (requestKey) {
       const prior = this.core.store.get('companion_request',requestKey);
       if (prior && prior.expires > Date.now()) {
@@ -195,23 +235,26 @@ class CompanionGateway {
     }
     if (this.active.size) throw httpError('BUSY',409);
     const sessionKey = digest(device.id+'|'+session);
-    let saved = this.core.store.get('companion_session',sessionKey);
+    let saved = sharedChat ? {deviceId:device.id,sessionId:session,chatId:sharedChat.id,shared:true} : this.core.store.get('companion_session',sessionKey);
     if (!saved || !this.core.store.get('chat',saved.chatId)) {
       if (this.core.store.list('companion_session').filter(r => r.deviceId === device.id).length >= 100) throw fail('LIMIT');
-      saved = {deviceId:device.id,chatId:this.core.createChat().id};
+      saved = {deviceId:device.id,sessionId:session,chatId:this.core.createChat().id};
     }
+    saved.sessionId = session;
     this.core.store.put('companion_session',sessionKey,saved);
     const expires = Date.now()+86400000;
     if (requestKey) this.core.store.put('companion_request',requestKey,{inputHash,chatId:saved.chatId,state:'started',expires},{expires});
-    const job = {deviceId:device.id,chatId:saved.chatId,controller:new AbortController()};
+    const job = {deviceId:device.id,chatId:saved.chatId,session,controller:new AbortController()};
     this.active.set(sessionKey,job);
     const cancel = () => { job.controller.abort(); this.core.stop(job.chatId); };
     const disconnected = () => { if (!res.writableEnded) cancel(); };
     res.once('close',disconnected);
     const timeout = setTimeout(cancel,300000);
     try {
-      const result = await this.core.resources.task('background',() => this.core.send({chatId:saved.chatId,prompt:data.prompt},()=>{},{allowTools:false}),{signal:job.controller.signal});
+      const result = await this.core.resources.task('background',() => this.core.send({chatId:saved.chatId,prompt:data.prompt},()=>{},{allowTools:false,isolatedContext:true,forceLocal:data.requireLocal===true}),{signal:job.controller.signal});
       this.assertSession(device,generation,'chat');
+      if (sharedChat) this.sharedChat(device,session);
+      if (data.requireHipaa && !this.core.settings().hipaa) throw httpError('POLICY',403);
       if (job.controller.signal.aborted) throw fail('CANCELLED');
       const answer = result.chat.messages.at(-1);
       if (answer?.error) throw fail(answer.error.code);
@@ -221,5 +264,40 @@ class CompanionGateway {
       return response;
     } finally { clearTimeout(timeout); res.removeListener('close',disconnected); this.active.delete(sessionKey); }
   }
+  sharedChat(device,session) {
+    const current = this.core.store.get('companion_device',device.id), id = session.slice(7);
+    if (!isId(id) || !current?.sharedChats?.includes(id)) throw httpError('POLICY',403);
+    const chat = this.core.store.get('chat',id);
+    if (!chat || chat.archived) throw httpError('NOT_FOUND',404);
+    return chat;
+  }
+  conversations(device) {
+    const current = this.core.store.get('companion_device',device.id), rows = new Map();
+    for (const saved of this.core.store.list('companion_session').filter(s=>s.deviceId===device.id && s.sessionId && !s.shared)) {
+      const chat = this.core.store.get('chat',saved.chatId);
+      if (chat && !chat.archived) rows.set(saved.sessionId,{sessionId:saved.sessionId,title:chat.title,updated:chat.updated,shared:false});
+    }
+    for (const id of current.sharedChats || []) {
+      const chat = this.core.store.get('chat',id);
+      if (chat && !chat.archived) rows.set('shared_'+id,{sessionId:'shared_'+id,title:chat.title,updated:chat.updated,shared:true});
+    }
+    const conversations = [...rows.values()].sort((a,b)=>b.updated-a.updated);
+    return {conversations:conversations.slice(0,100),truncated:conversations.length>100};
+  }
+  history(device,data) {
+    if (Object.keys(data).length!==1 || !allowedId(data.sessionId)) throw httpError('INVALID',400);
+    const session = data.sessionId;
+    const chat = session.startsWith('shared_') ? this.sharedChat(device,session) : this.core.store.get('chat',this.core.store.get('companion_session',digest(device.id+'|'+session))?.chatId || '');
+    if (!chat || chat.archived) throw httpError('NOT_FOUND',404);
+    let remaining = 90000;
+    const messages = [];
+    for (let i=chat.messages.length-1;i>=0 && messages.length<100;i--) {
+      const m = chat.messages[i], body = String(m.text || '');
+      if (body.length>remaining) break;
+      remaining -= body.length;
+      messages.unshift({id:captures.stableId(chat.id+'|'+i+'|'+(m.time || 0)),role:m.role,text:body,created:m.time || null,...(m.error?{error:m.error}:{}),processing:m.processing?{provider:m.processing.provider,model:m.processing.model,reason:m.processing.reason}:null});
+    }
+    return {sessionId:session,title:chat.title,updated:chat.updated,messages,truncated:messages.length<chat.messages.length};
+  }
 }
-module.exports = {CompanionGateway, DEFAULT, interfaces, privateAddress};
+module.exports = {CompanionGateway, DEFAULT, interfaces, privateAddress, SCOPES, CAPABILITIES};

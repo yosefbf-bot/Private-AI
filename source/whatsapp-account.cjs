@@ -5,7 +5,7 @@ const {conversationId,conversations,selected,assertSendAllowed}=require('./messa
 const serial=id=>typeof id==='string'?id:id?._serialized||'';
 function normalizeMessage(m,groupId,live=false){
  const sender=serial(m.author)||(m.fromMe?'':serial(m.from));
- return {id:serial(m.id),groupId,sender:sender.replace('@s.whatsapp.net','@c.us'),senderVerified:/^\d{6,16}@(c\.us|s\.whatsapp\.net|lid)$/.test(sender),incoming:!m.fromMe,text:typeof m.body==='string'?m.body.slice(0,12000):'',time:Number(m.timestamp)*1000||Date.now(),type:m.type||'unknown',live};
+ return {id:serial(m.id),groupId,sender:sender.replace('@s.whatsapp.net','@c.us'),senderVerified:/^\d{6,16}@(c\.us|s\.whatsapp\.net|lid)$/.test(sender),incoming:!m.fromMe,text:typeof m.body==='string'?m.body.slice(0,12000):'',time:Number(m.timestamp)*1000||Date.now(),type:m.type||'unknown',hasMedia:m.hasMedia===true,live};
 }
 // Uses the account's message stream, never sidebar clicking or global input.
 class WhatsAppAccount{
@@ -83,6 +83,20 @@ class WhatsAppAccount{
   const result=await this.client.sendMessage(target.groupId,body,{sendSeen:false,waitUntilMsgSent:true});
   if(!result?.fromMe||serial(result.to)!==target.groupId||result.body!==body||!serial(result.id))throw fail('MESSAGING');
   return {sent:true,messageId:serial(result.id)};
+ }
+ async readMedia(target,id){
+  const s=this.settings(),c=selected(s,target),epoch=this.epoch,revision=s.revision;
+  if(!this.active()||!s.allowTasks||!c||c.mode==='read-only'||s.disableAllWriting||!c.senders.includes(target.sender)||!this.client)throw fail('POLICY');
+  const msg=await this.client.getMessageById(id);
+  const normalized=normalizeMessage(msg,target.groupId);
+  if(normalized.id!==id||serial(msg.from)!==target.groupId||normalized.sender!==target.sender||!normalized.incoming||!normalized.senderVerified||!msg.hasMedia)throw fail('MESSAGING');
+  // Unknown size is not permission to allocate an unbounded download.
+  if(!Number.isSafeInteger(msg._data?.size)||msg._data.size<1||msg._data.size>5*1024**2)throw fail('LIMIT');
+  const media=await msg.downloadMedia();
+  if(epoch!==this.epoch||revision!==this.settings().revision||!this.active())throw fail('POLICY');
+  if(!media||typeof media.data!=='string'||media.data.length>Math.ceil(5*1024**2/3)*4||!['image/jpeg','image/png','application/pdf','text/plain'].includes(media.mimetype))throw fail('FILE');
+  const extension={'image/jpeg':'jpg','image/png':'png','application/pdf':'pdf','text/plain':'txt'}[media.mimetype];
+  return {data:media.data,mime:media.mimetype,name:'WhatsApp evidence.'+extension};
  }
  async close(){const client=this.client;this.client=null;this.reset();this.state='off';try{await client?.destroy();}catch{}}
 }

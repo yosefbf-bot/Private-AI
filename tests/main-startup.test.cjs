@@ -120,6 +120,21 @@ test('desktop IPC saves PCC capability, preserves clinical analysis, and rejects
  b.core.locked=true;assert.equal((await call('integrationSave',{id:'pcc',settings:{enabled:true}})).error.code,'LOCKED');
 });
 
+test('desktop capture IPC saves and reloads source notes, evidence, reviewed follow-ups and internal drafts',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=async(op,data={})=>{const r=await b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});assert.equal(r.ok,true,op+': '+JSON.stringify(r.error));return r.result;};
+ const raw=Buffer.from('Synthetic IPC evidence.'),sha256=require('node:crypto').createHash('sha256').update(raw).digest('hex');
+ const evidence=await call('captureEvidenceWrite',{uploadId:require('node:crypto').randomUUID(),index:0,total:1,name:'Synthetic.txt',mime:'text/plain',bytes:raw.length,sha256,data:raw.toString('base64')});
+ assert.equal((await call('captureEvidenceRead',{id:evidence.evidenceId})).sha256,sha256);
+ const captured=await call('captureCreate',{sourceId:'synthetic-ipc',text:'Remind me to contact the physician.',kind:'reminder',evidenceIds:[evidence.evidenceId],draftChannel:'outlook'});
+ assert.equal((await call('captureList')).captures.length,1);const item=captured.actions[0];
+ await call('captureActionUpdate',{id:item.id,revision:item.revision,owner:'Synthetic reviewer',dueAt:Date.now()+60000,note:'Explicit deadline'});
+ const saved=await call('captureList');assert.equal(saved.actions[0].owner,'Synthetic reviewer');
+ await call('captureDraftSave',{id:saved.drafts[0].id,revision:1,captureId:captured.capture.id,channel:'outlook',body:'Synthetic reviewed draft'});
+ assert.equal(b.dialogs.length,0); // internal draft does not invoke the outgoing Outlook helper
+ b.core.lock();const r=await b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op:'captureList',data:{}});assert.equal(r.error.code,'LOCKED');
+});
+
 test('desktop companion IPC saves and reloads, pairs over real HTTPS, revokes and respects app lock',async t=>{
  const b=await boot(t);assert.deepEqual(b.errors,[]);
  const {freePort,request}=require('./companion-fixture.cjs');
@@ -131,6 +146,8 @@ test('desktop companion IPC saves and reloads, pairs over real HTTPS, revokes an
  const paired=await call('companionPair',{name:'Synthetic IPC phone',scopes:{chat:true}});assert.equal(paired.ok,true);
  const gateway={settings:()=>({host:'127.0.0.1',port})};
  assert.equal((await request(gateway,paired.result,'/status')).status,200);
+ const shared=b.core.createChat();assert.equal((await call('companionGrant',{id:paired.result.id,sharedChats:[shared.id]})).ok,true);
+ assert.equal((await request(gateway,paired.result,'/conversations')).body.conversations[0].sessionId,'shared_'+shared.id);
  const reloaded=(await call('companionStatus')).result;assert.equal(reloaded.devices[0].name,'Synthetic IPC phone');assert.equal(reloaded.devices[0].key,undefined);
  b.core.lock();assert.equal((await call('companionPair',{name:'Blocked'})).error.code,'LOCKED');assert.equal((await request(gateway,paired.result,'/status')).status,423);
  b.core.unlock();assert.equal((await call('companionRevoke',{id:paired.result.id})).ok,true);assert.equal((await request(gateway,paired.result,'/status')).status,401);

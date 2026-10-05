@@ -45,12 +45,19 @@ test('real server requires a session and restricts production, privileges and de
     }
     assert.equal((await call('snfImportSchema')).ok, true);
     const workflows=await call('workflowSummary');assert.equal(workflows.ok,true);
+    const capture=await call('captureCreate',{sourceId:'synthetic-development-note',text:'Remind me to review the supplied report.',kind:'note',draftChannel:'whatsapp'});assert.equal(capture.ok,true);
+    assert.equal((await call('captureList')).result.captures.length,1);
+    const action=capture.result.actions[0];assert.equal((await call('captureActionUpdate',{id:action.id,revision:action.revision,note:'Synthetic reviewed item',owner:'Synthetic'})).ok,true);
+    const draft=capture.result.drafts[0];assert.equal((await call('captureDraftSave',{id:draft.id,revision:1,captureId:capture.result.capture.id,channel:'whatsapp',body:'Synthetic reviewed internal draft'})).ok,true);
     const decision=await call('workflowDecisionSave',{title:'Synthetic HTTP decision',reason:'Synthetic source review',reviewer:'Synthetic'});assert.equal(decision.ok,true);
-    assert.equal((await call('workflowReview',{token:workflows.result.changes.token,reviewer:'Synthetic'})).ok,true);
+    assert.equal((await call('workflowReview',{token:(await call('workflowSummary')).result.changes.token,reviewer:'Synthetic'})).ok,true);
     for(const op of ['workflowPacketExport','workflowMappedPreview','workflowMappingSave','workflowMappedImport','workflowMetricPreview','workflowMetricImport','workflowDocumentSearch','workflowProjectFiles','workflowPlaybookSave','workflowPlaybookPreview','workflowPlaybookRun','workflowBudgetSave'])assert.equal((await call(op)).error.code,'POLICY',op);
 
     assert.equal((await call('snfDemo',{mode:'demo'})).ok, true);
     assert.equal((await call('snfToday')).result.demo, true);
+    assert.equal((await call('captureList')).result.captures.length,0);
+    assert.equal((await call('captureCreate',{sourceId:'synthetic-demo-note',text:'Synthetic demo note',kind:'note'})).ok,true);
+    assert.equal((await call('captureList')).result.demo,true);
     const ds=await call('workflowSummary'),alert=ds.result.changes.items.find(r=>r.kind==='alert');
     assert.equal((await call('workflowActionSave',{...alert,owner:'Synthetic HTTP',reviewer:'Synthetic',note:'Review pending'})).ok,true);
     assert.match((await call('workflowPacket',{key:alert.key})).result.text,/DEMO DATA/);
@@ -60,6 +67,7 @@ test('real server requires a session and restricts production, privileges and de
     const live = await call('snfToday');
     assert.equal(live.result.demo, false);
     assert.equal(live.result.psychWatch.length, 0);
+    assert.equal((await call('captureList')).result.captures.length,1);
     assert.equal((await fetch(base+'/api/call',{method:'POST',headers:{cookie,'content-type':'application/json'},body:'{}'})).status,403);
   } finally {
     child.kill();

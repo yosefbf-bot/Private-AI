@@ -2,6 +2,7 @@
 const crypto=require('node:crypto');
 const {fail,uuid,safeError,text}=require('./security.cjs');
 const {conversationId,conversations,selected,writable}=require('./messaging-policy.cjs');
+const captures=require('./capture-workflows.cjs');
 const DEFAULT={enabled:false,adapter:'web',groupId:'',groupName:'',senders:[],conversations:[],readAll:true,disableAllWriting:false,prefix:'AI:',allowTasks:false,notifyStarted:false,notifyProgress:false,notifyComplete:true,notifyFailure:true,notifyJobs:false,sendSummaries:true,sendAttachments:false,forwardDesktop:false,allowWhileLocked:false,warningAccepted:false};
 class MessagingBridge{
  constructor(core){this.core=core;this.adapters={};this.busy=false;this.state='off';this.baselined=new Set();this.verified=new Set();this.generation=0;this.timer=setInterval(()=>this.tick().catch(()=>{this.state='unavailable';}),5000);this.timer.unref?.();}
@@ -33,6 +34,7 @@ class MessagingBridge{
  async pair(adapter,groupId){this.core.assertUnlocked();const a=this.adapters[adapter];if(!a)throw fail('MESSAGING');const shot=await a.snapshot(groupId);if(!shot.verified||!conversationId.test(shot.groupId)||!shot.groupName)throw fail('MESSAGING');this.verified.add(JSON.stringify([adapter,shot.groupId,shot.groupName]));return {groupId:shot.groupId,groupName:shot.groupName,senders:[...new Set(shot.messages.filter(m=>m.senderVerified).map(m=>m.sender))]};}
  async tick(){const s=this.settings(),generation=this.generation;if(!s.enabled||this.busy||this.core.settings().workerPaused)return;if(this.core.locked&&!s.allowWhileLocked){this.state='paused-locked';return;}const a=this.adapters[s.adapter];if(!a){this.state='unavailable';return;}this.busy=true;
   try{await this.core.runMessagingBackground(async()=>{
+   await this.reminders(a);
    a.onRead=shot=>this.observe(shot);
    const shots=a.poll?await a.poll(s):[await a.snapshot()];
    for(const shot of shots){
@@ -45,13 +47,60 @@ class MessagingBridge{
     const prefix=s.prefix+' '+this.code()+' ';const command=(m.text.startsWith(prefix)?m.text.slice(prefix.length):m.text).trim();if(!command||command.length>4000)continue;
     if(!s.allowTasks&&!/^\/(?:status|help)$/i.test(command))continue;
     const taskId=uuid();let response;
-    try{if(generation!==this.generation||!this.settings().enabled)return;if(s.notifyStarted)await this.send(a,target,uuid(),'Task started.');if(generation!==this.generation)return;const chat=this.sessionChat(target,m.sender,command==='/new');this.activeChatId=chat.id;const progress=this.progress(a,target,taskId,chat.id);try{if(command==='/new')response='Started a new AI conversation. Send your next question here.';else{const result=await this.core.send({chatId:chat.id,prompt:command});const last=result.chat.messages.at(-1);if(last.error)throw Object.assign(new Error(),{code:last.error.code});response=s.sendSummaries?last.text:'Task completed. Open Private AI or the report folder to review the result.';}}finally{await progress.close();this.activeChatId=null;}
+    try{if(generation!==this.generation||!this.settings().enabled)return;if(s.notifyStarted)await this.send(a,target,uuid(),'Task started.');if(generation!==this.generation)return;const chat=this.sessionChat(target,m.sender,command==='/new');this.activeChatId=chat.id;const progress=this.progress(a,target,taskId,chat.id);try{const captured=await this.captureCommand(a,target,m,command);if(captured)response=captured;else if(command==='/new')response='Started a new AI conversation. Send your next question here.';else{const result=await this.core.send({chatId:chat.id,prompt:command},()=>{},{isolatedContext:true});const last=result.chat.messages.at(-1);if(last.error)throw Object.assign(new Error(),{code:last.error.code});response=s.sendSummaries?last.text:'Task completed. Open Private AI or the report folder to review the result.';}}finally{await progress.close();this.activeChatId=null;}
      if(s.notifyComplete)await this.sendResponse(a,target,taskId,response);
     }catch(e){if(s.notifyFailure)await this.send(a,target,taskId,'Task did not complete: '+safeError(e).message);}
     break;
    }
    }
   });}finally{this.busy=false;}
+ }
+ actor(target,sender){return {kind:'whatsapp',id:crypto.createHmac('sha256',this.code()).update([target.adapter,target.groupId,sender].join('|')).digest('hex')};}
+ async captureCommand(adapter,target,message,command){
+  const match=command.match(/^\/(note|round|remind|draft)\s+([\s\S]+)$/i);if(!match)return null;
+  const mode=match[1].toLowerCase();let body=match[2].trim(),dueAt=null,draftChannel=null;
+  if(mode==='draft'){const draft=body.match(/^(outlook|whatsapp)\s+([\s\S]+)$/i);if(!draft)throw fail('INVALID');draftChannel=draft[1].toLowerCase();body=draft[2].trim();}
+  if(mode==='remind'){
+   const date=body.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2}))\s+([\s\S]+)$/);
+   if(date){const parts=date[1].match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);dueAt=Date.parse(date[1]);if(!Number.isSafeInteger(dueAt)||dueAt<=0||Number(parts[4])>23||Number(parts[5])>59||Number(parts[6]||0)>59||new Date(Date.UTC(Number(parts[1]),Number(parts[2])-1,Number(parts[3]))).toISOString().slice(0,10)!==date[1].slice(0,10))throw fail('INVALID');body=date[2].trim();}
+  }
+  if(target.generation!==this.generation||!writable(this.settings(),target)||!selected(this.settings(),target)?.senders.includes(message.sender))throw fail('POLICY');
+  const actor=this.actor(target,message.sender),sourceId=crypto.createHmac('sha256',this.code()).update([target.adapter,target.groupId,message.id].join('|')).digest('hex'),evidenceIds=[];
+  if(message.hasMedia){
+   if(!adapter.readMedia)throw fail('COMPANION_ATTACHMENT');
+   const media=await adapter.readMedia({...target,sender:message.sender},message.id);
+   if(target.generation!==this.generation||!writable(this.settings(),target))throw fail('POLICY');
+   const bytes=Buffer.from(media.data,'base64'),uploadId=captures.stableId('wa-media|'+sourceId),total=Math.ceil(bytes.length/(80*1024)),sha256=crypto.createHash('sha256').update(bytes).digest('hex');
+   for(let index=0;index<total;index++){
+    const uploaded=captures.writeEvidence(this.core,{uploadId,index,total,name:media.name,mime:media.mime,bytes:bytes.length,sha256,data:bytes.subarray(index*80*1024,(index+1)*80*1024).toString('base64')},actor);
+    if(uploaded.complete&&!evidenceIds.includes(uploaded.evidenceId))evidenceIds.push(uploaded.evidenceId);
+   }
+  }
+  const result=captures.create(this.core,{sourceId,text:body,kind:mode==='round'?'round':mode==='remind'?'reminder':'note',observedAt:Number.isSafeInteger(message.time)?message.time:undefined,dueAt,evidenceIds,...(draftChannel?{draftChannel}:{})},actor);
+  const routing={adapter:target.adapter,groupId:target.groupId,groupName:target.groupName,sender:message.sender};
+  this.core.store.put('capture_whatsapp_route',result.capture.id,{id:result.capture.id,actorKey:captures.actorKey(actor),...routing});
+  return `Saved note ${result.capture.id.slice(0,8)} and ${result.actions.length} review item(s). `+(dueAt?'Reminder deadline saved. ':'Owner and any ambiguous deadline need review in Notes and rounds. ')+(evidenceIds.length?'Attachment preserved as evidence; no image interpretation claimed. ':'')+(draftChannel?`${draftChannel==='outlook'?'Outlook':'WhatsApp'} draft prepared for review. Nothing sent. `:'')+'Open Private AI → Action Center → Notes and rounds.';
+ }
+ async reminders(adapter){
+  if(this.core.locked||!this.settings().enabled||!this.settings().allowTasks)return;
+  for(const route of this.core.store.list('capture_whatsapp_route')){
+   const current=this.settings(),c=selected(current,{...route,adapter:route.adapter});
+   if(!c||!c.senders.includes(route.sender)||!writable(current,route)||!require('./messaging-policy.cjs').backgroundReplyAllowed(this.core,route))continue;
+   const actor={kind:'whatsapp',id:this.core.store.get('capture_note',route.id)?.actor?.id};if(!actor.id)continue;
+   for(const notice of captures.notifications(this.core,actor).notifications.filter(n=>n.status==='pending')){
+    const delivery=this.core.store.get('capture_delivery',notice.id);
+    if(delivery&&['sent','uncertain','sending'].includes(delivery.status))continue;
+    const target={...current,...c,adapter:route.adapter,generation:this.generation};
+    const row={id:notice.id,captureId:this.core.store.get('capture_notification',notice.id)?.captureId||route.id,actionId:notice.actionId,status:'sending',at:Date.now(),channel:'whatsapp'};this.core.store.put('capture_delivery',notice.id,row);
+    try{
+     const outcome=await this.send(adapter,target,notice.id,'A saved follow-up is due. Open Private AI → Notes and rounds to review it. Reference: '+notice.actionId.slice(0,8));
+     row.status=outcome?.blocked?'blocked':outcome?.deferred?'deferred':'sent';
+     if(row.status==='sent')captures.acknowledge(this.core,{id:notice.id},actor);
+    }catch{row.status='uncertain';}
+    finally{this.core.store.put('capture_delivery',notice.id,row);}
+    if(row.status!=='sent')return;
+   }
+  }
  }
  async list(adapter){this.core.assertUnlocked();const a=this.adapters[adapter];if(!a?.list)throw fail('MESSAGING');return a.list();}
  sessionChat(target,sender,fresh=false){

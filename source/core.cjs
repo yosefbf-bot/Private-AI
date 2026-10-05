@@ -226,6 +226,7 @@ class Core {
       "memoryEnabled",
       "workerEnabled",
       "workerPaused",
+      "autoReminders",
       "uiAdvanced",
     ])
       if (input[k] !== undefined) {
@@ -659,12 +660,12 @@ class Core {
     }
     return { messages, omitted };
   }
-  async send(data,onDelta=()=>{},{allowTools=true}={}) {
+  async send(data,onDelta=()=>{},{allowTools=true,isolatedContext=false,forceLocal=false}={}) {
     this.assertUnlocked();
     if(this.requests.has(data.chatId))throw fail('BUSY');
     const controller=new AbortController();this.requests.set(data.chatId,controller);
     const kind=this.backgroundContext.getStore()===this.backgroundToken?'background':'foreground';
-    try{return await this.resources.task(kind,()=>this.sendCoordinated(data,onDelta,controller,allowTools),{signal:controller.signal});}
+    try{return await this.resources.task(kind,()=>this.sendCoordinated(data,onDelta,controller,allowTools,isolatedContext,forceLocal),{signal:controller.signal});}
     finally{this.requests.delete(data.chatId);}
   }
   async sendCoordinated(
@@ -680,6 +681,8 @@ class Core {
     onDelta = () => {},
     controller,
     allowTools = true,
+    isolatedContext = false,
+    forceLocal = false,
   ) {
     this.assertUnlocked();
     this.touch();
@@ -743,10 +746,10 @@ class Core {
     try {
       const result = await this.router.generate(
         this.key(),
-        { ...this.settings(), hipaa: c.hipaa || this.settings().hipaa },
+        { ...this.settings(), hipaa: c.hipaa || this.settings().hipaa,...(forceLocal?{processingMode:'local-only',allowCloud:false}:{}) },
         input.messages,
         {
-          instructions: this.getInstructions(c),
+          instructions: isolatedContext ? '' : this.getInstructions(c),
           allowTools,
           omitted: input.omitted,
           web,

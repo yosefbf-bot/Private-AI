@@ -1,4 +1,18 @@
 # Shared AI development handoff
+## Shared captures and native Android integration — 2026-10-05
+
+Fresh base: desktop main `c269a18eec4ea5b4e347e3520be1cd4e9bd88876`, Android main `7028ec6d131ffaaf9e03d2f22b3550d7a38ddf3c`. Both use `chatgpt/shared-companion-workflows-2026-10-05`. Read `docs/SHARED_CAPTURE_IMPLEMENTATION_PLAN_2026-10-05.md`, `docs/NOTES_ROUNDS_COMPANION_GUIDE.md` and the extended Android contract. The user merges main.
+
+Shared encrypted source notes/evidence produce idempotent canonical review todos and internal drafts. Exact source spans and unknown fields remain; no AI/clinical conclusion or external send is inferred. Rounds edits reuse delegations and preserve confirmed deadlines. New unknown deadlines are no longer guessed from urgency. Remote inference excludes unrelated global context; optional phone local/HIPAA constraints cannot weaken desktop safeguards.
+
+HTTPS adds scoped captures/actions/drafts/evidence, explicitly selected PC conversation history/continuation and generic reminder metadata. Full pairing remains lock-denied; a separate notification-only credential is accepted only for notification list/receipt. Explicit desktop pairing can allow that metadata while locked without changing Core's general lock. Revocation removes both credentials. WhatsApp capture commands retain verified sender/conversation gates, independent read-all/global-write controls and uncertain-delivery tombstones. AutoReminders is now actually saved/validated.
+
+Final isolated complete Windows source run: 497 tests passed, with zero failures or skips. Focused shared safety runs, desktop IPC/development HTTP and 30 synthetic Edge UI checks passed; hardening 25 and production dependency audit zero. Native Android compilation passed using portable hash-verified JDK/SDK; Android build, unit/lint and desktop interoperability checks remain in progress. No physical phone, real LAN, real account message or mailbox write occurred. Source checks do not establish packaged release readiness. Local release-file gate remains blocked until native helper/runtime inputs are prepared; the gate was not weakened.
+
+Android full credentials/records require real device authentication and Keystore encryption, additive Room/content migration, separate demo data, real pinned HTTPS responses and encrypted stable pending requests. Known old simulated phone data must be retained but clearly labeled unverified. Full phone background credentials must never be decrypted by a generic notification worker; use only the restricted key/certificate. Physical OS-authentication/Keystore, migration, camera/local dictation, notification delivery and signing compatibility still require acceptance.
+
+The earlier validated installer/package below belongs to its exact earlier code checkpoint. It does not contain this source update. Preserve recovery/models outside Git and keep the existing release/privacy/resource gates. If allowance reaches 1% remaining, save/stop and resume this chat at 3:35 AM America/New_York as requested.
+
 ## Current Windows validation — 2026-10-02
 
 PR #11 is merged. Latest GitHub main was fetched and verified as

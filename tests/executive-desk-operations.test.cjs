@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { fixture } = require('./helpers.cjs');
 
 const { ExecutiveDeskEngine, dispatch: execDispatch } = require('../source/executive-desk-engine.cjs');
 const { OperationsAnalyticsEngine, dispatch: opsDispatch } = require('../source/operations-analytics-engine.cjs');
@@ -38,6 +39,137 @@ function createMockCore() {
 
   return { core, storeMap };
 }
+
+test('memo proposals use exact clause evidence and preserve unknown assignment/deadline', t => {
+  const { core } = fixture(t);
+  const transcript = '  Remind me to contact the physician tomorrow. Tell maintenance room 204 has a leak; let dietary know room 115 has cold soup.  ';
+  const preview = assistantDispatch(core, 'assistantParseVoiceMemo', { transcript });
+  assert.equal(preview.actions.length, 3);
+  const [reminder, maintenance, dietary] = preview.actions;
+  assert.equal(reminder.targetModule, 'exec_action');
+  assert.equal(reminder.location, 'Location not provided');
+  assert.equal(reminder.dueHint.text, 'tomorrow');
+  assert.equal(reminder.dueHint.status, 'unresolved');
+  assert.equal(transcript.slice(reminder.dueHint.start, reminder.dueHint.end), 'tomorrow');
+  assert.equal(reminder.autoCommitPayload.dueAt, undefined);
+  assert.equal(maintenance.targetModule, 'rounds_maintenance');
+  assert.equal(maintenance.location, 'Room 204');
+  assert.equal(dietary.targetModule, 'dept_task_dietary');
+  assert.equal(dietary.location, 'Room 115');
+  assert.match(dietary.autoCommitPayload.title, /Room 115/);
+  for (const action of preview.actions) {
+    assert.equal(transcript.slice(action.evidence.start, action.evidence.end), action.description);
+    assert.equal(action.evidence.text, action.description);
+    assert.equal(action.unknownFields.owner, true);
+    assert.equal(action.unknownFields.dueAt, true);
+    assert.equal(action.reviewRequired, true);
+    assert.equal(action.heuristic, true);
+  }
+  assert.equal(core.store.count('todo'), 0, 'Parsing is a review preview, not a task commit');
+  assert.equal(core.store.count('exec_rounds_issue'), 0);
+});
+
+test('memo keywords respect word boundaries, explicit staff context and repeated departments', t => {
+  const { core } = fixture(t);
+  const contact = assistantDispatch(core, 'assistantParseVoiceMemo', { transcript: 'Remind me to contact the physician tomorrow.' });
+  assert.deepEqual(contact.actions.map(a => a.targetModule), ['exec_action']);
+  const memo = 'Tell maintenance room 204 AC stopped; maintenance room 205 sink leaks. Let dietary know room 115 has cold soup and coffee; dietary room 116 tray is missing. Put a note in CNA Example\'s file that she stayed late to cover breakfast.';
+  const parsed = assistantDispatch(core, 'assistantParseVoiceMemo', { transcript: memo });
+  assert.equal(parsed.actions.length, 5);
+  assert.deepEqual(parsed.actions.filter(a => a.targetModule === 'rounds_maintenance').map(a => a.location), ['Room 204', 'Room 205']);
+  assert.deepEqual(parsed.actions.filter(a => a.targetModule === 'dept_task_dietary').map(a => a.location), ['Room 115', 'Room 116']);
+  assert.equal(parsed.actions.filter(a => a.targetModule === 'hr_coaching').length, 1);
+  assert.equal(parsed.actions.at(-1).type, 'HR Commendation / Recognition');
+  const nurseCall = assistantDispatch(core, 'assistantParseVoiceMemo', { transcript: 'Remind me to ask the nurse to call Dr. Example tomorrow at 3 PM.' });
+  assert.equal(nurseCall.actions.length, 1);
+  assert.equal(nurseCall.actions[0].targetModule, 'exec_action');
+  assert.match(nurseCall.actions[0].description, /Dr\. Example/);
+  assert.equal(nurseCall.actions[0].dueHint.text, 'tomorrow at 3 PM');
+  const ambiguous = assistantDispatch(core, 'assistantParseVoiceMemo', { transcript: 'Maintenance inspect room 204 near room 205 for leaks.' });
+  assert.equal(ambiguous.actions[0].location, 'Multiple locations — review');
+  assert.equal(ambiguous.actions[0].unknownFields.location, true);
+  assert.deepEqual(ambiguous.actions[0].locations, ['Room 204', 'Room 205']);
+});
+
+test('memo preview retains unclassified source evidence and rejects empty/oversized input', t => {
+  const { core } = fixture(t);
+  const transcript = 'SYNTHETIC rounds observation; tell maintenance room 204 has a leak; details need review';
+  const parsed = assistantDispatch(core, 'assistantParseVoiceMemo', { transcript });
+  assert.deepEqual(parsed.unmatchedEvidence.map(e => e.text), ['SYNTHETIC rounds observation', 'details need review']);
+  for (const evidence of parsed.unmatchedEvidence) assert.equal(transcript.slice(evidence.start, evidence.end), evidence.text);
+  for (const value of ['', '   ', null, 'x'.repeat(40001)]) assert.throws(() => assistantDispatch(core, 'assistantParseVoiceMemo', { transcript: value }), { code: 'INVALID' });
+});
+
+test('rounds edits upsert one linked delegation with saved deadlines and assignments', t => {
+  const { core } = fixture(t);
+  const issue = execDispatch(core, 'execRoundsLog', { location: 'SYNTHETIC Room 204', description: 'SYNTHETIC loose handrail', urgency: 'urgent' });
+  assert.equal(issue.dueAt, null);
+  assert.equal(issue.deadlineSource, 'unknown');
+  assert.equal(core.store.get('todo', issue.id).dueAt, null);
+  assert.equal(core.store.get('exec_dept_task', issue.departmentTaskId).dueDate, null);
+  const deadline = Date.now() + 3600000;
+  const assigned = execDispatch(core, 'execRoundsLog', { id: issue.id, dueAt: deadline, assignedTo: 'SYNTHETIC assigned reviewer' });
+  assert.equal(assigned.deadlineSource, 'user-entered');
+  const delegated = core.store.get('exec_dept_task', issue.departmentTaskId);
+  execDispatch(core, 'execDeptTaskSave', { ...delegated, status: 'in_progress', blockerNotes: 'SYNTHETIC parts pending' });
+  core.saveTodo({ id: issue.id, dueAt: deadline + 3600000, owner: 'SYNTHETIC alternate reviewer' });
+  const edited = execDispatch(core, 'execRoundsLog', { id: issue.id, description: 'SYNTHETIC handrail inspection updated' });
+  assert.equal(edited.departmentTaskId, issue.departmentTaskId);
+  assert.equal(edited.dueAt, deadline + 3600000, 'Action Center deadline remains authoritative');
+  assert.equal(edited.created, issue.created);
+  assert.equal(core.store.get('todo', issue.id).owner, 'SYNTHETIC alternate reviewer');
+  assert.equal(core.store.count('exec_rounds_issue'), 1);
+  assert.equal(core.store.count('exec_dept_task'), 1);
+  assert.equal(core.store.count('todo'), 2, 'One issue and its existing delegation, with no edit clones');
+  const reloadedTask = core.store.get('exec_dept_task', issue.departmentTaskId);
+  assert.equal(reloadedTask.status, 'in_progress');
+  assert.equal(reloadedTask.blockerNotes, 'SYNTHETIC parts pending');
+  assert.equal(reloadedTask.assigneeName, 'SYNTHETIC assigned reviewer');
+  assert.equal(reloadedTask.dueDate, new Date(deadline + 3600000).toISOString());
+  assert.match(reloadedTask.description, /inspection updated/);
+  const cleared = execDispatch(core, 'execRoundsLog', { id: issue.id, dueAt: null, autoDispatchTask: false });
+  assert.equal(cleared.dueAt, null);
+  assert.equal(cleared.autoDispatchedTask, false);
+  assert.equal(core.store.get('todo', issue.id).dueAt, null);
+  const savedAgain = execDispatch(core, 'execRoundsLog', { id: issue.id, description: 'SYNTHETIC another review' });
+  assert.equal(savedAgain.autoDispatchedTask, false, 'Partial edits retain dispatch preference');
+  assert.equal(core.store.count('exec_dept_task'), 1, 'Disabling automatic delegation preserves the saved task');
+});
+
+test('rounds resolution closes all explicit legacy links and leaves unrelated clinical work open', t => {
+  const { core } = fixture(t);
+  const issue = execDispatch(core, 'execRoundsLog', { location: 'SYNTHETIC Room 204', description: 'SYNTHETIC inspection finding', category: 'nursing' });
+  const originalTask = core.store.get('exec_dept_task', issue.departmentTaskId);
+  const duplicate = execDispatch(core, 'execDeptTaskSave', { ...originalTask, id: undefined, title: 'SYNTHETIC legacy duplicate' });
+  const unrelated = execDispatch(core, 'execDeptTaskSave', { departmentId: 'don', title: 'SYNTHETIC unrelated task' });
+  core.store.put('snf_alert', 'synthetic-clinical-alert', { id: 'synthetic-clinical-alert', status: 'active' });
+  const edited = execDispatch(core, 'execRoundsLog', { id: issue.id, description: 'SYNTHETIC revised inspection' });
+  assert.equal(edited.departmentTaskId, issue.departmentTaskId);
+  assert.equal(core.store.count('exec_dept_task'), 3, 'Legacy duplicates remain available for review rather than being deleted');
+  const resolved = execDispatch(core, 'execRoundsResolve', { id: issue.id, resolutionNotes: 'SYNTHETIC reviewer confirmed operational repair' });
+  for (const id of [issue.id, originalTask.id, duplicate.id]) assert.equal(core.store.get('todo', id).status, 'completed');
+  for (const id of [originalTask.id, duplicate.id]) assert.equal(core.store.get('exec_dept_task', id).status, 'completed');
+  assert.equal(core.store.get('todo', unrelated.id).status, 'pending');
+  assert.equal(core.store.get('snf_alert', 'synthetic-clinical-alert').status, 'active');
+  const secondResolution = execDispatch(core, 'execRoundsResolve', { id: issue.id, resolutionNotes: 'SYNTHETIC closure reviewed again' });
+  assert.equal(secondResolution.resolvedAt, resolved.resolvedAt);
+  assert.equal(core.store.count('exec_dept_task'), 3);
+});
+
+test('rounds save rolls back the whole source/task update after a persistence failure', t => {
+  const { core } = fixture(t);
+  const originalPut = core.store.put.bind(core.store);
+  core.store.put = (kind, ...args) => {
+    if (kind === 'exec_dept_task') throw new Error('Synthetic persistence failure');
+    return originalPut(kind, ...args);
+  };
+  assert.throws(() => execDispatch(core, 'execRoundsLog', { description: 'SYNTHETIC rollback fixture' }), /Synthetic persistence failure/);
+  core.store.put = originalPut;
+  assert.equal(core.store.count('exec_rounds_issue'), 0);
+  assert.equal(core.store.count('todo'), 0);
+  assert.equal(core.store.count('wf_action_meta'), 0);
+  assert.equal(core.store.count('exec_dept_task'), 0);
+});
 
 test('Executive Desk: Daily Rhythm, Action Queue, Delegation, Rounds, and HR Milestones', async (t) => {
   const { core } = createMockCore();
@@ -343,6 +475,7 @@ test('Executive AI Assistant Suite: Ghostwriter, Voice Parser, Dossiers, Contrac
     // Verify dietary action extracted
     const dietAction = parsed.actions.find(a => a.targetModule === 'dept_task_dietary');
     assert.ok(dietAction, 'Dietary action should be extracted');
+    assert.equal(dietAction.location, 'Room 115');
 
     // Verify HR commendation extracted
     const hrAction = parsed.actions.find(a => a.targetModule === 'hr_coaching');
