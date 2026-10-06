@@ -5,20 +5,28 @@
   "lastVerifiedCommit": "c269a18eec4ea5b4e347e3520be1cd4e9bd88876",
   "previousValidatedBinaryCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
   "sharedCaptureUpdate": {
-    "state": "implementation-testing",
+    "state": "published-review-candidate",
     "androidBase": "7028ec6d131ffaaf9e03d2f22b3550d7a38ddf3c",
+    "androidSourceCommit": "56e6796926b02e109df8ccbfe4fa70013ce5852c",
+    "androidPullRequest": 1,
     "guide": "docs/NOTES_ROUNDS_COMPANION_GUIDE.md",
     "desktopInitialFullTests": 492,
     "desktopFinalFullTests": { "passed": 500, "failed": 0, "skipped": 0, "scope": "Isolated complete Windows source suite; not packaged release acceptance" },
     "androidCompilationPassed": true,
-    "androidBuildUnitLintInteroperability": "in-progress",
+    "androidBuildUnitLintInteroperability": "passed-final-local-debug-build-lint-and-real-Core-HTTPS",
+    "androidFinalLocalTests": { "passed": 45, "failed": 0, "errors": 0, "skipped": 0, "lintErrors": 0, "lintWarnings": 72 },
+    "androidProductionInputSHA256": "1fa5e276dd9364434cbc59f61a1a89d4c9dc8df299411f97461d209f765ef199",
+    "androidDebugAPKsha256": "6d684203f74a7558a8f39aa2a00a74a3c97cbbcd1760c811f1bb5e9a6a4fa82e",
     "desktopSyntheticEdgeChecks": 30,
     "desktopBoundedCaptureEdgeChecks": 3,
     "initialHeadCI": { "commit": "80fde3f32f7e107598cc9ec5a60011a6e0830c9d", "run": 37319044402, "result": "success", "requiresNewHeadCheckAfterFixes": true },
+    "laterHeadCI": { "commit": "23548158d4924472c4a6f14c0c5f731f7b05df11", "run": 37359845980, "result": "cancelled-before-steps", "reason": "GitHub hosted runner was not acquired after multiple attempts; no tests executed", "requiresFinalHeadCheck": true },
+    "changeSummary": "docs/SHARED_COMPANION_UPDATE_2026-10-05.md",
+    "desktopPullRequest": 13,
     "newWindowsBinaryValidated": false,
     "physicalAndroidExecuted": false,
     "liveWhatsAppExecuted": false,
-    "remaining": ["Publication/exact-head CI", "Android build/unit/lint/interoperability and real device acceptance", "New exact-binary packaging acceptance when building installer"]
+    "remaining": ["Inspect exact-head GitHub checks including Android emulator; live status is on the review PRs", "Physical Android, LAN and live account acceptance", "New exact-binary packaging acceptance when building installer"]
   },
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
@@ -89,7 +97,11 @@
     "DOMPurify 3.4.16 security patch synchronized across desktop/Chrome/Firefox assets",
     "Optional authenticated Android HTTPS gateway with per-phone pairing/revocation, real Core text chat and status metadata; encrypted certificate and session/retry persistence",
     "Windows PowerShell 5.1 installer evidence written as BOM-free UTF-8, exercised through the unchanged release gate with actual PowerShell regression coverage",
-    "Today operations card distinguishes unavailable census/occupancy/HPPD and avoids green unmeasured HPPD; confirmed numeric zero is preserved"
+    "Today operations card distinguishes unavailable census/occupancy/HPPD and avoids green unmeasured HPPD; confirmed numeric zero is preserved",
+    "Encrypted shared PC/Android/WhatsApp source captures, bounded evidence, canonical review followups and internal Outlook/WhatsApp drafts",
+    "Scoped Android shared conversation history/continuation, per-device privacy-bound retry IDs and restricted generic reminder credentials",
+    "Verified WhatsApp capture commands and due reminders preserving independent read/write/lock/background controls",
+    "Rounds delegation deduplication, explicit deadlines, source-span parsing, and saved AutoReminders configuration"
   ],
   "experimentalFeatures": [
     "Heuristic SNF surveillance requires independent clinical validation",
@@ -158,7 +170,7 @@
       "commit": "114e0838fac230d33a9deb2996b7dfc736ce9d90"
     }
   },
-  "currentMainCommit": "114e0838fac230d33a9deb2996b7dfc736ce9d90",
+  "currentMainCommit": "c269a18eec4ea5b4e347e3520be1cd4e9bd88876",
   "windowsAcceptance": {
     "artifactBuilt": true,
     "isolatedApplication": true,

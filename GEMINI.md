@@ -6,6 +6,14 @@ Follow [Google AI Studio guardrails](docs/GOOGLE_AI_STUDIO_GUARDRAILS.md) before
 
 Read `AGENTS.md`, `AI_HANDOFF.md`, `PROJECT_STATUS.json`, and `docs/AI_STUDIO_REVIEW_2026-09-25.md` first.
 
+## Shared companion update — current source
+
+Main was fetched and verified again before publication as `c269a18eec4ea5b4e347e3520be1cd4e9bd88876` (PR #12 merged). Desktop source review is [PR #13](https://github.com/yosefbf-bot/Private-AI-OG-google-version/pull/13); matching native Android review is [PR #1](https://github.com/yosefbf-bot/AI-Mobile-companion-app/pull/1), source `56e6796`. Both use `chatgpt/shared-companion-workflows-2026-10-05`; the owner merges. Read `docs/SHARED_COMPANION_UPDATE_2026-10-05.md` and both handoffs. Latest review branches contain additional encrypted notes/evidence, canonical follow-ups/internal drafts, selected PC chat sharing, scoped HTTPS and approved WhatsApp capture/reminders. They are newer than main until merged.
+
+Final local source scope: 500 Windows tests; 45 Android tests including actual pinned-HTTPS Node Core interoperability; Android debug app/test APK build and lint (zero errors, 72 warnings). The app signature verified, with development signing only. Exact-head GitHub checks and emulator/physical-phone acceptance are distinct; an earlier head's successful CI is not a later head pass. No new Windows binary was produced, and older packaged evidence must stay tied to its old hashes. Photos are preserved evidence; remote drafts are internal, no external dispatch. Full phone access requires actual OS authentication and cancels foreground work on lock/background; optional generic reminder polling uses a separate restricted credential. Unknown clinical coverage is not an all-clear.
+
+## Previous Windows candidate
+
 PRs #4–#11 are merged. Latest main fetched and verified on 2026-10-02 is
 `114e0838fac230d33a9deb2996b7dfc736ce9d90`; it includes the newer architecture plus
 the preserved standalone/clinical/WhatsApp/Android gateway work. Active validation

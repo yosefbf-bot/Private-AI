@@ -19,4 +19,4 @@ Android is a native Compose/Room app with useful screens, but most transport ope
 
 ## Deliberate limits
 
-No automatic clinical conclusions, external messages, arbitrary desktop RPC/file access, global lock bypass, trust-all TLS or cloud fallback. Desktop must be awake, reachable and unlocked. PC chat sharing is an explicit grant; device actions/evidence are scoped to their origin. User-entered absolute deadlines enable reminders; ambiguous relative dates require review. No new installer is represented as validated merely because source tests pass.
+No automatic clinical conclusions, external messages, arbitrary desktop RPC/file access, global lock bypass, trust-all TLS or cloud fallback. Desktop must be awake and reachable; full phone chat/evidence access requires its app unlocked. Generic reminder metadata while locked is a separate explicit opt-in. PC chat sharing is an explicit grant; device actions/evidence are scoped to their origin. User-entered absolute deadlines enable reminders; ambiguous relative dates require review. No new installer is represented as validated merely because source tests pass.
