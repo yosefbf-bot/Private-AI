@@ -1,8 +1,8 @@
 {
   "version": "3.0.1-dev",
-  "updatedAt": "2026-10-02T19:30:36.676Z",
-  "baselineCommit": "0a7ec92fa18c52ed8983aa06803977e3a220cf02",
+  "updatedAt": "2026-10-06T08:46:22.001Z",
+  "baselineCommit": "c269a18eec4ea5b4e347e3520be1cd4e9bd88876",
   "releaseStatus": "blocked",
-  "note": "Integrated 3.0.1-dev source; current source/UI validation does not establish Windows installer, installed-data, model or live-account acceptance.",
-  "sourceSHA256": "8c1a2a1312d23dd98f88513753bee003705a254a79588836199fc351cf92ed9e"
+  "note": "Shared companion development candidate. Artifact-specific Windows checks are recorded separately; physical-phone, live-account and clinical acceptance remain separate.",
+  "sourceSHA256": "415ba962ce200a571d43903d134d09d736fb3c61ac2144f96cb19332ae999b1a"
 }

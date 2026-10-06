@@ -101,6 +101,8 @@ async function run({core,win,reportPath,exe,asar}){
   assert.equal((await call('integrationSave',{id:'pcc',settings:{enabled:false}})).result.state,'disabled');
   assert.equal((await call('snfFeedStatus')).result.monitoringEnabled,false);
   evidence.checks.push('real desktop IPC toggles optional PCC while general clinical tools remain available');
+  evidence.sharedCompanion=await require('./windows-companion-validation.cjs').run({core,win,reportPath});
+  evidence.checks.push('packaged shared companion capture, evidence, action, draft, reminder, selected-chat, lock and revocation acceptance passed');
   // Optional real inference uses only isolated synthetic input. Never confuse
   // the built-in template helper with a loaded model or silently use a cloud key.
   if(process.env.PRIVATE_AI_VALIDATION_MODEL){
