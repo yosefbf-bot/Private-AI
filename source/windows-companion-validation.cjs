@@ -26,7 +26,7 @@ function request(pairing,endpoint,body,{key=pairing.key,fingerprint=pairing.fing
  return new Promise((resolve,reject)=>{
   let settled=false;
   const finish=(error,value)=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(error):resolve(value);};
-  const req=https.request({host:target.hostname,port:Number(target.port),path:'/mobile/api/v1'+endpoint,method:bytes?'POST':'GET',ca:certificate.toString(),agent:false,minVersion:'TLSv1.2',
+  const req=https.request({host:target.hostname,port:Number(target.port),path:'/mobile/api/v1'+endpoint,method:bytes?'POST':'GET',ca:certificate.toString(),allowPartialTrustChain:true,agent:false,minVersion:'TLSv1.2',
    // Keep normal CA/date/host verification, then additionally pin the pairing identity.
    checkServerIdentity:(host,peer)=>tls.checkServerIdentity(host,peer)||(hash(peer.raw)!==fingerprint?Object.assign(Error('Pinned certificate mismatch'),{code:'VALIDATION_TLS_IDENTITY'}):undefined),
    headers:{...(key?{'X-Pair-Key':key}:{}),...(bytes?{'Content-Type':'application/json','Content-Length':bytes.length}:{})}},res=>{
@@ -194,7 +194,12 @@ async function run({core,win,reportPath}){
   core.store.put('validation','shared-companion-checkpoint',{rows});
   result.checks.push('disabling the real gateway closes its listener; shared encrypted records are retained for the next process restart');
   result.passed=true;
- }catch(_){error=Object.assign(Error('Packaged companion acceptance failed at '+phase),{code:'VALIDATION_COMPANION'});}
+ }catch(cause){
+  // Emit only a bounded code and source line, never exception values or pairing data.
+  const code=/^[A-Z][A-Z0-9_]{1,60}$/.test(cause?.code||'')?cause.code:'UNKNOWN';
+  const line=/windows-companion-validation\.cjs:(\d+):/.exec(cause?.stack||'')?.[1]||'unknown';
+  error=Object.assign(Error('Packaged companion acceptance failed at '+phase+' ('+code+', check line '+line+')'),{code:'VALIDATION_COMPANION'});
+ }
  finally{
   // Only this isolated acceptance's pairings and lock are changed. Never use a test unlock.
   cleaning=true;
