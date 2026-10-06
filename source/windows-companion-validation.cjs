@@ -149,24 +149,8 @@ async function run({core,win,reportPath}){
   await denied(phone,'/chat/send',chatRequest,403);await denied(phone,'/conversations/history',{sessionId:chatRequest.sessionId},403);
   result.checks.push('only explicitly selected PC chats continue over actual HTTPS; replay adds no duplicate messages and removing the grant denies history and cached replies');
 
-  phase='full lock versus restricted generic metadata';
-  await call('setPassphrase',{passphrase:phrase});ownedLock=true;
-  await call('lock');await ipcDenied('captureList',{},'LOCKED');
-  await denied(phone,'/actions',undefined,423);await denied(phone,'/notifications',undefined,423);
-  await denied(other,'/notifications',undefined,423,{key:other.notificationKey});
-  await denied(phone,'/actions',undefined,403,{key:phone.notificationKey});
-  const generic=await ok(phone,'/notifications',undefined,{key:phone.notificationKey});
-  assert.ok(generic.notifications.some(row=>row.id===notice.id));
-  for(const row of generic.notifications)assert.deepEqual(Object.keys(row).sort(),['actionId','created','id','status','type']);
-  assert.equal(JSON.stringify(generic).includes(runId),false);
-  assert.equal((await ok(phone,'/notifications/ack',{id:notice.id},{key:phone.notificationKey})).status,'acknowledged');
-  await ipcDenied('unlock',{passphrase:'SYNTHETIC wrong companion passphrase'},'UNLOCK');
-  await call('unlock',{passphrase:phrase});
-  assert.equal(core.store.get('todo',reminder.actions[0].id).status,'pending');
-  await call('companionRevoke',{id:phone.id});
-  await denied(phone,'/actions',undefined,401);await denied(phone,'/notifications',undefined,401,{key:phone.notificationKey});
-  result.checks.push('ordinary desktop lock denies full access; separate opted-in metadata credential remains content-blind, acknowledgment does not complete work, and revocation removes both credentials');
-
+  // Validate the independent Notes form before locking: ordinary UI unlock also
+  // calls init(), while direct unlock IPC restores Core without refreshing the UI.
   phase='packaged Notes navigation and form save';
   await bounded(win.webContents.executeJavaScript('document.querySelector(\'#sidebar [data-view="captures"]\').click()'));
   const uiText='SYNTHETIC packaged UI note '+runId;
@@ -184,6 +168,24 @@ async function run({core,win,reportPath}){
   assert.equal(uiCapture.actor.kind,'desktop');
   assert.ok(await bounded(win.webContents.executeJavaScript('document.querySelector(\'#content\').textContent.includes('+JSON.stringify(uiText)+')')));
   result.checks.push('packaged Notes and rounds route and actual form submit save an independent desktop note through protected IPC');
+
+  phase='full lock versus restricted generic metadata';
+  await call('setPassphrase',{passphrase:phrase});ownedLock=true;
+  await call('lock');await ipcDenied('captureList',{},'LOCKED');
+  await denied(phone,'/actions',undefined,423);await denied(phone,'/notifications',undefined,423);
+  await denied(other,'/notifications',undefined,423,{key:other.notificationKey});
+  await denied(phone,'/actions',undefined,403,{key:phone.notificationKey});
+  const generic=await ok(phone,'/notifications',undefined,{key:phone.notificationKey});
+  assert.ok(generic.notifications.some(row=>row.id===notice.id));
+  for(const row of generic.notifications)assert.deepEqual(Object.keys(row).sort(),['actionId','created','id','status','type']);
+  assert.equal(JSON.stringify(generic).includes(runId),false);
+  assert.equal((await ok(phone,'/notifications/ack',{id:notice.id},{key:phone.notificationKey})).status,'acknowledged');
+  await ipcDenied('unlock',{passphrase:'SYNTHETIC wrong companion passphrase'},'UNLOCK');
+  await call('unlock',{passphrase:phrase});
+  assert.equal(core.store.get('todo',reminder.actions[0].id).status,'pending');
+  await call('companionRevoke',{id:phone.id});
+  await denied(phone,'/actions',undefined,401);await denied(phone,'/notifications',undefined,401,{key:phone.notificationKey});
+  result.checks.push('ordinary desktop lock denies full access; separate opted-in metadata credential remains content-blind, acknowledgment does not complete work, and revocation removes both credentials');
 
   phase='disabled gateway and durable synthetic checkpoint';
   await call('companionSave',{enabled:false,host:'127.0.0.1',port});await sleep(100);
