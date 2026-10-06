@@ -1,10 +1,10 @@
-# Android companion desktop contract — 2026-10-02
+# Android companion desktop contract — updated 2026-10-05
 
 This is the implemented desktop contract in Private AI **3.0.1-dev**, based on
-GitHub main `0a7ec92fa18c52ed8983aa06803977e3a220cf02`. Android is maintained
+GitHub main `c269a18eec4ea5b4e347e3520be1cd4e9bd88876`. Android is maintained
 separately. The supplied Google script's endpoint names are retained; its example
 IP, shared key, model name, hardware readings and success fallback are not used.
-Actual phone interoperability and the packaged Windows release still require testing.
+Native Android source has now been inspected and integrated on its review branch. Physical phone interoperability and newly packaged Windows acceptance still require testing. See [Notes and rounds](NOTES_ROUNDS_COMPANION_GUIDE.md).
 
 ## Desktop setup
 
@@ -18,15 +18,15 @@ Actual phone interoperability and the packaged Windows release still require tes
    database. No Python, pip, separate bridge script, administrator shell or Windows
    certificate-store modification is required. The listener uses only the selected
    address, never all adapters. There is no plain HTTP mode.
-4. Select **Pair a phone**, name it, and grant text chat and optional task/alert
-   status access. Transfer the one-time pairing link privately. Its key is a secret;
+4. Select **Pair a phone**, name it, and grant text chat and optional task/alert,
+   workflow and notification access. Select any PC chat histories to share. Transfer the one-time pairing link privately. Its key is a secret;
    do not put it in GitHub, logs, a public QR site or a support conversation.
 5. Android must validate the paired certificate and the address before sending the
    key or a prompt. See the required Android changes below. An IP alone cannot pair.
 6. Keep the PC awake and reachable, Private AI running and unlocked, and background
-   work resumed. The gateway can remain in the tray. Locking blocks every API read
+   work resumed. The gateway can remain in the tray. Locking blocks ordinary API reads
    and cancels active chat; the phone cannot unlock the PC. WhatsApp's separate
-   explicitly granted lock/background permissions are unchanged.
+   explicitly granted lock/background permissions are unchanged. A separate notification-only key can report generic due metadata while locked only when explicitly granted; it cannot read content or run AI.
 
 Windows or workplace network rules may block the connection. No firewall rule is
 created automatically. If needed, IT should permit the selected executable/address
@@ -38,8 +38,7 @@ its active request. Saved desktop chats and clinical data remain intact.
 
 ## Pairing and required Android changes
 
-The desktop returns a **proposed** Quick Paste format; the Android parser must be
-updated to support it. Existing parser behavior has not been inspected or tested:
+The reviewed native Android parser implements this Quick Paste format. Physical phone acceptance remains separate:
 
 ```text
 privateai://pair?host=<actual-ip>&port=<actual-port>&scheme=https&key=<random-device-key>&fingerprint=<sha256-hex>&certificate=<url-encoded-base64-der>
@@ -103,7 +102,7 @@ Chat request:
 ```
 
 `sessionId` defaults to `default`; use a new one for a new conversation. Session IDs
-are scoped to the paired phone and cannot select existing unrelated desktop chats.
+are scoped to the paired phone. Explicit desktop grants use `shared_<desktop-chat-UUID>`; without a grant, unrelated PC chats cannot be selected.
 Both IDs use 1–80 ASCII letters, digits, underscores or hyphens. Prompts must be
 nonempty, at most 40,000 characters; JSON bodies are limited to 192 KiB. Chat uses
 the same Core/router, privacy approval, cloud budget, local model and RAM controls
@@ -114,7 +113,7 @@ compliance or zero cloud use.
 
 Remote chat permits text questions and safe in-process commands such as `/calc`.
 Desktop tool commands (Outlook/browser/resident-record commands), arbitrary file
-access, attachment uploads, remote approvals and starting/cancelling report jobs
+access, inline chat attachment uploads, remote approvals and starting/cancelling report jobs
 are not exposed by this endpoint. `attachmentName`/`attachmentType` may be absent
 or empty; nonempty metadata returns **422**, because a filename is not file contents.
 This is separate from the existing WhatsApp remote jobs interface.
@@ -142,6 +141,31 @@ described as completed inference. A deliberately enabled simulation mode must la
 every screen/output **Simulation — desktop not contacted**, and must not use PHI.
 
 ## Copy into the Android development chat
+
+### Extended source workflow contract
+
+Existing endpoints remain. `status.capabilities` advertises `conversations`, `captures`, `actions`, `drafts`, `evidence-chunks`, `reminder-notifications`. New pairing scopes `workflow` and `notifications` default off; unknown scopes are rejected. Remote inference excludes unrelated global memory/instructions. Optional boolean chat fields `requireLocal` and `requireHipaa` are included in replay identity: local requests cannot fall back to cloud; required HIPAA rejects incompatible desktop settings before/after generation.
+
+| Method/path under `/mobile/api/v1` | Grant | Request / response |
+| --- | --- | --- |
+| GET `/conversations` | chat | `{conversations:[{sessionId,title,updated,shared}],truncated}`; own sessions plus explicit PC grants |
+| POST `/conversations/history` | chat | `{sessionId}` → scoped messages `{id,role,text,created,processing}`, bounded history/truncation |
+| POST `/captures/create` | workflow | `{sourceId,text,kind,observedAt?,location?,owner?,dueAt?,evidenceIds?,draftChannel?}` → `{capture,actions,drafts,replayed}` |
+| GET `/actions` | workflow | `{captures,actions,drafts,truncated}`; this device's bounded recent captures, up to 100 / 512 KiB |
+| POST `/actions/update` | workflow | `{id,revision,owner?,dueAt?,note?,complete?}` → action; **action revision is a hash string** |
+| POST `/drafts/save` | workflow | `{id?,revision?,captureId,channel,body,recipient?,subject?}` → internal draft; numeric draft revision; max six drafts/capture |
+| POST `/evidence/write` | workflow | Chunk upload described below; no filesystem path |
+| POST `/evidence/read` | workflow | `{id}` → `{id,name,mime,bytes,sha256,data}` for owned evidence |
+| GET `/notifications` | notifications | `{notifications:[{id,type:'reminder',created,actionId,status}],truncated}`; pending notices first; no titles/body/residents |
+| POST `/notifications/ack` | notifications | `{id}` → `{id,status:'acknowledged'}`; acknowledges this notification, never a clinical alert |
+
+Captures have stable ASCII source IDs (1–100 chars), source text (1–12,000), kind `note`/`round`/`reminder`, optional explicit millisecond deadline/owner/location and at most six evidence IDs. Unknown owner/time stays unknown. Proposals are review-required administrative todos, not clinical conclusions. Optional `draftChannel` is `outlook` or `whatsapp`; no external dispatch occurs. Same source ID and same input replay; changed input/revision returns 409. Scope ownership is checked on every read/write. Completing a todo requires an explicit note and never closes an alert/SBAR. Pending source/evidence links survive retention.
+
+Evidence request: `{uploadId,index,total,name,mime,bytes,sha256,data}`. `uploadId` is a stable UUID; index is 0-based, total 1–64; name max160 without separators; full file max5 MiB; each base64 chunk decodes to at most80 KiB. MIME is JPEG/PNG/PDF/plain text. Every chunk repeats metadata. Hash/content signature and byte count are verified before finalization. Response `{uploadId,index,complete,evidenceId?,sha256?,bytes?}`. Stop when a completed retry is verified; changed chunks are409. Uploads/evidence are encrypted. Abandoned uploads expire. Photos remain review evidence without implied local vision capability.
+
+With notifications scope, pairing also returns optional `notificationKey` and includes it in the URI. It is independent from the full key, stored hashed, accepted **only** for the two notification endpoints and revoked with the phone. Android may store this restricted certificate/origin/key under a separate Keystore key for explicitly enabled background polling, excluded from backups. Full credentials/records stay OS-authentication protected. Desktop-only `notificationsWhileLocked` defaults false; when explicitly enabled the restricted key can project generic due metadata while locked. The full key retains its lock restriction and cannot inherit this exception. Notification permission/scheduling/battery limits can delay delivery.
+
+Physical phone/Keystore/OS-authentication, camera/dictation, periodic notification delivery, sleep/reconnect and LAN acceptance remain independent of source tests and the earlier Windows candidate.
 
 > Integrate the Android companion with the desktop contract in
 > `docs/ANDROID_COMPANION_CONTRACT.md` from the reviewed Private AI desktop branch.

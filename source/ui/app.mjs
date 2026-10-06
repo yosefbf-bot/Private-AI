@@ -1,6 +1,7 @@
 import {integrationSettings} from "./integrations.mjs";
 import {companionSettings} from "./companion.mjs";
 import {createWorkflowUI} from "./workflows.mjs";
+import {createCaptureUI} from "./captures.mjs";
 import {migrateLegacyStorage} from "./legacy-storage.mjs";
 import {createTodayUI} from "./snf/today.mjs";
 import {createImportCenter} from "./snf/import-center.mjs";
@@ -81,6 +82,7 @@ function idsFrom(r) {
     .map((k) => k.slice(5));
 }
 const workflowUI=createWorkflowUI({api,esc,toast,form,field,textarea,select,renderPage,refresh});
+const captureUI=createCaptureUI({api,esc,toast,form,field,textarea,select,refresh});
 const todayUI=createTodayUI({api,esc,toast,refresh,renderPage});
 const importUI=createImportCenter({api,esc,toast,form});
 const snfUI = createSNFUI({ api, toast, esc, renderPage });
@@ -185,7 +187,7 @@ function updateTop() {
     today: "Today",
     execdesk: "👔 Executive Desk",
     opanalytics: "📈 Operations Analytics & Compliance",
-    actions: "Action Center", decisions: "Decision log", metrics: "Data sources", workspace: "Projects & Documents", playbooks: "Playbooks & Budgets",
+    actions: "Action Center", captures: "Notes and rounds", decisions: "Decision log", metrics: "Data sources", workspace: "Projects & Documents", playbooks: "Playbooks & Budgets",
     operations: "📊 Operations Intelligence & Meeting Copilot",
     automation: "⚡ Automation & Agent Center",
     pcc: "PCC Import Center", "clinical-imports": "Clinical imports",
@@ -1480,6 +1482,11 @@ function renderPage(name, options = {}) {
   view = name;
   updateTop();
   renderSidebar();
+  if (name === 'captures') {
+    $("content").innerHTML="<p>Loading…</p>";
+    captureUI.render($("content")).catch(e=>toast(e.message));
+    return;
+  }
   if (["actions","decisions","metrics","workspace","playbooks"].includes(name)) {
     $("content").innerHTML="<p>Loading…</p>";workflowUI.render($("content"),name).catch(e=>toast(e.message));return;
   }
@@ -2141,9 +2148,9 @@ document.addEventListener("click", async (e) => {
         break;
       }
       case "companion-pair": {
-        const choice=await form("Pair a phone",`${field("Phone name","name", "My phone")}<p>Grant access only to a phone you control. Its pairing key gives access while the desktop is unlocked. Store it securely on the phone.</p><label class="check"><input name="chat" type="checkbox" checked> Text chat using desktop privacy settings</label><label class="check"><input name="tasks" type="checkbox"> Task status metadata</label><label class="check"><input name="alerts" type="checkbox"> Clinical alert metadata (no resident details)</label>`,"Create pairing key");
+        const choice=await form("Pair a phone",`${field("Phone name","name", "My phone")}<p>Grant access only to a phone you control. Its pairing key gives access while the desktop is unlocked. Store it securely on the phone.</p><label class="check"><input name="chat" type="checkbox" checked> Text chat using desktop privacy settings</label><label class="check"><input name="tasks" type="checkbox"> Task status metadata</label><label class="check"><input name="alerts" type="checkbox"> Clinical alert metadata (no resident details)</label><label class="check"><input name="workflow" type="checkbox"> Notes, evidence, follow-ups and internal drafts created by this phone</label><label class="check"><input name="notifications" type="checkbox"> Due follow-up notifications for this phone</label><label class="check"><input name="notificationsWhileLocked" type="checkbox"> Allow the separate notification-only key to report generic due-reminder metadata while this desktop app is locked (requires notifications above)</label><p>Select PC conversations this phone may read and continue:</p>${(state.chats || []).filter(c=>!c.archived).map(c=>`<label class="check"><input name="share_${esc(c.id)}" type="checkbox">${esc(c.title)}</label>`).join('')}`,"Create pairing key");
         if(!choice)break;
-        const pairing=await api("companionPair",{name:choice.name,scopes:{chat:!!choice.chat,tasks:!!choice.tasks,alerts:!!choice.alerts}});
+        const pairing=await api("companionPair",{name:choice.name,scopes:{chat:!!choice.chat,tasks:!!choice.tasks,alerts:!!choice.alerts,workflow:!!choice.workflow,notifications:!!choice.notifications},sharedChats:Object.keys(choice).filter(k=>k.startsWith('share_')).map(k=>k.slice(6)),notificationsWhileLocked:!!choice.notificationsWhileLocked});
         await refresh();renderPage("settings");
         await form("Phone pairing — shown once",`<p>Transfer privately to your phone's Quick Paste. The Android app must import and verify the supplied certificate and host. Never paste this link into a website or chat; it contains a secret key.</p><label class="field">Pairing link<textarea readonly rows="5" autocomplete="off">${esc(pairing.pairingUrl)}</textarea></label><p>Address: ${esc(pairing.baseUrl)}</p><p>Certificate SHA-256: <code style="overflow-wrap:anywhere">${esc(pairing.fingerprint)}</code></p><p>If pairing is cancelled or unsupported, revoke this phone below.</p>`,"Done");
         $("modal-content").replaceChildren();
@@ -2151,6 +2158,11 @@ document.addEventListener("click", async (e) => {
       }
       case "companion-revoke": {
         await api("companionRevoke",{id});await refresh();renderPage("settings");toast("Phone access revoked. Saved chats were kept.");break;
+      }
+      case "companion-grant": {
+        const device=state.companion.devices.find(d=>d.id===id);
+        const choice=await form('Shared PC conversations',`<p>Only selected histories are shared with ${esc(device.name)}. Global memory and unrelated instructions are excluded from remote inference.</p>${(state.chats || []).filter(c=>!c.archived).map(c=>`<label class="check"><input name="share_${esc(c.id)}" type="checkbox" ${device.sharedChats?.includes(c.id)?'checked':''}>${esc(c.title)}</label>`).join('')}`);
+        if(choice){await api('companionGrant',{id,sharedChats:Object.keys(choice).filter(k=>k.startsWith('share_')).map(k=>k.slice(6))});await refresh();renderPage('settings');}break;
       }
       case "save-settings":
         await saveSettings();

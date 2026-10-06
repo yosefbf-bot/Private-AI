@@ -21,7 +21,7 @@ export function createWorkflowUI({
       : "";
   const parseDate = (v) => (v ? new Date(v).getTime() : null);
   const nav =
-    '<p><button data-act="view" data-view="today">Today</button> <button data-act="view" data-view="actions">Action Center</button> <button data-act="view" data-view="decisions">Decisions</button> <button data-act="view" data-view="metrics">Data sources</button></p>';
+    '<p><button data-act="view" data-view="today">Today</button> <button data-act="view" data-view="actions">Action Center</button> <button data-act="view" data-view="captures">Notes and rounds</button> <button data-act="view" data-view="decisions">Decisions</button> <button data-act="view" data-view="metrics">Data sources</button></p>';
   const fileChecks = (files, ids = []) =>
     files
       .map(

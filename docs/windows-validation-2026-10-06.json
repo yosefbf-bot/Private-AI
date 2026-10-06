@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "version": "3.0.1-dev",
+  "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
+  "baseCommit": "c269a18eec4ea5b4e347e3520be1cd4e9bd88876",
+  "date": "2026-10-06",
+  "platform": "win32",
+  "syntheticDataOnly": true,
+  "windowsApplicationExecuted": true,
+  "windowsInstallerExecuted": true,
+  "actualModelInferenceExecuted": true,
+  "passed": true,
+  "productionReady": false,
+  "hashes": {
+    "installer": "194d1ab493507f1695d135b1b92f341b28220f2ca3ec2afddfe7c8f6a96df453",
+    "executable": "13da4a79000ce604e8b4b202be3e794c764d1eb433eb9bd750c6f0213eaf1aa5",
+    "applicationArchive": "755c348965f2190ded238956890f4d7f41f9f712c4e2829daa6d934b874caa5b",
+    "runtime": "a9a88ca88ef1f3c320c07afe38cf4ab7759cfdef1c692e430c2d32e33f4bcc15",
+    "unpackedZIP": "41ddcf31c031a6d0ffa46963eb45fb31d77a9a57eca41ffd9e599e6ab8ec8d36"
+  },
+  "windowsAcceptance": {
+    "freshStartup": true,
+    "packagedRestart": true,
+    "installedRestart": true,
+    "syntheticDPAPIRestore": true,
+    "installerExitCode": 0,
+    "uninstallerExitCode": 0,
+    "reinstallerExitCode": 0,
+    "syntheticStandardDataRetained": true,
+    "syntheticFixtureRestored": true,
+    "installationRegistryAndShortcutsRemoved": true,
+    "unpackedZIPAllFileHashesMatched": true,
+    "unpackedZIPApplicationExecuted": true,
+    "releaseEvidenceGatePassed": true,
+    "packagedFiles": 575,
+    "packagedPEBinaries": 415,
+    "extraStandardNSISHelper": {
+      "path": "resources/elevate.exe",
+      "bytes": 107520,
+      "machine": "0x14c",
+      "sections": 6,
+      "sha256": "9b1fbf0c11c520ae714af8aa9af12cfd48503eedecd7398d8992ee94d1b4dc37",
+      "source": "Checksum-verified pinned NSIS 3.0.4.1 cache"
+    },
+    "fresh": {
+      "passed": true,
+      "actualModelInferenceExecuted": false,
+      "checks": 14,
+      "builtInChecks": 12,
+      "navigationViews": 21,
+      "sharedCompanionChecks": 10,
+      "sharedCompanionRestartPersistenceVerified": false
+    },
+    "packagedRestartResult": {
+      "passed": true,
+      "actualModelInferenceExecuted": true,
+      "checks": 15,
+      "builtInChecks": 12,
+      "navigationViews": 21,
+      "sharedCompanionChecks": 11,
+      "sharedCompanionRestartPersistenceVerified": true
+    },
+    "cleanInstalled": {
+      "passed": true,
+      "actualModelInferenceExecuted": false,
+      "checks": 14,
+      "builtInChecks": 12,
+      "navigationViews": 21,
+      "sharedCompanionChecks": 10,
+      "sharedCompanionRestartPersistenceVerified": false
+    },
+    "installedRestartResult": {
+      "passed": true,
+      "actualModelInferenceExecuted": true,
+      "checks": 15,
+      "builtInChecks": 12,
+      "navigationViews": 21,
+      "sharedCompanionChecks": 11,
+      "sharedCompanionRestartPersistenceVerified": true
+    },
+    "portable": {
+      "passed": true,
+      "actualModelInferenceExecuted": false,
+      "checks": 14,
+      "builtInChecks": 12,
+      "navigationViews": 21,
+      "sharedCompanionChecks": 10,
+      "sharedCompanionRestartPersistenceVerified": false
+    }
+  },
+  "localInference": {
+    "currentTiers": [
+      "small"
+    ],
+    "runtimeResult": {
+      "tier": "small",
+      "checksumVerified": true,
+      "freeMemoryBeforeLoad": 5558366208,
+      "loadMs": 2109,
+      "peakWorkingSetBytes": 2338803712,
+      "response": "READY.",
+      "generationMs": 4786,
+      "cancellation": "passed",
+      "browserLaneBlock": "passed"
+    },
+    "rendererCorePath": {
+      "model": "Qwen_Qwen3-1.7B-Q4_K_M.gguf",
+      "modelSHA256": "72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb",
+      "runtimeSHA256": "a9a88ca88ef1f3c320c07afe38cf4ab7759cfdef1c692e430c2d32e33f4bcc15",
+      "localContext": 2048,
+      "localMaxOutput": 128,
+      "provider": "local",
+      "unknownMedicationStatusPreserved": true,
+      "apiKeyRequired": false,
+      "pccEnabled": false,
+      "clinicalAccuracyValidated": false
+    },
+    "historicalMediumHigh": "October 2 bc964e09 only; not re-executed for this application archive"
+  },
+  "sourceChecks": {
+    "windowsTests": 500,
+    "passed": 500,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "linuxRegression": {
+      "tests": 499,
+      "passed": 499,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hardening": {
+      "tests": 25,
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0
+    },
+    "syntaxFiles": 184,
+    "repositoryPolicy": "passed",
+    "productionAudit": {
+      "command": "npm audit --omit=dev --audit-level=high",
+      "exitCode": 0,
+      "moderate": 3,
+      "high": 0,
+      "critical": 0,
+      "advisory": "https://github.com/advisories/GHSA-hp3w-g68c-fv3c",
+      "dependencyPath": [
+        "mammoth",
+        "argparse",
+        "sprintf-js"
+      ],
+      "note": "Passed high-severity gate; not zero findings."
+    }
+  },
+  "nativeInputs": {
+    "verifiedManifestFiles": 411,
+    "inputArtifact": 11247250109,
+    "inputRun": 37050270590,
+    "inputArchiveSHA256": "cb1578401fad4f5f994269e35cc603afe562d9f78b735f341e8da2be838d0f42",
+    "nativeBuildSourcesUnchangedSince": "bc964e09c28e996178196661bfccdcef6d3fac41"
+  },
+  "ci": {
+    "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
+    "complete": true,
+    "checkedAt": "2026-10-06 09:30:10 UTC",
+    "runs": [
+      {
+        "id": 37441844506,
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
+        "html_url": "https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/37441844506"
+      },
+      {
+        "id": 37441839760,
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
+        "html_url": "https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/37441839760"
+      }
+    ]
+  },
+  "priorUnusedAppRemoval": {
+    "passed": true,
+    "uninstallerExitCode": 0,
+    "standardDataAbsent": true,
+    "scope": "Authorized unused October 2 installation; not current-candidate upgrade proof"
+  },
+  "failedAttempts": [
+    {
+      "codeCommit": "11a9114b8696c71f74252ca0784d18693b6272e5",
+      "passed": false,
+      "evidenceRetained": true,
+      "cause": "Validation TLS client UNABLE_TO_VERIFY_LEAF_SIGNATURE; separate diagnostic established the trust-anchor handling. Validation-only partial-chain trust retains pin/CA/host/date verification; production TLS policy unchanged."
+    },
+    {
+      "codeCommit": "34f9d3ecec7bd422c367af0daf32965f36f940a2",
+      "passed": false,
+      "evidenceRetained": true,
+      "cause": "Direct IPC unlock did not invoke the ordinary UI unlock button init(); renderer state stayed null and the sidebar intentionally ignored Notes navigation. Validation-only ordering corrected; no production defect established."
+    }
+  ],
+  "scopeLimits": [
+    "Loopback HTTPS and synthetic 96 KiB TXT evidence, not physical Android/LAN/firewall or packaged maximum-size/photo/PDF acceptance",
+    "Deterministic HTTPS /calc continuation; actual local model tested separately through packaged renderer/IPC/Core",
+    "Internal drafts only; no real WhatsApp/Outlook send or native browser account acceptance",
+    "Reminder endpoint metadata/ack only; no physical Android notification delivery acceptance"
+  ],
+  "remainingAcceptance": [
+    "Representative existing-data upgrade",
+    "Windows reboot and interactive installer/SmartScreen",
+    "Physical Android/LAN, camera/dictation and notifications",
+    "Live WhatsApp/Outlook/provider/native browser accounts",
+    "Representative clinical/PCC human review and microphone/speaker/accessibility",
+    "Sustained workloads",
+    "Code signing and automatic updater"
+  ],
+  "checkedAt": "2026-10-06T09:39:59.900Z"
+}

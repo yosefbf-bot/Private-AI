@@ -385,7 +385,7 @@ class ExecutiveDeskEngine {
       blockerNotes: data.blockerNotes ? text(data.blockerNotes, 500) : null,
       dueDate: data.dueDate || null,
       relatedRoundsId: data.relatedRoundsId ? text(data.relatedRoundsId, 50) : null,
-      completedAt: data.status === 'completed' ? Date.now() : null,
+      completedAt: data.status === 'completed' ? (data.completedAt || Date.now()) : null,
       created: data.created || Date.now(),
       updated: Date.now()
     };
@@ -505,69 +505,98 @@ class ExecutiveDeskEngine {
   // -------------------------------------------------------------
   logRoundsIssue(data) {
     this.core.assertUnlocked();
-    const id = isId(data.id) ? data.id : uuid();
-    const category = ['maintenance', 'housekeeping', 'nursing', 'safety', 'other'].includes(data.category) ? data.category : 'maintenance';
-    const urgency = ['urgent', 'high', 'medium', 'normal'].includes(data.urgency) ? data.urgency : 'high';
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw fail('INVALID');
+    const write = () => {
+      const id = isId(data.id) ? data.id : uuid();
+      const existing = this.store.get('exec_rounds_issue', id);
+      const canonical = this.store.get('todo', id);
+      const values = { ...existing, ...data };
+      const category = ['maintenance', 'housekeeping', 'nursing', 'safety', 'other'].includes(values.category) ? values.category : 'maintenance';
+      const urgency = ['urgent', 'high', 'medium', 'normal'].includes(values.urgency) ? values.urgency : 'high';
+      const linkedTasks = (this.store.list('exec_dept_task') || []).filter(t => t.relatedRoundsId === id);
+      const linkedTask = linkedTasks.find(t => t.id === existing?.departmentTaskId) || linkedTasks.sort((a, b) => (a.created || 0) - (b.created || 0))[0];
+      const hasDeadline = Object.hasOwn(data, 'dueAt') || Object.hasOwn(data, 'dueDate');
+      const deadline = hasDeadline ? (Object.hasOwn(data, 'dueAt') ? data.dueAt : data.dueDate) : (canonical ? (canonical.dueAt ?? (canonical.followUpDate ? Date.parse(canonical.followUpDate) : null)) : (existing?.dueAt ?? linkedTask?.dueDate ?? null));
+      const dueAt = deadline === null || deadline === undefined || deadline === '' ? null : (typeof deadline === 'number' ? deadline : Date.parse(deadline));
+      if (dueAt !== null && (!Number.isFinite(dueAt) || dueAt <= 0)) throw fail('INVALID');
+      const status = Object.hasOwn(data, 'status') ? values.status : (canonical?.status === 'completed' ? 'resolved' : values.status);
+      const approved = Object.hasOwn(data, 'approved') ? data.approved === true : existing?.dispatchApproved === true;
+      const departmentOwner = category === 'maintenance' ? 'Maintenance' : category === 'housekeeping' ? 'Housekeeping' : 'Nursing';
+      const owner = Object.hasOwn(data, 'assignedTo') ? (values.assignedTo || departmentOwner) : (canonical?.owner || values.assignedTo || departmentOwner);
 
-    const issue = {
-      id,
-      location: text(data.location || 'Facility', 100), // e.g. Room 114, East Corridor, Main Dining
-      category,
-      description: text(data.description || 'Punch list item', 2000),
-      urgency,
-      status: ['open', 'in_progress', 'resolved'].includes(data.status) ? data.status : 'open',
-      assignedDepartmentId: category === 'maintenance' ? 'maintenance' : category === 'housekeeping' ? 'housekeeping' : 'don',
-      assignedTo: text(data.assignedTo || '', 100),
-      resolutionNotes: data.resolutionNotes ? text(data.resolutionNotes, 1000) : null,
-      autoDispatchedTask: Boolean(data.autoDispatchTask !== false),
-      dispatchApproved: Boolean(data.approved === true),
-      dispatchStatus: data.approved === true ? 'Approved & Dispatched' : 'Internal Ticket (Approval required for external dispatch)',
-      resolvedAt: data.status === 'resolved' ? Date.now() : null,
-      created: data.created || Date.now(),
-      updated: Date.now()
-    };
+      const issue = {
+        id,
+        location: text(values.location || 'Location not provided', 100),
+        category,
+        description: text(values.description || 'Punch list item', 2000),
+        urgency,
+        status: ['open', 'in_progress', 'resolved'].includes(status) ? status : 'open',
+        assignedDepartmentId: category === 'maintenance' ? 'maintenance' : category === 'housekeeping' ? 'housekeeping' : 'don',
+        assignedTo: text(values.assignedTo || '', 100),
+        resolutionNotes: values.resolutionNotes ? text(values.resolutionNotes, 1000) : null,
+        autoDispatchedTask: Object.hasOwn(data, 'autoDispatchTask') ? data.autoDispatchTask !== false : existing?.autoDispatchedTask !== false,
+        dispatchApproved: approved,
+        dispatchStatus: approved ? 'Approved internal ticket (external dispatch not performed)' : 'Internal Ticket (Approval required for external dispatch)',
+        departmentTaskId: linkedTask?.id || null,
+        dueAt,
+        deadlineSource: hasDeadline ? (dueAt === null ? 'unknown' : 'user-entered') : (existing?.deadlineSource || (dueAt === null ? 'unknown' : 'legacy-saved')),
+        resolvedAt: status === 'resolved' ? (existing?.resolvedAt || Date.now()) : null,
+        created: existing?.created || data.created || Date.now(),
+        updated: Date.now()
+      };
 
-    this.store.put('exec_rounds_issue', id, issue);
+      this.store.put('exec_rounds_issue', id, issue);
 
-    // Canonical todo bridge for rounds issue
-    this.saveCanonicalTodo({
-      id,
-      title: `[Rounds] ${issue.location}: ${issue.description.slice(0, 100)}`,
-      description: `Location: ${issue.location}\nUrgency: ${issue.urgency.toUpperCase()}\nDetails: ${issue.description}`,
-      owner: issue.assignedDepartmentId === 'maintenance' ? 'Maintenance' : issue.assignedDepartmentId === 'housekeeping' ? 'Housekeeping' : 'Nursing',
-      dueAt: issue.urgency === 'urgent' ? (Date.now() + 14400000) : (Date.now() + 86400000),
-      priority: issue.urgency === 'urgent' ? 'urgent' : 'normal',
-      status: issue.status === 'resolved' ? 'completed' : 'pending',
-      source: 'rounds'
-    });
-
-    this.store.put('wf_action_meta', 'todo:' + id, {
-      id: 'todo:' + id,
-      owner: issue.assignedDepartmentId,
-      dueAt: issue.urgency === 'urgent' ? (Date.now() + 14400000) : (Date.now() + 86400000),
-      note: issue.description,
-      category: 'rounds',
-      location: issue.location,
-      updatedAt: Date.now()
-    });
-
-    // If auto-dispatch is enabled, automatically create a department head task
-    if (issue.autoDispatchedTask && issue.status !== 'resolved') {
-      const deptId = issue.assignedDepartmentId;
-      const dept = DEPARTMENTS.find(d => d.id === deptId) || DEPARTMENTS[2];
-      this.saveDeptTask({
-        id: uuid(),
-        departmentId: dept.id,
-        assigneeName: dept.defaultLeader,
+      // Canonical todo bridge for rounds issue
+      this.saveCanonicalTodo({
+        ...canonical,
+        id,
         title: `[Rounds] ${issue.location}: ${issue.description.slice(0, 100)}`,
-        description: `Logged during Administrator Executive Rounds:\nLocation: ${issue.location}\nUrgency: ${issue.urgency.toUpperCase()}\nDetails: ${issue.description}`,
-        priority: issue.urgency === 'urgent' ? 'critical' : issue.urgency,
-        relatedRoundsId: issue.id,
-        dueDate: issue.urgency === 'urgent' ? new Date(Date.now() + 14400000).toISOString() : new Date(Date.now() + 86400000).toISOString() // 4h or 24h
+        description: `Location: ${issue.location}\nUrgency: ${issue.urgency.toUpperCase()}\nDetails: ${issue.description}`,
+        owner,
+        dueAt: issue.dueAt,
+        followUpDate: null,
+        priority: issue.urgency === 'urgent' ? 'urgent' : 'normal',
+        status: issue.status === 'resolved' ? 'completed' : 'pending',
+        source: 'rounds'
       });
-    }
 
-    return issue;
+      this.store.put('wf_action_meta', 'todo:' + id, {
+        ...this.store.get('wf_action_meta', 'todo:' + id),
+        id: 'todo:' + id,
+        owner,
+        dueAt: issue.dueAt,
+        note: issue.description,
+        category: 'rounds',
+        location: issue.location,
+        updatedAt: Date.now()
+      });
+
+      // Upsert the explicitly linked internal task. Editing a finding must not
+      // allocate another delegation, reset its owner/status or rearm its deadline.
+      if (issue.autoDispatchedTask && issue.status !== 'resolved') {
+        const deptId = issue.assignedDepartmentId;
+        const dept = DEPARTMENTS.find(d => d.id === deptId) || DEPARTMENTS[2];
+        const savedTask = this.saveDeptTask({
+          ...linkedTask,
+          id: linkedTask?.id || uuid(),
+          departmentId: dept.id,
+          assigneeName: issue.assignedTo || linkedTask?.assigneeName || dept.defaultLeader,
+          title: `[Rounds] ${issue.location}: ${issue.description.slice(0, 100)}`,
+          description: `Logged during Administrator Executive Rounds:\nLocation: ${issue.location}\nUrgency: ${issue.urgency.toUpperCase()}\nDetails: ${issue.description}`,
+          priority: issue.urgency === 'urgent' ? 'critical' : issue.urgency,
+          relatedRoundsId: issue.id,
+          dueDate: issue.dueAt === null ? null : new Date(issue.dueAt).toISOString()
+        });
+        issue.departmentTaskId = savedTask.id;
+        this.store.put('exec_rounds_issue', id, issue);
+      } else if (issue.status === 'resolved') {
+        for (const task of linkedTasks) this.saveDeptTask({ ...task, status: 'completed' });
+      }
+
+      return issue;
+    };
+    return typeof this.store.transaction === 'function' ? this.store.transaction(write) : write();
   }
 
   listRoundsIssues(filters = {}) {
@@ -600,29 +629,30 @@ class ExecutiveDeskEngine {
   resolveRoundsIssue(id, resolutionNotes) {
     this.core.assertUnlocked();
     if (!isId(id)) throw fail('INVALID');
-    const existing = this.store.get('exec_rounds_issue', id);
-    if (!existing) throw fail('NOT_FOUND');
+    const write = () => {
+      const existing = this.store.get('exec_rounds_issue', id);
+      if (!existing) throw fail('NOT_FOUND');
 
-    const updated = {
-      ...existing,
-      status: 'resolved',
-      resolutionNotes: text(resolutionNotes || 'Resolved during rounds follow-up', 1000),
-      resolvedAt: Date.now(),
-      updated: Date.now()
+      const updated = {
+        ...existing,
+        status: 'resolved',
+        resolutionNotes: text(resolutionNotes || 'Resolved during rounds follow-up', 1000),
+        resolvedAt: existing.resolvedAt || Date.now(),
+        updated: Date.now()
+      };
+      this.store.put('exec_rounds_issue', id, updated);
+
+      // Sync canonical todo
+      this.syncCanonicalTodoStatus(id, 'completed', resolutionNotes);
+
+      // Preserve legacy duplicate records, but close every task whose explicit
+      // source link points to this finding. Unrelated tasks remain untouched.
+      const deptTasks = this.store.list('exec_dept_task') || [];
+      for (const linked of deptTasks.filter(t => t.relatedRoundsId === id)) this.saveDeptTask({ ...linked, status: 'completed' });
+
+      return updated;
     };
-    this.store.put('exec_rounds_issue', id, updated);
-
-    // Sync canonical todo
-    this.syncCanonicalTodoStatus(id, 'completed', resolutionNotes);
-
-    // Also close linked department task if exists
-    const deptTasks = this.store.list('exec_dept_task') || [];
-    const linked = deptTasks.find(t => t.relatedRoundsId === id);
-    if (linked && linked.status !== 'completed') {
-      this.saveDeptTask({ ...linked, status: 'completed' });
-    }
-
-    return updated;
+    return typeof this.store.transaction === 'function' ? this.store.transaction(write) : write();
   }
 
   deleteRoundsIssue(id) {

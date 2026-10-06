@@ -357,6 +357,7 @@ async function dispatch(
   if (op.startsWith("voiceTranscript")) return require("./voice-history.cjs").dispatch(core,op,data);
   if (op.startsWith("snf")) return require("./snf/index.cjs").dispatch(core,op,data);
   if (op.startsWith("workflow")) return require("./workflows/index.cjs").dispatch(core,op,data);
+  if (op.startsWith("capture")) return require("./capture-workflows.cjs").dispatch(core,op,data);
   if (/^(operations|meeting|sbar|speaker|audio)/.test(op)) return require("./operations-copilot.cjs").dispatch(core,op,data);
   if (op.startsWith("exec")) return require("./executive-desk-engine.cjs").dispatch(core,op,data);
   if (/^(regulatory|staffing)/.test(op)) return require("./operations-analytics-engine.cjs").dispatch(core,op,data);
@@ -429,6 +430,7 @@ async function dispatch(
     case "companionSave": return companion.configure(data);
     case "companionPair": return companion.pair(data);
     case "companionRevoke": return companion.revoke(data.id);
+    case "companionGrant": return companion.grant(data);
     case "usageSummary": return core.router.meter.summary();
     case "ping":
       return { ok: true };

@@ -14,6 +14,34 @@
 
 const { fail, isId, text, uuid } = require('./security.cjs');
 
+// Keep offsets in the original memo so each suggestion can be reviewed against
+// the words that produced it. A conjunction only starts a new clause when an
+// explicit new instruction/department follows; "soup and coffee" stays intact.
+function memoClauses(transcript) {
+  const separator = /[,;\n]+|[.!?](?=\s|$)|\s+\band\b\s+(?=(?:then\s+)?(?:tell|let|remind|call|contact|reach\s+out|check\s+on|put|note|follow\s+up|maintenance|dietary|housekeeping|room\s*#?\s*\d+)\b)/gi;
+  const clauses = [];
+  const add = (start, end) => {
+    const raw = transcript.slice(start, end);
+    const leading = raw.match(/^\s*/)[0].length;
+    const trailing = raw.match(/\s*$/)[0].length;
+    if (raw.trim()) clauses.push({ start: start + leading, end: end - trailing, text: raw.trim() });
+  };
+  let start = 0;
+  for (const match of transcript.matchAll(separator)) {
+    // Common titles are part of the evidence, not sentence boundaries.
+    if (match[0] === '.' && /\b(?:dr|mr|mrs|ms|st)\.$/i.test(transcript.slice(0, match.index + 1))) continue;
+    add(start, match.index);
+    start = match.index + match[0].length;
+  }
+  add(start, transcript.length);
+  return clauses;
+}
+
+function memoDueHint(evidence) {
+  const match = evidence.text.match(/\b(?:(?:by|on|at)\s+)?(?:\d{4}-\d{2}-\d{2}|today|tomorrow|tonight|(?:next|this)\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|in\s+\d+\s+(?:minutes?|hours?|days?|weeks?))(?:\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?))?|\b(?:by|at)\s+\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b/i);
+  return match ? { text: match[0], start: evidence.start + match.index, end: evidence.start + match.index + match[0].length, status: 'unresolved' } : null;
+}
+
 class ExecutiveAssistantEngine {
   constructor(core) {
     this.core = require('./executive-workspace.cjs').scopedCore(core);
@@ -98,131 +126,81 @@ class ExecutiveAssistantEngine {
   // 3. Stream-of-Consciousness Voice Memo Multi-Action Parser
   // -------------------------------------------------------------
   parseVoiceMemo(transcript) {
-    if (!transcript || typeof transcript !== 'string') {
-      throw fail('INVALID');
-    }
+    this.core.assertUnlocked();
+    text(transcript, 40000);
+    if (!transcript.trim()) throw fail('INVALID');
 
-    const lower = transcript.toLowerCase();
     const extractedActions = [];
+    const unmatchedEvidence = [];
+    const rooms = [];
+    const maintenance = /\b(?:maintenance|ac|a\/c|air\s+condition(?:er|ing)?|heater|hvac|leak(?:ing)?|sink|toilet|light|door|bed|remote|handrail|paint|scuff|plumbing)\b/i;
+    const dietary = /\b(?:dietary|kitchen|food|meals?|soup|tray|pureed|texture|supper|lunch|breakfast)\b/i;
+    const personnel = /\b(?:stayed(?:\s+\w+){0,3}\s+late|helped|overtime|call\s+off|great\s+job|recognition|warning|tardy|attendance)\b/i;
+    const followUp = /\b(?:remind\s+me|call(?!\s+off)|follow[ -]up|doctor|physician|pharmacy|contact|reach\s+out|check\s+on)\b|\bdr\./i;
+    const add = (evidence, fields) => {
+      const clauseRooms = [...new Set(Array.from(evidence.text.matchAll(/\broom\s*#?\s*(\d{1,4}(?:[- ]?[a-z])?)\b/gi), match => match[1].replace(/\s+/g, '-')))];
+      for (const room of clauseRooms) if (!rooms.includes(room)) rooms.push(room);
+      const room = clauseRooms.length === 1 ? clauseRooms[0] : null;
+      const location = room ? `Room ${room}` : clauseRooms.length > 1 ? 'Multiple locations — review' : 'Location not provided';
+      const action = {
+        id: uuid(), description: evidence.text, location, locations: clauseRooms.map(value => `Room ${value}`),
+        evidence: { ...evidence }, dueHint: memoDueHint(evidence),
+        unknownFields: { owner: true, dueAt: true, location: !room },
+        reviewRequired: true, heuristic: true, ...fields
+      };
+      if (action.targetModule === 'rounds_maintenance') action.autoCommitPayload.location = location;
+      if (action.targetModule === 'dept_task_dietary') action.autoCommitPayload.title = `[Dietary] ${room ? `Room ${room}: ` : ''}${evidence.text.slice(0, 100)}`;
+      extractedActions.push(action);
+    };
 
-    // Helper: extract room numbers
-    const roomMatch = transcript.match(/\broom\s*#?\s*(\d{2,3}[a-z]?)\b/i);
-    const detectedRoom = roomMatch ? roomMatch[1] : null;
-
-    // 1. Maintenance Detection
-    const maintKeywords = ['maintenance', 'ac', 'air condition', 'heater', 'hvac', 'leak', 'sink', 'toilet', 'light', 'door', 'bed', 'remote', 'handrail', 'paint', 'scuff', 'plumbing'];
-    if (maintKeywords.some(k => lower.includes(k))) {
-      // Find sentence or fragment mentioning maintenance
-      const clauses = transcript.split(/[,.;]|\band\b/i);
-      const maintClause = clauses.find(c => maintKeywords.some(k => c.toLowerCase().includes(k))) || transcript;
-
-      extractedActions.push({
-        id: uuid(),
-        targetModule: 'rounds_maintenance',
-        type: 'Work Order / Maintenance Ticket',
-        destination: 'Director of Maintenance',
-        location: detectedRoom ? `Room ${detectedRoom}` : 'Facility / Unit',
-        description: maintClause.trim(),
-        urgency: /leak|emergency|hot|cold|danger/i.test(maintClause) ? 'urgent' : 'high',
-        autoCommitPayload: {
-          location: detectedRoom ? `Room ${detectedRoom}` : 'Facility',
-          category: 'maintenance',
-          description: maintClause.trim(),
-          urgency: /leak|hot|cold|alarm/i.test(maintClause) ? 'urgent' : 'high'
-        }
-      });
+    for (const evidence of memoClauses(transcript)) {
+      const value = evidence.text;
+      const isPersonnel = personnel.test(value) || (/\b(?:cna|nurse|aide)\b/i.test(value) && /\b(?:note|file|coaching|commendation)\b/i.test(value));
+      // One review proposal per clause avoids turning a staff commendation about
+      // breakfast into an unrelated dietary complaint, or a reminder into HR.
+      if (isPersonnel) {
+        const commendation = /\b(?:stayed|great|helped|wonderful|appreciate|hero)\b/i.test(value);
+        add(evidence, {
+          targetModule: 'hr_coaching', type: commendation ? 'HR Commendation / Recognition' : 'HR Counseling / Note',
+          destination: 'Staff Member Record', urgency: 'normal',
+          autoCommitPayload: { type: commendation ? 'commendation' : 'verbal', topic: commendation ? 'Staff Recognition / Dedication' : 'Performance Follow-Up', details: value }
+        });
+      } else if (/\bremind\s+me\b/i.test(value) || (followUp.test(value) && !/\b(?:maintenance|dietary)\b/i.test(value))) {
+        add(evidence, {
+          targetModule: 'exec_action', type: 'Administrator Follow-Up Commitment', destination: 'Executive Action Queue', urgency: 'high',
+          autoCommitPayload: { title: value.slice(0, 150), type: 'commitment', source: 'hallway', urgency: 'high', description: value }
+        });
+      } else if (/\bdietary\b/i.test(value) || (!maintenance.test(value) && dietary.test(value))) {
+        add(evidence, {
+          targetModule: 'dept_task_dietary', type: 'Dietary Department Action', destination: 'Food & Nutrition Director', urgency: 'high',
+          autoCommitPayload: { departmentId: 'dietary', title: '', description: value, priority: 'high' }
+        });
+      } else if (maintenance.test(value)) {
+        const urgency = /\b(?:urgent|emergency|danger|leak(?:ing)?|alarm)\b/i.test(value) ? 'urgent' : 'high';
+        add(evidence, {
+          targetModule: 'rounds_maintenance', type: 'Work Order / Maintenance Ticket', destination: 'Director of Maintenance', urgency,
+          autoCommitPayload: { category: 'maintenance', description: value, urgency }
+        });
+      } else unmatchedEvidence.push(evidence);
     }
 
-    // 2. Dietary Detection
-    const dietaryKeywords = ['dietary', 'kitchen', 'food', 'meal', 'soup', 'cold', 'tray', 'pureed', 'texture', 'supper', 'lunch', 'breakfast'];
-    if (dietaryKeywords.some(k => lower.includes(k))) {
-      const clauses = transcript.split(/[,.;]|\band\b/i);
-      const dietClause = clauses.find(c => dietaryKeywords.some(k => c.toLowerCase().includes(k))) || transcript;
-
-      extractedActions.push({
-        id: uuid(),
-        targetModule: 'dept_task_dietary',
-        type: 'Dietary Department Action',
-        destination: 'Food & Nutrition Director',
-        location: detectedRoom ? `Room ${detectedRoom}` : 'Dining / Kitchen',
-        description: dietClause.trim(),
-        urgency: 'high',
-        autoCommitPayload: {
-          departmentId: 'dietary',
-          title: `[Dietary] ${detectedRoom ? `Room ${detectedRoom}: ` : ''}${dietClause.trim().slice(0, 100)}`,
-          description: dietClause.trim(),
-          priority: 'high'
-        }
-      });
-    }
-
-    // 3. HR / Staff Recognition or Coaching
-    const hrKeywords = ['cna', 'nurse', 'aide', 'stayed late', 'helped', 'overtime', 'call off', 'great job', 'recognition', 'warning', 'tardy', 'attendance'];
-    if (hrKeywords.some(k => lower.includes(k))) {
-      const clauses = transcript.split(/[,.;]|\band\b/i);
-      const hrClause = clauses.find(c => hrKeywords.some(k => c.toLowerCase().includes(k))) || transcript;
-      const isCommendation = /stayed|great|helped|wonderful|appreciate|hero/i.test(hrClause);
-
-      extractedActions.push({
-        id: uuid(),
-        targetModule: 'hr_coaching',
-        type: isCommendation ? 'HR Commendation / Recognition' : 'HR Counseling / Note',
-        destination: 'Staff Member Record',
-        description: hrClause.trim(),
-        urgency: 'normal',
-        autoCommitPayload: {
-          type: isCommendation ? 'commendation' : 'verbal',
-          topic: isCommendation ? 'Staff Recognition / Dedication' : 'Performance Follow-Up',
-          details: hrClause.trim()
-        }
-      });
-    }
-
-    // 4. Administrator Follow-Up / Outgoing Call
-    const callKeywords = ['remind me', 'call', 'follow up', 'doctor', 'dr.', 'pharmacy', 'contact', 'reach out', 'check on'];
-    if (callKeywords.some(k => lower.includes(k))) {
-      const clauses = transcript.split(/[,.;]|\band\b/i);
-      const callClause = clauses.find(c => callKeywords.some(k => c.toLowerCase().includes(k))) || transcript;
-
-      extractedActions.push({
-        id: uuid(),
-        targetModule: 'exec_action',
-        type: 'Administrator Follow-Up Commitment',
-        destination: 'Executive Action Queue',
-        description: callClause.trim(),
-        urgency: 'high',
-        autoCommitPayload: {
-          title: callClause.trim().slice(0, 150),
-          type: 'commitment',
-          source: 'hallway',
-          urgency: 'high',
-          description: callClause.trim()
-        }
-      });
-    }
-
-    // Fallback if none matched
+    // Preserve the generic executive fallback, with the same evidence/unknown
+    // contract. Unclassified portions of a mixed memo remain explicitly visible.
     if (!extractedActions.length) {
-      extractedActions.push({
-        id: uuid(),
-        targetModule: 'exec_action',
-        type: 'General Executive Action Item',
-        destination: 'Executive Action Queue',
-        description: transcript.trim(),
-        urgency: 'high',
-        autoCommitPayload: {
-          title: transcript.trim().slice(0, 150),
-          type: 'commitment',
-          source: 'hallway',
-          urgency: 'high',
-          description: transcript.trim()
-        }
+      for (const evidence of unmatchedEvidence.splice(0)) add(evidence, {
+        targetModule: 'exec_action', type: 'General Executive Action Item', destination: 'Executive Action Queue', urgency: 'high',
+        autoCommitPayload: { title: evidence.text.slice(0, 150), type: 'commitment', source: 'hallway', urgency: 'high', description: evidence.text }
       });
     }
+    if (extractedActions.length > 128) throw fail('LIMIT');
 
     return {
       rawTranscript: transcript,
-      detectedRoom,
+      detectedRoom: rooms[0] || null,
+      detectedRooms: rooms,
+      unmatchedEvidence,
+      reviewRequired: true,
+      parser: 'local-heuristic',
       totalActionsFound: extractedActions.length,
       actions: extractedActions
     };

@@ -159,6 +159,7 @@ async function dispatch(op, data = {}) {
   if (op.startsWith("voiceTranscript")) return require("./source/voice-history.cjs").dispatch(core,op,data);
   if (op.startsWith("snf")) return require("./source/snf/index.cjs").dispatch(core,op,data);
   if (op.startsWith("workflow")) return require("./source/workflows/index.cjs").dispatch(core,op,data);
+  if (op.startsWith("capture")) return require("./source/capture-workflows.cjs").dispatch(core,op,data);
   if (op.startsWith("operations") || op.startsWith("meeting") || op.startsWith("sbar") || op.startsWith("speaker") || op.startsWith("audio")) return require("./source/operations-copilot.cjs").dispatch(core,op,data);
   if (op.startsWith("exec")) return require("./source/executive-desk-engine.cjs").dispatch(core,op,data);
   if (op.startsWith("regulatory") || op.startsWith("staffing")) return require("./source/operations-analytics-engine.cjs").dispatch(core,op,data);
@@ -170,6 +171,7 @@ async function dispatch(op, data = {}) {
     case "companionSave":
     case "companionPair":
     case "companionRevoke": throw fail("POLICY");
+    case "companionGrant": throw fail("POLICY");
     case "userGuide":
       return require("./source/app-guide.json");
     case "summary": {

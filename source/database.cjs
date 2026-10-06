@@ -312,11 +312,19 @@ class Store {
     this.db.exec("BEGIN IMMEDIATE");
     let committed = false;
     try {
-      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession", "companion_request", "companion_session", "voice_transcript", "meeting", "sbar", "wf_decision", "wf_metric_import", "wf_action_meta", "wf_playbook_run"])
+      const captureKinds = ['capture_note','capture_draft','capture_evidence','capture_upload','capture_notification','capture_delivery','capture_whatsapp_route'];
+      const activeCaptures = this.list('capture_note').filter(c=>c.actionIds.some(id=>this.get('todo',id)?.status==='pending'));
+      const activeCaptureIds = new Set(activeCaptures.map(c=>c.id));
+      const activeEvidenceIds = new Set(activeCaptures.flatMap(c=>c.evidenceIds));
+      // Older delivery claims had no source fields. Their retained notification
+      // still identifies the unresolved source and must prevent an uncertain send retry.
+      const activeDeliveryIds = new Set(this.list('capture_notification').filter(n=>activeCaptureIds.has(n.captureId)).map(n=>n.id));
+      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession", "companion_request", "companion_session", "voice_transcript", "meeting", "sbar", "wf_decision", "wf_metric_import", "wf_action_meta", "wf_playbook_run",...captureKinds])
         for (const r of this.db
           .prepare("SELECT id,updated,expires FROM records WHERE kind=?")
           .all(kind)) {
-          const value = ["job", "file", "meeting", "sbar", "wf_decision"].includes(kind) ? this.get(kind, r.id) : null;
+          const value = ["job", "file", "meeting", "sbar", "wf_decision",'wf_action_meta',...captureKinds].includes(kind) ? this.get(kind, r.id) : null;
+          if (kind==='capture_note' && activeCaptureIds.has(r.id) || kind==='capture_evidence' && activeEvidenceIds.has(r.id) || kind==='capture_whatsapp_route' && activeCaptureIds.has(r.id) || kind==='capture_delivery' && activeDeliveryIds.has(r.id) || ['capture_draft','wf_action_meta','capture_notification','capture_delivery'].includes(kind) && activeCaptureIds.has(value?.captureId)) continue;
           if (kind === "wf_decision" && value?.status !== "closed") continue;
           if (kind === "meeting" && (value?.status !== "completed" || value?.actionItems?.some(a => !["completed", "cancelled"].includes(a.status)))) continue;
           if (kind === "sbar" && !value?.closeTheLoop?.isComplete) continue;
@@ -339,7 +347,7 @@ class Store {
               counts.reports++;
             } else {
               counts[
-                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages", companion_request: "messages", companion_session: "messages", voice_transcript: "voiceTranscripts", meeting: "meetings", sbar: "sbars", wf_decision: "workflows", wf_metric_import: "workflows", wf_action_meta: "workflows", wf_playbook_run: "workflows" }[
+                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages", companion_request: "messages", companion_session: "messages", voice_transcript: "voiceTranscripts", meeting: "meetings", sbar: "sbars", wf_decision: "workflows", wf_metric_import: "workflows", wf_action_meta: "workflows", wf_playbook_run: "workflows",...Object.fromEntries(captureKinds.map(k=>[k,'workflows'])) }[
                   kind
                 ]
               ]++;

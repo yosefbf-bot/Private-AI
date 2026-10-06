@@ -18,11 +18,11 @@ Open Messaging, connect the Web account, scan QR if necessary, enable the bridge
 
 ## Limits and verification
 
-WhatsApp is the primary remote interface; mobile implementation is deferred. Follow-up questions preserve AI context per conversation and sender. `/new` starts a new conversation; in approved-command mode include the prefix and PC code. Archiving or deleting the associated desktop chat causes the next remote question to start fresh. Other members of a WhatsApp group can still see replies sent to that group.
+WhatsApp is the primary remote interface; native Android integration is developed separately. Follow-up questions preserve AI context per conversation and sender while excluding unrelated global memory/instructions. `/new` starts fresh; approved commands also need the prefix/PC code. Archiving/deleting the linked PC chat starts fresh next time. Group replies remain visible to group members. See [Notes and rounds](NOTES_ROUNDS_COMPANION_GUIDE.md) for `/note`, `/round`, `/remind` and internal draft commands.
 
 New configurations include actual response text by default; existing saved choices are preserved. Longer answers are split into numbered messages instead of truncated. An optional progress switch sends a notice every minute while work runs. Completion, progress, and each answer segment recheck write permissions. A writing override or revoked destination blocks remaining segments, and uncertain delivery disables the bridge without retrying. A progress notice indicates elapsed running time, not a claimed percentage of work completed.
 
-The app and PC must remain running with a connected WhatsApp session. Disconnected sessions are shown as such; reopen the connection to reconnect. No guarantee of unavailable/deleted/older unsynced history. Media contents are not downloaded. The Windows-native intake remains limited to its open chat. Use Web for full-account coverage.
+The app and PC must remain running with a connected session. No unavailable/deleted/older-history guarantee. Read-all does not download media; explicit capture commands from approved senders may download supported evidence of known size up to 5 MiB through Web. Windows intake stays limited to its open chat and does not download evidence. Due reminders retain separate pending/sent/deferred/uncertain states; uncertain sends are not blindly retried.
 
 The account connector is unofficial; WhatsApp changes may break it. Tests use injected clients and synthetic browser DOM, not a live account. Actual WhatsApp pairing/event delivery/sending must be validated before release. Sending never bypasses unrelated Outlook/browser/desktop protections. Reading/toggles do not retract an already-dispatched network send.
 

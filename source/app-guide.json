@@ -68,7 +68,21 @@
         "Keep the PC awake and Private AI running and unlocked, with background work resumed. Text questions use the existing desktop local/cloud privacy settings; select Local Only for local inference.",
         "Optional task and clinical-alert access shares status metadata only. Review resident details, files and approvals on the desktop. Revoke a lost phone here; disabling the gateway closes connections while keeping saved chats."
       ],
-      "note": "Android is maintained separately. Actual phone connectivity still needs validation against docs/ANDROID_COMPANION_CONTRACT.md. No mobile attachment upload, desktop tool commands, remote approvals or simulated success fallback. WhatsApp permissions remain independent."
+      "note": "Grant optional notes/evidence and notifications when pairing, and choose PC chats the phone may continue. A separate notification-only key reports generic due metadata; allowing it while desktop locked is another explicit pairing option. Normal chat/evidence need the PC unlocked; clinical privacy requests require local-only inference and HIPAA mode. Physical phone acceptance remains required. No arbitrary desktop commands, remote clinical approvals or simulated success fallback. WhatsApp permissions remain independent."
+    },
+    {
+      "id": "capturenotes",
+      "title": "Capture notes, rounds, reminders and drafts",
+      "location": "Notes and rounds; Action Center",
+      "aliases": ["rounds notes", "capture note", "follow up reminder", "photo evidence", "mobile notes", "draft from note"],
+      "steps": [
+        "Open Notes and rounds, enter the observation and any known owner/location/deadline, optionally attach JPEG/PNG/PDF/plain text up to 5 MiB, then save.",
+        "Review source-linked items in the normal action queue. Unknown facts stay unknown; no guessed deadline or clinical conclusion is saved. Completing a follow-up does not close a clinical alert or SBAR.",
+        "Choose an internal Outlook or WhatsApp draft and review wording/recipient. Creating an Outlook draft uses desktop confirmation and permissions; nothing is sent.",
+        "In an approved WhatsApp conversation send /note, /round, /remind, /draft outlook or /draft whatsapp followed by your note. For an explicit deadline use /remind followed by an ISO timestamp with Z or offset and the note. Approved commands also need the saved prefix/PC code.",
+        "Permitted WhatsApp follow-ups return generic due reminders to their source conversation. Read-all does not grant execution; Disable all writing blocks reminders/replies. Photos are preserved without claiming local text-model interpretation."
+      ],
+      "note": "Android uses the same desktop service with encrypted pending requests and explicit scopes. Physical phone/LAN, camera/dictation and live WhatsApp acceptance are separate from source tests. Follow-up reminders are not clinical emergency paging."
     },
     {
       "id": "chat",
@@ -456,7 +470,7 @@
         "Enable progress notices for a running-time notice each minute. Actual response text is on by default for new configurations, and long answers are split into numbered messages. Existing saved preferences are preserved.",
         "Notify when report jobs finish or fail is optional and off by default. It sends task ID/status only to the selected default destination, subject to background/write/lock permissions and the complete/failure switches. It never includes report contents or resident names."
       ],
-      "note": "The Web account receives new text-message events across conversations and refreshes up to 100 available recent messages per conversation. It does not download media, recover unavailable history, or operate while the PC/app/connection is offline. History never starts tasks. Windows-native intake remains open-conversation-only. The unofficial whatsapp-web.js connection needs live account validation before release."
+      "note": "The Web account receives text events and refreshes up to 100 recent messages. Read-all does not download media. Explicit capture commands from approved senders may preserve supported incoming evidence of known size up to 5 MiB. History never starts tasks. Windows intake remains open-conversation-only and does not download evidence. The unofficial connector needs live account acceptance; offline/disconnected operation is unavailable."
     },
     {
       "id": "privacy",
