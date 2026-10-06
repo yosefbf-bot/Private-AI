@@ -1,4 +1,138 @@
 {
+  "currentWindowsValidation": {
+    "date": "2026-10-06",
+    "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
+    "report": "docs/WINDOWS_VALIDATION_2026-10-06.md",
+    "machineReport": "docs/windows-validation-2026-10-06.json",
+    "passed": true,
+    "windowsApplicationExecuted": true,
+    "windowsInstallerExecuted": true,
+    "actualModelInferenceExecuted": true,
+    "portableRoundtripAndApplicationPassed": true,
+    "hashes": {
+      "installer": "194d1ab493507f1695d135b1b92f341b28220f2ca3ec2afddfe7c8f6a96df453",
+      "executable": "13da4a79000ce604e8b4b202be3e794c764d1eb433eb9bd750c6f0213eaf1aa5",
+      "applicationArchive": "755c348965f2190ded238956890f4d7f41f9f712c4e2829daa6d934b874caa5b",
+      "runtime": "a9a88ca88ef1f3c320c07afe38cf4ab7759cfdef1c692e430c2d32e33f4bcc15",
+      "unpackedZIP": "41ddcf31c031a6d0ffa46963eb45fb31d77a9a57eca41ffd9e599e6ab8ec8d36"
+    },
+    "windowsSourceTests": 500,
+    "productionAudit": {
+      "command": "npm audit --omit=dev --audit-level=high",
+      "exitCode": 0,
+      "moderate": 3,
+      "high": 0,
+      "critical": 0,
+      "advisory": "https://github.com/advisories/GHSA-hp3w-g68c-fv3c",
+      "dependencyPath": [
+        "mammoth",
+        "argparse",
+        "sprintf-js"
+      ],
+      "note": "Passed high-severity gate; not zero findings."
+    },
+    "productionReady": false,
+    "supplementalDocumentationDoesNotChangeBinary": true
+  },
+  "october2WindowsCheckpoint": {
+    "lastTested": {
+      "date": "2026-10-02",
+      "platform": "win32",
+      "windows": "Windows 11 Pro 10.0.26200 x64",
+      "node": "24.19.0",
+      "command": "node --test --test-concurrency=4 --test-timeout=60000 tests/*.test.cjs",
+      "passed": 472,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "linuxCIExpectedTests": 471,
+      "platformCountReason": "The additional evidence-finalization interoperability test executes Windows PowerShell 5.1 only on Windows; it is not registered on Linux.",
+      "hardening": {
+        "passed": 25,
+        "failed": 0
+      },
+      "dependencyInstall": "Existing clean locked 627-package integration installation retained; dependency and lockfile versions unchanged during this validation.",
+      "syntax": "178 JS files passed; the installer evidence finalization block executed in actual Windows PowerShell 5.1 with synthetic fixtures.",
+      "repositoryPolicy": "292 tracked files passed at the validated code checkpoint; final documentation is checked separately before publication.",
+      "dependencyAudit": "0 production dependency vulnerabilities; dependency versions unchanged.",
+      "browserUI": "29 Edge 154.0.4258.53 general checks; updated restricted-development hardening UI including empty-store Today unavailable labels/color; synthetic WhatsApp DOM/UI. No live WhatsApp messages.",
+      "releaseManifest": "406 genuine helper/runtime PE inputs passed; post-NSIS final packaged tree has 570 files and 415 PE binaries. The one standard NSIS elevate.exe addition matched pinned builder cache; all preceding 569 files were unchanged. ZIP roundtrip verified every file hash.",
+      "windowsValidation": "Final unpacked fresh/restart and installed application passed; 12 built-in checks, 21 navigation views, real DPAPI/SQLite synthetic persistence/restore, lock and PCC toggles. Actual NSIS install and reinstall exited 0 with matching EXE/ASAR; real uninstaller exited 0, removed folder/registry/shortcuts and preserved synthetic standard-path database/vault byte-for-byte. Installed second-process restart also preserved the original synthetic vault/records and passed 13 acceptance checks, 12 diagnostics and 21 views. Actual ZIP-extracted app passed 13 acceptance checks, 12 diagnostics and 21 views with matching EXE/ASAR.",
+      "localInference": "Small 1.7B, Medium 3B and High 4B each passed two real checksum/inference/cancellation/browser-lane rounds; Extra 8B absent. Real renderer/IPC/Core inference passed Small and installed High, without API key and with PCC off, preserving synthetic medication status as unknown.",
+      "githubActions": "Exact code checkpoint bc964e09 CI 37055284317: all three jobs passed; logs confirmed Linux 471 source tests, 25 hardening, 178 syntax, audit 0 and 406 PE inputs. Merged-main input CI 37050270590 also passed. Final supplemental-documentation publication CI is checked separately on the validation PR.",
+      "reviewNotes": "docs/WINDOWS_VALIDATION_2026-10-02.md"
+    },
+    "windowsAcceptance": {
+      "artifactBuilt": true,
+      "isolatedApplication": true,
+      "packagedApplicationRestart": true,
+      "syntheticDPAPIRestore": true,
+      "installerExecuted": true,
+      "installedApplicationRestart": true,
+      "actualModelInferenceExecuted": true,
+      "releaseEvidenceGatePassed": true,
+      "installedDataUpgrade": false,
+      "uninstallReinstall": true,
+      "windowsRestart": false,
+      "interactiveInstallerWizard": false,
+      "signed": false,
+      "productionReady": false,
+      "codeCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
+      "scope": "Current candidate only. Actual clean-app-state install, uninstall with synthetic standard-path SQLite/vault preservation, same-hash reinstall and installed-app restart passed after owner-authorized retirement of unused old app/data. ZIP roundtrip verified all 570 final staging files. No representative existing-data upgrade inferred; historical results remain in previous checkpoints. Actual extracted ZIP application also passed 13 acceptance checks, 12 built-in diagnostics and 21 views.",
+      "syntheticUninstallDataPreservation": true,
+      "zipRoundtripHashVerification": true,
+      "unpackedZipApplicationExecuted": true
+    },
+    "binaryCheckpoint": {
+      "version": "3.0.1-dev",
+      "codeCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
+      "sourceBaseCommit": "114e0838fac230d33a9deb2996b7dfc736ce9d90",
+      "executableSHA256": "4179dce6f3e57e1ea535ed0fa41093275e0e1ef7347d5fe264eb4b81db7e8921",
+      "applicationArchiveSHA256": "d82d1fb13cc37cddd26fe0f7d745533cdec773bc2c207ed05a4397fbf57bd6f1",
+      "runtimeSHA256": "a9a88ca88ef1f3c320c07afe38cf4ab7759cfdef1c692e430c2d32e33f4bcc15",
+      "ciInputRun": 37050270590,
+      "ciInputArtifact": 11247250109,
+      "ciInputSHA256": "cb1578401fad4f5f994269e35cc603afe562d9f78b735f341e8da2be838d0f42",
+      "supplementalDocumentation": "Later documentation commits do not change this tested installer. A rebuild requires new artifact hashes and actual acceptance evidence.",
+      "codeCIRun": 37055284317,
+      "packagedFiles": 570,
+      "packagedPEBinaries": 415,
+      "postNSISAddition": {
+        "path": "resources/elevate.exe",
+        "bytes": 107520,
+        "sha256": "9b1fbf0c11c520ae714af8aa9af12cfd48503eedecd7398d8992ee94d1b4dc37",
+        "provenance": "Standard 32-bit helper matched pinned NSIS 3.0.4.1 cache; existing 569 staging files retained unchanged hashes."
+      }
+    },
+    "localInferenceValidation": {
+      "passed": true,
+      "runtimeHashVerified": true,
+      "rounds": 2,
+      "passedTiers": [
+        "small",
+        "medium",
+        "high"
+      ],
+      "unavailableTiers": [
+        "extra"
+      ],
+      "engineContext": 4096,
+      "engineOutputLimit": 128,
+      "rendererContext": 2048,
+      "rendererOutputLimit": 128,
+      "keylessPCCOffRendererTests": [
+        "small",
+        "high"
+      ],
+      "initialFreeRAMGiB": [
+        5.9,
+        6.5
+      ],
+      "highMeasuredWorkingSetGiB": 4.6,
+      "conditionalOnResources": true
+    },
+    "installerSHA256": "0aac1fd122501a336251dc7cf6b074a285a65c9cadd53131973494af99bb5ebe"
+  },
   "version": "3.0.1-dev",
   "authoritativeBranch": "main",
   "developmentBranch": "chatgpt/shared-companion-workflows-2026-10-05",
@@ -11,22 +145,61 @@
     "androidPullRequest": 1,
     "guide": "docs/NOTES_ROUNDS_COMPANION_GUIDE.md",
     "desktopInitialFullTests": 492,
-    "desktopFinalFullTests": { "passed": 500, "failed": 0, "skipped": 0, "scope": "Isolated complete Windows source suite; not packaged release acceptance" },
+    "desktopFinalFullTests": {
+      "passed": 500,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Isolated complete Windows source suite; not packaged release acceptance"
+    },
     "androidCompilationPassed": true,
     "androidBuildUnitLintInteroperability": "passed-final-local-debug-build-lint-and-real-Core-HTTPS",
-    "androidFinalLocalTests": { "passed": 45, "failed": 0, "errors": 0, "skipped": 0, "lintErrors": 0, "lintWarnings": 72 },
+    "androidFinalLocalTests": {
+      "passed": 45,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "lintErrors": 0,
+      "lintWarnings": 72
+    },
     "androidProductionInputSHA256": "1fa5e276dd9364434cbc59f61a1a89d4c9dc8df299411f97461d209f765ef199",
     "androidDebugAPKsha256": "6d684203f74a7558a8f39aa2a00a74a3c97cbbcd1760c811f1bb5e9a6a4fa82e",
     "desktopSyntheticEdgeChecks": 30,
     "desktopBoundedCaptureEdgeChecks": 3,
-    "initialHeadCI": { "commit": "80fde3f32f7e107598cc9ec5a60011a6e0830c9d", "run": 37319044402, "result": "success", "requiresNewHeadCheckAfterFixes": true },
-    "laterHeadCI": { "commit": "23548158d4924472c4a6f14c0c5f731f7b05df11", "run": 37359845980, "result": "cancelled-before-steps", "reason": "GitHub hosted runner was not acquired after multiple attempts; no tests executed", "requiresFinalHeadCheck": true },
+    "initialHeadCI": {
+      "commit": "80fde3f32f7e107598cc9ec5a60011a6e0830c9d",
+      "run": 37319044402,
+      "result": "success",
+      "requiresNewHeadCheckAfterFixes": true
+    },
+    "laterHeadCI": {
+      "commit": "23548158d4924472c4a6f14c0c5f731f7b05df11",
+      "run": 37359845980,
+      "result": "cancelled-before-steps",
+      "reason": "GitHub hosted runner was not acquired after multiple attempts; no tests executed",
+      "requiresFinalHeadCheck": true
+    },
     "changeSummary": "docs/SHARED_COMPANION_UPDATE_2026-10-05.md",
     "desktopPullRequest": 13,
-    "newWindowsBinaryValidated": false,
+    "newWindowsBinaryValidated": true,
     "physicalAndroidExecuted": false,
     "liveWhatsAppExecuted": false,
-    "remaining": ["Inspect exact-head GitHub checks including Android emulator; live status is on the review PRs", "Physical Android, LAN and live account acceptance", "New exact-binary packaging acceptance when building installer"]
+    "remaining": [
+      "Physical Android/LAN and live-account acceptance",
+      "Representative existing-data upgrade, Windows reboot/interactive wizard and human clinical review",
+      "Unsigned development candidate; signing/updater and production acceptance remain"
+    ],
+    "windowsCandidateCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
+    "androidPublishedReviewCommitPrefix": "85db208",
+    "androidHostedAcceptance": {
+      "instrumentedPassed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "unitPassed": 44,
+      "externalFixtureUnitSkipped": 1,
+      "lintErrors": 0,
+      "lintWarnings": 74,
+      "scope": "GitHub hosted emulator; not physical phone. Local debug checkpoint remains45 tests,0 skips and72 lint warnings."
+    }
   },
   "releaseStatus": "blocked",
   "desktopProductionTarget": true,
@@ -122,34 +295,32 @@
     "PHI realtime voice approval"
   ],
   "lastTested": {
-    "date": "2026-10-02",
+    "date": "2026-10-06",
+    "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
     "platform": "win32",
-    "windows": "Windows 11 Pro 10.0.26200 x64",
-    "node": "24.19.0",
-    "command": "node --test --test-concurrency=4 --test-timeout=60000 tests/*.test.cjs",
-    "passed": 472,
+    "passed": 500,
     "failed": 0,
     "cancelled": 0,
     "skipped": 0,
-    "linuxCIExpectedTests": 471,
-    "platformCountReason": "The additional evidence-finalization interoperability test executes Windows PowerShell 5.1 only on Windows; it is not registered on Linux.",
+    "linuxCIExpectedTests": 499,
+    "platformCountReason": "Windows PowerShell 5.1 interoperability is registered only on Windows.",
     "hardening": {
+      "tests": 25,
       "passed": 25,
-      "failed": 0
+      "failed": 0,
+      "skipped": 0
     },
-    "dependencyInstall": "Existing clean locked 627-package integration installation retained; dependency and lockfile versions unchanged during this validation.",
-    "syntax": "178 JS files passed; the installer evidence finalization block executed in actual Windows PowerShell 5.1 with synthetic fixtures.",
-    "repositoryPolicy": "292 tracked files passed at the validated code checkpoint; final documentation is checked separately before publication.",
-    "dependencyAudit": "0 production dependency vulnerabilities; dependency versions unchanged.",
-    "browserUI": "29 Edge 154.0.4258.53 general checks; updated restricted-development hardening UI including empty-store Today unavailable labels/color; synthetic WhatsApp DOM/UI. No live WhatsApp messages.",
-    "releaseManifest": "406 genuine helper/runtime PE inputs passed; post-NSIS final packaged tree has 570 files and 415 PE binaries. The one standard NSIS elevate.exe addition matched pinned builder cache; all preceding 569 files were unchanged. ZIP roundtrip verified every file hash.",
-    "windowsValidation": "Final unpacked fresh/restart and installed application passed; 12 built-in checks, 21 navigation views, real DPAPI/SQLite synthetic persistence/restore, lock and PCC toggles. Actual NSIS install and reinstall exited 0 with matching EXE/ASAR; real uninstaller exited 0, removed folder/registry/shortcuts and preserved synthetic standard-path database/vault byte-for-byte. Installed second-process restart also preserved the original synthetic vault/records and passed 13 acceptance checks, 12 diagnostics and 21 views. Actual ZIP-extracted app passed 13 acceptance checks, 12 diagnostics and 21 views with matching EXE/ASAR.",
-    "localInference": "Small 1.7B, Medium 3B and High 4B each passed two real checksum/inference/cancellation/browser-lane rounds; Extra 8B absent. Real renderer/IPC/Core inference passed Small and installed High, without API key and with PCC off, preserving synthetic medication status as unknown.",
-    "githubActions": "Exact code checkpoint bc964e09 CI 37055284317: all three jobs passed; logs confirmed Linux 471 source tests, 25 hardening, 178 syntax, audit 0 and 406 PE inputs. Merged-main input CI 37050270590 also passed. Final supplemental-documentation publication CI is checked separately on the validation PR.",
-    "reviewNotes": "docs/WINDOWS_VALIDATION_2026-10-02.md"
+    "syntax": "184 JS files; repository policy passed at code checkpoint; supplemental docs checked separately.",
+    "dependencyAudit": "3 moderate, 0 high, 0 critical via mammoth/argparse/sprintf-js; high-severity gate passed, not zero findings.",
+    "browserUI": "Current packaged renderer navigation/Notes form and loopback HTTPS acceptance; prior synthetic Edge scope remains in October 5 report.",
+    "releaseManifest": "411 verified native files/406 PE; final post-NSIS payload575 files/415 PE; complete ZIP byte/hash roundtrip and extracted-app acceptance passed.",
+    "windowsValidation": "Fresh/restart and installed/reinstalled restart passed, including DPAPI/SQLite and shared records. Actual install/uninstall/reinstall exit0; synthetic standard-path vault/database retained and fixture restored. No representative user-data upgrade inferred.",
+    "localInference": "Current Small runtime READY/cancellation/browser protections and packaged/installed renderer/Core inference passed no-key/PCC-off, preserving unknown medication. Medium/High remain October 2 historical evidence.",
+    "githubActions": "Code 46a385d run 37441844506: success; Code 46a385d run 37441839760: success. Later supplemental commit checks are separate.",
+    "reviewNotes": "docs/WINDOWS_VALIDATION_2026-10-06.md"
   },
-  "reviewBaseCommit": "114e0838fac230d33a9deb2996b7dfc736ce9d90",
-  "verificationScope": "Actual unsigned Windows 3.0.1-dev candidate at bc964e09: real package/installer/inference hash-bound evidence passed using isolated synthetic data, alongside real Core/SQLite/IPC/HTTP and browser regression coverage. Representative user-data upgrades, live accounts, physical phone, human clinical/speaker acceptance and Windows restart remain separate.",
+  "reviewBaseCommit": "c269a18eec4ea5b4e347e3520be1cd4e9bd88876",
+  "verificationScope": "Current unsigned Windows candidate 46a385d2a8d1b14acf3e960f2b4c601159ba3d04 passed exact-hash app/install/Small local inference, synthetic preservation/restart and portable acceptance. Clinical accuracy, live accounts, physical phone/LAN, representative upgrade and reboot remain separate; historical Medium/High evidence is not transferred.",
   "baseIntegration": {
     "pr": 9,
     "merged": true,
@@ -186,15 +357,15 @@
     "interactiveInstallerWizard": false,
     "signed": false,
     "productionReady": false,
-    "codeCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
-    "scope": "Current candidate only. Actual clean-app-state install, uninstall with synthetic standard-path SQLite/vault preservation, same-hash reinstall and installed-app restart passed after owner-authorized retirement of unused old app/data. ZIP roundtrip verified all 570 final staging files. No representative existing-data upgrade inferred; historical results remain in previous checkpoints. Actual extracted ZIP application also passed 13 acceptance checks, 12 built-in diagnostics and 21 views.",
+    "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
+    "scope": "Current October 6 candidate only; actual clean install, synthetic standard-path preservation/uninstall/reinstall, installed restart and575-file portable roundtrip/extracted-app acceptance passed. Representative upgrade, reboot, interactive wizard and live accounts remain unperformed.",
     "syntheticUninstallDataPreservation": true,
     "zipRoundtripHashVerification": true,
     "unpackedZipApplicationExecuted": true
   },
   "speakerValidation": "Human participation required; conservative feature preserved, no accuracy claim",
   "clinicalValidation": "Synthetic technical contracts passed; representative de-identified PCC and clinical review pending",
-  "installerSHA256": "0aac1fd122501a336251dc7cf6b074a285a65c9cadd53131973494af99bb5ebe",
+  "installerSHA256": "194d1ab493507f1695d135b1b92f341b28220f2ca3ec2afddfe7c8f6a96df453",
   "previousWindowsCheckpoint": {
     "lastVerifiedCommit": "5d4772ee9fb70b324a61397ddde93c8b4d1e0f20",
     "lastTested": {
@@ -324,53 +495,53 @@
     ],
     "note": "Historical 10/1 source integration before the actual 10/2 Windows candidate validation; PR #11 subsequently merged into main."
   },
-  "releaseStatusReason": "Unsigned 3.0.1-dev candidate passed actual Windows application, installer and local-model evidence gates; remaining human, representative-data and live-account acceptance prevents production readiness.",
+  "releaseStatusReason": "Unsigned 3.0.1-dev candidate46a385d2 passed current exact-binary Windows evidence gates. Three moderate dependency findings and remaining human, representative-data/live-account, signing/updater acceptance prevent production readiness.",
   "binaryCheckpoint": {
     "version": "3.0.1-dev",
-    "codeCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
-    "sourceBaseCommit": "114e0838fac230d33a9deb2996b7dfc736ce9d90",
-    "executableSHA256": "4179dce6f3e57e1ea535ed0fa41093275e0e1ef7347d5fe264eb4b81db7e8921",
-    "applicationArchiveSHA256": "d82d1fb13cc37cddd26fe0f7d745533cdec773bc2c207ed05a4397fbf57bd6f1",
+    "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
+    "sourceBaseCommit": "c269a18eec4ea5b4e347e3520be1cd4e9bd88876",
+    "executableSHA256": "13da4a79000ce604e8b4b202be3e794c764d1eb433eb9bd750c6f0213eaf1aa5",
+    "applicationArchiveSHA256": "755c348965f2190ded238956890f4d7f41f9f712c4e2829daa6d934b874caa5b",
     "runtimeSHA256": "a9a88ca88ef1f3c320c07afe38cf4ab7759cfdef1c692e430c2d32e33f4bcc15",
     "ciInputRun": 37050270590,
     "ciInputArtifact": 11247250109,
     "ciInputSHA256": "cb1578401fad4f5f994269e35cc603afe562d9f78b735f341e8da2be838d0f42",
-    "supplementalDocumentation": "Later documentation commits do not change this tested installer. A rebuild requires new artifact hashes and actual acceptance evidence.",
-    "codeCIRun": 37055284317,
-    "packagedFiles": 570,
+    "codeCIRuns": [
+      37441844506,
+      37441839760
+    ],
+    "packagedFiles": 575,
     "packagedPEBinaries": 415,
     "postNSISAddition": {
       "path": "resources/elevate.exe",
       "bytes": 107520,
+      "machine": "0x14c",
+      "sections": 6,
       "sha256": "9b1fbf0c11c520ae714af8aa9af12cfd48503eedecd7398d8992ee94d1b4dc37",
-      "provenance": "Standard 32-bit helper matched pinned NSIS 3.0.4.1 cache; existing 569 staging files retained unchanged hashes."
-    }
+      "source": "Checksum-verified pinned NSIS 3.0.4.1 cache"
+    },
+    "supplementalDocumentation": "Later report/source-export commits do not change the tested payload; every rebuild needs new hashes/acceptance."
   },
   "localInferenceValidation": {
     "passed": true,
+    "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
     "runtimeHashVerified": true,
-    "rounds": 2,
+    "rounds": 1,
     "passedTiers": [
-      "small",
-      "medium",
-      "high"
+      "small"
     ],
-    "unavailableTiers": [
-      "extra"
-    ],
-    "engineContext": 4096,
-    "engineOutputLimit": 128,
     "rendererContext": 2048,
     "rendererOutputLimit": 128,
     "keylessPCCOffRendererTests": [
-      "small",
-      "high"
+      "small"
     ],
-    "initialFreeRAMGiB": [
-      5.9,
-      6.5
-    ],
-    "highMeasuredWorkingSetGiB": 4.6,
+    "cancellationPassed": true,
+    "browserLaneBlockPassed": true,
+    "historicalMediumHigh": {
+      "codeCommit": "bc964e09c28e996178196661bfccdcef6d3fac41",
+      "report": "docs/WINDOWS_VALIDATION_2026-10-02.md",
+      "notRerunForCurrentArchive": true
+    },
     "conditionalOnResources": true
   }
 }

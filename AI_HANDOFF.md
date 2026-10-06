@@ -1,4 +1,15 @@
 # Shared AI development handoff
+
+## Current Windows candidate — 2026-10-06
+
+The tested **3.0.1-dev** binary is frozen code `46a385d2a8d1b14acf3e960f2b4c601159ba3d04`, based on main `c269a18eec4ea5b4e347e3520be1cd4e9bd88876`; later reports/handoffs/source exports are supplemental. Read [the dated report](docs/WINDOWS_VALIDATION_2026-10-06.md) and [sanitized machine summary](docs/windows-validation-2026-10-06.json). Actual package/install/uninstall/reinstall, synthetic default-path DPAPI/SQLite retention, installed restart, Small local inference and 575-file portable roundtrip/extracted-app acceptance passed the unchanged hash gate. Current packaged shared capture/evidence/actions/internal drafts/selected-chat/lock/restricted reminders were exercised through IPC and pinned loopback HTTPS. No real message or mailbox dispatch occurred.
+
+Exact-code checks: 500 Windows tests, 499 Linux CI tests, 25 hardening, 184 syntax; both code CI workflows 37441844506/37441839760 passed all three jobs. Production audit is **3 moderate, 0 high, 0 critical** through mammoth/argparse/sprintf-js, not zero findings; see [the primary advisory](https://github.com/advisories/GHSA-hp3w-g68c-fv3c). Current model acceptance is **Small**; Medium/High remain historical October 2 bc964e09 evidence. Physical Android/LAN/notifications, live WhatsApp/Outlook/native browser, representative data upgrade, reboot/wizard, clinical human review and signing/updater remain separate. This is an unsigned development candidate, not production readiness or HIPAA certification.
+
+The failed 11a9114 TLS-client and 34f9d3e IPC-unlock/Notes harness attempts remain retained. Corrections were validation-only; no production TLS relaxation or established production UI defect. Preserve the prior deliverables. Do not transfer any binary's flags by version label, and fetch main before future work/publication. Supplemental documentation commits require their own exact-head CI; they do not rebuild this installer.
+
+Android review head 85db208 also passed 4 hosted emulator instrumentation tests. Hosted unit tests passed 44 with 1 explicitly skipped external desktop fixture; local tests passed 45 with 0 skips. Local lint has 0 errors/72 warnings, hosted lint 0/74. These are separate debug/hosted checkpoints, not physical-phone or existing-signer upgrade acceptance; production APK inputs remain the separately documented local checkpoint.
+
 ## Shared captures and native Android integration — 2026-10-05
 
 Fresh base: desktop main `c269a18eec4ea5b4e347e3520be1cd4e9bd88876`, Android main `7028ec6d131ffaaf9e03d2f22b3550d7a38ddf3c`. Both use `chatgpt/shared-companion-workflows-2026-10-05`. Read `docs/SHARED_CAPTURE_IMPLEMENTATION_PLAN_2026-10-05.md`, `docs/SHARED_COMPANION_UPDATE_2026-10-05.md`, `docs/NOTES_ROUNDS_COMPANION_GUIDE.md` and the extended Android contract. Desktop draft review is [PR #13](https://github.com/yosefbf-bot/Private-AI-OG-google-version/pull/13); the matching Android source `56e6796` is [PR #1](https://github.com/yosefbf-bot/AI-Mobile-companion-app/pull/1). The user merges both mains.
@@ -17,7 +28,7 @@ Later desktop head `2354815` run `37359845980` ended before any steps: GitHub an
 
 The earlier validated installer/package below belongs to its exact earlier code checkpoint. It does not contain this source update. Preserve recovery/models outside Git and keep the existing release/privacy/resource gates. If allowance reaches 1% remaining, save/stop; use the latest explicit resume instruction in the chat. The prior one-time 3:35 AM wakeup was superseded and paused after the user resumed manually.
 
-## Current Windows validation — 2026-10-02
+## Historical Windows validation — 2026-10-02
 
 PR #11 is merged. Latest GitHub main was fetched and verified as
 `114e0838fac230d33a9deb2996b7dfc736ce9d90`, matching the 10/1 integration tree.
