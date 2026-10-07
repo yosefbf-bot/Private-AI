@@ -46,7 +46,7 @@ export const LiveVoiceState = {
 const INCOMPLETE_PHRASES = /\b(and|or|but|because|if|when|while|although|though|so|then|that|which|with|about|like|um|uh|er|ah|let me think|wait|hold on|hang on|for example)\s*$/i;
 
 export class VoiceManager {
-  constructor({ onSend, onStateChange, onTranscript, onStatusNotice, getState, getChat, callApi }) {
+  constructor({ onSend, onStateChange, onTranscript, onStatusNotice, getState, getChat, callApi, canCapture = () => true }) {
     this.onSend = onSend;
     this.onStateChange = onStateChange;
     this.onTranscript = onTranscript;
@@ -54,6 +54,10 @@ export class VoiceManager {
     this.getState = getState;
     this.getChat = getChat;
     this.callApi = callApi;
+    this.canCapture = canCapture;
+    this.listeningRequested = false;
+    this.voiceGeneration = 0;
+    this.captureGeneration = 0;
 
     // Operational Settings
     this.mode = 'handsfree'; // 'handsfree' | 'ptt' | 'always'
@@ -287,6 +291,7 @@ export class VoiceManager {
       rec.lang = 'en-US';
 
       rec.onstart = () => {
+        if (!this.listeningRequested || !this.recognitionAllowed()) { this.endSession(); return; }
         if (!this.isHardMuted) {
           if (this.state !== LiveVoiceState.AI_SPEAKING && this.state !== LiveVoiceState.THINKING) {
             this.setState(LiveVoiceState.LISTENING, 'Listening for your voice…');
@@ -300,7 +305,7 @@ export class VoiceManager {
       };
 
       rec.onresult = (event) => {
-        if (this.isHardMuted) return;
+        if (!this.listeningRequested || !this.recognitionAllowed()) { this.endSession(); return; }
 
         let interim = '';
         let finalChunk = '';
@@ -348,6 +353,7 @@ export class VoiceManager {
           return;
         }
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          this.endSession();
           this.setState(LiveVoiceState.MUTED, 'Microphone permission blocked or denied.');
           return;
         }
@@ -355,7 +361,8 @@ export class VoiceManager {
       };
 
       rec.onend = () => {
-        if (!this.isHardMuted && (this.mode === 'always' || this.mode === 'handsfree') && this.state !== LiveVoiceState.THINKING) {
+        if (!this.recognitionAllowed()) { if (this.listeningRequested) this.endSession(); return; }
+        if (this.listeningRequested && (this.mode === 'always' || this.mode === 'handsfree') && this.state !== LiveVoiceState.THINKING) {
           try {
             rec.start();
           } catch (e) {
@@ -439,11 +446,12 @@ export class VoiceManager {
   // --- Audio Capture & Visualizer with Echo Cancellation ---
 
   async startAudioVisualizer(canvas) {
-    if (typeof window === 'undefined' || !canvas || this.isHardMuted) return;
+    if (typeof window === 'undefined' || !canvas || !this.recognitionAllowed()) return;
+    const generation = ++this.captureGeneration;
     try {
       if (!this.mediaStream) {
         // High-fidelity full-duplex constraints: AEC, noise suppression, AGC
-        this.mediaStream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
@@ -453,6 +461,11 @@ export class VoiceManager {
           },
           video: false,
         });
+        if (generation !== this.captureGeneration || !this.recognitionAllowed()) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        this.mediaStream = stream;
       }
 
       if (!this.audioCtx) {
@@ -462,6 +475,8 @@ export class VoiceManager {
       if (this.audioCtx.state === 'suspended') {
         await this.audioCtx.resume();
       }
+      if (generation !== this.captureGeneration) return;
+      if (!this.recognitionAllowed()) { this.endSession(); return; }
 
       const source = this.audioCtx.createMediaStreamSource(this.mediaStream);
       this.analyser = this.audioCtx.createAnalyser();
@@ -536,6 +551,7 @@ export class VoiceManager {
   }
 
   stopAudioVisualizer() {
+    this.captureGeneration++;
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
@@ -610,12 +626,32 @@ export class VoiceManager {
     return this.isHardMuted;
   }
 
-  startListening() {
+  recognitionAllowed() {
     const policy=this.getState?.()?.settings;
-    if(policy?.hipaa || this.getChat?.()?.hipaa || policy?.processingMode==='local-only'){
+    return !!(policy && policy.hipaa === false && typeof policy.processingMode === 'string' &&
+      policy.processingMode !== 'local-only' && !this.getChat?.()?.hipaa && !this.isHardMuted && this.canCapture());
+  }
+
+  enforcePolicy() {
+    if (!this.recognitionAllowed()) this.endSession();
+  }
+
+  endSession() {
+    this.stopListening();
+    this.stopAudioVisualizer();
+    this.isPttHolding = false;
+    this.finalTranscript = this.interimTranscript = '';
+    this.flushPlaybackQueue();
+    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    this.currentUtterance = null;
+  }
+
+  startListening() {
+    if(!this.recognitionAllowed()){
+      this.endSession();
       this.setState(LiveVoiceState.ERROR,'Browser speech recognition is not approved for HIPAA or Local Only. Use typed input until an approved offline voice adapter is configured.');return;
     }
-    if (this.isHardMuted) return;
+    this.listeningRequested = true;
     this.interimTranscript = '';
     this.finalTranscript = '';
     this.emitTranscriptUpdate();
@@ -630,11 +666,13 @@ export class VoiceManager {
     this.setState(LiveVoiceState.LISTENING, 'Listening for speech…');
   }
 
-  stopListening() {
+  stopListening({pause = false} = {}) {
+    if (!pause) { this.listeningRequested = false; this.voiceGeneration++; }
     this.cancelSilenceTimer();
     if (this.recognition) {
       try {
-        this.recognition.stop();
+        if (pause) this.recognition.stop();
+        else this.recognition.abort();
       } catch (e) {}
     }
     if (this.state === LiveVoiceState.LISTENING || this.state === LiveVoiceState.USER_SPEAKING) {
@@ -655,11 +693,12 @@ export class VoiceManager {
   stopPtt() {
     if (!this.isPttHolding) return;
     this.isPttHolding = false;
-    this.stopListening();
+    this.stopListening({pause: true});
     this.notifyState();
 
+    const generation = this.voiceGeneration;
     setTimeout(() => {
-      this.dispatchCurrentTranscript();
+      if (generation === this.voiceGeneration && this.recognitionAllowed()) this.dispatchCurrentTranscript();
     }, 120);
   }
 
@@ -689,8 +728,9 @@ export class VoiceManager {
     if (!text || this.state === LiveVoiceState.THINKING) return;
 
     this.cancelSilenceTimer();
-    this.stopListening();
     this.setState(LiveVoiceState.THINKING, 'Engaging brain router…');
+    this.stopListening({pause: true});
+    const generation = this.voiceGeneration;
     this.lastRecognizedText = text;
     this.finalTranscript = '';
     this.interimTranscript = '';
@@ -755,10 +795,11 @@ export class VoiceManager {
           agentId: this.activeAgentId || null,
           onStreamChunk: (chunk) => {
             // Streaming sentence-level speech playback as tokens generate
-            this.handleStreamResponseChunk(chunk);
+            if (generation === this.voiceGeneration) this.handleStreamResponseChunk(chunk);
           },
         });
 
+        if (generation !== this.voiceGeneration) return;
         // Assistant response speech
         if (result && result.text && this.ttsEnabled && !this.isHardMuted) {
           // If streaming chunks didn't already consume the full text, speak response
@@ -779,9 +820,10 @@ export class VoiceManager {
   }
 
   resumeListeningAfterResponse() {
-    if (!this.isHardMuted && (this.mode === 'always' || this.mode === 'handsfree')) {
+    if (this.listeningRequested && this.recognitionAllowed() && (this.mode === 'always' || this.mode === 'handsfree')) {
+      const generation = this.voiceGeneration;
       setTimeout(() => {
-        if (!this.isHardMuted && this.state !== LiveVoiceState.AI_SPEAKING) {
+        if (generation === this.voiceGeneration && this.listeningRequested && this.recognitionAllowed() && this.state !== LiveVoiceState.AI_SPEAKING) {
           this.startListening();
         }
       }, 350);

@@ -270,6 +270,22 @@ class WorkerManager {
       }
     }
   }
+  reconcileStatuses() {
+    const c = this.core;
+    if (!c.settings().workspace) return;
+    for (const job of c.store.project('job', j => j.remote && j.statusPending ? j : null).filter(Boolean).slice(0, 100)) {
+      if (!['failed', 'completed'].includes(job.status)) continue;
+      try {
+        this.status(job.id, job.status, {
+          ...(job.started ? {started: job.started} : {}),
+          ...(job.completed ? {completed: job.completed} : {}),
+          ...(job.status === 'completed' && job.output ? {output: job.output} : {}),
+          ...(job.status === 'failed' ? {error: job.error || 'INTERRUPTED'} : {}),
+        });
+        c.store.put('job', job.id, {...job, statusPending: false});
+      } catch { /* Retry publication next tick, never the uncertain work itself. */ }
+    }
+  }
   cleanup(now = Date.now()) {
     const c = this.core,
       root = c.settings().workspace;
@@ -327,7 +343,8 @@ class WorkerManager {
             isStatus &&
             stat.isFile() &&
             stat.size < 10000 &&
-            age > (c.settings().retentionDays || 100) * 86400000
+            c.settings().retentionDays !== 0 &&
+            age > (c.settings().retentionDays ?? 100) * 86400000
           ) {
             const envelope = JSON.parse(fs.readFileSync(file));
             if (
@@ -358,6 +375,7 @@ class WorkerManager {
         } catch {}
         this.lastPublish = Date.now();
       }
+      this.reconcileStatuses();
       this.syncStatuses();
       if (
         !s.workerEnabled ||

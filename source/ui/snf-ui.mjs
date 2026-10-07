@@ -1085,10 +1085,10 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             <h3 style="margin:0; font-size:16px; color:#0369a1;">Supplemental Analytics Only · Regulatory Storage Notice</h3>
           </div>
           <p style="margin:0 0 8px 0; font-size:14px; color:#0f172a; line-height:1.5;">
-            This application operates strictly as a <strong>supplemental clinical surveillance and decision-support instrument</strong>. It is <strong>NOT</strong> an official Designated Record Set or Electronic Health Record (EHR).
+            This application provides <strong>supplemental clinical surveillance and decision support</strong>. Review findings against the source records.
           </p>
           <p style="margin:0; font-size:13px; color:#334155; line-height:1.5;">
-            By administrative governance, this operational analytics tool is <strong>exempt from CMS 42 CFR § 483 long-term medical record retention rules and the HIPAA 6-year archival mandate</strong>. Surveillance data is managed under a rolling operational retention schedule designed specifically for quarterly clinical audits without permanent data accumulation.
+            ${esc(settings.regulatoryNotice || 'Supplemental surveillance. The organization must approve applicable retention and legal holds. No regulatory exemption is asserted.')}
           </p>
         </div>
 

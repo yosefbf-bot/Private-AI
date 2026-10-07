@@ -78,6 +78,10 @@ class Core {
         error: "INTERRUPTED",
         reason: "Interrupted. Review the saved step before resuming; no operation was automatically repeated.",
       });
+    // Reconcile a crash between the local commit and the signed status write.
+    // Publishing status does not resume or repeat interrupted work.
+    for (const j of store.project('job', j => j.remote && ['failed', 'completed'].includes(j.status) ? j : null).filter(Boolean))
+      store.put('job', j.id, {...j, statusPending: true});
     this.stability = new (require("./stability.cjs").Stability)(this);
     this.stability.start();
     this.integrations = new (require("./integrations.cjs").Integrations)(this);
@@ -802,7 +806,7 @@ class Core {
     return deferred;
   }
   performCleanup() {
-    const days = this.settings().retentionDays || 100;
+    const days = this.settings().retentionDays ?? 100;
     const result = this.store.cleanup(days);
     if (this.snf) {
       try {
@@ -896,7 +900,7 @@ class Core {
       web: input.web === true,
       files: [],
       created: Date.now(),
-      expiresAt: Date.now() + (this.settings().retentionDays || 100) * 86400000,
+      expiresAt: this.settings().retentionDays === 0 ? undefined : Date.now() + (this.settings().retentionDays ?? 100) * 86400000,
     };
     if (input.fileIds) {
       if (!Array.isArray(input.fileIds) || input.fileIds.length > 6)

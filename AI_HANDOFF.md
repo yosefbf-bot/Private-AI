@@ -1,5 +1,9 @@
 # Shared AI development handoff
 
+## Pre-use audit repairs — 2026-10-06
+
+Read [the repair report](docs/PRE_USE_AUDIT_FIXES_2026-10-06.md). Based on main `1527da64ba667ee862e2e71221f51063e4c06fa1`, this branch fixes indefinite retention, voice stop/privacy (including the duplicate sidebar toggle), interrupted Worker status publication, the regulatory exemption claim and Mammoth's production dependency advisory. Android/protocol/schema are unchanged. See `PROJECT_STATUS.json` and the review PR for current source checks. The older installer below does not contain these repairs; its Windows execution flags must not be transferred to this branch. A new hash-bound package acceptance is still required; the local generated native build inputs are currently absent.
+
 ## Current Windows candidate — 2026-10-06
 
 The tested **3.0.1-dev** binary is frozen code `46a385d2a8d1b14acf3e960f2b4c601159ba3d04`, based on main `c269a18eec4ea5b4e347e3520be1cd4e9bd88876`; later reports/handoffs/source exports are supplemental. Read [the dated report](docs/WINDOWS_VALIDATION_2026-10-06.md) and [sanitized machine summary](docs/windows-validation-2026-10-06.json). Actual package/install/uninstall/reinstall, synthetic default-path DPAPI/SQLite retention, installed restart, Small local inference and 575-file portable roundtrip/extracted-app acceptance passed the unchanged hash gate. Current packaged shared capture/evidence/actions/internal drafts/selected-chat/lock/restricted reminders were exercised through IPC and pinned loopback HTTPS. No real message or mailbox dispatch occurred.

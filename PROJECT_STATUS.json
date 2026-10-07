@@ -1,4 +1,51 @@
 {
+  "preUseAuditRepairs": {
+    "date": "2026-10-06",
+    "baseCommit": "1527da64ba667ee862e2e71221f51063e4c06fa1",
+    "branch": "chatgpt/pre-use-audit-fixes-2026-10-06",
+    "version": "3.0.1-dev",
+    "report": "docs/PRE_USE_AUDIT_FIXES_2026-10-06.md",
+    "scope": "Five confirmed audit findings plus the duplicate voice sidebar handler exposed by UI regression. No Android/protocol/schema change.",
+    "validation": {
+      "cleanInstall": "npm ci --ignore-scripts passed",
+      "windowsSourceTests": {
+        "passed": 506,
+        "failed": 0,
+        "skipped": 0
+      },
+      "hardening": {
+        "passed": 25,
+        "failed": 0,
+        "overlapsFullSuite": true
+      },
+      "edgeUI": {
+        "checks": 33,
+        "browser": "154.0.4258.62",
+        "syntheticMicrophoneAndIPC": true
+      },
+      "hardeningUIPassed": true,
+      "messagingUIPassed": true,
+      "liveMessagesSent": false,
+      "productionDependencyVulnerabilities": 0,
+      "syntax": "Passed: 185 JavaScript files",
+      "repositoryPolicy": "Passed: 307 tracked files",
+      "githubChecks": "Exact published head must be checked; see review PR"
+    },
+    "release": {
+      "newInstallerBuilt": false,
+      "windowsApplicationExecuted": false,
+      "windowsInstallerExecuted": false,
+      "actualModelInferenceExecuted": false,
+      "localReleaseInputGate": "Blocked: generated build/desktop-helper/PrivateAI.Access.exe and build/local-runtime/llama-server.exe absent. Gate retained.",
+      "historicalWindowsEvidenceAppliesTo": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
+      "previousInstallerContainsTheseFixes": false
+    },
+    "retainedAttempts": [
+      "Sandbox spawn EPERM required subprocess escalation.",
+      "Initial indefinite-expiry test exposed validation mismatch; final implementation omits expiry and preserves legacy wire compatibility.",
+      "Initial UI attempt stalled; bounded retry exposed duplicate sidebar click handlers. Handler fixed; 33 checks passed."
+    ]
+  },
   "currentWindowsValidation": {
     "date": "2026-10-06",
     "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
