@@ -120,6 +120,15 @@ test('desktop IPC saves PCC capability, preserves clinical analysis, and rejects
  b.core.locked=true;assert.equal((await call('integrationSave',{id:'pcc',settings:{enabled:true}})).error.code,'LOCKED');
 });
 
+test('window closure and repeated quit after shutdown do not access the closed database',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);
+ b.app.emit('before-quit');
+ assert.equal(b.core.store.db,null);
+ assert.doesNotThrow(()=>b.app.emit('window-all-closed'));
+ assert.doesNotThrow(()=>b.app.emit('before-quit'));
+ assert.deepEqual(b.errors,[]);
+});
+
 test('desktop capture IPC saves and reloads source notes, evidence, reviewed follow-ups and internal drafts',async t=>{
  const b=await boot(t);assert.deepEqual(b.errors,[]);const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
  const call=async(op,data={})=>{const r=await b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});assert.equal(r.ok,true,op+': '+JSON.stringify(r.error));return r.result;};

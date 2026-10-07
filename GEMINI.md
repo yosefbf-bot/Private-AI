@@ -2,7 +2,7 @@
 
 ## Audit follow-up — 2026-10-07
 
-Read [the follow-up](docs/AUDIT_FOLLOWUP_2026-10-07.md). Completed Worker results now survive temporary status-publication failure, and unavailable speech recognition no longer requests microphone access. Earlier repairs are preserved. Fresh native inputs were obtained from exact-head CI 37568590549 and are being manifest-verified for a new Windows package. Until a new dated execution report exists, older installer flags do not establish acceptance of these fixes.
+Read [the follow-up](docs/AUDIT_FOLLOWUP_2026-10-07.md). Completed Worker results now survive temporary status-publication failure, and unavailable speech recognition no longer requests microphone access. A third confirmed fix prevents window-close callbacks from reading SQLite after shutdown. All 509 Windows tests passed after this correction; rebuild and acceptance remain required. Earlier repairs are preserved. Fresh native inputs were obtained from exact-head CI 37568590549 and are being manifest-verified for a new Windows package. Until a new dated execution report exists, older installer flags do not establish acceptance of these fixes.
 
 ## Pre-use audit repairs — 2026-10-06
 

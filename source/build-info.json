@@ -1,8 +1,8 @@
 {
   "version": "3.0.1-dev",
-  "updatedAt": "2026-10-07T22:06:26.707Z",
+  "updatedAt": "2026-10-07T22:20:42.872Z",
   "baselineCommit": "1527da64ba667ee862e2e71221f51063e4c06fa1",
   "releaseStatus": "blocked",
   "note": "Audit repair candidate; see dated hash-bound Windows validation before use.",
-  "sourceSHA256": "4a72ae71b0d5dc17166e5d83f45a88fe61da96bd433eba0bcea15c1d4939cb35"
+  "sourceSHA256": "70cd34028411c38afde17ffaceafe74ef214c648bb00bd77ff5c946e90865741"
 }

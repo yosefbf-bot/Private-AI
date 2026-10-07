@@ -1067,9 +1067,10 @@ if (!isNative && !app.requestSingleInstanceLock()) {
     });
 }
 app.on("window-all-closed", () => {
-  if (!isNative && !core?.settings().workerEnabled && !messaging?.settings().enabled && !companion?.settings().enabled) app.quit();
+  if (!quitting && !isNative && !core?.settings().workerEnabled && !messaging?.settings().enabled && !companion?.settings().enabled) app.quit();
 });
 app.on("before-quit", () => {
+  if (quitting) return;
   quitting = true;
   if (timer) clearInterval(timer);
   bridge?.close();

@@ -6,11 +6,11 @@
       "passed": 33,
       "failed": 0
     },
-    "packageAcceptance": "Pending actual Windows execution; no prior flags transferred",
+    "packageAcceptance": "Pre-shutdown candidate retained as failed acceptance; rebuilding corrected source. Current RAM blocks fresh inference/UI acceptance.",
     "validation": {
       "cleanLockedInstall": true,
       "windowsSourceTests": {
-        "passed": 508,
+        "passed": 509,
         "failed": 0,
         "skipped": 0
       },
@@ -21,7 +21,8 @@
       "syntaxFiles": 185,
       "productionDependencyVulnerabilities": 0,
       "currentUIAttempt": "Blocked by actual low-memory protection; previous repair head passed 33 UI checks. Retry after memory becomes available."
-    }
+    },
+    "shutdownRegression": "Confirmed closed-database read after before-quit; quitting guard added; full suite passed"
   },
   "preUseAuditRepairs": {
     "date": "2026-10-06",
