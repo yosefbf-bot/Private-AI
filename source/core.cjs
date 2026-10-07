@@ -80,8 +80,8 @@ class Core {
       });
     // Reconcile a crash between the local commit and the signed status write.
     // Publishing status does not resume or repeat interrupted work.
-    for (const j of store.project('job', j => j.remote && ['failed', 'completed'].includes(j.status) ? j : null).filter(Boolean))
-      store.put('job', j.id, {...j, statusPending: true});
+    for (const id of store.project('job', j => j.remote && ['failed', 'completed'].includes(j.status) ? j.id : null).filter(Boolean))
+      this.worker.pendingStatuses.add(id);
     this.stability = new (require("./stability.cjs").Stability)(this);
     this.stability.start();
     this.integrations = new (require("./integrations.cjs").Integrations)(this);

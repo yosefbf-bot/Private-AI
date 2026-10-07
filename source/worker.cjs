@@ -125,6 +125,7 @@ class WorkerManager {
     this.busy = false;
     this.lastPublish = 0;
     this.lastPoll = 0;
+    this.pendingStatuses = new Set();
   }
   publish() {
     const c = this.core,
@@ -273,8 +274,9 @@ class WorkerManager {
   reconcileStatuses() {
     const c = this.core;
     if (!c.settings().workspace) return;
-    for (const job of c.store.project('job', j => j.remote && j.statusPending ? j : null).filter(Boolean).slice(0, 100)) {
-      if (!['failed', 'completed'].includes(job.status)) continue;
+    for (const id of [...this.pendingStatuses].slice(0, 100)) {
+      const job = c.store.get('job', id);
+      if (!job?.remote || !['failed', 'completed'].includes(job.status)) { this.pendingStatuses.delete(id); continue; }
       try {
         this.status(job.id, job.status, {
           ...(job.started ? {started: job.started} : {}),
@@ -282,7 +284,8 @@ class WorkerManager {
           ...(job.status === 'completed' && job.output ? {output: job.output} : {}),
           ...(job.status === 'failed' ? {error: job.error || 'INTERRUPTED'} : {}),
         });
-        c.store.put('job', job.id, {...job, statusPending: false});
+        // Reconciliation must not refresh database retention timestamps.
+        this.pendingStatuses.delete(id);
       } catch { /* Retry publication next tick, never the uncertain work itself. */ }
     }
   }

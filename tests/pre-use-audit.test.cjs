@@ -39,17 +39,19 @@ for(const interruptedState of ['running','completed'])test('Worker restart recon
  receiver.core.store.put('peer',sender.core.identity().id,publicIdentity(sender.core.identity()));
  const job=sender.core.jobPayload({prompt:'Synthetic recovery report',format:'txt'});
  sender.core.worker.queue(job,receiver.core.identity().id);receiver.core.store.claim(job.id);
- receiver.core.store.put('job',job.id,{...job,status:interruptedState,remote:true,...(interruptedState==='completed'?{output:'Reports/synthetic.txt',completed:Date.now()}: {})});
+ const updated=Date.now()-18*86400000;
+ receiver.core.store.put('job',job.id,{...job,status:interruptedState,remote:true,...(interruptedState==='completed'?{output:'Reports/synthetic.txt',completed:updated}: {})},{updated});
  receiver.core.worker.status(job.id,'running');sender.core.worker.syncStatuses();receiver.core.close();
  let calls=0;const reopened=new Core({root:receiver.root,store:new Store(path.join(receiver.root,'privateai.db'),receiver.cipher),machine:'synthetic-machine',client:{generate:()=>{calls++;throw Error('must not rerun');}}});
  try {
   reopened.saveSettings({workerPaused:true});const publish=reopened.worker.status.bind(reopened.worker);
   reopened.worker.status=()=>{throw Error('Synthetic shared folder temporarily unavailable');};await reopened.worker.tick();
-  assert.equal(reopened.store.get('job',job.id).statusPending,true);
+  assert.equal(reopened.worker.pendingStatuses.has(job.id),true);
   reopened.worker.status=publish;await reopened.worker.tick();sender.core.worker.syncStatuses();
   const actual=sender.core.store.get('job',job.id);assert.equal(actual.status,interruptedState==='running'?'failed':'completed');
   if(interruptedState==='running')assert.equal(actual.error,'INTERRUPTED');else assert.equal(actual.output,'Reports/synthetic.txt');
-  assert.equal(reopened.store.get('job',job.id).statusPending,false);
+  assert.equal(reopened.worker.pendingStatuses.has(job.id),false);
+  if(interruptedState==='completed')assert.equal(reopened.store.db.prepare("SELECT updated FROM records WHERE kind='job' AND id=?").get(job.id).updated,updated);
   reopened.saveSettings({workerPaused:false});await reopened.worker.tick();assert.equal(calls,0);
   assert.equal(fs.existsSync(path.join(shared,'Tasks/Queued',job.id+'.json')),false);
  }finally{reopened.close();}
