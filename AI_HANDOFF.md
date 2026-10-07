@@ -1,5 +1,9 @@
 # Shared AI development handoff
 
+## Audit follow-up — 2026-10-07
+
+Read [the follow-up](docs/AUDIT_FOLLOWUP_2026-10-07.md). Completed Worker results now survive temporary status-publication failure, and unavailable speech recognition no longer requests microphone access. Earlier repairs are preserved. Fresh native inputs were obtained from exact-head CI 37568590549 and are being manifest-verified for a new Windows package. Until a new dated execution report exists, older installer flags do not establish acceptance of these fixes.
+
 ## Pre-use audit repairs — 2026-10-06
 
 Read [the repair report](docs/PRE_USE_AUDIT_FIXES_2026-10-06.md). Based on main `1527da64ba667ee862e2e71221f51063e4c06fa1`, this branch fixes indefinite retention, voice stop/privacy (including the duplicate sidebar toggle), interrupted Worker status publication, the regulatory exemption claim and Mammoth's production dependency advisory. Android/protocol/schema are unchanged. See `PROJECT_STATUS.json` and the review PR for current source checks. The older installer below does not contain these repairs; its Windows execution flags must not be transferred to this branch. A new hash-bound package acceptance is still required; the local generated native build inputs are currently absent.

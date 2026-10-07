@@ -961,7 +961,7 @@ class Core {
     const update=(status,reason)=>{
       const record=this.store.get('job',j.id)||{id:j.id,title:j.title||j.name,remote,recoveryInput:j,checkpoint:{phase:'queued',parts:[],fileIndex:0}};
       this.store.put('job',j.id,{...record,status,reason});
-      if(remote)try{this.worker.status(j.id,status,{reason});}catch{}
+      if(remote)this.worker.publishStatus(j.id,status,{reason});
     };
     update('waiting','Queued for a safe resource boundary.');
     try{return await this.resources.task('background',()=>this.runJobCoordinated(j,remote,background,controller),{signal:controller.signal,update});}
@@ -1079,7 +1079,7 @@ class Core {
       this.store.put("output", j.id, out);
       this.store.audit("job_completed", answer.usage);
       if (remote)
-        this.worker.status(j.id, "completed", {
+        this.worker.publishStatus(j.id, "completed", {
           started: record.started,
           completed: record.completed,
           output: out.relative,
@@ -1092,13 +1092,11 @@ class Core {
       this.store.put("job", j.id, record);
       this.store.audit("job_failed");
       if (remote) {
-        try {
-          this.worker.status(j.id, "failed", {
-            started: record.started,
-            completed: record.completed,
-            error: record.error,
-          });
-        } catch {}
+        this.worker.publishStatus(j.id, "failed", {
+          started: record.started,
+          completed: record.completed,
+          error: record.error,
+        });
       }
     } finally {
       this.requests.delete(j.id);

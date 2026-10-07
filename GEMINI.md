@@ -1,5 +1,9 @@
 # Google AI Studio / Gemini handoff
 
+## Audit follow-up — 2026-10-07
+
+Read [the follow-up](docs/AUDIT_FOLLOWUP_2026-10-07.md). Completed Worker results now survive temporary status-publication failure, and unavailable speech recognition no longer requests microphone access. Earlier repairs are preserved. Fresh native inputs were obtained from exact-head CI 37568590549 and are being manifest-verified for a new Windows package. Until a new dated execution report exists, older installer flags do not establish acceptance of these fixes.
+
 ## Pre-use audit repairs — 2026-10-06
 
 Preserve the fixes and tests described in [the repair report](docs/PRE_USE_AUDIT_FIXES_2026-10-06.md): indefinite retention, voice stop/privacy and sidebar toggle, Worker restart status reconciliation, neutral regulatory notice and the targeted Mammoth parser override. Base main: `1527da64ba667ee862e2e71221f51063e4c06fa1`. This source change is newer than the frozen Windows candidate below; do not copy its execution flags or ship its older installer as containing these repairs. Current validation is in `PROJECT_STATUS.json` and the review PR.

@@ -446,7 +446,7 @@ export class VoiceManager {
   // --- Audio Capture & Visualizer with Echo Cancellation ---
 
   async startAudioVisualizer(canvas) {
-    if (typeof window === 'undefined' || !canvas || !this.recognitionAllowed()) return;
+    if (typeof window === 'undefined' || !canvas || !this.recognition || !this.recognitionAllowed()) return;
     const generation = ++this.captureGeneration;
     try {
       if (!this.mediaStream) {
@@ -650,6 +650,11 @@ export class VoiceManager {
     if(!this.recognitionAllowed()){
       this.endSession();
       this.setState(LiveVoiceState.ERROR,'Browser speech recognition is not approved for HIPAA or Local Only. Use typed input until an approved offline voice adapter is configured.');return;
+    }
+    if (!this.recognition) {
+      this.endSession();
+      this.setState(LiveVoiceState.ERROR, 'Speech recognition is unavailable in this app or browser. Use typed input.');
+      return;
     }
     this.listeningRequested = true;
     this.interimTranscript = '';

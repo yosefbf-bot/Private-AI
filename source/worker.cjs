@@ -271,6 +271,18 @@ class WorkerManager {
       }
     }
   }
+  publishStatus(id, state, extra = {}) {
+    const terminal = ['failed', 'completed'].includes(state);
+    try {
+      if (!this.core.settings().workspace) throw new Error('Workspace unavailable');
+      this.status(id, state, extra);
+      if (terminal) this.pendingStatuses.delete(id);
+      return true;
+    } catch {
+      if (terminal) this.pendingStatuses.add(id);
+      return false;
+    }
+  }
   reconcileStatuses() {
     const c = this.core;
     if (!c.settings().workspace) return;

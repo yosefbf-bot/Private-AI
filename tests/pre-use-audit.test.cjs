@@ -32,6 +32,34 @@ test('DOCX extraction and Mammoth CLI remain compatible with the secure parser o
  const parser=require.resolve('argparse/package.json',{paths:[path.dirname(cli)]});assert.equal(require(parser).version,'2.0.1');
 });
 
+test('temporary Worker status-write failure preserves completed work and retries without restarting or rerunning',async t=>{
+ const sender=fixture(t),receiver=fixture(t),shared=sender.core.settings().workspace;
+ receiver.core.saveSettings({workspace:shared,role:'worker',workerEnabled:true});
+ sender.core.store.put('peer',receiver.core.identity().id,publicIdentity(receiver.core.identity()));
+ receiver.core.store.put('peer',sender.core.identity().id,publicIdentity(sender.core.identity()));
+ const job=sender.core.jobPayload({prompt:'Synthetic offline status report',format:'txt'});
+ sender.core.worker.queue(job,receiver.core.identity().id);
+ const publish=receiver.core.worker.status.bind(receiver.core.worker);
+ receiver.core.worker.status=(id,state,extra)=>{if(state==='completed')throw Error('Synthetic status write unavailable');return publish(id,state,extra);};
+ await receiver.core.worker.tick();
+ const completed=receiver.core.store.get('job',job.id);
+ assert.equal(completed.status,'completed');assert.ok(fs.existsSync(path.join(shared,completed.output)));
+ assert.equal(receiver.core.worker.pendingStatuses.has(job.id),true);
+ const updated=receiver.core.store.db.prepare("SELECT updated FROM records WHERE kind='job' AND id=?").get(job.id).updated;
+ receiver.core.worker.status=publish;await receiver.core.worker.tick();sender.core.worker.syncStatuses();
+ assert.equal(sender.core.store.get('job',job.id).status,'completed');assert.equal(receiver.calls.length,1);
+ assert.equal(receiver.core.store.db.prepare("SELECT updated FROM records WHERE kind='job' AND id=?").get(job.id).updated,updated);
+});
+
+test('voice reports unavailable recognition without capturing microphone input',async()=>{
+ const {VoiceManager,LiveVoiceState}=await import('../source/ui/voice.mjs');const previous=global.window,descriptor=Object.getOwnPropertyDescriptor(global,'navigator');
+ let captures=0;global.window={addEventListener(){}};
+ Object.defineProperty(global,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:async()=>{captures++;throw Error('Must not capture');}}}});
+ const v=new VoiceManager({getState:()=>({settings:{hipaa:false,processingMode:'local-first'}})});
+ try{await v.startAudioVisualizer({});v.startListening();assert.equal(captures,0);assert.equal(v.state,LiveVoiceState.ERROR);assert.equal(v.listeningRequested,false);}
+ finally{v.endSession();global.window=previous;if(descriptor)Object.defineProperty(global,'navigator',descriptor);else delete global.navigator;}
+});
+
 for(const interruptedState of ['running','completed'])test('Worker restart reconciles '+interruptedState+' status without repeating work',async t=>{
  const sender=fixture(t),receiver=fixture(t),shared=sender.core.settings().workspace;
  receiver.core.saveSettings({workspace:shared,role:'worker',workerEnabled:true});
@@ -80,7 +108,7 @@ test('voice stop, privacy revocation, late callbacks and unavailable policy fail
 test('late microphone permission after close or policy revocation releases every track',async()=>{
  const {VoiceManager}=await import('../source/ui/voice.mjs');const previous=global.window,descriptor=Object.getOwnPropertyDescriptor(global,'navigator');
  let resolve,stopped=0;const stream={getTracks:()=>[{stop:()=>stopped++}]};
- global.window={addEventListener(){}};Object.defineProperty(global,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:()=>new Promise(r=>{resolve=r;})}}});
+ global.window={addEventListener(){},SpeechRecognition:class{start(){}stop(){}abort(){}}};Object.defineProperty(global,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:()=>new Promise(r=>{resolve=r;})}}});
  let state={settings:{hipaa:false,processingMode:'local-first'}};const v=new VoiceManager({getState:()=>state});
  try{
   const pending=v.startAudioVisualizer({});v.endSession();resolve(stream);await pending;assert.equal(stopped,1);assert.equal(v.mediaStream,null);

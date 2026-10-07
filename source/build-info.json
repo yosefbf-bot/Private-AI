@@ -1,8 +1,8 @@
 {
   "version": "3.0.1-dev",
-  "updatedAt": "2026-10-06T09:15:26.556Z",
-  "baselineCommit": "c269a18eec4ea5b4e347e3520be1cd4e9bd88876",
+  "updatedAt": "2026-10-07T22:06:26.707Z",
+  "baselineCommit": "1527da64ba667ee862e2e71221f51063e4c06fa1",
   "releaseStatus": "blocked",
-  "note": "Shared companion development candidate. Artifact-specific Windows checks are recorded separately; physical-phone, live-account and clinical acceptance remain separate.",
-  "sourceSHA256": "c8bbe6980dc59ba4ade66e31d251746686b7f0e7fd45f81b5e1521e5e1431a93"
+  "note": "Audit repair candidate; see dated hash-bound Windows validation before use.",
+  "sourceSHA256": "4a72ae71b0d5dc17166e5d83f45a88fe61da96bd433eba0bcea15c1d4939cb35"
 }

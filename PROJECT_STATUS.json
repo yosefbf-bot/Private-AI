@@ -1,4 +1,28 @@
 {
+  "auditFollowup20261007": {
+    "baseCommit": "1527da64ba667ee862e2e71221f51063e4c06fa1",
+    "report": "docs/AUDIT_FOLLOWUP_2026-10-07.md",
+    "focusedTests": {
+      "passed": 33,
+      "failed": 0
+    },
+    "packageAcceptance": "Pending actual Windows execution; no prior flags transferred",
+    "validation": {
+      "cleanLockedInstall": true,
+      "windowsSourceTests": {
+        "passed": 508,
+        "failed": 0,
+        "skipped": 0
+      },
+      "hardening": {
+        "passed": 25,
+        "overlapsFullSuite": true
+      },
+      "syntaxFiles": 185,
+      "productionDependencyVulnerabilities": 0,
+      "currentUIAttempt": "Blocked by actual low-memory protection; previous repair head passed 33 UI checks. Retry after memory becomes available."
+    }
+  },
   "preUseAuditRepairs": {
     "date": "2026-10-06",
     "baseCommit": "1527da64ba667ee862e2e71221f51063e4c06fa1",
