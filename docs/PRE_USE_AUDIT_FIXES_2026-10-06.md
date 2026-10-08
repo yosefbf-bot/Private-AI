@@ -1,0 +1,23 @@
+# Pre-use audit fixes — 2026-10-06
+
+Base: `1527da64ba667ee862e2e71221f51063e4c06fa1` on GitHub main. Review branch: `chatgpt/pre-use-audit-fixes-2026-10-06`. Application version remains **3.0.1-dev**. This is a narrow repair of confirmed audit findings, not an architecture or feature rewrite. Android source and the companion pairing protocol are unchanged.
+
+## Behavior changes
+
+- **Keep indefinitely:** global retention `0` now survives startup/hourly Core cleanup. It no longer falls back to 100 days or causes retained chat deletion to purge local database backups. Newly queued jobs omit expiry, using the existing backwards-compatible optional field, and signed Worker status files are retained. Existing job expiry dates and the separate clinical retention/legal-hold policy are unchanged. Already-deleted records cannot be reconstructed by this fix; restoring an existing same-account encrypted backup remains a separate action.
+- **Voice privacy and stop:** browser recognition requires available settings, public mode, a mode other than Local Only, a non-HIPAA chat and an open/unlocked voice session. Explicit stop, closing voice, navigation and app lock cancel pending recognition, microphone streams, playback and delayed restart callbacks. Late permission grants release their tracks. Normal hands-free restart and push-to-talk finalization remain available when allowed. The sidebar's duplicate click handler was also removed after the UI regression test demonstrated that a single click opened and immediately closed the HUD. Browser recognition is no longer described as zero-cloud; offline speech transcription has not been added.
+- **Worker recovery:** restart marks terminal remote-job status for reconciliation. The next Worker tick publishes a signed failed/completed status to the shared folder, including when work is paused. If the folder is unavailable, publication retries later. It never reruns uncertain work or calls an AI provider. Interrupted work still requires review before resuming. This repairs a Primary that otherwise remained InProgress after its Worker restarted.
+- **Clinical retention notice:** the UI displays the existing neutral regulatory notice. It does not claim that application configuration grants a CMS/HIPAA exemption. Retention rules, clinical intelligence, PCC capability controls and audit history are unchanged.
+- **DOCX dependency:** Mammoth's argument parser is overridden to `argparse@2.0.1`, eliminating its production `sprintf-js` advisory path. Mammoth itself and unrelated locked packages are preserved. Regression coverage exercises both document extraction and command-line conversion/help with filenames containing spaces.
+
+## Regression coverage and release scope
+
+`tests/pre-use-audit.test.cjs` exercises real Core/SQLite retention and reopen, backup preservation, finite cleanup, invalid expiry rejection, two-PC signed status recovery after database reopen with a temporary publication failure, unchanged completed-job retention timestamps, no duplicate inference, voice revocation/late callbacks, late microphone permission and DOCX API/CLI compatibility. The restart publication queue is in memory and rebuilt from persisted job outcomes; retries do not rewrite the database. The real Edge UI suite additionally exercises the retention notice and voice close/navigation/lock/privacy restrictions without a real microphone or account.
+
+Local results and final GitHub checks are recorded in `PROJECT_STATUS.json` and the review PR. Historical Windows execution flags in the October 6 candidate report apply only to frozen code `46a385d2a8d1b14acf3e960f2b4c601159ba3d04`, not this repair branch. That earlier installer does **not** contain these fixes. A new packaged build requires genuine native helper/runtime inputs and fresh hash-bound Windows acceptance. The local release-input gate currently reports those generated inputs missing; it has not been bypassed.
+
+No real WhatsApp or Outlook messages, external provider calls, clinical records or live microphone audio were used by these tests. Android physical-device/LAN/notification acceptance and other previously documented external integration limits remain separate.
+
+## Continuing in another coding tool
+
+Fetch GitHub main first, identify whether this PR has been merged, and read this report plus `AGENTS.md`, `AI_HANDOFF.md`, `PROJECT_STATUS.json` and the required guardrail documents. Preserve these narrow fixes and their regression tests when building the next installer. Do not substitute an older archive or treat the unchanged version label as evidence of identical code. No schema migration or secret/credential export is needed for this batch.

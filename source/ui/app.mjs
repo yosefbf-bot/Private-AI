@@ -145,6 +145,7 @@ function toast(message) {
 }
 async function refresh() {
   state = await api("summary");
+  voiceManager?.enforcePolicy();
   document.body.classList.toggle("advanced",state.settings.uiAdvanced===true);
   voiceTranscriptCache=state.voiceTranscripts||[];
   renderSidebar();
@@ -418,6 +419,7 @@ function autoResizePrompt() {
   p.style.height = `${h}px`;
 }
 function renderChat() {
+  voiceManager?.enforcePolicy();
   view = "chat";
   updateTop();
   renderSidebar();
@@ -471,6 +473,7 @@ function renderGuideTopics(query){
   $('guide-topics').innerHTML=topics.length?topics.map(t=>`<details class="guide-topic" ${words.length||t.id==='start'?'open':''}><summary>${esc(t.title)}</summary><p class="guide-location">${esc(t.location)}</p><ol>${t.steps.map(step=>`<li>${esc(step)}</li>`).join('')}</ol><p class="guide-note">${esc(t.note)}</p><button class="secondary" data-act="guide-ask" data-topic="${esc(t.id)}">Ask in chat about this</button></details>`).join(''):'<p>No matching topic. Try fewer words. The guide does not describe every possible task.</p>';
 }
 async function newChat(temporary = false, project = null) {
+  if (chat) closeVoiceSession();
   if (sending) {
     toast("Stop the current response first.");
     return;
@@ -487,6 +490,7 @@ async function newChat(temporary = false, project = null) {
   $("prompt").focus();
 }
 async function openChat(id) {
+  closeVoiceSession();
   if (sending) {
     toast("Stop the current response first.");
     return;
@@ -1054,6 +1058,7 @@ function settingsHTML() {
   )}${field("Maximum output tokens", "maxOutput", s.maxOutput, "number")}${field("OpenAI organization (optional)", "org", s.org)}${field("OpenAI project (optional)", "projectId", s.projectId)}${field("App lock after minutes", "lockMinutes", s.lockMinutes, "number")}</div><p>Reasoning controls depend on the selected model. Automatic locking inside Private AI requires an app passphrase; your organization’s Windows lock remains separate.</p><div class="button-row"><button class="secondary" data-act="passphrase">Set app passphrase</button><button class="secondary" data-act="lock">Lock app</button><button class="secondary" data-act="backup">Create local encrypted backup</button><button class="secondary" data-act="self-check">Run local checks</button><button class="secondary" data-act="diagnostics">Create diagnostic report</button></div><p>Diagnostics contain technical metadata only. Local backups require this Windows profile and its original encryption key. A portable app does not make encrypted history portable.</p></details></div>`;
 }
 function showLocked() {
+  closeVoiceSession();
   if ($("modal").open) $("modal-cancel").click();
   $("modal-content").innerHTML = "";
   $("prompt").value = "";
@@ -1079,6 +1084,7 @@ function initVoice() {
   const canvas = $("voice-visualizer");
 
   voiceManager = new VoiceManager({
+    canCapture: () => voiceHudOpen && view !== 'locked',
     callApi: api,
     onSend: async ({ prompt, rawVoiceText, agentId, onStreamChunk }) => {
       if (sending) return { text: "" };
@@ -1330,11 +1336,6 @@ function initVoice() {
     composerMic.onclick = () => toggleVoiceHud();
   }
 
-  const sidebarMic = $("voice-sidebar-btn");
-  if (sidebarMic) {
-    sidebarMic.onclick = () => toggleVoiceHud();
-  }
-
   window.addEventListener("keydown", (e) => {
     if (
       (e.ctrlKey && e.shiftKey && (e.key === "V" || e.key === "v")) ||
@@ -1436,6 +1437,13 @@ function updateVoiceUIState(vState) {
   }
 }
 
+function closeVoiceSession() {
+  voiceHudOpen = false;
+  const hud = $("voice-hud");
+  if (hud) hud.hidden = true;
+  voiceManager?.endSession();
+}
+
 function toggleVoiceHud(forceState) {
   initVoice();
   voiceHudOpen = forceState !== undefined ? forceState : !voiceHudOpen;
@@ -1452,8 +1460,7 @@ function toggleVoiceHud(forceState) {
       voiceManager.startListening();
     }
   } else {
-    voiceManager.stopAudioVisualizer();
-    voiceManager.stopListening();
+    closeVoiceSession();
   }
 }
 
@@ -1474,6 +1481,7 @@ async function init() {
   }
 }
 function renderPage(name, options = {}) {
+  closeVoiceSession();
   operationsCopilotUI.stopListening();
   if (name === "snf" && state.settings.snfEnabled === false) {
     renderChat();

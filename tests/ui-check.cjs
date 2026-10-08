@@ -178,6 +178,7 @@ let browser;
   const context = await browser.newContext({
     viewport: { width: 1280, height: 850 },
   });
+  context.setDefaultTimeout(30000);
   context.on("page", (page) =>
     page.on("pageerror", (e) => errors.push(e.message)),
   );
@@ -190,6 +191,14 @@ let browser;
     }
   });
   await desktop.addInitScript(() => {
+    window.__voiceStarts=0;window.__voiceAborts=0;
+    window.SpeechRecognition=class {
+      constructor(){window.__recognition=this;}
+      start(){window.__voiceStarts++;}
+      stop(){}
+      abort(){window.__voiceAborts++;this.onend?.();}
+    };
+    navigator.mediaDevices.getUserMedia=async()=>{throw Error('Synthetic UI test: microphone capture disabled');};
     window.privateAI = {
       call: (...args) => window.testCall(...args),
       onEvent: (cb) => (window.__deliver = cb),
@@ -222,6 +231,10 @@ let browser;
   await desktop.locator('#section-data-health').waitFor();
   await desktop.locator('#sidebar [data-view=pcc]').click();await desktop.getByRole('heading',{name:'PCC Import Center',exact:true}).waitFor();
   await desktop.locator('#sidebar [data-view=snf]').click();await desktop.locator('[data-tab=feeds]').click();await desktop.getByRole('heading',{name:/PointClickCare Daily Feeds/}).waitFor();
+  await desktop.locator('[data-tab=retention]').click();
+  assert.match(await desktop.locator('.snf-page').innerText(),/No regulatory exemption is asserted/);
+  assert.doesNotMatch(await desktop.locator('.snf-page').innerText(),/exempt from.*(?:CMS|HIPAA)/i);
+  await desktop.locator('[data-tab=feeds]').click();
   assert.doesNotMatch(await desktop.locator('.snf-page').innerText(),/undefined|NaN/);
   assert.match(await desktop.locator('.feeds-pane').innerText(),/Oldest received PCC report: Not available/);
   assert.doesNotMatch(await desktop.locator('.feeds-pane').innerText(),/✓ Current/);
@@ -620,6 +633,31 @@ let browser;
   await desktop.getByText('Showing a bounded set of recent notes; use Action Center for other follow-ups.',{exact:true}).waitFor();
   assert.equal(await desktop.locator('#content article.card').count(),bounded.captures.length);
   checks.push('Notes list explains byte-limited truncation and renders the actual bounded result');
+  core.saveSettings({hipaa:false,publicModeConfirmed:true,processingMode:'local-first'});
+  await desktop.reload();await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
+  await desktop.locator('#voice-sidebar-btn').click();
+  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),1);
+  await desktop.locator('#voice-close-btn').click();
+  await desktop.evaluate(()=>window.__recognition.onend());
+  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),1);
+  assert.ok(await desktop.evaluate(()=>window.__voiceAborts)>0);
+  await desktop.locator('#voice-sidebar-btn').click();
+  await desktop.locator('#sidebar [data-view=settings]').click();
+  await desktop.evaluate(()=>window.__recognition.onend());
+  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),2);
+  assert.equal(await desktop.locator('#voice-hud').isVisible(),false);
+  await desktop.locator('#voice-sidebar-btn').click();
+  await desktop.evaluate(()=>window.__deliver({type:'locked'}));
+  await desktop.getByRole('heading',{name:'Private AI is locked'}).waitFor();
+  await desktop.evaluate(()=>window.__recognition.onend());
+  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),3);
+  assert.equal(await desktop.locator('#voice-hud').isVisible(),false);
+  core.saveSettings({hipaa:true,processingMode:'local-only'});
+  await desktop.reload();await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
+  await desktop.locator('#voice-sidebar-btn').click();
+  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),0);
+  checks.push('Voice closes on HUD close, navigation and lock; browser recognition remains blocked under HIPAA/Local Only');
+  checks.push('Surveillance retention notice makes no regulatory exemption claim');
   assert.deepEqual(errors, []);
   checks.push("No browser JavaScript errors");
   const result = {

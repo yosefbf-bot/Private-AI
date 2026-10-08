@@ -125,6 +125,7 @@ class WorkerManager {
     this.busy = false;
     this.lastPublish = 0;
     this.lastPoll = 0;
+    this.pendingStatuses = new Set();
   }
   publish() {
     const c = this.core,
@@ -270,6 +271,36 @@ class WorkerManager {
       }
     }
   }
+  publishStatus(id, state, extra = {}) {
+    const terminal = ['failed', 'completed'].includes(state);
+    try {
+      if (!this.core.settings().workspace) throw new Error('Workspace unavailable');
+      this.status(id, state, extra);
+      if (terminal) this.pendingStatuses.delete(id);
+      return true;
+    } catch {
+      if (terminal) this.pendingStatuses.add(id);
+      return false;
+    }
+  }
+  reconcileStatuses() {
+    const c = this.core;
+    if (!c.settings().workspace) return;
+    for (const id of [...this.pendingStatuses].slice(0, 100)) {
+      const job = c.store.get('job', id);
+      if (!job?.remote || !['failed', 'completed'].includes(job.status)) { this.pendingStatuses.delete(id); continue; }
+      try {
+        this.status(job.id, job.status, {
+          ...(job.started ? {started: job.started} : {}),
+          ...(job.completed ? {completed: job.completed} : {}),
+          ...(job.status === 'completed' && job.output ? {output: job.output} : {}),
+          ...(job.status === 'failed' ? {error: job.error || 'INTERRUPTED'} : {}),
+        });
+        // Reconciliation must not refresh database retention timestamps.
+        this.pendingStatuses.delete(id);
+      } catch { /* Retry publication next tick, never the uncertain work itself. */ }
+    }
+  }
   cleanup(now = Date.now()) {
     const c = this.core,
       root = c.settings().workspace;
@@ -327,7 +358,8 @@ class WorkerManager {
             isStatus &&
             stat.isFile() &&
             stat.size < 10000 &&
-            age > (c.settings().retentionDays || 100) * 86400000
+            c.settings().retentionDays !== 0 &&
+            age > (c.settings().retentionDays ?? 100) * 86400000
           ) {
             const envelope = JSON.parse(fs.readFileSync(file));
             if (
@@ -358,6 +390,7 @@ class WorkerManager {
         } catch {}
         this.lastPublish = Date.now();
       }
+      this.reconcileStatuses();
       this.syncStatuses();
       if (
         !s.workerEnabled ||
