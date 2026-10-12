@@ -27,18 +27,31 @@
     "repositoryTrackedFiles": 327,
     "productionAdvisories": 0,
     "android": {
-      "testsPassed": 50,
+      "testsPassed": 51,
       "failed": 0,
       "skipped": 0,
       "lintErrors": 0,
       "lintWarnings": 73,
       "debugBuild": true,
       "realHTTPSInterop": true,
-      "physicalPhone": false
+      "physicalPhone": false,
+      "sourceCommit": "ca1d6ea12e7686cf5067a4cd349a35e96ed07bfc",
+      "productionSourceCommit": "28a6fe12605a128aa5be8554a5f8d7c6461d348b",
+      "testSchedulerCorrection": "local-verified-hosted-device-validation-pending",
+      "hostedRuns": [
+        38307718223,
+        38307723181
+      ]
     },
-    "remaining": "GitHub artifact storage approval and exact-head checks; Android hosted UI/device acceptance; physical/account/clinical limits in dated report.",
+    "remaining": "Exact-head hosted checks including Android device acceptance and mandatory GitHub artifact retention; physical/account/clinical limits in dated Windows report. Owner merges main after review.",
     "windowsReport": "docs/WINDOWS_VALIDATION_2026-10-12.md",
-    "windowsCodeCommit": "6e915aafee2ee8cd94870f1c521e7b1788d77085"
+    "windowsCodeCommit": "6e915aafee2ee8cd94870f1c521e7b1788d77085",
+    "ciArtifactCleanup": {
+      "approvedOldArchivesDeleted": 26,
+      "bytesRemoved": 1438994870,
+      "localRecoveryVerified": true,
+      "sourceBranchesDeleted": false
+    }
   },
   "auditFollowup20261007": {
     "baseCommit": "1527da64ba667ee862e2e71221f51063e4c06fa1",

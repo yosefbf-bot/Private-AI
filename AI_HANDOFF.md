@@ -1,3 +1,37 @@
+## October 12 final local validation and cleanup checkpoint
+
+Windows candidate code 6e915aa remains accepted with the same installer, portable,
+runtime and evidence hashes in docs/WINDOWS_VALIDATION_2026-10-12.md. This checkpoint
+changes documentation only; do not repeat binary acceptance without a relevant change.
+
+Android review head ca1d6ea12e7686cf5067a4cd349a35e96ed07bfc corrects the test
+scheduler only. Diagnostic run 38274513926 captured the original wrong-thread UI
+exception before the secondary SlotTable teardown error. Compose's unconfined test
+dispatcher resumed UI work on a repository IO emitter. The supported queued test
+dispatcher and bounded transition waits preserve actual OS PIN/Keystore authentication,
+three unlock/Dashboard/Notes/relock cycles and all assertions. No production code,
+runtime dependency or authentication boundary changed. The new Notes regression
+also checks ten draft-preserving disposal/restoration cycles with background state
+emission. All 51 local tests pass with zero failures/errors/skips, including real
+synthetic Node Core/SQLite pinned-HTTPS interoperability. Lint: zero errors/73 warnings;
+app and test APKs build. The app APK hash remains unchanged at 4b3ea024d6d748a382682587834f1d5bf7168c7f83812b2c786828c79fb91425.
+Evidence is in ignored Validation/assistant-first-2026-10-07/android-dispatcher-final-2.log
+and Gradle XML. Hosted push 38307718223 and PR 38307723181 are running; their
+actual device results must be checked before calling acceptance complete.
+
+All 26 approved old CI archives were SHA-256/ZIP-CRC verified in local recovery and
+deleted remotely (1,438,994,870 bytes). No app data, release asset or source branch
+was deleted. Before this checkpoint, desktop c245f44 passed regression/dependencies
+and built/validated release inputs; artifact retention failed on GitHub storage quota.
+The quota gate remains mandatory. Check the latest exact-head runs, not old results.
+
+Current workspace instructions reserve main merging to the owner. Both review branches
+contain origin/main. Preserve them until review and integration; verified recovery
+bundles retain superseded and divergent history outside Git. Physical-phone microphone,
+LAN, notifications, signing-compatible upgrade and live Outlook/WhatsApp/PCC acceptance
+remain unperformed. Automatic speaker identification is not implemented. See the dated
+Windows report and each user guide for the complete practical limits.
+
 ## October 12 Windows candidate accepted; hosted checks pending
 
 Read [the actual Windows report](docs/WINDOWS_VALIDATION_2026-10-12.md). Frozen code 6e915aa passed real installer/application/Small inference, uninstall/reinstall retention, installed restart, 583-file portable roundtrip/execution and the unchanged release gate. All 525 Windows tests passed. Source and deliverables remain development candidates; Android hosted device tests and GitHub artifact quota are still open. The owner authorized both-main merges and superseded-branch cleanup after completion; no failing-head merge is authorized by this checkpoint.
