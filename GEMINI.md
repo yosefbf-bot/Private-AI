@@ -1,3 +1,7 @@
+## October 12 Windows candidate accepted; hosted checks pending
+
+Read [the actual Windows report](docs/WINDOWS_VALIDATION_2026-10-12.md). Frozen code 6e915aa passed real installer/application/Small inference, uninstall/reinstall retention, installed restart, 583-file portable roundtrip/execution and the unchanged release gate. All 525 Windows tests passed. Source and deliverables remain development candidates; Android hosted device tests and GitHub artifact quota are still open. The owner authorized both-main merges and superseded-branch cleanup after completion; no failing-head merge is authorized by this checkpoint.
+
 # Google AI Studio / Gemini handoff
 
 ## Audit follow-up — 2026-10-07

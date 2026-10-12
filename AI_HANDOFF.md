@@ -1,3 +1,7 @@
+## October 12 Windows candidate accepted; hosted checks pending
+
+Read [the actual Windows report](docs/WINDOWS_VALIDATION_2026-10-12.md). Frozen code 6e915aa passed real installer/application/Small inference, uninstall/reinstall retention, installed restart, 583-file portable roundtrip/execution and the unchanged release gate. All 525 Windows tests passed. Source and deliverables remain development candidates; Android hosted device tests and GitHub artifact quota are still open. The owner authorized both-main merges and superseded-branch cleanup after completion; no failing-head merge is authorized by this checkpoint.
+
 ## October 12 final acceptance in progress
 
 The owner explicitly authorized merging both reviewed main branches and deleting superseded branches after completion. Preserve unique branch work first. Final Windows validation is correcting a reproduced PowerShell 5.1 redirected-process null ExitCode issue by retaining the process handle; actual zero exit remains required. Dark Settings contrast is corrected and its real-browser regression passes. Android CI compiled and ran four device tests, but two UI tests failed before finding a Compose hierarchy; investigation remains open. GitHub artifact storage is full. Do not mark final acceptance complete until the new exact-binary evidence and CI have passed.

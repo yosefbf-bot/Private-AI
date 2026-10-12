@@ -1,6 +1,6 @@
 {
   "assistantFirstRedesign": {
-    "status": "source-validated-packaging-pending",
+    "status": "windows-accepted-hosted-checks-pending",
     "report": "docs/ASSISTANT_FIRST_PROGRESS_2026-10-08.md",
     "base": "40566c94acd38577fc03f0456d647f9619ebcb64",
     "browserChecksPassed": {
@@ -11,11 +11,16 @@
       "hardening": true
     },
     "actualLocalSpeechInferenceExecuted": true,
-    "installerBuiltForThisSource": false,
+    "installerBuiltForThisSource": true,
     "fullSuite": {
-      "passed": 524,
+      "passed": 525,
       "failed": 0,
-      "skipped": 0
+      "skipped": 0,
+      "cancelled": 0,
+      "syntaxFiles": 199,
+      "repositoryTrackedFiles": 327,
+      "focusedEdgeChecks": 22,
+      "scope": "Windows source checks"
     },
     "hardening": 25,
     "syntaxFiles": 199,
@@ -31,7 +36,9 @@
       "realHTTPSInterop": true,
       "physicalPhone": false
     },
-    "remaining": "Fresh exact-binary Windows acceptance; exact-head CI; physical-phone/account/PCC/speaker acceptance. See report."
+    "remaining": "GitHub artifact storage approval and exact-head checks; Android hosted UI/device acceptance; physical/account/clinical limits in dated report.",
+    "windowsReport": "docs/WINDOWS_VALIDATION_2026-10-12.md",
+    "windowsCodeCommit": "6e915aafee2ee8cd94870f1c521e7b1788d77085"
   },
   "auditFollowup20261007": {
     "baseCommit": "1527da64ba667ee862e2e71221f51063e4c06fa1",
@@ -106,39 +113,74 @@
     ]
   },
   "currentWindowsValidation": {
-    "date": "2026-10-06",
-    "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
-    "report": "docs/WINDOWS_VALIDATION_2026-10-06.md",
-    "machineReport": "docs/windows-validation-2026-10-06.json",
+    "schema": 1,
+    "version": "3.0.1-dev",
+    "date": "2026-10-12",
+    "codeCommit": "6e915aafee2ee8cd94870f1c521e7b1788d77085",
+    "baseCommit": "40566c94acd38577fc03f0456d647f9619ebcb64",
+    "platform": "win32",
+    "syntheticDataOnly": true,
     "passed": true,
     "windowsApplicationExecuted": true,
     "windowsInstallerExecuted": true,
     "actualModelInferenceExecuted": true,
-    "portableRoundtripAndApplicationPassed": true,
-    "hashes": {
-      "installer": "194d1ab493507f1695d135b1b92f341b28220f2ca3ec2afddfe7c8f6a96df453",
-      "executable": "13da4a79000ce604e8b4b202be3e794c764d1eb433eb9bd750c6f0213eaf1aa5",
-      "applicationArchive": "755c348965f2190ded238956890f4d7f41f9f712c4e2829daa6d934b874caa5b",
-      "runtime": "a9a88ca88ef1f3c320c07afe38cf4ab7759cfdef1c692e430c2d32e33f4bcc15",
-      "unpackedZIP": "41ddcf31c031a6d0ffa46963eb45fb31d77a9a57eca41ffd9e599e6ab8ec8d36"
-    },
-    "windowsSourceTests": 500,
-    "productionAudit": {
-      "command": "npm audit --omit=dev --audit-level=high",
-      "exitCode": 0,
-      "moderate": 3,
-      "high": 0,
-      "critical": 0,
-      "advisory": "https://github.com/advisories/GHSA-hp3w-g68c-fv3c",
-      "dependencyPath": [
-        "mammoth",
-        "argparse",
-        "sprintf-js"
-      ],
-      "note": "Passed high-severity gate; not zero findings."
-    },
     "productionReady": false,
-    "supplementalDocumentationDoesNotChangeBinary": true
+    "releaseEvidenceGatePassed": true,
+    "hashes": {
+      "installer": "74fff6a3f0918981beb9f2151957123b613b1d9e0cb7a54adb30f3b81bc7a4ef",
+      "executable": "85a3fb2ae54e397f4cb6637c3e9c7d848e271cd1ec17a00a9bb3c9e11d1c0fd4",
+      "applicationArchive": "9f7ab9f5ca8d222f68191f8b5617a771266cb6e2fa3217353379c1124d89b33f",
+      "runtime": "8c6faeaf07346cd4ef32d6b1ea0e4a71103d81962b7c9e2cb70291ce06d0107b",
+      "portableZIP": "42d083afb30031e288d8e339305656f34b6b20a7577af938a13086b0487a1897"
+    },
+    "windowsAcceptance": {
+      "installerExitCode": 0,
+      "applicationExitCode": 0,
+      "uninstallerExitCode": 0,
+      "reinstallerExitCode": 0,
+      "syntheticStandardDataRetained": true,
+      "syntheticFixtureRestored": true,
+      "installationRegistryAndShortcutsRemoved": true,
+      "installedRestartPersistence": true,
+      "portableRoundtripFiles": 583,
+      "portableApplicationExecuted": true,
+      "packagedPEFiles": 415,
+      "navigationViews": 19,
+      "builtInDiagnostics": 12,
+      "freshChecks": 15,
+      "sharedCompanionChecks": 11
+    },
+    "localInference": {
+      "tier": "Small",
+      "model": "Qwen_Qwen3-1.7B-Q4_K_M.gguf",
+      "modelSHA256": "72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb",
+      "provider": "local",
+      "apiKeyPresent": false,
+      "pccEnabled": false,
+      "missingInformationStayedUnknown": true,
+      "mediumHighRetested": false
+    },
+    "sourceTests": {
+      "passed": 525,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "syntaxFiles": 199,
+      "repositoryTrackedFiles": 327,
+      "focusedEdgeChecks": 22
+    },
+    "github": {
+      "desktopCodeRun": 38238021854,
+      "status": "Regression/dependencies passed; release input build/check passed, artifact upload blocked by storage quota. Final supplemental head requires its own checks."
+    },
+    "limits": [
+      "Physical Android and real LAN/microphone/notification acceptance remains unperformed.",
+      "Live Outlook/WhatsApp/PCC accounts and representative clinical data not exercised.",
+      "Continuous speaker diarization/identity is not implemented; speakers remain unknown until reviewed.",
+      "Same-account synthetic DPAPI retention/restore is not representative legacy-data upgrade or cross-PC vault portability.",
+      "Installer and Android APK are unsigned/development artifacts; existing Android signing compatibility must be checked.",
+      "Windows reboot and interactive installer wizard not exercised."
+    ]
   },
   "october2WindowsCheckpoint": {
     "lastTested": {

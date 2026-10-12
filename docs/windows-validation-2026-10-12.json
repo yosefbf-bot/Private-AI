@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "version": "3.0.1-dev",
+  "date": "2026-10-12",
+  "codeCommit": "6e915aafee2ee8cd94870f1c521e7b1788d77085",
+  "baseCommit": "40566c94acd38577fc03f0456d647f9619ebcb64",
+  "platform": "win32",
+  "syntheticDataOnly": true,
+  "passed": true,
+  "windowsApplicationExecuted": true,
+  "windowsInstallerExecuted": true,
+  "actualModelInferenceExecuted": true,
+  "productionReady": false,
+  "releaseEvidenceGatePassed": true,
+  "hashes": {
+    "installer": "74fff6a3f0918981beb9f2151957123b613b1d9e0cb7a54adb30f3b81bc7a4ef",
+    "executable": "85a3fb2ae54e397f4cb6637c3e9c7d848e271cd1ec17a00a9bb3c9e11d1c0fd4",
+    "applicationArchive": "9f7ab9f5ca8d222f68191f8b5617a771266cb6e2fa3217353379c1124d89b33f",
+    "runtime": "8c6faeaf07346cd4ef32d6b1ea0e4a71103d81962b7c9e2cb70291ce06d0107b",
+    "portableZIP": "42d083afb30031e288d8e339305656f34b6b20a7577af938a13086b0487a1897"
+  },
+  "windowsAcceptance": {
+    "installerExitCode": 0,
+    "applicationExitCode": 0,
+    "uninstallerExitCode": 0,
+    "reinstallerExitCode": 0,
+    "syntheticStandardDataRetained": true,
+    "syntheticFixtureRestored": true,
+    "installationRegistryAndShortcutsRemoved": true,
+    "installedRestartPersistence": true,
+    "portableRoundtripFiles": 583,
+    "portableApplicationExecuted": true,
+    "packagedPEFiles": 415,
+    "navigationViews": 19,
+    "builtInDiagnostics": 12,
+    "freshChecks": 15,
+    "sharedCompanionChecks": 11
+  },
+  "localInference": {
+    "tier": "Small",
+    "model": "Qwen_Qwen3-1.7B-Q4_K_M.gguf",
+    "modelSHA256": "72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb",
+    "provider": "local",
+    "apiKeyPresent": false,
+    "pccEnabled": false,
+    "missingInformationStayedUnknown": true,
+    "mediumHighRetested": false
+  },
+  "sourceTests": {
+    "passed": 525,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "syntaxFiles": 199,
+    "repositoryTrackedFiles": 327,
+    "focusedEdgeChecks": 22
+  },
+  "github": {
+    "desktopCodeRun": 38238021854,
+    "status": "Regression/dependencies passed; release input build/check passed, artifact upload blocked by storage quota. Final supplemental head requires its own checks."
+  },
+  "limits": [
+    "Physical Android and real LAN/microphone/notification acceptance remains unperformed.",
+    "Live Outlook/WhatsApp/PCC accounts and representative clinical data not exercised.",
+    "Continuous speaker diarization/identity is not implemented; speakers remain unknown until reviewed.",
+    "Same-account synthetic DPAPI retention/restore is not representative legacy-data upgrade or cross-PC vault portability.",
+    "Installer and Android APK are unsigned/development artifacts; existing Android signing compatibility must be checked.",
+    "Windows reboot and interactive installer wizard not exercised."
+  ]
+}
