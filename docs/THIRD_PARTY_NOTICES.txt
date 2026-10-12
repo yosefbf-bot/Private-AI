@@ -16719,3 +16719,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Optional offline meeting transcription assets (downloaded only on request)
+whisper.cpp b5454: https://github.com/ggml-org/whisper.cpp/tree/b5454
+MIT license reproduced in WHISPER_CPP_LICENSE.txt.
+OpenAI Whisper Tiny English weights: https://github.com/openai/whisper
+MIT license reproduced in WHISPER_MODEL_LICENSE.txt.
+Asset sources, sizes and SHA-256 checksums are pinned in source/speech-assets.json.
+No cloud transcription service is used. Weights are not included in the installer.

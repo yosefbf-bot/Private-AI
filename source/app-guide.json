@@ -5,7 +5,7 @@
     {
       "id": "start",
       "title": "Start here",
-      "location": "User guide",
+      "location": "New chat; Dashboard, Notes, Meetings, Library",
       "aliases": [
         "user guide",
         "manual",
@@ -23,16 +23,16 @@
         "do you have a guide"
       ],
       "steps": [
-        "Open User guide in the sidebar to browse or search these instructions at any time.",
-        "For help in chat, ask “How do I change my local brain?” or type /help models. Common guide answers are retrieved locally without loading a brain or calling OpenAI.",
-        "Choose AI Processing to configure local models or cloud use. Choose Settings to select your approved work folder. Then start a New chat."
+        "Start a New chat to ask questions, review documents or prepare a draft. Dashboard is the single overview of recorded follow-ups and alerts.",
+        "Use Notes for a quick observation, Meetings for notes or local recording, and Library for projects, documents and facility policies. More contains optional automation, connections and clinical tools.",
+        "Choose Settings → Local models & processing to configure local AI. Choose a work folder in Settings. More → User guide and /help work without a model or API key."
       ],
-      "note": "The guide explains supported features. Asking for instructions does not itself change settings or grant permissions."
+      "note": "Standalone executive dashboards were removed from routine navigation; existing records and analysis engines are preserved. Source changes do not update an installed application automatically."
     },
     {
       "id": "clinicalsources",
       "title": "Clinical analytics with optional PointClickCare",
-      "location": "Clinical imports; Settings → Integrations → PointClickCare; Today",
+      "location": "More → Clinical imports; Settings → Integrations → PointClickCare; Dashboard",
       "aliases": [
         "pointclickcare",
         "pcc",
@@ -53,7 +53,7 @@
     {
       "id": "android",
       "title": "Pair the Android companion",
-      "location": "Settings → Android Companion Gateway",
+      "location": "Android main screens → connection badge; Desktop Settings → Companion",
       "aliases": [
         "android",
         "phone pairing",
@@ -63,26 +63,33 @@
         "phone connection"
       ],
       "steps": [
-        "Choose the actual private network interface and a free port, enable HTTPS and save. The default 127.0.0.1 is for testing on this PC only. No firewall rule is added automatically.",
-        "Pair a phone and transfer its one-time link privately. The Android app must support the documented pairing URI and verify the supplied certificate, fingerprint and host. Accepting every certificate is unsupported.",
-        "Keep the PC awake and Private AI running and unlocked, with background work resumed. Text questions use the existing desktop local/cloud privacy settings; select Local Only for local inference.",
-        "Optional task and clinical-alert access shares status metadata only. Review resident details, files and approvals on the desktop. Revoke a lost phone here; disabling the gateway closes connections while keeping saved chats."
+        "Enable the optional desktop HTTPS gateway on an approved private interface and pair using its complete per-device link and certificate. No sample IP or shared default key is used.",
+        "The phone opens Chat; Dashboard, Notes, Meetings and Library are the main destinations. Existing selected-PC-chat sharing, encrypted pending requests and scoped access remain.",
+        "The main screens show a connection light and last successful sync time. Tap the status to check/sync. Red means disconnected, amber means syncing/checking or an old check. A cached timestamp is not proof of a live connection.",
+        "Record a meeting on the phone while it stays unlocked and the recording screen remains open. Encrypted audio waits for the same paired PC; the PC performs local transcription and draft notes. Finish uploads only after every saved chunk is acknowledged.",
+        "Settings → Appearance offers Follow system, Light or Dark. The choice stays on this phone and also applies to the locked screen."
       ],
-      "note": "Grant optional notes/evidence and notifications when pairing, and choose PC chats the phone may continue. A separate notification-only key reports generic due metadata; allowing it while desktop locked is another explicit pairing option. Normal chat/evidence need the PC unlocked; clinical privacy requests require local-only inference and HIPAA mode. Physical phone acceptance remains required. No arbitrary desktop commands, remote clinical approvals or simulated success fallback. WhatsApp permissions remain independent."
+      "note": "Navigation, backgrounding or authentication expiry stops phone recording; up to 20 seconds not yet saved can be lost. Resume after unlocking. A 60-minute limit and storage bounds apply. Physical-phone microphone, Keystore, LAN and notification acceptance remain separate from unit tests."
     },
     {
       "id": "capturenotes",
       "title": "Capture notes, rounds, reminders and drafts",
-      "location": "Notes and rounds; Action Center",
-      "aliases": ["rounds notes", "capture note", "follow up reminder", "photo evidence", "mobile notes", "draft from note"],
-      "steps": [
-        "Open Notes and rounds, enter the observation and any known owner/location/deadline, optionally attach JPEG/PNG/PDF/plain text up to 5 MiB, then save.",
-        "Review source-linked items in the normal action queue. Unknown facts stay unknown; no guessed deadline or clinical conclusion is saved. Completing a follow-up does not close a clinical alert or SBAR.",
-        "Choose an internal Outlook or WhatsApp draft and review wording/recipient. Creating an Outlook draft uses desktop confirmation and permissions; nothing is sent.",
-        "In an approved WhatsApp conversation send /note, /round, /remind, /draft outlook or /draft whatsapp followed by your note. For an explicit deadline use /remind followed by an ISO timestamp with Z or offset and the note. Approved commands also need the saved prefix/PC code.",
-        "Permitted WhatsApp follow-ups return generic due reminders to their source conversation. Read-all does not grant execution; Disable all writing blocks reminders/replies. Photos are preserved without claiming local text-model interpretation."
+      "location": "Notes; Dashboard",
+      "aliases": [
+        "rounds notes",
+        "capture note",
+        "follow up reminder",
+        "photo evidence",
+        "mobile notes",
+        "draft from note"
       ],
-      "note": "Android uses the same desktop service with encrypted pending requests and explicit scopes. Physical phone/LAN, camera/dictation and live WhatsApp acceptance are separate from source tests. Follow-up reminders are not clinical emergency paging."
+      "steps": [
+        "Write a simple note and choose Save note. The PC preserves the source and creates review follow-ups; Details is optional for a confirmed owner, deadline, location or email/WhatsApp draft.",
+        "A configured local model can prepare an additional draft summary and suggested plan while the app is unlocked and background work is enabled. This never calls a cloud provider or sends correspondence. Without a local model, source notes and text-based review suggestions still work.",
+        "Review assignments and confirm deadlines in Dashboard. Add a completion note before closing a follow-up. Source clinical alerts require their own evidence review.",
+        "Use Outlook → Read a message → Track a reply / follow-up to preserve correspondence as a note and prepare an internal draft. In an approved WhatsApp conversation, use note:, rounding:, remind me to, or /note, /round, /remind and /draft."
+      ],
+      "note": "Model drafts and text extraction need review. Ambiguous deadlines/owners remain unknown; undated items are follow-ups, not timed notifications. Images remain evidence for review, not an implemented image interpretation."
     },
     {
       "id": "chat",
@@ -109,7 +116,7 @@
     {
       "id": "models",
       "title": "Choose and download a local brain",
-      "location": "AI Processing",
+      "location": "Settings → Local models & processing",
       "aliases": [
         "brain",
         "brains",
@@ -133,7 +140,7 @@
     {
       "id": "automatic",
       "title": "Automatic tier selection",
-      "location": "AI Processing",
+      "location": "Settings → Local models & processing",
       "aliases": [
         "automatic",
         "auto",
@@ -154,7 +161,7 @@
     {
       "id": "ram",
       "title": "Reduce RAM use and model loading problems",
-      "location": "AI Processing; Health & recovery",
+      "location": "Settings → Local models & processing; Health & recovery",
       "aliases": [
         "ram",
         "memory pressure",
@@ -176,7 +183,7 @@
     {
       "id": "processing",
       "title": "Local Only, Local First and cloud modes",
-      "location": "AI Processing",
+      "location": "Settings → Local models & processing",
       "aliases": [
         "local only",
         "local-only",
@@ -199,7 +206,7 @@
     {
       "id": "api",
       "title": "Configure an optional AI provider",
-      "location": "Settings; AI Processing; API Usage",
+      "location": "Settings; Local models & processing; Usage",
       "aliases": [
         "api key",
         "openai key",
@@ -221,7 +228,7 @@
     {
       "id": "files",
       "title": "Attach and ask about documents",
-      "location": "Files; chat attachment button",
+      "location": "Library; chat attachment button",
       "aliases": [
         "attach",
         "attachments",
@@ -265,7 +272,7 @@
     {
       "id": "projects",
       "title": "Organize a project",
-      "location": "Projects",
+      "location": "Library → Manage projects / chats",
       "aliases": [
         "project",
         "projects",
@@ -282,7 +289,7 @@
     {
       "id": "agents",
       "title": "Create a reusable report agent",
-      "location": "Agents",
+      "location": "More → Automation → Saved assistants",
       "aliases": [
         "agent",
         "agents",
@@ -300,7 +307,7 @@
     {
       "id": "schedules",
       "title": "Schedule a report",
-      "location": "Scheduled tasks; Worker",
+      "location": "More → Automation",
       "aliases": [
         "schedule",
         "schedules",
@@ -322,7 +329,7 @@
     {
       "id": "pause",
       "title": "Pause background work and understand job states",
-      "location": "Top bar; Health & recovery",
+      "location": "Header menu → Pause background work; Health & recovery",
       "aliases": [
         "pause",
         "resume",
@@ -344,7 +351,7 @@
     {
       "id": "worker",
       "title": "Set up a Worker PC and Windows startup",
-      "location": "Worker",
+      "location": "More → Automation → Worker settings",
       "aliases": [
         "worker",
         "second pc",
@@ -366,7 +373,7 @@
     {
       "id": "browser",
       "title": "Run a reviewed browser report",
-      "location": "Browser reports",
+      "location": "More → Browser tasks; Automation",
       "aliases": [
         "browser",
         "browser reports",
@@ -377,13 +384,12 @@
         "saved passwords"
       ],
       "steps": [
-        "Open Browser reports, choose Chrome, Edge, managed Firefox/Chromium, or installed Brave/Vivaldi, and save a workflow for the approved site. Edit preserves the browser choice. Legacy workflows use Edge.",
-        "Open the browser to sign in. Each browser has a separate persistent Private AI profile. Install and unlock Bitwarden in that profile, then use its autofill menu or configured shortcut; browser saved-password prompts also remain available. Your everyday browser profile is not imported.",
-        "Optionally set a control that appears after sign-in. The workflow waits up to five minutes for it while you complete unlock/MFA, then continues without reading passwords. Do not store passwords or tokens in workflow steps. Manual setup permits browser/extension network access; automated runs restrict requests to reviewed origins.",
-        "Review the interference warning before manually opening or running browser work. Log in or complete verification yourself when required.",
-        "Run the reviewed recipe from the interface or use /report NAME for a saved recipe. Close the browser session when finished."
+        "Create an exact report workflow, choose its allowed website and controls, and test it manually using your authorized account. Choose PointClickCare as the source for PCC reports; enable the optional PCC integration first.",
+        "After a successful tested download, explicitly allow that exact workflow to run unattended. Changes invalidate the grant and require a new test and approval.",
+        "Add a daily, weekday, weekly, monthly or one-time schedule. Report pulls run one at a time with a default five-minute gap measured from the previous pull’s completion. An optional analysis prompt uses existing provider/privacy settings after download.",
+        "Keep the PC awake, the app running and unlocked, and background work enabled. Review login/MFA, rate-limit and changed-page errors manually; the affected schedule pauses instead of retrying indefinitely."
       ],
-      "note": "Firefox automation requires Playwright's matching managed build, while the companion can use ordinary Firefox. Brave/Vivaldi and real Bitwarden unlock/autofill still require on-PC acceptance. Separate profiles do not guarantee focus isolation; unattended interfering actions remain deferred."
+      "note": "Website retrieval requires network access; local analysis can run offline. This feature does not evade site controls or guarantee acceptance by PCC. Live PCC report retrieval must be tested with your facility’s authorized workflow. Downloads are not automatically mapped into resident records."
     },
     {
       "id": "interference",
@@ -406,7 +412,7 @@
         "Choose Defer safely to leave the action unexecuted, or Run now — I approve when you are ready for that invocation.",
         "Keep Private AI visible, focused and unlocked for manual approval. Unattended jobs do not bring it forward to ask."
       ],
-      "note": "App help is explanatory. It never grants permissions, clicks approval buttons, or bypasses these controls."
+      "note": "App help is explanatory. It never grants permissions, clicks approval buttons, or bypasses these controls. Exact tested report recipes may receive separate explicit unattended approval. This never authorizes Outlook or WhatsApp sending/deleting."
     },
     {
       "id": "chrome",
@@ -434,7 +440,7 @@
     {
       "id": "outlook",
       "title": "Use approved Outlook access",
-      "location": "Apps",
+      "location": "More → Connections → Outlook",
       "aliases": [
         "outlook",
         "unread emails",
@@ -452,7 +458,7 @@
     {
       "id": "whatsapp",
       "title": "Configure the WhatsApp bridge",
-      "location": "Messaging; Apps",
+      "location": "More → WhatsApp",
       "aliases": [
         "whatsapp",
         "messaging",
@@ -461,16 +467,12 @@
         "remote messages"
       ],
       "steps": [
-        "Open Messaging and connect the dedicated WhatsApp Web account by scanning its QR code. Keep Private AI and the connection running; no particular chat needs to stay open.",
-        "Read all conversations continuously defaults on when the bridge is enabled. Turn it off to stop broad reading without changing selected-conversation permissions.",
-        "Load connected conversations, select and verify each permitted destination, and configure approved sender IDs and command-only or open read/write mode. Open read/write accepts ordinary messages from approved senders.",
-        "Disable all writing overrides every WhatsApp reply and forwarding option and pauses incoming task execution; reading continues according to the read settings. Enable actual response text and task-start commands separately as needed.",
-        "Show latest observed messages to inspect encrypted local observations. Reading does not automatically send messages to an AI model. Clear locally observed messages removes those app records, not messages in WhatsApp.",
-        "Follow-up context is kept separately per conversation and sender. Send /new to start fresh; approved-command mode also requires the configured prefix and PC code.",
-        "Enable progress notices for a running-time notice each minute. Actual response text is on by default for new configurations, and long answers are split into numbered messages. Existing saved preferences are preserved.",
-        "Notify when report jobs finish or fail is optional and off by default. It sends task ID/status only to the selected default destination, subject to background/write/lock permissions and the complete/failure switches. It never includes report contents or resident names."
+        "Connect your authorized WhatsApp session and select conversations and verified senders. Read-all can be turned off independently of selected conversation permissions.",
+        "Selected command/read-write conversations can accept authorized inquiries and notes. Reading a conversation alone never grants task execution or sending.",
+        "Review each prepared outgoing message in the outbox on the PC. Every send requires explicit approval of the destination and exact text. Disable all writing overrides selected write grants.",
+        "Status messages, progress and reminders are also prepared for approval. Outlook/WhatsApp drafts remain internal until reviewed; Outlook drafts can be created with desktop confirmation."
       ],
-      "note": "The Web account receives text events and refreshes up to 100 recent messages. Read-all does not download media. Explicit capture commands from approved senders may preserve supported incoming evidence of known size up to 5 MiB. History never starts tasks. Windows intake remains open-conversation-only and does not download evidence. The unofficial connector needs live account acceptance; offline/disconnected operation is unavailable."
+      "note": "Unattended sending has been removed at the owner’s request. Replies are not delivered merely because a remote task completed. The PC must be awake and reachable. WhatsApp attachment sending and deleting WhatsApp messages are not implemented."
     },
     {
       "id": "privacy",
@@ -496,7 +498,7 @@
     {
       "id": "temporary",
       "title": "Use a temporary chat",
-      "location": "Temporary chat",
+      "location": "More → Temporary chat",
       "aliases": [
         "temporary chat",
         "temporary",
@@ -513,7 +515,7 @@
     {
       "id": "memory",
       "title": "Manage what the app remembers",
-      "location": "Settings → Memory",
+      "location": "Settings → Review saved memories",
       "aliases": [
         "saved memory",
         "remember",
@@ -531,7 +533,7 @@
     {
       "id": "recovery",
       "title": "Recover interrupted work and export diagnostics",
-      "location": "Health & recovery",
+      "location": "Header menu → Health & recovery",
       "aliases": [
         "recovery",
         "diagnostics",
@@ -633,6 +635,56 @@
         "The timestamp changes when source content changes during build preparation. Opening the app does not reset it."
       ],
       "note": "This is a source-build timestamp, not evidence of an automatic update or completed release validation."
+    },
+    {
+      "id": "meetings",
+      "title": "Record and transcribe a meeting locally",
+      "location": "Meetings",
+      "aliases": [
+        "meeting recording",
+        "transcribe meeting",
+        "offline speech",
+        "speaker recognition",
+        "voice recording"
+      ],
+      "steps": [
+        "Create a meeting. Paste notes or choose Set up local transcription once to download the verified Windows CPU runtime and English model (about 87 MB). Subsequent recording and transcription are local; no browser speech service is used.",
+        "Record with participants’ permission. Bounded audio chunks are stored encrypted before transcription. Retry pending audio before finishing; a missing runtime never produces a fake transcript.",
+        "Finish to prepare source-based minutes and follow-ups. With a configured local language model, an additional draft summary/plan can be prepared. Review the transcript and confirm assignments/deadlines before acting.",
+        "Use Speaker review to correct attribution and manage confirmed voice profiles. Experimental acoustic suggestions require human confirmation; new continuous recordings use Unknown Speaker until reviewed."
+      ],
+      "note": "Automatic multi-speaker diarization is not implemented. Do not treat acoustic similarity as verified identity. Long AI drafts can be explicitly marked partial; original transcript/minutes are retained. Local speech setup currently requires a one-time download; English Tiny model accuracy and physical microphone quality need review."
+    },
+    {
+      "id": "policies",
+      "title": "Keep facility policies together",
+      "location": "Library → Facility policies",
+      "aliases": [
+        "facility policy",
+        "facility policies",
+        "resource folder"
+      ],
+      "steps": [
+        "Choose Facility policies to select or create that collection. Upload reference documents or link existing files.",
+        "Use a project chat or extracted-text search to consult the saved documents. Keep approval dates and versions in the source documents."
+      ],
+      "note": "Uploading a document does not establish that a policy is approved, current or applicable. Existing documents and clinical rules are preserved."
+    },
+    {
+      "id": "appearance",
+      "title": "Light and dark appearance",
+      "location": "Settings → Appearance",
+      "aliases": [
+        "dark mode",
+        "light mode",
+        "theme",
+        "appearance"
+      ],
+      "steps": [
+        "Choose Follow system, Light or Dark. The change applies immediately and is saved automatically on this PC.",
+        "The Android companion has its own Appearance selection in Settings. Theme choices do not change privacy, connection or model settings."
+      ],
+      "note": "Only this non-sensitive appearance preference is stored outside the encrypted workspace so the locked screen can use the same theme."
     }
   ]
 }

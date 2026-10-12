@@ -8,10 +8,11 @@
       content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
     />
     <title>Private AI</title>
-    <meta name="description" content="Private local AI assistant with SNF clinical surveillance command center, document reasoning, multi-turn chat, task scheduling, and secure local workspace management." />
+    <meta name="description" content="Private AI for conversations, notes, meetings, documents and follow-ups." />
     <meta property="og:title" content="Private AI" />
-    <meta property="og:description" content="Private local AI assistant with SNF clinical surveillance command center, document reasoning, multi-turn chat, task scheduling, and secure local workspace management." />
+    <meta property="og:description" content="Private AI for conversations, notes, meetings, documents and follow-ups." />
     <link rel="stylesheet" href="style.css" />
+    <script type="module" src="theme.mjs"></script>
   </head>
   <body>
     <div id="development-mode-banner" hidden role="alert"></div>
@@ -23,37 +24,27 @@
         </div>
         <button class="new-chat" data-act="new">
           ＋ New chat <kbd>Ctrl K</kbd></button
-        ><button class="nav" data-act="temporary">◌ Temporary chat</button>
-        <button class="nav voice-sidebar-item" data-act="voice-toggle" id="voice-sidebar-btn" title="Toggle First-Class Voice Mode (Ctrl+Shift+V)">
-          🎙 Voice Mode <span class="voice-badge" id="voice-sidebar-badge">Ready</span>
-        </button>
-        <button class="nav" data-act="view" data-view="today">Today</button>
-        <button class="nav" data-act="view" data-view="actions">Action Center</button>
-        <button class="nav" data-act="view" data-view="captures">Notes and rounds</button>
-        <button class="nav" data-act="view" data-view="operations" id="operations-sidebar-btn">Operations &amp; Meetings</button>
-        <button class="nav" data-act="view" data-view="workspace">Projects &amp; Documents</button>
-        <button class="nav" data-act="view" data-view="automation" id="automation-sidebar-btn">Automation</button>
-        <button class="nav" data-act="view" data-view="playbooks">Playbooks &amp; Budgets</button>
-        <details><summary>Clinical &amp; data sources</summary>
-          <button class="nav" data-act="view" data-view="clinical-imports">Clinical imports</button>
-          <button class="nav" data-act="view" data-view="pcc" hidden>PCC Import Center</button>
-          <button class="nav" data-act="view" data-view="metrics">Staffing &amp; Census</button>
-          <button class="nav snf-sidebar-item" data-act="view" data-view="snf" id="snf-sidebar-btn">SNF Surveillance <span class="snf-sidebar-badge" id="snf-sidebar-badge">0 Alerts</span></button>
-          <button class="nav" data-act="view" data-view="decisions">Decision log</button>
-        </details>
-        <details><summary>Connections</summary>
-          <button class="nav" data-act="view" data-view="apps">Apps</button>
-          <button class="nav" data-act="view" data-view="messaging">Messaging</button>
-          <button class="nav" data-act="view" data-view="browser">Browser reports</button>
-        </details>
-        <details><summary>Tools &amp; settings</summary>
-          <button class="nav" data-act="view" data-view="projects">Manage projects</button>
-          <button class="nav" data-act="view" data-view="files">Manage files</button>
-          <button class="nav" data-act="view" data-view="todos">To-Do &amp; Reminders</button>
-          <button class="nav" data-act="view" data-view="agents">Agents</button>
-          <button class="nav" data-act="view" data-view="schedules">Scheduled tasks</button>
-          <button class="nav" data-act="view" data-view="processing">AI Processing</button>
-          <button class="nav" data-act="view" data-view="usage">API Usage</button>
+        >
+        <nav class="primary-nav" aria-label="Workspace">
+          <button class="nav" data-act="view" data-view="dashboard">Dashboard</button>
+          <button class="nav" data-act="view" data-view="captures">Notes</button>
+          <button class="nav" data-act="view" data-view="meetings">Meetings</button>
+          <button class="nav" data-act="view" data-view="workspace">Library</button>
+        </nav>
+        <details class="more-tools"><summary>More</summary>
+          <button class="nav" data-act="temporary">Temporary chat</button>
+          <button class="nav" data-act="voice-toggle" id="voice-sidebar-btn">Voice <span class="voice-badge" id="voice-sidebar-badge">Ready</span></button>
+          <button class="nav" data-act="view" data-view="automation" id="automation-sidebar-btn">Automation</button>
+          <button class="nav" data-act="view" data-view="messaging">WhatsApp</button>
+          <button class="nav" data-act="view" data-view="apps">Connections</button>
+          <button class="nav" data-act="view" data-view="browser">Browser tasks</button>
+          <details><summary>Analysis &amp; data</summary>
+            <button class="nav" data-act="view" data-view="clinical-imports">Import clinical data</button>
+            <button class="nav" data-act="view" data-view="pcc" hidden>PointClickCare imports</button>
+            <button class="nav" data-act="view" data-view="metrics">Staffing &amp; census data</button>
+            <button class="nav" data-act="view" data-view="snf" id="snf-sidebar-btn">Clinical review <span id="snf-sidebar-badge">0 Alerts</span></button>
+            <button class="nav" data-act="view" data-view="decisions">Decision records</button>
+          </details>
           <button class="nav" data-act="view" data-view="guide">User guide</button>
           <button class="nav" data-act="shortcuts" id="sidebar-shortcuts-btn">Shortcuts</button>
         </details>
@@ -67,12 +58,10 @@
         <div id="history"></div>
         </div>
         <footer>
-          <button class="nav" data-act="view" data-view="worker">
-            ◉ Worker</button
-          ><button class="nav" data-act="view" data-view="settings">
+          <button class="nav" data-act="view" data-view="settings">
             ⚙ Settings
           </button>
-          <div class="local-label">Local tools · Local brain · Your OpenAI API</div>
+          <div class="local-label">Local first · Cloud optional</div>
           <div class="local-label" id="last-updated" title="Date this app build's source was last updated">Last updated: unavailable</div>
         </footer>
       </aside>
@@ -105,6 +94,7 @@
                 <span class="voice-indicator-pulse" id="voice-indicator-pulse"></span>
                 <span class="voice-indicator-text" id="voice-indicator-text">LISTENING</span>
               </div>
+              <p id="voice-status-message" role="status" hidden></p>
               <div class="voice-mode-tabs" role="tablist" aria-label="Voice input modes">
                 <button type="button" class="voice-tab active" data-voice-mode="handsfree" title="Hands-free conversational turn-taking">Hands-Free</button>
                 <button type="button" class="voice-tab" data-voice-mode="ptt" title="Push-to-Talk (Hold Spacebar)">Push-to-Talk</button>

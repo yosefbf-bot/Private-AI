@@ -138,7 +138,7 @@ test('capture deadlines reject unrepresentable dates without changing source or 
   assert.doesNotThrow(() => new Date(item.dueAt).toISOString());
 });
 
-test('locked WhatsApp due reminders require both the lock opt-in and selected background write permission', async t => {
+test('locked WhatsApp due reminders queue once and require foreground approval even with old background grants', async t => {
   const { core } = fixture(t);
   const bridge = new MessagingBridge(core);
   t.after(() => bridge.close());
@@ -163,14 +163,18 @@ test('locked WhatsApp due reminders require both the lock opt-in and selected ba
   await bridge.tick();
   assert.equal(messages.length, 0, 'The lock opt-in does not grant background conversation writes');
   core.locked = false;
-  bridge.save({ conversations: [target] });
   core.locked = true;
   await bridge.tick();
+  assert.equal(messages.length, 0);
+  assert.equal(core.store.list('messageOut').length, 1);
+  assert.throws(() => core.summary(), {code:'LOCKED'});
+  core.locked = false;core.resources.approve = async () => true;
+  await bridge.approve(bridge.outbox()[0].id);
   assert.equal(messages.length, 1);
   assert.match(messages[0], /saved follow-up is due/);
   assert.doesNotMatch(messages[0], /SYNTHETIC due follow-up/);
   assert.equal(core.store.list('capture_delivery')[0].status, 'sent');
-  assert.throws(() => core.summary(), { code: 'LOCKED' }, 'General desktop access remains locked');
+  core.locked = true;assert.throws(() => core.summary(), { code: 'LOCKED' }, 'General desktop access remains locked');
   await bridge.tick();
   assert.equal(messages.length, 1, 'Confirmed reminders are not repeated');
 });

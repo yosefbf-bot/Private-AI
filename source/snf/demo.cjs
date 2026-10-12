@@ -5,6 +5,7 @@ class DemoStore {
  constructor(store){this.base=store;this.db=store.db;}
  get(k,id){return this.base.get('demo:'+k,id);}
  put(k,id,value,options){return this.base.put('demo:'+k,id,{...value,demo:true},options);}
+ project(k,fn){return this.base.project('demo:'+k,fn);}
  list(k){return this.base.list('demo:'+k);}
  count(k){return this.base.count('demo:'+k);}
  delete(k,id){return this.base.delete('demo:'+k,id);}

@@ -3,7 +3,7 @@
 
 export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage, confirmAction, form, field, select, textarea, fileChecks, idsFrom }) {
   // Tab state: 'overview' | 'upcoming' | 'history' | 'workers'
-  let activeTab = 'overview';
+  let activeTab = 'upcoming';
   let historyFilter = { automation: 'all', status: 'all', search: '' };
   let selectedAutomationId = null; // When non-null, shows detailed modal/drawer for the automation
   let selectedRunId = null; // When non-null, shows run detail modal
@@ -142,238 +142,9 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
 
   return {
     async render(container, state) {
-      if (!state) {
-        container.innerHTML = `<div class="page"><p class="subtitle">Loading Automation &amp; Agent Center...</p></div>`;
-        return;
-      }
-
-      const settings = state.settings || {};
-      const schedules = state.schedules || [];
-      const jobs = state.jobs || [];
-      const worker = state.worker || { peers: [] };
-      const resources = state.resources || {};
-      const now = Date.now();
-
-      // Categorize jobs
-      const activeJobs = jobs.filter(j => ['running', 'waiting', 'paused'].includes(j.status));
-      const failedJobs = jobs.filter(j => j.status === 'failed');
-      const completedJobs = jobs.filter(j => j.status === 'completed');
-
-      // Next scheduled task
-      const enabledSchedules = schedules.filter(s => s.enabled && s.next && s.next > now);
-      enabledSchedules.sort((a, b) => a.next - b.next);
-      const nextTask = enabledSchedules[0] || null;
-
-      // Identify items needing attention:
-      // 1. Failed tasks
-      // 2. Recoverable jobs
-      // 3. Repeatedly failing automations
-      // 4. Offline or changed trusted peers
-      // 5. Disabled worker while schedules exist
-      // 6. Memory pressure or low RAM state
-      const attentionItems = [];
-
-      // Check worker health
-      if (!settings.workerEnabled) {
-        attentionItems.push({
-          id: 'worker-disabled',
-          type: 'worker',
-          severity: 'warning',
-          title: 'Background Worker Disabled',
-          explanation: 'Background automations and scheduled tasks will not run on this PC until Worker is enabled.',
-          time: null,
-          actionLabel: 'Enable Worker',
-          actionAct: 'quick-enable-worker',
-          suggestedAction: 'Enable background jobs in Worker settings.'
-        });
-      } else if (settings.workerPaused) {
-        attentionItems.push({
-          id: 'worker-paused',
-          type: 'worker',
-          severity: 'warning',
-          title: 'Background Work Paused',
-          explanation: 'Scheduled tasks are paused and waiting at safe boundaries.',
-          time: null,
-          actionLabel: 'Resume Worker',
-          actionAct: 'pause-worker',
-          suggestedAction: 'Resume background jobs when ready.'
-        });
-      }
-
-      // Check trusted peer health
-      for (const peer of (worker.peers || [])) {
-        if (peer.trusted && !peer.online) {
-          attentionItems.push({
-            id: `peer-offline-${peer.id}`,
-            type: 'peer',
-            severity: 'info',
-            title: `Worker Offline: ${peer.label}`,
-            explanation: `Trusted peer ${peer.label} is currently offline or file sync is delayed. Tasks queued for this worker will wait.`,
-            time: null,
-            actionLabel: 'Check Workers',
-            actionTab: 'workers',
-            suggestedAction: 'Verify that the peer PC is awake and connected to the ShareSync folder.'
-          });
-        } else if (peer.trusted && peer.changed) {
-          attentionItems.push({
-            id: `peer-changed-${peer.id}`,
-            type: 'peer',
-            severity: 'warning',
-            title: `Identity Changed: ${peer.label}`,
-            explanation: `Cryptographic fingerprint changed for ${peer.label}. Reconnection is required before jobs can be accepted.`,
-            time: null,
-            actionLabel: 'Manage Peer',
-            actionTab: 'workers',
-            suggestedAction: 'Confirm fingerprint with the operator and reconnect the peer.'
-          });
-        }
-      }
-
-      // Check failed jobs (top 8 most recent failures)
-      const recentFailures = failedJobs.slice(0, 8);
-      for (const j of recentFailures) {
-        const canRetryExport = j.resultText && !j.recoverable;
-        attentionItems.push({
-          id: `job-failed-${j.id}`,
-          jobId: j.id,
-          type: 'job',
-          severity: 'critical',
-          title: j.title || 'Automation Run',
-          explanation: explainState(j),
-          time: j.completed || j.started,
-          suggestedAction: j.recoverable ? 'Saved checkpoint data is available to resume this report.' : (canRetryExport ? 'Generated answer is intact; save export format directly.' : 'Review task instructions or source files and run again when safe.'),
-          hasRecovery: !!j.recoverable,
-          canRetryExport,
-          rawError: j.error,
-          job: j
-        });
-      }
-
-      // Check memory pressure
-      if (resources.availableMemoryGB !== undefined && resources.availableMemoryGB < 1.0) {
-        attentionItems.push({
-          id: 'low-memory-system',
-          type: 'resource',
-          severity: 'warning',
-          title: 'System Memory Pressure',
-          explanation: `Available RAM is ${resources.availableMemoryGB} GB. Heavy AI tasks or browser automations may pause to safeguard desktop stability.`,
-          time: null,
-          actionLabel: 'View Health',
-          actionAct: 'view-health',
-          suggestedAction: 'Close unnecessary applications or review memory reserves in Health & Recovery.'
-        });
-      }
-
-      // Top Status Strip values
-      const workerStatusText = !settings.workerEnabled ? 'Disabled' : (settings.workerPaused ? 'Paused' : 'Online');
-      const workerStatusClass = !settings.workerEnabled ? 'status-disabled' : (settings.workerPaused ? 'status-paused' : 'status-online');
-
-      const bgAI = resources.background || {};
-      let bgStatusText = 'Idle';
-      let bgStatusClass = 'status-idle';
-      if (activeJobs.some(j => j.status === 'running')) {
-        bgStatusText = 'Running';
-        bgStatusClass = 'status-running';
-      } else if (activeJobs.some(j => j.status === 'waiting')) {
-        bgStatusText = 'Waiting';
-        bgStatusClass = 'status-waiting';
-      } else if (activeJobs.some(j => j.status === 'paused') || settings.workerPaused) {
-        bgStatusText = 'Paused';
-        bgStatusClass = 'status-paused';
-      }
-
-      const browserStatus = resources.browser ? `In use (${resources.browser})` : 'Available';
-      const browserStatusClass = resources.browser ? 'status-inuse' : 'status-available';
-
-      const nextTaskDisplay = nextTask
-        ? `${nextTask.name} (${formatRelativeTime(nextTask.next)})`
-        : 'None scheduled';
-
-      // Render Dashboard
-      container.innerHTML = `
-        <div class="auto-center-page">
-          <!-- Main Header -->
-          <header class="auto-header">
-            <div>
-              <div class="auto-title-row">
-                <h1>Automation &amp; Agent Center</h1>
-                <span class="auto-badge-operational">Operational Dashboard</span>
-              </div>
-              <p class="auto-subtitle">Operational status of all scheduled automations, background jobs, Worker activity, and failure recovery.</p>
-            </div>
-            <div class="auto-header-actions"><button class="auto-btn" data-act="view" data-view="playbooks">Playbooks &amp; budgets</button><button class="auto-btn" data-act="view" data-view="agents">Agents</button><button class="auto-btn" data-act="view" data-view="worker">Workers</button>
-              <button class="auto-btn" data-act="auto-refresh">↻ Refresh</button>
-              <button class="auto-btn auto-btn-primary" data-act="schedule-new">+ New Scheduled Task</button>
-            </div>
-          </header>
-
-          <!-- Top Status Strip -->
-          <div class="auto-status-strip" role="region" aria-label="System status summary">
-            <div class="auto-strip-item">
-              <span class="auto-strip-label">Worker</span>
-              <span class="auto-strip-value ${workerStatusClass}">
-                <span class="auto-strip-dot"></span>${workerStatusText}
-              </span>
-            </div>
-            <div class="auto-strip-divider"></div>
-            <div class="auto-strip-item">
-              <span class="auto-strip-label">Background AI</span>
-              <span class="auto-strip-value ${bgStatusClass}">
-                <span class="auto-strip-dot"></span>${bgStatusText}
-              </span>
-            </div>
-            <div class="auto-strip-divider"></div>
-            <div class="auto-strip-item">
-              <span class="auto-strip-label">Browser</span>
-              <span class="auto-strip-value ${browserStatusClass}">
-                <span class="auto-strip-dot"></span>${browserStatus}
-              </span>
-            </div>
-            <div class="auto-strip-divider"></div>
-            <div class="auto-strip-item auto-strip-grow">
-              <span class="auto-strip-label">Next Scheduled Task</span>
-              <span class="auto-strip-value auto-strip-next" title="${nextTask ? `${nextTask.name} — ${formatDateTime(nextTask.next)}` : 'No upcoming schedules'}">
-                ${esc(nextTaskDisplay)}
-              </span>
-            </div>
-            <div class="auto-strip-divider"></div>
-            <div class="auto-strip-item">
-              <span class="auto-strip-label">Attention Required</span>
-              <span class="auto-strip-value ${attentionItems.length > 0 ? 'auto-strip-attention' : 'auto-strip-clear'}">
-                ${attentionItems.length > 0 ? `⚠️ ${attentionItems.length} item${attentionItems.length > 1 ? 's' : ''}` : '✓ All clear'}
-              </span>
-            </div>
-          </div>
-
-          <!-- Secondary Navigation Tabs -->
-          <nav class="auto-nav-tabs" role="tablist">
-            <button class="auto-tab-btn ${activeTab === 'overview' ? 'active' : ''}" data-act="auto-tab" data-tab="overview">
-              Operational Overview
-            </button>
-            <button class="auto-tab-btn ${activeTab === 'upcoming' ? 'active' : ''}" data-act="auto-tab" data-tab="upcoming">
-              Upcoming Automations (${schedules.length})
-            </button>
-            <button class="auto-tab-btn ${activeTab === 'history' ? 'active' : ''}" data-act="auto-tab" data-tab="history">
-              Run History (${jobs.length})
-            </button>
-            <button class="auto-tab-btn ${activeTab === 'workers' ? 'active' : ''}" data-act="auto-tab" data-tab="workers">
-              Workers &amp; Resources (${1 + (worker.peers || []).length})
-            </button>
-          </nav>
-
-          <!-- Tab Content Panels -->
-          <div class="auto-tab-content">
-            ${activeTab === 'overview' ? renderOverviewTab({ attentionItems, activeJobs, schedules, jobs, settings, worker, resources, now }) : ''}
-            ${activeTab === 'upcoming' ? renderUpcomingTab({ schedules, worker, now }) : ''}
-            ${activeTab === 'history' ? renderHistoryTab({ jobs, schedules }) : ''}
-            ${activeTab === 'workers' ? renderWorkersTab({ settings, worker, resources }) : ''}
-          </div>
-
-          <!-- Modals / Drawers for details -->
-          <div id="auto-modal-container"></div>
-        </div>
-      `;
-
+      if (!state) { container.innerHTML='<p>Loading…</p>';return; }
+      const schedules=state.schedules||[],jobs=state.jobs||[],worker=state.worker||{peers:[]},now=Date.now();
+      container.innerHTML = `<div class="page"><h1>Automation</h1><p class="help">Scheduled work and run history. Worker settings are managed here.</p><p><button data-act="schedule-new">New scheduled task</button><button data-act="view" data-view="browser">Website report schedules</button><button data-act="view" data-view="agents">Saved assistants</button><button data-act="view" data-view="worker">Worker settings</button><button data-act="auto-refresh">Refresh</button></p><nav><button data-act="auto-tab" data-tab="upcoming">Schedules</button><button data-act="auto-tab" data-tab="history">Run history</button></nav>${activeTab==='history'?renderHistoryTab({jobs,schedules}):renderUpcomingTab({schedules,worker,now})}<div id="auto-modal-container"></div></div>`;
       bindEvents(container, state);
     }
   };
@@ -589,7 +360,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
             </h2>
             <p class="auto-section-desc">Manage repeat schedules, watcher-triggered automations, and assigned execution nodes.</p>
           </div>
-          <button class="auto-btn auto-btn-primary" data-act="schedule-new">+ New Scheduled Task</button>
+
         </div>
 
         ${sorted.length > 0 ? `
@@ -648,7 +419,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
             <div class="auto-empty-icon">◷</div>
             <strong>No scheduled automations configured.</strong>
             <p>Set up scheduled clinical reviews, daily morning briefs, or watcher-triggered reports to run in the background.</p>
-            <button class="auto-btn auto-btn-primary" data-act="schedule-new" style="margin-top:10px;">Create First Schedule</button>
+
           </div>
         `}
       </section>
@@ -771,7 +542,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
             </h2>
             <p class="auto-section-desc">Manage local PC execution roles, resource safety governors, and trusted peer PCs connected via ShareSync.</p>
           </div>
-          <div class="auto-header-actions"><button class="auto-btn" data-act="view" data-view="playbooks">Playbooks &amp; budgets</button><button class="auto-btn" data-act="view" data-view="agents">Agents</button><button class="auto-btn" data-act="view" data-view="worker">Workers</button>
+          <div class="auto-header-actions"><button class="auto-btn" data-act="view" data-view="agents">Agents</button><button class="auto-btn" data-act="view" data-view="worker">Workers</button>
             <button class="auto-btn" data-act="refresh-worker">↻ Refresh Peers</button>
             <button class="auto-btn" data-act="open-workspace">Open Work Folder</button>
           </div>
@@ -1097,6 +868,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
         if (!s) return;
         try {
           btn.disabled = true;
+          if(s.browserRecipeId){toast('Use Download report in Website report schedules for a manually approved run.');renderPage('browser');return;}
           await api('runJob', {
             name: s.name,
             title: s.name,

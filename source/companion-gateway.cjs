@@ -11,7 +11,7 @@ const DEFAULT = Object.freeze({enabled: false, host: '127.0.0.1', port: 8443});
 const PREFIX = '/mobile/api/v1';
 const MAX_BODY = 192 * 1024;
 const SCOPES = ['chat','tasks','alerts','workflow','notifications'];
-const CAPABILITIES = ['conversations','captures','actions','drafts','evidence-chunks','reminder-notifications'];
+const CAPABILITIES = ['conversations','captures','actions','drafts','evidence-chunks','reminder-notifications','meetings'];
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const allowedId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 function privateAddress(host) {
@@ -199,6 +199,11 @@ class CompanionGateway {
         this.assertSession(device,generation,'chat'); response = this.history(device,await readJSON(req));
       } else if (req.method === 'GET' && req.url === PREFIX+'/actions') {
         this.assertSession(device,generation,'workflow'); response = captures.list(this.core,{kind:'companion',id:device.id});
+      } else if (req.method==='GET'&&req.url===PREFIX+'/meetings') {
+        this.assertSession(device,generation,'workflow');response=await require('./companion-meetings.cjs').dispatch(this.core,device,'list');
+      } else if(req.method==='POST'&&['create','audio','finish','get'].some(op=>req.url===PREFIX+'/meetings/'+op)) {
+        this.assertSession(device,generation,'workflow');const data=await readJSON(req);this.assertSession(device,generation,'workflow');
+        response=await require('./companion-meetings.cjs').dispatch(this.core,device,req.url.split('/').at(-1),data);
       } else if (req.method === 'GET' && req.url === PREFIX+'/notifications') {
         this.assertSession(device,generation,'notifications'); response = device.notificationOnly?captures.backgroundNotifications(this.core,device):captures.notifications(this.core,{kind:'companion',id:device.id});
       } else if (req.method === 'POST' && ['/captures/create','/actions/update','/drafts/save','/evidence/write','/evidence/read','/notifications/ack'].some(p=>req.url===PREFIX+p)) {

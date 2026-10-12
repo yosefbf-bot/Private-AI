@@ -26,7 +26,7 @@ class WhatsAppWeb{
  async snapshot(groupId){if(this.account)return this.account.snapshot(groupId);if(!this.page||this.page.isClosed()||new URL(this.page.url()).origin!=='https://web.whatsapp.com')throw fail('MESSAGING');return this.page.evaluate(readWhatsApp);}
  async send(settings,body){
   if(this.account)return this.account.send(settings,body);
-  await this.core.resources.preflight('messaging',settings.groupId?settings:undefined);
+  await this.core.resources.preflight('messaging',settings.groupId?settings:undefined,body);
   const shot=await this.snapshot();if(!shot.verified||shot.groupId!==settings.groupId||shot.groupName!==settings.groupName)throw fail('MESSAGING');
   const composer=this.page.locator(`#main:has([data-id^="false_${settings.groupId}_"], [data-id^="true_${settings.groupId}_"]) footer [contenteditable="true"][role="textbox"]`);if(await composer.count()!==1||await composer.innerText())throw fail('MESSAGING');
   require('./messaging-policy.cjs').assertSendAllowed(this.core,settings);

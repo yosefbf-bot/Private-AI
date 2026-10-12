@@ -187,3 +187,43 @@ RPC. These tests use synthetic data. Physical Android parsing/trust behavior,
 LAN/hotspot/Tailscale reachability, sleep/reconnect and the packaged Windows
 application/installer remain explicit acceptance steps. No firewall was modified
 and no production phone was paired during development.
+
+
+## Assistant-first meeting extension — October 11, 2026
+
+The authenticated status response advertises `meetings`. These routes use the existing
+`/mobile/api/v1` prefix, full per-device pairing, verified HTTPS and `workflow` scope.
+Locked, development and Demo workspaces deny them. Notification-only credentials cannot
+use them. No port, firewall or generic RPC permission is added.
+
+| Route | Request | Result |
+| --- | --- | --- |
+| GET `/meetings` | none | `{meetings:[...]}`; up to 30 phone-owned recordings |
+| POST `/meetings/create` | `{sourceId,title?}` | Scoped meeting summary; same UUID/input replays |
+| POST `/meetings/get` | `{sourceId}` | Scoped meeting summary |
+| POST `/meetings/audio` | `{sourceId,chunkId,index,total,bytes,sha256,data}` | `{chunkId,index,complete,audioId?,sha256?,bytes?,status?}` |
+| POST `/meetings/finish` | `{sourceId,expectedChunkCount}` | Summary with finish request; not an inference-success receipt |
+
+`sourceId` and `chunkId` are stable UUIDs. Each audio unit is canonical 44-byte-header
+WAV, 16-kHz mono signed PCM16, at most 20 seconds / 640,044 bytes. Its transfer uses
+80-KiB base64 pieces (1–8 pieces). Every piece repeats immutable metadata. Full byte
+count, SHA-256 and WAV structure are verified before encrypted durable storage.
+Changed replay input fails. The phone removes queued audio bytes only after a matching
+complete hash/length receipt. Retries remain bound to the original device pairing.
+
+Finish requires the exact 0–180 received audio-unit count and no unfinished transfers.
+It cannot accept late extra chunks. The PC locally transcribes pending audio, then
+uses the existing meeting engine to finalize minutes. Missing assets or failed inference
+leave work pending/reviewable; they never fabricate transcript or completion. The limit
+is 60 minutes per recording and 512 MiB of retained meeting audio per store. Parent
+meeting retention/removal includes its audio, upload and ownership records.
+
+Summaries expose `sourceId,id,title,status,finishRequested,date,pendingAudio,summary,actions`.
+A configured local model may append a clearly labeled draft plan; assignments and
+clinical closure still require review. Speaker attribution remains unverified until
+human confirmation. Automatic multi-speaker diarization is not implemented.
+
+The phone captures only in its visible unlocked meeting screen. Navigation, backgrounding
+and OS-authentication expiry stop the microphone; an unsaved partial chunk (up to 20 seconds)
+can be lost. Committed encrypted chunks survive, and can resume uploading to the same PC.
+The desktop must be awake/reachable and unlocked. Physical-device acceptance is separate.

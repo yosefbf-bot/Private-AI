@@ -1,3 +1,4 @@
+import {LocalRecognition} from "./local-recognition.mjs";
 // Private AI — Real-Time Full-Duplex Conversational Voice Subsystem (GPT-Live-1 Architecture)
 // Features: Full-Duplex Audio, Turn Detection (Auto/Patient/Normal/Fast), Barge-In / Interruption Engine,
 // Ghost-Context Elimination, Audio Playback Queue, Separation of Conversation vs Task Intelligence,
@@ -221,7 +222,7 @@ export class VoiceManager {
   initSpeechSynthesis() {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     const loadVoices = () => {
-      this.availableVoices = window.speechSynthesis.getVoices() || [];
+      this.availableVoices = (window.speechSynthesis.getVoices() || []).filter(v=>v.localService===true);
     };
     loadVoices();
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
@@ -231,10 +232,10 @@ export class VoiceManager {
 
   getBestVoiceForPreset(presetKey, accentKey) {
     if (!this.availableVoices.length && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      this.availableVoices = window.speechSynthesis.getVoices() || [];
+      this.availableVoices = (window.speechSynthesis.getVoices() || []).filter(v=>v.localService===true);
     }
     const preset = this.voicePresets[presetKey] || this.voicePresets.nova;
-    const voices = this.availableVoices;
+    const voices = this.availableVoices.filter(v=>v.localService===true);
     if (!voices.length) return null;
 
     const enVoices = voices.filter(v => v.lang && v.lang.startsWith('en'));
@@ -277,14 +278,8 @@ export class VoiceManager {
 
   initRecognition() {
     if (typeof window === 'undefined') return;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.warn('SpeechRecognition API not available in this environment.');
-      return;
-    }
-
     try {
-      const rec = new SpeechRecognition();
+      const rec = new LocalRecognition({api:this.callApi,allowed:()=>this.recognitionAllowed()});
       rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
@@ -357,7 +352,7 @@ export class VoiceManager {
           this.setState(LiveVoiceState.MUTED, 'Microphone permission blocked or denied.');
           return;
         }
-        console.warn('SpeechRecognition notice:', event.error);
+        this.endSession();this.setState(LiveVoiceState.ERROR,event.message||'Local speech is unavailable. Set up local transcription in Meetings.');
       };
 
       rec.onend = () => {
@@ -375,7 +370,7 @@ export class VoiceManager {
 
       this.recognition = rec;
     } catch (err) {
-      console.warn('SpeechRecognition initialization error:', err);
+      this.setState(LiveVoiceState.ERROR,'Local speech could not be initialized.');
     }
   }
 
@@ -446,108 +441,10 @@ export class VoiceManager {
   // --- Audio Capture & Visualizer with Echo Cancellation ---
 
   async startAudioVisualizer(canvas) {
-    if (typeof window === 'undefined' || !canvas || !this.recognition || !this.recognitionAllowed()) return;
-    const generation = ++this.captureGeneration;
-    try {
-      if (!this.mediaStream) {
-        // High-fidelity full-duplex constraints: AEC, noise suppression, AGC
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            channelCount: 1,
-            sampleRate: 48000,
-          },
-          video: false,
-        });
-        if (generation !== this.captureGeneration || !this.recognitionAllowed()) {
-          stream.getTracks().forEach(t => t.stop());
-          return;
-        }
-        this.mediaStream = stream;
-      }
-
-      if (!this.audioCtx) {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        this.audioCtx = new AudioCtx();
-      }
-      if (this.audioCtx.state === 'suspended') {
-        await this.audioCtx.resume();
-      }
-      if (generation !== this.captureGeneration) return;
-      if (!this.recognitionAllowed()) { this.endSession(); return; }
-
-      const source = this.audioCtx.createMediaStreamSource(this.mediaStream);
-      this.analyser = this.audioCtx.createAnalyser();
-      this.analyser.fftSize = 64;
-      this.analyser.smoothingTimeConstant = 0.6;
-      source.connect(this.analyser);
-
-      const bufferLength = this.analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      const ctx = canvas.getContext('2d');
-
-      const draw = () => {
-        if (!this.analyser || this.isHardMuted) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.strokeStyle = this.isHardMuted ? '#ef4444' : '#64748b';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(0, canvas.height / 2);
-          ctx.lineTo(canvas.width, canvas.height / 2);
-          ctx.stroke();
-          return;
-        }
-
-        this.animFrameId = requestAnimationFrame(draw);
-        this.analyser.getByteFrequencyData(dataArray);
-
-        // Compute instant mic volume for noise gate & speech activity
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-        this.micVolume = sum / (bufferLength * 255);
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        const barWidth = (canvas.width / bufferLength) * 1.4;
-        let x = 0;
-
-        for (let i = 0; i < bufferLength; i++) {
-          const barHeight = Math.max(4, (dataArray[i] / 255) * (canvas.height - 8));
-
-          let fill = '#3b82f6';
-          if (this.state === LiveVoiceState.USER_SPEAKING) {
-            fill = '#10b981'; // Emerald
-          } else if (this.state === LiveVoiceState.AI_SPEAKING) {
-            fill = '#8b5cf6'; // Violet
-          } else if (this.state === LiveVoiceState.THINKING || this.state === LiveVoiceState.TOOL_RUNNING) {
-            fill = '#f59e0b'; // Amber
-          } else if (this.state === LiveVoiceState.INTERRUPTED) {
-            fill = '#ec4899'; // Pink/Rose
-          } else if (this.state === LiveVoiceState.LISTENING) {
-            fill = '#0ea5e9'; // Sky blue
-          }
-
-          ctx.fillStyle = fill;
-          const y = (canvas.height - barHeight) / 2;
-          if (ctx.roundRect) {
-            ctx.beginPath();
-            ctx.roundRect(x, y, barWidth - 2, barHeight, 2);
-            ctx.fill();
-          } else {
-            ctx.fillRect(x, y, barWidth - 2, barHeight);
-          }
-
-          x += barWidth;
-        }
-      };
-
-      draw();
-    } catch (err) {
-      console.warn('Microphone capture stream failed:', err);
-      this.setState(LiveVoiceState.ERROR, 'Microphone capture error: ' + err.message);
-    }
+    // Reuse local recognizer measurements; do not open a second microphone.
+    if(!canvas?.getContext||!this.recognitionAllowed())return;
+    const ctx=canvas.getContext('2d');
+    const draw=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#3154c8';const h=Math.max(2,(this.recognition?.level||0)*canvas.height);ctx.fillRect(0,(canvas.height-h)/2,canvas.width,h);if(this.listeningRequested)this.animFrameId=requestAnimationFrame(draw);};draw();
   }
 
   stopAudioVisualizer() {
@@ -628,8 +525,7 @@ export class VoiceManager {
 
   recognitionAllowed() {
     const policy=this.getState?.()?.settings;
-    return !!(policy && policy.hipaa === false && typeof policy.processingMode === 'string' &&
-      policy.processingMode !== 'local-only' && !this.getChat?.()?.hipaa && !this.isHardMuted && this.canCapture());
+    return !!(policy && typeof policy.processingMode === 'string' && !this.isHardMuted && this.canCapture());
   }
 
   enforcePolicy() {
@@ -649,7 +545,7 @@ export class VoiceManager {
   startListening() {
     if(!this.recognitionAllowed()){
       this.endSession();
-      this.setState(LiveVoiceState.ERROR,'Browser speech recognition is not approved for HIPAA or Local Only. Use typed input until an approved offline voice adapter is configured.');return;
+      this.setState(LiveVoiceState.ERROR,'Voice capture is unavailable while the app is locked, muted or its settings are unavailable.');return;
     }
     if (!this.recognition) {
       this.endSession();
@@ -661,6 +557,7 @@ export class VoiceManager {
     this.finalTranscript = '';
     this.emitTranscriptUpdate();
 
+    this.setState(LiveVoiceState.LISTENING, 'Preparing local speech…');
     if (this.recognition) {
       try {
         this.recognition.start();
@@ -668,7 +565,6 @@ export class VoiceManager {
         // Recognition already active
       }
     }
-    this.setState(LiveVoiceState.LISTENING, 'Listening for speech…');
   }
 
   stopListening({pause = false} = {}) {
@@ -695,10 +591,10 @@ export class VoiceManager {
     this.notifyState();
   }
 
-  stopPtt() {
+  async stopPtt() {
     if (!this.isPttHolding) return;
     this.isPttHolding = false;
-    this.stopListening({pause: true});
+    await this.recognition?.stop();
     this.notifyState();
 
     const generation = this.voiceGeneration;
@@ -729,13 +625,17 @@ export class VoiceManager {
   // --- Conversational Intelligence & Brain Router Dispatch ---
 
   async dispatchCurrentTranscript() {
-    const text = (this.finalTranscript + ' ' + this.interimTranscript).trim();
-    if (!text || this.state === LiveVoiceState.THINKING) return;
-
-    this.cancelSilenceTimer();
-    this.setState(LiveVoiceState.THINKING, 'Engaging brain router…');
-    this.stopListening({pause: true});
+    if (!(this.finalTranscript + this.interimTranscript).trim() || this.dispatching || this.state === LiveVoiceState.THINKING) return;
     const generation = this.voiceGeneration;
+    this.dispatching = true;
+    this.cancelSilenceTimer();
+    try { await this.recognition?.stop(); }
+    finally { this.dispatching = false; }
+    if (generation !== this.voiceGeneration || !this.recognitionAllowed()) return;
+    const text = (this.finalTranscript + ' ' + this.interimTranscript).trim();
+    if (!text) return;
+    this.cancelSilenceTimer();
+    this.setState(LiveVoiceState.THINKING, 'Preparing response locally…');
     this.lastRecognizedText = text;
     this.finalTranscript = '';
     this.interimTranscript = '';
@@ -818,7 +718,7 @@ export class VoiceManager {
         this.resumeListeningAfterResponse();
       }
     } catch (err) {
-      console.error('Error during voice dispatch:', err);
+      // Error text is handled by the protected UI; do not log voice content.
       this.setState(LiveVoiceState.IDLE, err.message);
       this.resumeListeningAfterResponse();
     }
@@ -921,7 +821,7 @@ export class VoiceManager {
       const utterance = new SpeechSynthesisUtterance(cleanText);
       const voice = this.getBestVoiceForPreset(this.voiceProfile, this.voiceAccent);
       const policy=this.getState?.()?.settings;
-      if((policy?.hipaa||this.getChat?.()?.hipaa||policy?.processingMode==='local-only')&&voice?.localService!==true)return resolve();
+      if(!policy || voice?.localService!==true)return resolve();
       if (voice) utterance.voice = voice;
 
       const preset = this.voicePresets[this.voiceProfile] || this.voicePresets.nova;

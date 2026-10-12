@@ -110,7 +110,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
         // Resolve selected objects from this workspace on every load.
         if(options.sbarId){activeSbar=await api('sbarGet',{id:options.sbarId});activeTab='sbar';}
-        if(options.meetingId){activeMeeting=await api('meetingGet',{id:options.meetingId});activeTab='copilot';}
+        if(options.meetingId){activeMeeting=await api('meetingGet',{id:options.meetingId});activeTab=options.tab==='speaker_review'?'speaker_review':'copilot';if(activeTab==='speaker_review')speakerReviewData=await api('speakerReviewGet',{meetingId:activeMeeting.id});}
         activeMeeting = meetingHistory.find(m => m.id === activeMeeting?.id) || meetingHistory.find(m => m.status === 'live') || null;
         activeSbar = sbarList.find(s => s.id === activeSbar?.id) || sbarList[0] || null;
       } catch (err) {
@@ -136,65 +136,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       const staffing = ops.staffing || {};
       const pendingCallbacksCount = (ops.sbars?.pendingCallbacksCount) || sbarList.filter(s => s.closeTheLoop?.stage === 'awaiting_callback').length;
 
-      container.innerHTML = `
-        <div class="ops-page">
-          <!-- Top Operational Header & Tabs -->
-          <header class="ops-header">
-            <div class="ops-header-left">
-              <div class="ops-header-kicker">EXECUTIVE CLINICAL COMMAND &amp; AUTOMATION RADAR</div>
-              <h1 class="ops-header-title">Operations Intelligence &amp; Meeting Copilot</h1>
-              <div class="ops-header-meta">
-                <span>Facility: ${esc(ops.facilityName || 'Not configured')}</span>
-                <span class="ops-sep">·</span>
-                <span>Active residents in imported records: ${metric(census.activeResidents)}</span>
-                <span class="ops-sep">·</span>
-                <span class="ops-live-tag">${ops.demo ? 'DEMO DATA — NOT FOR CLINICAL USE' : ops.dataHealth?.isSurveillanceComplete ? 'IMPORTED FEEDS — VERIFY DATES' : 'INCOMPLETE DATA — NOT AN ALL-CLEAR'}</span>
-                ${pendingCallbacksCount > 0 ? `<span class="ops-callback-alert-pill">⚠ ${pendingCallbacksCount} MD Callback Pending</span>` : ''}
-              </div>
-            </div>
-
-            <div class="ops-header-tabs" role="tablist">
-              <button type="button" class="ops-tab-btn ${activeTab === 'operations' ? 'active' : ''}" data-ops-tab="operations">
-                📊 Operations Radar
-              </button>
-              <button type="button" class="ops-tab-btn ${activeTab === 'analytics' ? 'active' : ''}" data-ops-tab="analytics">
-                📈 Staffing &amp; Overtime Analytics
-              </button>
-              <button type="button" class="ops-tab-btn ${activeTab === 'copilot' ? 'active' : ''}" data-ops-tab="copilot">
-                🎙 Live Meeting Copilot ${activeMeeting && activeMeeting.status === 'live' ? '<span class="ops-tab-badge pulse">LIVE</span>' : ''}
-              </button>
-              <button type="button" class="ops-tab-btn ${activeTab === 'speaker_review' ? 'active' : ''}" data-ops-tab="speaker_review">
-                👥 Speaker Review ${speakerReviewData ? '<span class="ops-tab-badge">REVIEW</span>' : ''}
-              </button>
-              <button type="button" class="ops-tab-btn ${activeTab === 'sbar' ? 'active' : ''}" data-ops-tab="sbar">
-                📋 Interactive SBAR (${sbarList.length})
-              </button>
-              <button type="button" class="ops-tab-btn ${activeTab === 'handoff' ? 'active' : ''}" data-ops-tab="handoff">
-                🔄 Shift Handoff
-              </button>
-              <button type="button" class="ops-tab-btn ${activeTab === 'protocols' ? 'active' : ''}" data-ops-tab="protocols">
-                📜 Protocols
-              </button>
-              <button type="button" class="ops-tab-btn ${activeTab === 'voice_profiles' ? 'active' : ''}" data-ops-tab="voice_profiles">🎙 Voice Profiles</button>
-              <button type="button" class="ops-tab-btn ${activeTab === 'history' ? 'active' : ''}" data-ops-tab="history">
-                📁 Archives (${meetingHistory.length})
-              </button>
-            </div>
-          </header>
-
-          <!-- Main Content Area -->
-          <main class="ops-body">
-            ${activeTab === 'operations' ? this.renderOperationsRadar(ops) : ''}
-            ${activeTab === 'analytics' ? '<div id="ops-analytics-mount"></div>' : ''}
-            ${activeTab === 'copilot' ? this.renderCopilotView() : ''}
-            ${activeTab === 'speaker_review' ? this.renderSpeakerReviewView() : ''}
-            ${activeTab === 'sbar' ? this.renderSbarView() : ''}
-            ${activeTab === 'handoff' ? this.renderHandoffView(ops) : ''}
-            ${['protocols','voice_profiles'].includes(activeTab) ? this.renderProtocolsAndProfilesView() : ''}
-            ${activeTab === 'history' ? this.renderHistoryView() : ''}
-          </main>
-        </div>
-      `;
+      container.innerHTML = `<div class="ops-page"><button data-act="view" data-view="meetings">← Meetings</button><h1>${activeTab==='voice_profiles'?'Voice profiles':activeTab==='speaker_review'?'Speaker review':'Clinical communication record'}</h1>${ops.demo?'<p class="error-note">DEMO DATA — NOT FOR CLINICAL USE</p>':''}<main class="ops-body">${activeTab==='voice_profiles'?this.renderProtocolsAndProfilesView():activeTab==='speaker_review'?this.renderSpeakerReviewView():this.renderSbarView()}</main></div>`;
 
       this.attachEvents(container);
 
@@ -2262,86 +2204,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       }
     },
 
-    toggleSpeechRecognition(container) {
-      if (isListening) {
-        if (recognitionInstance) {
-          recognitionInstance.stop();
-          recognitionInstance = null;
-        }
-        isListening = false;
-        toast('Speech recognition paused.');
-        this.renderFullView(container);
-        return;
-      }
-
-      if (!browserSpeechAllowed(getState()?.settings)) { toast('Browser speech recognition is disabled in HIPAA / Local Only mode. Use manual text entry.'); return; }
-      if (!activeMeeting || activeMeeting.status !== 'live') return;
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        toast('Speech Recognition API not supported in this browser. Please use the text input.');
-        return;
-      }
-
-      try {
-        recognitionInstance = new SpeechRecognition();
-        recognitionInstance.continuous = true;
-        recognitionInstance.interimResults = false;
-        recognitionInstance.lang = 'en-US';
-
-        recognitionInstance.onstart = () => {
-          isListening = true;
-          toast(`Microphone active. Listening for ${activeSpeaker}...`);
-          this.renderFullView(container);
-        };
-
-        const meetingId = activeMeeting.id;
-        recognitionInstance.onresult = async (event) => {
-          if (!browserSpeechAllowed(getState()?.settings) || activeMeeting?.id !== meetingId || activeMeeting?.status !== 'live') { this.stopListening(); return; }
-          const results = event.results;
-          const lastResult = results[results.length - 1];
-          if (lastResult.isFinal) {
-            const speechText = lastResult[0].transcript.trim();
-            if (speechText && activeMeeting) {
-              try {
-                // Browser speech recognition provides text, not acoustic identity evidence.
-                const ident = {label: 'Unknown Speaker', role: 'Unverified', confidenceLevel: 'weak'};
-                const finalSpeaker = ident.label;
-
-                const updated = await api('meetingAddTranscript', {
-                  meetingId: activeMeeting.id,
-                  speaker: finalSpeaker,
-                  role: ident.role || activeRole,
-                  text: speechText,
-                  confidenceLevel: ident.confidenceLevel
-                });
-                activeMeeting = updated;
-                this.renderFullView(container);
-                const feed = container.querySelector('#ops-transcript-feed');
-                if (feed) feed.scrollTop = feed.scrollHeight;
-              } catch (e) {
-                console.error('Failed to append speech entry:', e);
-              }
-            }
-          }
-        };
-
-        recognitionInstance.onerror = (err) => {
-          console.warn('Speech recognition error:', err.error);
-          if (err.error === 'not-allowed') toast('Microphone access denied.');
-          isListening = false;
-          this.renderFullView(container);
-        };
-
-        recognitionInstance.onend = () => {
-          isListening = false;
-          this.renderFullView(container);
-        };
-
-        recognitionInstance.start();
-      } catch (err) {
-        toast(`Microphone error: ${err.message}`);
-        isListening = false;
-      }
+    toggleSpeechRecognition() {
+      this.stopListening();toast('Use Meetings → Record meeting for offline recording and transcription.');
     },
 
     // -------------------------------------------------------------

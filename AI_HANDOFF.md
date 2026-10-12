@@ -1,3 +1,7 @@
+# In-progress assistant-first redesign
+
+Read [the October 11 checkpoint](docs/ASSISTANT_FIRST_PROGRESS_2026-10-08.md) before continuing. It includes both apps, dark mode, offline meetings, explicit messaging approval, report schedules, tests and remaining acceptance. The owner revoked the old 1% stop rule. Older installer evidence does not cover this source.
+
 # Shared AI development handoff
 
 ## Audit follow-up — 2026-10-07
@@ -34,7 +38,7 @@ Android full credentials/records require real device authentication and Keystore
 
 Later desktop head `2354815` run `37359845980` ended before any steps: GitHub annotations report that no hosted runner was acquired after multiple attempts. It is not an executed test failure/pass; inspect the final published head separately. Android handoff and actual final local results are in its own repository. Preserved source exports are transfer snapshots; GitHub remains authoritative.
 
-The earlier validated installer/package below belongs to its exact earlier code checkpoint. It does not contain this source update. Preserve recovery/models outside Git and keep the existing release/privacy/resource gates. If allowance reaches 1% remaining, save/stop; use the latest explicit resume instruction in the chat. The prior one-time 3:35 AM wakeup was superseded and paused after the user resumed manually.
+The earlier validated installer/package below belongs to its exact earlier code checkpoint. It does not contain this source update. Preserve recovery/models outside Git and keep the existing release/privacy/resource gates. The former 1% stop rule was subsequently revoked by the owner. The prior one-time 3:35 AM wakeup was superseded and paused after the user resumed manually.
 
 ## Historical Windows validation — 2026-10-02
 

@@ -94,7 +94,7 @@ test('WhatsApp selected sender captures notes and tracks reminders without read-
  const m={id:'synthetic-message',sender:'12345678@c.us',time:Date.now()},tgt={...bridge.settings(),...target,generation:bridge.generation};
  const reply=await bridge.captureCommand(adapter,tgt,m,'/remind 2026-01-01T09:00:00Z Call the pharmacy.');assert.match(reply,/Saved note/);assert.equal(core.store.count('todo'),1);
  await bridge.captureCommand(adapter,tgt,m,'/remind 2026-01-01T09:00:00Z Call the pharmacy.');assert.equal(core.store.count('todo'),1);
- await bridge.reminders(adapter);assert.equal(messages.length,1);await bridge.reminders(adapter);assert.equal(messages.length,1);
+ await bridge.reminders(adapter);assert.equal(messages.length,0);await bridge.reminders(adapter);assert.equal(bridge.outbox().length,1);bridge.adapters.web=adapter;await bridge.approve(bridge.outbox()[0].id);assert.equal(messages.length,1);await bridge.reminders(adapter);assert.equal(messages.length,1);
  assert.equal(core.store.list('capture_delivery')[0].status,'sent');
  bridge.save({disableAllWriting:true});assert.equal(await bridge.captureCommand(adapter,tgt,m,'Hello'),null);await assert.rejects(bridge.captureCommand(adapter,tgt,{...m,id:'another'},'/note New note'),{code:'POLICY'});
 });

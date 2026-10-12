@@ -156,6 +156,9 @@ async function dispatch(op, data = {}) {
   if (typeof op !== "string" || !data || typeof data !== "object" || Array.isArray(data)) throw fail("INVALID");
   devPolicy.assertOperation(op, data);
   core.assertUnlocked();
+  if (["messagingOutbox","messagingApprove"].includes(op))throw fail("POLICY");
+  if (op === "assistantDraftRetry") throw fail("POLICY");
+  if (op.startsWith("speech")) throw fail("POLICY"); // Local audio is desktop-only.
   if (op.startsWith("voiceTranscript")) return require("./source/voice-history.cjs").dispatch(core,op,data);
   if (op.startsWith("snf")) return require("./source/snf/index.cjs").dispatch(core,op,data);
   if (op.startsWith("workflow")) return require("./source/workflows/index.cjs").dispatch(core,op,data);
@@ -290,6 +293,8 @@ async function dispatch(op, data = {}) {
       };
     case "messagingSave":
       return messaging.save(data);
+    case "browserGrant":
+    case "browserSchedule": throw fail("POLICY");
     case "browserRecipes":
       return core.store.list("browserRecipe");
     case "browserSave": {

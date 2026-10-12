@@ -56,7 +56,7 @@ test('voice reports unavailable recognition without capturing microphone input',
  let captures=0;global.window={addEventListener(){}};
  Object.defineProperty(global,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:async()=>{captures++;throw Error('Must not capture');}}}});
  const v=new VoiceManager({getState:()=>({settings:{hipaa:false,processingMode:'local-first'}})});
- try{await v.startAudioVisualizer({});v.startListening();assert.equal(captures,0);assert.equal(v.state,LiveVoiceState.ERROR);assert.equal(v.listeningRequested,false);}
+ try{await v.startAudioVisualizer({});v.startListening();await new Promise(r=>setImmediate(r));assert.equal(captures,0);assert.equal(v.state,LiveVoiceState.ERROR);assert.equal(v.listeningRequested,false);}
  finally{v.endSession();global.window=previous;if(descriptor)Object.defineProperty(global,'navigator',descriptor);else delete global.navigator;}
 });
 
@@ -91,27 +91,34 @@ test('voice stop, privacy revocation, late callbacks and unavailable policy fail
  let state={settings:{hipaa:false,processingMode:'local-first'}},chat=null,open=true;
  global.window={addEventListener(){},SpeechRecognition:class {start(){starts++;}stop(){}abort(){aborts++;this.onend?.();}}};
  const v=new VoiceManager({getState:()=>state,getChat:()=>chat,canCapture:()=>open,onTranscript:()=>transcripts++});
+ v.recognition.start=()=>starts++;v.recognition.stop=()=>{};v.recognition.abort=()=>{aborts++;};
  try {
   v.startListening();assert.equal(starts,1);v.recognition.onend();assert.equal(starts,2);
   v.stopListening();v.recognition.onend();assert.equal(starts,2);assert.ok(aborts);
-  for(const policy of [null,{}, {settings:{hipaa:true,processingMode:'local-first'}},{settings:{hipaa:false,processingMode:'local-only'}}]){
+  for(const policy of [null,{}, {settings:{}}]){
    state={settings:{hipaa:false,processingMode:'local-first'}};v.startListening();const count=starts;state=policy;
    v.recognition.onend();v.startListening();assert.equal(starts,count);assert.equal(v.listeningRequested,false);
   }
-  state={settings:{hipaa:false,processingMode:'local-first'}};v.startListening();chat={hipaa:true};v.enforcePolicy();assert.equal(v.listeningRequested,false);
+  state={settings:{hipaa:false,processingMode:'local-first'}};v.startListening();chat={hipaa:true};v.enforcePolicy();assert.equal(v.listeningRequested,true,'Local recognition remains permitted in HIPAA');open=false;v.enforcePolicy();assert.equal(v.listeningRequested,false);open=true;
   chat=null;v.startListening();const count=starts;v.resumeListeningAfterResponse();open=false;v.endSession();
   const texts=transcripts;v.recognition.onresult({results:[],resultIndex:0});assert.equal(transcripts,texts);
   await new Promise(r=>setTimeout(r,400));assert.equal(starts,count);
  }finally{v.endSession();global.window=previous;}
 });
 
-test('late microphone permission after close or policy revocation releases every track',async()=>{
- const {VoiceManager}=await import('../source/ui/voice.mjs');const previous=global.window,descriptor=Object.getOwnPropertyDescriptor(global,'navigator');
- let resolve,stopped=0;const stream={getTracks:()=>[{stop:()=>stopped++}]};
- global.window={addEventListener(){},SpeechRecognition:class{start(){}stop(){}abort(){}}};Object.defineProperty(global,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:()=>new Promise(r=>{resolve=r;})}}});
- let state={settings:{hipaa:false,processingMode:'local-first'}};const v=new VoiceManager({getState:()=>state});
+test('late microphone permission after close, push-to-talk stop or policy revocation releases every track',async()=>{
+ const {LocalRecognition}=await import('../source/ui/local-recognition.mjs');const previous=global.window,descriptor=Object.getOwnPropertyDescriptor(global,'navigator');
+ let grant,stopped=0,allowed=true;
+ global.window={AudioContext:class {constructor(){throw Error('Must not create context after cancellation');}}};
+ Object.defineProperty(global,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:()=>new Promise(r=>grant=r)}}});
  try{
-  const pending=v.startAudioVisualizer({});v.endSession();resolve(stream);await pending;assert.equal(stopped,1);assert.equal(v.mediaStream,null);
-  const second=v.startAudioVisualizer({});state=null;resolve(stream);await second;assert.equal(stopped,2);assert.equal(v.mediaStream,null);
- }finally{v.endSession();global.window=previous;if(descriptor)Object.defineProperty(global,'navigator',descriptor);else delete global.navigator;}
+  for(const mode of ['abort','stop','policy']){
+   allowed=true;const rec=new LocalRecognition({api:async()=>({ready:true}),allowed:()=>allowed});
+   const pending=rec.start();await new Promise(r=>setImmediate(r));
+   if(mode==='stop')await rec.stop();else{if(mode==='policy')allowed=false;rec.abort();}
+   grant({getTracks:()=>[{stop:()=>stopped++}]});await pending;
+   assert.equal(rec.running,false);
+  }
+  assert.equal(stopped,3);
+ }finally{global.window=previous;if(descriptor)Object.defineProperty(global,'navigator',descriptor);else delete global.navigator;}
 });

@@ -14,6 +14,7 @@ const { NON_SPEECH_PATTERNS, AudioQualityAssessor, SpeakerRecognitionService } =
 
 // Standard SNF Meeting Template Agendas
 const MEETING_TEMPLATES = {
+  general: {name: "Meeting", type: "general", defaultAttendees: [], agenda: []},
   morning_huddle: {
     name: 'Morning Standup / Daily Huddle',
     type: 'morning_huddle',
@@ -393,7 +394,12 @@ class OperationsCopilotEngine {
   deleteMeeting(id) {
     this.core.assertUnlocked();
     if (!isId(id)) throw fail('INVALID');
-    this.store.delete('meeting', id);
+    this.store.transaction(()=>{
+      for(const kind of ['meeting_audio','meeting_upload','companion_meeting'])
+        for(const entry of this.store.summaries ? this.store.summaries(kind) : this.store.project(kind,r=>({id:r.id,meetingId:r.meetingId})))
+          if(entry.meetingId===id)this.store.delete(kind,entry.id);
+      this.store.delete('meeting',id);
+    });
     if (!this.core.snf?.demoMode) this.core.purgeBackups?.();
     return true;
   }
@@ -579,6 +585,7 @@ class OperationsCopilotEngine {
     const meeting = this.store.get('meeting', meetingId);
     if (!meeting) throw fail('NOT_FOUND');
 
+    if(this.store.project('meeting_audio',a=>a.meetingId===meetingId&&a.status!=='transcribed').some(Boolean))throw fail('SPEECH_PENDING');
     meeting.status = 'completed';
     meeting.completedAt = meeting.completedAt || Date.now();
 

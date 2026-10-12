@@ -23,7 +23,7 @@ const server=http.createServer((req,res)=>{
     await ui.render(document.getElementById('content'));
   });
   assert.equal(await page.locator('#content article.card').count(),bounded.captures.length);
-  await page.getByText('Showing a bounded set of recent notes; use Action Center for other follow-ups.',{exact:true}).waitFor();
+  await page.getByText('Showing a bounded set of recent notes; use Dashboard for other follow-ups.',{exact:true}).waitFor();
   await page.getByText('Evidence (optional; up to 5 MiB)',{exact:false}).waitFor();
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({checks:3,storedNotes:40,renderedNotes:bounded.captures.length,truncated:true,browser:await browser.version(),scope:'Real Core/SQLite + isolated synthetic Edge component; no packaged acceptance'}));

@@ -392,6 +392,7 @@ class WorkerManager {
       }
       this.reconcileStatuses();
       this.syncStatuses();
+      if(await c.browserReports?.tick())return;
       if (
         !s.workerEnabled ||
         s.workerPaused ||
@@ -401,7 +402,7 @@ class WorkerManager {
         return;
       const due = c.store
         .list("schedule")
-        .find((j) => j.enabled && j.next!==null && j.next <= Date.now());
+        .find((j) => !j.browserRecipeId && j.enabled && j.next!==null && j.next <= Date.now());
       if (due) {
         let fingerprint;
         if(due.frequency==='watch'){

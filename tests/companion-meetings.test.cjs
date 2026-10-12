@@ -1,0 +1,55 @@
+"use strict";
+const {test}=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const {fixture}=require('./helpers.cjs');
+const {CompanionGateway}=require('../source/companion-gateway.cjs');
+const {testCertificate,freePort,request}=require('./companion-fixture.cjs');
+const speech=require('../source/local-speech.cjs');
+test('phone meeting audio replays safely over authenticated HTTPS and finalization waits for complete audio',async t=>{
+  const {core,calls}=fixture(t);core.saveSettings({workerPaused:false});
+  const gateway=new CompanionGateway(core,{certificateFactory:testCertificate});t.after(()=>gateway.close());
+  await gateway.configure({enabled:true,host:'127.0.0.1',port:await freePort()});
+  const phone=gateway.pair({name:'Synthetic recording phone',scopes:{workflow:true}}),other=gateway.pair({name:'Other phone',scopes:{workflow:true}});
+  const sourceId=crypto.randomUUID(),body={sourceId,title:'Synthetic meeting'};
+  const create=await request(gateway,phone,'/meetings/create',body);assert.equal(create.status,200);const meetingId=create.body.id;
+  assert.deepEqual((await request(gateway,phone,'/meetings/create',body)).body,create.body);
+  assert.equal((await request(gateway,other,'/meetings/get',{sourceId})).status,404);
+  const {encodeWav}=await import('../source/ui/meeting-recorder.mjs');
+  const audio=Buffer.from(encodeWav(Float32Array.from({length:80000},(_,i)=>Math.sin(i/20)*.2)),'base64');
+  const chunkId=crypto.randomUUID(),hash=crypto.createHash('sha256').update(audio).digest('hex');
+  const packet=index=>({sourceId,chunkId,sha256:hash,bytes:audio.length,total:2,index,data:audio.subarray(index*81920,(index+1)*81920).toString('base64')});
+  assert.equal((await request(gateway,phone,'/meetings/audio',packet(0))).body.complete,false);
+  const premature=await request(gateway,phone,'/meetings/finish',{sourceId,expectedChunkCount:0});assert.equal(premature.body.error.code,'SPEECH_PENDING');
+  assert.equal((await request(gateway,phone,'/meetings/audio',packet(0))).body.complete,false);
+  const done=await request(gateway,phone,'/meetings/audio',packet(1));assert.equal(done.body.complete,true);assert.equal(done.body.sha256,hash);assert.equal(done.body.bytes,audio.length);
+  assert.equal(core.store.count('meeting_audio'),1);assert.equal(core.store.count('meeting_upload'),0);
+  assert.equal((await request(gateway,phone,'/meetings/finish',{sourceId,expectedChunkCount:1})).status,200);
+  assert.equal((await request(gateway,phone,'/meetings/audio',packet(0))).body.complete,true,'Lost receipt replay is valid even after finish');
+  assert.equal((await request(gateway,phone,'/meetings/finish',{sourceId,expectedChunkCount:0})).body.error.code,'CHANGED');
+  await speech.processPending(core);assert.equal(core.store.get('meeting',meetingId).status,'live','Missing local assets cannot create a fake transcript/summary');assert.equal(calls.length,0);
+  const a=core.store.summaries('meeting_audio')[0];assert.equal(a.audio,undefined);assert.equal(a.retryAt>Date.now(),true);
+  core.lock();assert.equal((await request(gateway,phone,'/meetings')).status,423);core.unlock();
+  const statusOnly=gateway.pair({name:'No workflow',scopes:{}});assert.equal((await request(gateway,statusOnly,'/meetings')).status,403);
+});
+test('audio summary backfill is additive and preserves encrypted audio bytes',async t=>{
+  const {core}=fixture(t),ops=require('../source/operations-copilot.cjs');
+  const m=ops.dispatch(core,'meetingSave',{type:'general'}),{encodeWav}=await import('../source/ui/meeting-recorder.mjs');
+  const saved=await speech.dispatch(core,'speechWrite',{meetingId:m.id,chunkId:crypto.randomUUID(),audio:encodeWav(new Float32Array(1600))});
+  const before=core.store.get('meeting_audio',saved.id);core.store.db.prepare("DELETE FROM record_meta WHERE kind='meeting_audio'").run();
+  assert.equal(core.store.summaries('meeting_audio').length,1);assert.deepEqual(core.store.get('meeting_audio',saved.id),before);
+});
+
+test('Demo rejects phone meeting mutations and parent deletion removes encrypted transfer records',async t=>{
+  const {core}=fixture(t), adapter=require('../source/companion-meetings.cjs'), ops=require('../source/operations-copilot.cjs');
+  const device={id:crypto.randomUUID(),scopes:{workflow:true}}, sourceId=crypto.randomUUID();
+  const created=await adapter.dispatch(core,device,'create',{sourceId});
+  core.store.put('meeting_upload','synthetic-upload',{id:'synthetic-upload',meetingId:created.id,parts:{}});
+  const workspaces=require('../source/snf/demo.cjs').forCore(core);
+  await workspaces.set({mode:'demo'});
+  await assert.rejects(adapter.dispatch(core,device,'finish',{sourceId,expectedChunkCount:0}),{code:'POLICY'});
+  await speech.processPending(core);
+  assert.equal(core.store.get('meeting',created.id).finishRequested,undefined);
+  await workspaces.set({mode:'production'});
+  ops.dispatch(core,'meetingDelete',{id:created.id});
+  assert.equal(core.store.count('companion_meeting'),0);
+  assert.equal(core.store.count('meeting_upload'),0);
+});

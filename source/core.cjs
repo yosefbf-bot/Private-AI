@@ -61,6 +61,7 @@ class Core {
     this.emit = emit;
     this.temporary = new Map();
     this.requests = new Map();
+    this.speechWorkTimer=setInterval(async()=>{try{await require("./local-speech.cjs").processPending(this);await require("./assistant-drafts.cjs").processPending(this);}catch{}},10000);this.speechWorkTimer.unref?.();
     this.locked = false;
     this.jobRunning = false;
     this.lastActivity = Date.now();
@@ -71,6 +72,7 @@ class Core {
     } else if (machine && identity.machine && identity.machine !== machine)
       throw fail("ENCRYPTION");
     this.worker = new WorkerManager(this);
+    require("./assistant-drafts.cjs").recover(this);
     for (const j of store.project("job",j=>({id:j.id,status:j.status})).filter((j) => ['running','waiting','paused'].includes(j.status)))
       store.put("job", j.id, {
         ...store.get("job",j.id),
@@ -371,49 +373,10 @@ class Core {
   }
   async createLiveSession(options = {}) {
     this.assertUnlocked();
-    const s = this.settings();
-    const provider = s.provider || (this.key("openai") ? "openai" : "local");
-    if (provider === "openai" && this.key("openai") && cloudAllowed(s)) {
-      try {
-        if (require('./workflows/budget.cjs').status(this).policy.enabled) throw fail('BUDGET');
-        const session = await this.client.createRealtimeSession(this.key("openai"), {
-          ...s,
-          turnDetection: options.turnDetection || "normal",
-          voice: options.voice || "verse"
-        });
-        return {
-          ok: true,
-          provider: "openai-realtime",
-          session,
-          config: {
-            turnDetection: options.turnDetection || "normal",
-            liveTranslation: options.liveTranslation || false,
-            targetLanguage: options.targetLanguage || "Spanish"
-          }
-        };
-      } catch (err) {
-        return {
-          ok: true,
-          provider: "local-full-duplex",
-          fallbackReason: err.message,
-          config: {
-            turnDetection: options.turnDetection || "normal",
-            liveTranslation: options.liveTranslation || false,
-            targetLanguage: options.targetLanguage || "Spanish"
-          }
-        };
-      }
-    }
-    return {
-      ok: true,
-      provider: "local-full-duplex",
-      config: {
-        turnDetection: options.turnDetection || "normal",
-        liveTranslation: options.liveTranslation || false,
-        targetLanguage: options.targetLanguage || "Spanish"
-      }
-    };
+    const speech=await require('./local-speech.cjs').dispatch(this,'speechStatus');
+    return {ok:true,provider:'local-offline',ready:speech.ready,config:{turnDetection:options.turnDetection||'normal'}};
   }
+
   createChat({ temporary = false, project = null } = {}) {
     this.assertUnlocked();
     if (project) {
@@ -1207,6 +1170,7 @@ class Core {
   }
   saveSchedule(input) {
     this.assertUnlocked();
+    if(input.browserRecipeId){if(!this.browserReports)throw fail("LOCAL_UNAVAILABLE");return this.browserReports.save(input);}
     this.jobPayload({ ...input, title: input.name });
     const schedule=require('./schedules.cjs').normalize(input);
     if(schedule.frequency==='watch')require('./schedules.cjs').watchFingerprint(schedule,this.settings().workspace);
@@ -1295,6 +1259,7 @@ class Core {
     return true;
   }
   close() {
+    clearInterval(this.speechWorkTimer);
     this.integrations.close();
     this.router.local?.close();
     for (const controller of this.requests.values()) controller.abort();

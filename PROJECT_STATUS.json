@@ -1,4 +1,38 @@
 {
+  "assistantFirstRedesign": {
+    "status": "source-validated-packaging-pending",
+    "report": "docs/ASSISTANT_FIRST_PROGRESS_2026-10-08.md",
+    "base": "40566c94acd38577fc03f0456d647f9619ebcb64",
+    "browserChecksPassed": {
+      "general": 33,
+      "assistantAndTheme": 20,
+      "edgeReports": true,
+      "messaging": true,
+      "hardening": true
+    },
+    "actualLocalSpeechInferenceExecuted": true,
+    "installerBuiltForThisSource": false,
+    "fullSuite": {
+      "passed": 524,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hardening": 25,
+    "syntaxFiles": 199,
+    "repositoryTrackedFiles": 327,
+    "productionAdvisories": 0,
+    "android": {
+      "testsPassed": 50,
+      "failed": 0,
+      "skipped": 0,
+      "lintErrors": 0,
+      "lintWarnings": 73,
+      "debugBuild": true,
+      "realHTTPSInterop": true,
+      "physicalPhone": false
+    },
+    "remaining": "Fresh exact-binary Windows acceptance; exact-head CI; physical-phone/account/PCC/speaker acceptance. See report."
+  },
   "auditFollowup20261007": {
     "baseCommit": "1527da64ba667ee862e2e71221f51063e4c06fa1",
     "report": "docs/AUDIT_FOLLOWUP_2026-10-07.md",
@@ -567,7 +601,7 @@
     ],
     "note": "Historical 10/1 source integration before the actual 10/2 Windows candidate validation; PR #11 subsequently merged into main."
   },
-  "releaseStatusReason": "Unsigned 3.0.1-dev candidate46a385d2 passed current exact-binary Windows evidence gates. Three moderate dependency findings and remaining human, representative-data/live-account, signing/updater acceptance prevent production readiness.",
+  "releaseStatusReason": "Assistant-first redesign source checks pass; fresh exact-binary installer/portable acceptance is still pending. Historical binary checkpoints do not validate this source.",
   "binaryCheckpoint": {
     "version": "3.0.1-dev",
     "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
