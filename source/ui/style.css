@@ -514,7 +514,7 @@ main {
 }
 .section p {
   line-height: 1.65;
-  color: #61718b;
+  color: var(--theme-text-muted, #61718b);
   font-size: 12px;
 }
 .fields {
@@ -1291,7 +1291,7 @@ summary {
   border: 1px solid var(--theme-border, #cbd5e1);
 }
 .provider-badge.warning {
-  background: #fefce8;
+  background: var(--theme-warning-bg, #fefce8);
   color: var(--theme-warning, #854d0e);
   border: 1px solid #fef08a;
 }

@@ -4,6 +4,7 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
 const {chromium}=require('playwright'),{fixture}=require('./helpers.cjs');
 const cleanup=[],{core}=fixture({after:f=>cleanup.push(f)}),root=path.resolve(__dirname,'..');
 let browser;const errors=[],calls=[];
+core.deleteKey('openai'); // Exercise keyless setup, including its warning in dark mode.
 async function dispatch(op,data={}){
   calls.push(op);
   for(const [prefix,module] of [['workflow','workflows/index'],['capture','capture-workflows'],['meeting','operations-copilot'],['speaker','operations-copilot'],['snf','snf/index'],['speech','local-speech']])if(op.startsWith(prefix))return require('../source/'+module+'.cjs').dispatch(core,op,data);
@@ -62,10 +63,21 @@ const server=http.createServer((req,res)=>{
   await page.locator('#sidebar [data-view=meetings]').click();await page.getByRole('heading',{name:'Meetings',exact:true}).waitFor();
   await page.screenshot({path:path.join(out,'meetings-dark.png'),fullPage:true});
   await page.locator('#sidebar [data-view=settings]').click();assert.equal(await page.locator('[name=appearance]').inputValue(),'dark');
+  const contrast=await page.evaluate(()=>{
+    const luminance=color=>{const c=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;});return c[0]*0.2126+c[1]*0.7152+c[2]*0.0722;};
+    return ['.provider-badge.warning','.section p'].map(selector=>{
+      const el=document.querySelector(selector);if(!el)throw Error('Missing contrast target '+selector);
+      let bg=el;while(getComputedStyle(bg).backgroundColor==='rgba(0, 0, 0, 0)'&&bg.parentElement)bg=bg.parentElement;
+      const a=luminance(getComputedStyle(el).color),b=luminance(getComputedStyle(bg).backgroundColor);
+      return {selector,ratio:(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05)};
+    });
+  });
+  for(const item of contrast)assert.ok(item.ratio>=4.5,`${item.selector} needs readable dark-mode text: ${item.ratio}`);
+  await page.screenshot({path:path.join(out,'settings-dark.png'),fullPage:true});
   await page.locator('[name=appearance]').selectOption('system');await page.emulateMedia({colorScheme:'light'});
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
   await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
   await page.locator('[name=appearance]').selectOption('light');await page.reload();
   assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({checks:20,scope:'Synthetic Core/SQLite + Edge: chat default, navigation, note, dashboard, meeting, follow-up, library, automation',browser:await browser.version()}));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({checks:22,scope:'Synthetic Core/SQLite + Edge: chat default, navigation, note, dashboard, meeting, follow-up, library, automation, dark settings contrast',browser:await browser.version()}));
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();for(const fn of cleanup)fn();});

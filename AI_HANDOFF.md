@@ -1,3 +1,7 @@
+## October 12 final acceptance in progress
+
+The owner explicitly authorized merging both reviewed main branches and deleting superseded branches after completion. Preserve unique branch work first. Final Windows validation is correcting a reproduced PowerShell 5.1 redirected-process null ExitCode issue by retaining the process handle; actual zero exit remains required. Dark Settings contrast is corrected and its real-browser regression passes. Android CI compiled and ran four device tests, but two UI tests failed before finding a Compose hierarchy; investigation remains open. GitHub artifact storage is full. Do not mark final acceptance complete until the new exact-binary evidence and CI have passed.
+
 # In-progress assistant-first redesign
 
 Read [the October 11 checkpoint](docs/ASSISTANT_FIRST_PROGRESS_2026-10-08.md) before continuing. It includes both apps, dark mode, offline meetings, explicit messaging approval, report schedules, tests and remaining acceptance. The owner revoked the old 1% stop rule. Older installer evidence does not cover this source.
