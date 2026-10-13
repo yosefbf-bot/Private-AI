@@ -660,7 +660,7 @@
     ],
     "note": "Historical 10/1 source integration before the actual 10/2 Windows candidate validation; PR #11 subsequently merged into main."
   },
-  "releaseStatusReason": "Assistant-first redesign source checks pass; fresh exact-binary installer/portable acceptance is still pending. Historical binary checkpoints do not validate this source.",
+  "releaseStatusReason": "3.0.2-dev repair passed genuine Windows upgrade, installed startup and Automatic Small inference, portable execution and unchanged release gate at frozen code 2cf3f39; source regression suite 535 passed. PR #16 awaits owner merge. Historical checkpoints retain their original scope; live integrations and physical-phone limitations are not newly qualified.",
   "binaryCheckpoint": {
     "version": "3.0.1-dev",
     "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
@@ -742,18 +742,50 @@
     },
     "windowsCandidateAcceptance": {
       "installerBuilt": true,
-      "windowsInstallerExecuted": false,
+      "windowsInstallerExecuted": true,
       "windowsApplicationExecuted": true,
       "packagedStartupPassed": true,
-      "actualPackagedModelInferenceExecuted": false,
-      "finalModelAttemptNotYetRun": true,
+      "actualPackagedModelInferenceExecuted": true,
+      "finalModelAttemptNotYetRun": false,
       "applicationChecks": 14,
       "diagnostics": 12,
       "views": 19,
       "stageFiles": 590,
       "peBinaries": 415,
-      "releaseEvidenceGatePassed": false,
-      "installedAppUpdated": false
+      "releaseEvidenceGatePassed": true,
+      "installedAppUpdated": true,
+      "installedStartupChecks": 14,
+      "installedInferenceChecks": 17,
+      "installerExitCode": 0,
+      "existingDataByteIdentical": true,
+      "existingDataFilesVerified": 25,
+      "privateLocalRecoveryVerified": true,
+      "inference": {
+        "provider": "local",
+        "selectedTier": "small",
+        "configuredContext": 4096,
+        "effectiveContext": 2048,
+        "admissionCapBytes": 3221225472,
+        "actualMemoryGuardRetained": true,
+        "apiKeyPresent": false,
+        "cloudCalls": 0,
+        "input": "isolated synthetic unknown medication feed",
+        "missingInformationRemainedUnknown": true
+      },
+      "portable": {
+        "version": "3.0.2-dev",
+        "codeCommit": "2cf3f397fd2128060c82d95c28ed6d1b616687fc",
+        "passed": true,
+        "filesVerified": 590,
+        "zipCRCVerified": true,
+        "sha256": "30f4c0361b188ce73c639cd0ea66a7a776021e7f062b90a53c9b95aaf58a7cf0",
+        "bytes": 291786338,
+        "portableApplicationExecuted": true,
+        "initialExtractionAttempt": "Retained Windows long-path failure in the deep validation directory; fresh short-path extraction passed",
+        "applicationChecksPassed": 14,
+        "builtInChecksPassed": 12,
+        "navigationViewsPassed": 19
+      }
     },
     "androidSourceChanged": false,
     "actualSourceSmallInferenceExecuted": true,
@@ -777,6 +809,7 @@
       "productionAppUpdated": false,
       "releaseEvidenceGatePassed": false
     },
-    "sourceInferenceCheckpoint": "2cf3f397fd2128060c82d95c28ed6d1b616687fc"
+    "sourceInferenceCheckpoint": "2cf3f397fd2128060c82d95c28ed6d1b616687fc",
+    "status": "final-windows-upgrade-installed-small-inference-portable-and-release-gate-passed"
   }
 }

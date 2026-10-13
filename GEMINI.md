@@ -8,14 +8,18 @@ All 535 Windows source tests passed after aligning background RAM recovery with
 the complete-request context, reserve and learned peak. Earlier 25 hardening and 25 Core/Edge UI checks passed;
 production audit is zero. Source real Small inference passed twice. Frozen Windows
 interim code 4f118fe built and passed actual packaged startup, 14 checks, 12 diagnostics
-and 19 views. Packaged model loading was blocked by actual LOW_MEMORY. Installer
-execution/upgrade and packaged Automatic inference await owner app exit and RAM.
+and 19 views. Its failed LOW_MEMORY model receipt remains historical.
 Final frozen code 2cf3f39 built and passed actual packaged 14 checks/12 diagnostics/
 19 views. Source real background recovery and foreground inference passed at an
 actual bounded 2.5→3 GiB admission ceiling. Preserve interim receipts.
-The new release evidence gate has not passed. Do not label
-the older preview as containing this fix. Preserve installed data and models;
-the owner merges the separate review branch.
+Final genuine installer upgrade passed exit 0 and exact installed hashes; all 25
+existing owner data files stayed byte-identical, with a private verified recovery
+outside Git. Installed startup passed 14/12/19. Actual installed Automatic Small
+inference passed at a 3 GiB admission ceiling with effective 2,048/saved 4,096
+tokens and no cloud calls. The unchanged release evidence gate passed. Portable
+roundtrip/590 hashes/CRC and actual extracted startup passed. This does not
+qualify a different 3 GiB physical PC. The older preview lacks this fix; the owner
+merges PR #16. Android/protocol and production data were preserved.
 
 ## October 12 completed Windows and Android validation checkpoint
 

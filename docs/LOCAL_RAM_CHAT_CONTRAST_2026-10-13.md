@@ -16,9 +16,37 @@ packaged startup passed 14 checks, 12 diagnostics and 19 views. Real source
 background recovery/inference and a second foreground request passed with a
 2.5→3 GiB admission ceiling, always bounded by actual available memory. Saved
 4,096-token context remained intact; actual inference used 2,048 tokens.
-Installer execution/upgrade and final packaged inference are still pending owner
-app exit and memory headroom. See [the final-source receipt](local-ram-chat-contrast-final-2026-10-13.json).
-Interim Windows receipts below remain tied to 4f118fe and do not establish final-binary acceptance.
+The genuine final installer upgrade and actual installed Automatic Small inference
+now passed, together with the unchanged release evidence gate. See [the final
+acceptance receipt](local-ram-chat-contrast-final-2026-10-13.json). Interim Windows
+receipts below remain tied to 4f118fe and do not establish final-binary acceptance.
+
+## Final Windows acceptance (2cf3f39)
+
+- Actual silent upgrade from installed 3.0.1-dev to 3.0.2-dev exited 0. Installed
+  EXE/ASAR hashes match the frozen candidate and registration reports 3.0.2-dev.
+- A verified private recovery copy was retained outside Git. All 25 current
+  owner data files remained byte-identical during the upgrade; no production
+  data was opened as test input. Model downloads were retained separately.
+- Newly installed startup passed 14 acceptance checks, 12 built-in diagnostics
+  and 19 navigation views. Actual installed renderer IPC/Core/router inference
+  passed 17 acceptance checks with the verified Small GGUF, no API key and PCC
+  off. A 3 GiB admission ceiling was always bounded further by actual free RAM.
+  Automatic loaded Small at 2,048 tokens and retained saved 4,096 tokens. The
+  synthetic unavailable medication feed correctly remained **unknown**. Larger
+  tiers were skipped when memory did not fit; the Small draft was clearly labeled.
+- The unchanged `build/release-evidence-gate.cjs` passed against genuine installer,
+  application and inference receipts, exact frozen hashes and all 535 tests.
+- The final portable ZIP passed CRC and all 590 file hashes. A fresh short-path
+  extraction executed and passed 14/12/19 startup checks. Initial deep-path
+  Windows extraction failure was retained; use a short folder such as
+  `C:\PrivateAI`. DPAPI data still belongs to its original Windows user account.
+
+This validates the reported memory-admission condition on the actual host, not a
+different physical PC with 3 GiB total RAM. Older accepted 3.0.1 previews remain
+historical. Android source/APK/protocol did not change. No new live account send,
+physical-phone, Medium/High inference, uninstall/reinstall or reboot test is
+claimed for this repair; their older applicable evidence remains separate.
 
 ## Reported problems and changes
 

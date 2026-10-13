@@ -11,11 +11,16 @@ interim code 4f118fe built and its packaged startup/14 checks/12 diagnostics/19 
 That package is superseded by final frozen code 2cf3f39: its installer built and
 packaged 14 checks/12 diagnostics/19 views passed. Source real background recovery
 and foreground inference passed at actual bounded 2.5→3 GiB admission. Preserve
-interim receipts; installer upgrade and final packaged inference remain pending.
-Packaged model loading was blocked by actual low RAM; installer/upgrade execution
-and final packaged Automatic inference are pending owner app exit/memory recovery.
-Keep the older accepted 3.0.1 preview separate and preserve current user data.
-The owner merges main; do not transfer old binary execution flags to this source.
+interim failed/low-memory receipts. The genuine 3.0.2 installer upgrade now passed
+with exit 0, exact installed EXE/ASAR hashes and all 25 existing owner data files
+byte-identical. A private verified local recovery copy was retained outside Git.
+Installed startup passed 14 checks/12 diagnostics/19 views. Actual installed
+Automatic Small inference passed through renderer IPC/Core at a 3 GiB admission
+ceiling, using 2,048 tokens while retaining the saved 4,096-token setting; no cloud
+key/call or production test input. The unchanged release evidence gate passed.
+Portable extraction, all 590 files/CRC and actual portable startup also passed.
+This is constrained admission on the actual host, not qualification of a 3 GiB PC.
+Keep the older 3.0.1 preview separate. The owner merges PR #16 into main.
 
 ## October 12 final hosted validation result
 
