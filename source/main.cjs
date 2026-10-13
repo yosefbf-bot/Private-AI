@@ -417,7 +417,7 @@ async function dispatch(
       if(s.localTier==='auto')row=catalog.find(t=>t.installed&&TIERS.findIndex(x=>x.tier===t.tier)<=cap);
       else if(s.localTier!=='selected'){row=catalog.find(t=>t.tier===s.localTier&&t.installed);if(!row)throw fail('LOCAL_FILE_MISSING');}
       const selected=row?{...s,localModelPath:row.file}:s;
-      await core.resources.task('foreground',()=>core.resources.withAI(async()=>{if(row)await modelManager.verifyTier(row.tier,s);return core.router.local.load(selected).catch(e=>{if(/^LOCAL_ENGINE/.test(e.code||''))core.stability.modelFailure();throw e;});},{localSettings:selected}));return core.router.local.status();
+      await core.resources.task('foreground',()=>core.resources.withAI(async effective=>{if(row)await modelManager.verifyTier(row.tier,s);return core.router.local.load(effective).catch(e=>{if(/^LOCAL_ENGINE/.test(e.code||''))core.stability.modelFailure();throw e;});},{localSettings:selected,allowContextReduction:s.localTier==='auto'}));return core.router.local.status();
     }
     case "chooseLocalModel": {
       if(data.tier!==undefined&&!TIERS.some(t=>t.tier===data.tier))throw fail('INVALID');

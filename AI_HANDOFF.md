@@ -1,3 +1,14 @@
+## October 13 local RAM and assistant response contrast
+
+Read [the current repair checkpoint](docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md).
+Based on fetched main dbdf470, review branch chatgpt/local-ram-and-chat-contrast-2026-10-13
+adds Automatic context fitting without changing saved settings or reserves and
+corrects light/dark reply contrast. Desktop version is 3.0.2-dev; Android is unchanged.
+All 532 source tests, 25 explicit hardening and 25 real Core/Edge UI checks passed;
+production audit is zero. New exact-binary Windows acceptance is still pending.
+Keep the older accepted 3.0.1 preview separate and preserve current user data.
+The owner merges main; do not transfer old binary execution flags to this source.
+
 ## October 12 final hosted validation result
 
 Read [the completed validation checkpoint](docs/FINAL_VALIDATION_2026-10-12.md)

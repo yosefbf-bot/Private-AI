@@ -1,5 +1,5 @@
 {
-  "version": "3.0.1-dev",
+  "version": "3.0.2-dev",
   "title": "Private AI user guide",
   "topics": [
     {
@@ -153,6 +153,7 @@
       "steps": [
         "In AI Processing, choose Automatic for the local tier and choose the highest allowed automatic tier. Save processing settings.",
         "With Small installed, the app uses it for a short assessment and may switch to an available larger tier. It checks available RAM and stops the previous engine before loading another.",
+        "When the configured context does not fit available RAM, Automatic may use 2048 context tokens if all supplied input and instructions fit. The saved context setting, RAM reserve and observed memory protection stay intact; a response footnote discloses the adjustment.",
         "When a larger tier is unavailable, capped or cannot fit, the answer may remain a smaller-model draft with a visible footnote.",
         "Health & recovery → Keep loaded brain for follow-ups controls optional reuse. Zero keeps the default Small-first behavior."
       ],

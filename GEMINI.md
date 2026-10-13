@@ -1,3 +1,14 @@
+## October 13 Small-model RAM and response contrast repair
+
+Read [the current repair checkpoint](docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md).
+Desktop 3.0.2-dev review source adds Automatic 2,048-token context fitting when
+the full request fits, preserving saved settings, reserve and learned memory
+guards. Assistant panels/text now follow light/dark themes. Android is unchanged.
+All 532 Windows source tests, 25 hardening and 25 Core/Edge UI checks passed;
+production audit is zero. New Windows binary acceptance is pending. Do not label
+the older preview as containing this fix. Preserve installed data and models;
+the owner merges the separate review branch.
+
 ## October 12 completed Windows and Android validation checkpoint
 
 Read [the final checkpoint](docs/FINAL_VALIDATION_2026-10-12.md) and

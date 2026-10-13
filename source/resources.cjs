@@ -53,7 +53,7 @@ class Resources {
    this.state(task,state,reason);await this.sleep(500);
   }
  }
- async withAI(fn,{localSettings,waitForMemory=true}={}){
+ async withAI(fn,{localSettings,waitForMemory=true,allowContextReduction=false,contextFits=()=>true}={}){
   const task=this.current()||{id:++this.sequence,kind:'foreground'};
   for(;;){
    await this.checkpoint();
@@ -61,13 +61,31 @@ class Resources {
    this.state(task,'waiting',this.browser?'Close the active browser session before AI reasoning.':'Waiting for the active AI call to finish safely.');this.cancel(task);await this.sleep(500);
   }
   try{
-   if(localSettings){const local=this.core.router.local;if(local?.state!=='ready'||local.signature!==[localSettings.localModelPath,localSettings.localContext,localSettings.resourceMode].join('|')){
+   if(localSettings){const local=this.core.router.local;
+    const signature=s=>[s.localModelPath,s.localContext,s.resourceMode].join('|');
+    const fitsContext=s=>s.localContext>s.localMaxOutput+256&&contextFits(s);
+    // Reuse a compatible smaller-context engine without counting resident weights
+    // as another cold allocation. The full request must still fit its context.
+    const active=local?.activeSettings;
+    if(allowContextReduction&&local.state==='ready'&&active&&active.localModelPath===localSettings.localModelPath&&active.resourceMode===localSettings.resourceMode&&active.localContext>=2048&&active.localContext<localSettings.localContext){
+     const candidate={...localSettings,localContext:active.localContext};
+     if(fitsContext(candidate))localSettings=candidate;
+    }
+    if(local?.state!=='ready'||local.signature!==signature(localSettings)){
     if(local.child)await this.releaseModel();
-    const size=local.validate(localSettings);const reserve=(this.core.settings().ramReserveMB||1024)*1024**2;const minimum=Math.max(require('./local-brain.cjs').requiredMemory(size,localSettings.localContext)+Math.max(0,reserve-GIB),(this.core.stability?.minimumFor(localSettings)||0)+reserve);
+    const reserve=(this.core.settings().ramReserveMB||1024)*1024**2;
+    const memoryNeeded=s=>Math.max(require('./local-brain.cjs').requiredMemory(local.validate(s),s.localContext)+Math.max(0,reserve-GIB),(this.core.stability?.minimumFor(s)||0)+reserve);
+    let minimum=memoryNeeded(localSettings);
+    // Automatic mode may use a smaller KV/context allocation, never less working
+    // headroom, a lower learned peak, or a truncated request. Saved settings stay intact.
+    if(allowContextReduction&&this.memory()<minimum&&localSettings.localContext>2048){
+     const candidate={...localSettings,localContext:2048};
+     if(fitsContext(candidate)){localSettings=candidate;minimum=memoryNeeded(candidate);}
+    }
     // Do not hold the AI lane while a paused background task waits for RAM/chat.
-    if(this.memory()<minimum){if(!waitForMemory)throw fail('LOW_MEMORY');this.ai=null;await this.checkpoint(minimum);return this.withAI(fn,{localSettings,waitForMemory});}
+    if(this.memory()<minimum){if(!waitForMemory)throw fail('LOW_MEMORY');this.ai=null;await this.checkpoint(minimum);return this.withAI(fn,{localSettings,waitForMemory,allowContextReduction,contextFits});}
    }}
-   this.state(task,'running','');return await fn();
+   this.state(task,'running','');return localSettings?await fn(localSettings):await fn();
   }finally{if(this.ai===task)this.ai=null;}
  }
  async preflight(kind,target,body){

@@ -708,5 +708,39 @@
       "notRerunForCurrentArchive": true
     },
     "conditionalOnResources": true
+  },
+  "localRAMChatContrast20261013": {
+    "baseCommit": "dbdf4709fcae67e1b5355e1f99d39ab06ff54a22",
+    "branch": "chatgpt/local-ram-and-chat-contrast-2026-10-13",
+    "version": "3.0.2-dev",
+    "report": "docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md",
+    "sourceTests": {
+      "passed": 532,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    "hardening": {
+      "passed": 25,
+      "restrictedAttempt": {
+        "passed": 23,
+        "failed": 2,
+        "reason": "Windows sandbox folder and junction restrictions; unchanged unsandboxed rerun passed"
+      }
+    },
+    "syntaxFiles": 199,
+    "uiChecks": 25,
+    "productionAdvisories": 0,
+    "cleanLockedInstall": {
+      "passed": true,
+      "lifecycleScripts": false
+    },
+    "nativeInputs": {
+      "verifiedManifestFiles": 411,
+      "binariesValidated": 406,
+      "buildSourcesUnchanged": true
+    },
+    "windowsCandidateAcceptance": "pending",
+    "androidSourceChanged": false
   }
 }

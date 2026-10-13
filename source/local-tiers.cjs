@@ -6,6 +6,7 @@ const {userText,references}=require('./deterministic.cjs');
 const ORDER=['small','medium','high','extra'];
 const ANSWER_SCHEMA='Return only JSON with answer (string), evidence (array of exact source quotations), uncertainties (array of strings). Do not invent evidence.';
 const ASSESS_SCHEMA=ANSWER_SCHEMA+' Also include required_tier: small, medium, high, or extra. Choose the smallest sufficient model: small for simple answers, medium for drafting, high for comparisons or multistep analysis, extra for difficult synthesis. Do not provide reasoning steps.';
+const CONTEXT_NOTICE='Used a smaller local context to fit available RAM; all supplied message input was retained.';
 function parse(value){try{return JSON.parse(value.replace(/^```(?:json)?\s*|\s*```$/g,''));}catch{return null;}}
 function floorTier(prompt,messages){
  const bytes=Buffer.byteLength(JSON.stringify(messages));
@@ -24,11 +25,13 @@ async function generateTiers(router,s,messages,options,evaluate){
  let calls=0,tokens=0,smallResult=null,desired=floorTier(options.taskPrompt??userText(messages),messages);
  const fullOptions={...options,onDelta:undefined,instructions:(options.instructions||'')+'\n'+ANSWER_SCHEMA};
  const state=(phase,tier)=>{router.tierStatus={phase,tier};core.emit?.({type:'local-status'});};
- const finish=(r,tier)=>{router.warmTier={tier,time:Date.now()};route.selectedTier=tier;state('complete',tier);return {...r,model:all.find(t=>t.tier===tier)?.name||r.model,localTokens:tokens,routing:route};};
+ const finish=(r,tier)=>{router.warmTier={tier,time:Date.now()};route.selectedTier=tier;route.contextTokens=r.localContextTokens;if(r.localContextTokens<s.localContext)route.notice=[route.notice,CONTEXT_NOTICE].filter(Boolean).join('\n\n');state('complete',tier);return {...r,model:all.find(t=>t.tier===tier)?.name||r.model,localTokens:tokens,routing:route};};
  async function run(row,msg,opts,{assessment=false}={}){
-  const settings={...s,localModelPath:row.file,...(assessment?{localMaxOutput:128}:{})};
+  let settings={...s,localModelPath:row.file,...(assessment?{localMaxOutput:128}:{})};
   if(!fits(settings,msg,opts))throw fail('LOCAL_CONTEXT');
-  const invoke=async()=>{
+  const invoke=async effective=>{
+   settings=effective||settings;
+   if(!fits(settings,msg,opts))throw fail('LOCAL_CONTEXT');
    core.stability?.assertModel();
    await manager.verifyTier(row.tier,s,options.signal);
    if(options.signal?.aborted)throw fail('CANCELLED');
@@ -38,8 +41,8 @@ async function generateTiers(router,s,messages,options,evaluate){
    if(before!==undefined)core.stability?.observe(row.tier,settings.localContext,Math.max(0,before-resources.memory()));
    tokens+=r.localTokens||0;return r;
   };
-  const r=resources?await resources.withAI(invoke,{localSettings:settings,waitForMemory:false}):await invoke();
-  route.attempts.push({tier:row.tier,phase:assessment?'assessment':'answer',status:'completed'});return r;
+  const r=resources?await resources.withAI(invoke,{localSettings:settings,waitForMemory:false,allowContextReduction:mode==='auto',contextFits:candidate=>fits(candidate,msg,opts)}):await invoke();
+  route.attempts.push({tier:row.tier,phase:assessment?'assessment':'answer',status:'completed',contextTokens:settings.localContext});return {...r,localContextTokens:settings.localContext};
  }
  function note(row,e,phase){if(e.code==='CANCELLED'||options.signal?.aborted)throw fail('CANCELLED');route.attempts.push({tier:row.tier,phase,status:'skipped',code:['LOW_MEMORY','LOCAL_CONTEXT','LOCAL_FILE_MISSING','LOCAL_MODEL','BUSY'].includes(e.code)?e.code:'LOCAL_UNAVAILABLE'});}
  try{
