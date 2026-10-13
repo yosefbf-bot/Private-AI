@@ -1,6 +1,6 @@
 {
   "assistantFirstRedesign": {
-    "status": "windows-accepted-hosted-checks-pending",
+    "status": "windows-accepted-android-device-passed-artifact-retention-blocked",
     "report": "docs/ASSISTANT_FIRST_PROGRESS_2026-10-08.md",
     "base": "40566c94acd38577fc03f0456d647f9619ebcb64",
     "browserChecksPassed": {
@@ -35,15 +35,17 @@
       "debugBuild": true,
       "realHTTPSInterop": true,
       "physicalPhone": false,
-      "sourceCommit": "ca1d6ea12e7686cf5067a4cd349a35e96ed07bfc",
+      "sourceCommit": "47e3b4af55fa3034ae4349eca0956c7bd7fc4061",
       "productionSourceCommit": "28a6fe12605a128aa5be8554a5f8d7c6461d348b",
-      "testSchedulerCorrection": "local-verified-hosted-device-validation-pending",
+      "testSchedulerCorrection": "local-and-both-hosted-device-runs-passed-including-lifecycle-cleanup",
       "hostedRuns": [
-        38307718223,
-        38307723181
-      ]
+        38310126915,
+        38310131979
+      ],
+      "hostedInstrumentedTestsPassedPerRun": 4,
+      "hostedOverallPassed": false
     },
-    "remaining": "Exact-head hosted checks including Android device acceptance and mandatory GitHub artifact retention; physical/account/clinical limits in dated Windows report. Owner merges main after review.",
+    "remaining": "Mandatory GitHub artifact retention failed on quota in the recorded exact-head runs; check current PR checks for later results. Physical/account/clinical limits remain in the dated reports. Owner merges main after review.",
     "windowsReport": "docs/WINDOWS_VALIDATION_2026-10-12.md",
     "windowsCodeCommit": "6e915aafee2ee8cd94870f1c521e7b1788d77085",
     "ciArtifactCleanup": {
@@ -51,7 +53,9 @@
       "bytesRemoved": 1438994870,
       "localRecoveryVerified": true,
       "sourceBranchesDeleted": false
-    }
+    },
+    "finalValidationReport": "docs/FINAL_VALIDATION_2026-10-12.md",
+    "finalValidationReceipt": "docs/final-validation-2026-10-12.json"
   },
   "auditFollowup20261007": {
     "baseCommit": "1527da64ba667ee862e2e71221f51063e4c06fa1",

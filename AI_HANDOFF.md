@@ -1,3 +1,16 @@
+## October 12 final hosted validation result
+
+Read [the completed validation checkpoint](docs/FINAL_VALIDATION_2026-10-12.md)
+and its [sanitized exact-head receipt](docs/final-validation-2026-10-12.json).
+Both Android `47e3b4a` hosted runs passed all four instrumented tests, including
+three real OS PIN/Keystore unlock/Notes/relock cycles and lifecycle cleanup.
+All 51 local Android tests passed. Desktop `f7777a5` functional checks passed;
+accepted Windows binary code remains `6e915aa`. Production binaries are unchanged.
+All four hosted runs failed only their mandatory artifact uploads on GitHub quota.
+Earlier sections are historical checkpoints; their pending Android status is
+superseded by this result. Check current PR checks for later documentation heads.
+The owner merges main. Keep review branches until successful integration.
+
 ## October 12 final local validation and cleanup checkpoint
 
 Windows candidate code 6e915aa remains accepted with the same installer, portable,
