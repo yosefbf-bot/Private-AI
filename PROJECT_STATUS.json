@@ -823,7 +823,7 @@
       8,
       10
     ],
-    "focusedTestsPassed": 41,
+    "focusedTestsPassed": 42,
     "realSourceImageOCR": true,
     "realSourceScannedPDFOCR": true,
     "realSourceBGEEmbedding": true,
@@ -835,7 +835,7 @@
     "installerForThisSourceExecuted": false,
     "remaining": "Full-suite/clean-install/exact-head CI and fresh Windows package/installer acceptance pending. Owner merges main.",
     "fullSuite": {
-      "passed": 551,
+      "passed": 552,
       "failed": 0,
       "skipped": 0,
       "cancelled": 0
@@ -846,6 +846,7 @@
     "developerScannerFreshSetupPassed": true,
     "generalUI": true,
     "hardeningUI": true,
-    "explicitHardeningPassed": 25
+    "explicitHardeningPassed": 25,
+    "packagedFirstAttempt": "Preserved failed receipt: scanned PDF required a local canvas factory in Electron utility process. Verified correction in a fused synthetic utility diagnostic; fresh candidate pending."
   }
 }

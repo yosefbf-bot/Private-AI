@@ -5,7 +5,7 @@ const {execFile}=require('node:child_process'),{promisify}=require('node:util');
 const execute=promisify(execFile),assets=require('./gitleaks-assets.json');
 const repo=path.resolve(__dirname,'..');
 async function sha(file){const h=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(file))h.update(chunk);return h.digest('hex');}
-function safeRelative(name){if(!name||path.isAbsolute(name)||name.split(/[\\/]/).includes('..')||name.includes('\0'))throw Error('Unsafe source path');return name;}
+function safeRelative(name){if(!name||path.isAbsolute(name)||path.win32.isAbsolute(name)||name.split(/[\\/]/).includes('..')||name.includes('\0'))throw Error('Unsafe source path');return name;}
 async function download(url,destination,expected){
  const signal=AbortSignal.timeout(180000);
  for(let n=0;n<6;n++){

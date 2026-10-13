@@ -6,7 +6,7 @@ adds optional local semantic Library search, offline English image/scanned-PDF O
 filtered Readability article capture and a redacted Gitleaks current-source/history
 CI gate. Version 3.0.3-dev. Existing workflows and Android production code remain.
 Source real BGE/sqlite-vec/image/PDF execution and five Edge acceptance checks passed;
-41 focused regressions and all 551 automated tests passed, along with 25 explicit
+42 focused regressions and all 552 automated tests passed, along with 25 explicit
 hardening, 208 syntax, repository policy, clean locked installation and general/
 hardening Edge UI checks. Production audit is zero. Fresh packaging/installer/
 exact-head CI are pending. Do not transfer 3.0.2 acceptance to this changed source.

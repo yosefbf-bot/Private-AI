@@ -44,3 +44,9 @@ test('secret scan output retains locations without exposing secret, match or com
  assert.deepEqual(rows,[{rule:'synthetic',file:'source/example.cjs',line:12,commit:'a'.repeat(40)}]);assert.ok(!JSON.stringify(rows).includes('private'));
  for(const name of ['../outside','x/../../outside','C:\\private','/private'])assert.throws(()=>safeRelative(name));assert.equal(safeRelative('source/example.cjs'),'source/example.cjs');
 });
+
+test('PDF raster factory works without a DOM and limits temporary canvases',()=>{
+ const {LocalCanvasFactory}=require('../source/pdf-runtime.cjs'),factory=new LocalCanvasFactory(),target=factory.create(16,16);
+ assert.equal(target.canvas.width,16);factory.reset(target,32,24);assert.equal(target.canvas.height,24);assert.throws(()=>factory.create(16000,16000),/LIMIT/);
+ factory.destroy(target);assert.equal(target.canvas,null);assert.equal(target.context,null);
+});

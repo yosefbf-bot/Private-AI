@@ -60,20 +60,29 @@ was also fixed; pending tasks now cancel and the existing Core shutdown runs.
 
 ## Validation checkpoint
 
-Forty-one focused automated regressions passed, including real Core/SQLite/IPC,
+Forty-two focused automated regressions passed, including real Core/SQLite/IPC,
 source revisions, project scope, cancellation, malformed vectors, full-context
 validation, pre-spawn worker cancellation/actual retirement and tray Quit.
 Real Windows source acceptance passed English photo OCR, mixed scanned/text PDF
 OCR, BGE embeddings and sqlite-vec paraphrase ranking, with zero cloud inference.
 Five real Edge UI checks passed Library meaning/word search, navigation cancel,
 filtered article/selection capture and portal fallback. Gitleaks found zero
-current-source and full-history secrets. All 551 automated tests, 25 explicit
+current-source and full-history secrets. All 552 automated tests, 25 explicit
 hardening tests, 208 syntax checks, repository policy and the general/hardening
 Edge UI checks passed. Clean locked installation passed; production dependencies
 have zero advisories. Nine existing development-tool advisories remain outside
 the shipped runtime. These source checks do not establish installer acceptance.
 Exact-head hosted checks, packaged/installed execution and new-binary evidence
 remain pending at this checkpoint.
+
+The first actual package passed photo OCR but failed scanned-PDF rasterization.
+PDF.js treats Electron utility processes as a browser; its default DOM canvas
+factory cannot render there. An explicit bounded local canvas factory and local
+raster types corrected this, verified in the real utility environment with the
+same security fuses. Failed evidence is retained. Hosted Linux regression also
+exposed a scanner path check accepting Windows absolute paths; it now rejects
+both platform formats. The secret/dependency/native-build hosted gates passed
+the first head; inspect the corrected exact head before accepting publication.
 
 The main PC processes Library uploads. This batch does not add background OCR
 of companion Notes evidence or alter the Android pairing/upload protocol.

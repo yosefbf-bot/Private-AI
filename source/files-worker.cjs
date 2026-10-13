@@ -150,6 +150,7 @@ async function main(workerData) {
         useSystemFonts: false,
         disableFontFace: true,
         verbosity: 0,
+        ...(workerData.ocrDirectory?{CanvasFactory:require('./pdf-runtime.cjs').LocalCanvasFactory,isOffscreenCanvasSupported:false,isImageDecoderSupported:false}:{}),
       });
       try {
         const doc = await job.promise;
