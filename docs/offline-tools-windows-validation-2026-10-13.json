@@ -1,0 +1,54 @@
+{
+  "version": "3.0.3-dev",
+  "installerSHA256": "400da9c37b936eabd7aff4fb68c69d9f70d1572816025fbf3bf173e4a83692fc",
+  "passed": true,
+  "recordedAt": "2026-10-13T23:48:18.243Z",
+  "frozenBinaryCode": "0eb431398e785d9ae4fb36a2c78e9cf51eafe8e4",
+  "windowsInstallerExecuted": true,
+  "windowsApplicationExecuted": true,
+  "actualPackagedModelInferenceExecuted": true,
+  "installerExitCode": 0,
+  "productionDataUnchanged": true,
+  "existingDataFilesVerified": 25,
+  "executableSHA256": "beba3b02c17c9f73e1b76f3ea43c9a27a5c95ff8d23a19c8ba44d856e0f8c96d",
+  "applicationArchiveSHA256": "28a8a432e9360ccd4f31f5cd642ec09cc8ec30db474d3c8f7c4b1c053b8e2410",
+  "runtimeSHA256": "8c6faeaf07346cd4ef32d6b1ea0e4a71103d81962b7c9e2cb70291ce06d0107b",
+  "documentTools": {
+    "passed": true,
+    "stage": "completed",
+    "actualImageOCRExecuted": true,
+    "actualScannedPDFOCRExecuted": true,
+    "actualLocalEmbeddingExecuted": true,
+    "actualSqliteVecRankingExecuted": true,
+    "embeddingModelSHA256": "f0b2fef971e8366438bfd2d9aefea1b0115919389448806d290237f638bae999",
+    "ocrLanguageSHA256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+    "cloudInferenceCalls": 0,
+    "originalImagesPreserved": true,
+    "machineTextVerified": false,
+    "modelRetired": true
+  },
+  "automaticAdmissionCapBytes": 3221225472,
+  "configuredContext": 4096,
+  "effectiveContext": 2048,
+  "selectedTier": "small",
+  "testsPassed": 552,
+  "releaseEvidenceGate": "unchanged build/release-evidence-gate.cjs",
+  "portable": {
+    "passed": true,
+    "files": 767,
+    "zipCRCVerified": true,
+    "allExtractedFilesHashVerified": true,
+    "portableSHA256": "8bc403b373bad43f552ef43d94f71fc51f535c0d0ce66fc9988303497e4e3ace",
+    "actualPortableApplicationExecuted": true,
+    "actualPortableOCRAndSearchExecuted": true,
+    "applicationArchiveSHA256": "28a8a432e9360ccd4f31f5cd642ec09cc8ec30db474d3c8f7c4b1c053b8e2410"
+  },
+  "exactCodeCI": {
+    "head": "0eb431398e785d9ae4fb36a2c78e9cf51eafe8e4",
+    "runs": [
+      38485688240,
+      38485692566
+    ],
+    "allFourJobsPassed": true
+  }
+}

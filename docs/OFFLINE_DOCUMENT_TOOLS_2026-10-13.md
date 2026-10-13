@@ -1,5 +1,8 @@
 # Offline document tools — 3.0.3 development candidate
 
+Windows acceptance is now complete; [the final hash-bound report](OFFLINE_TOOLS_WINDOWS_VALIDATION_2026-10-13.md)
+supersedes the pending packaging status in the historical checkpoint below.
+
 Base: verified GitHub main `421370ecf0570989417ce17ee747c81debcdbc27`.
 Review branch: `chatgpt/offline-knowledge-tools-2026-10-13`. The owner merges main
 under the current workspace instructions. Android production code is unchanged.
