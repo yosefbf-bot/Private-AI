@@ -2,9 +2,16 @@
 
 Base: GitHub main `dbdf4709fcae67e1b5355e1f99d39ab06ff54a22`.
 Review branch: `chatgpt/local-ram-and-chat-contrast-2026-10-13`.
-Desktop candidate version: **3.0.2-dev**. Frozen package code:
+Desktop candidate version: **3.0.2-dev**. First interim package code:
 `4f118fe98b02aea05873e97b716bbafc756f42e6`.
 Android source and protocol are unchanged.
+
+Final source also corrects background recovery: after a RAM pause it waits for
+the context that actually fits the complete request, including the configured
+reserve and learned peak protection. A bounded regression reproduced waiting
+forever at 3 GiB under the old 4,096-token threshold. All **535 final source tests**
+pass after the fix. A new final package is being built; interim Windows receipts
+below remain tied to 4f118fe and do not establish final-binary acceptance.
 
 ## Reported problems and changes
 
@@ -41,7 +48,7 @@ extension manifests are regenerated at 3.0.2. No extension behavior changed.
 - Reproduced the 3 GiB rejection before the fix. Seven regressions cover fitted
   input retention, unchanged saved settings, ample RAM, warm reuse, oversized
   input, configured reserve, learned peak protection and manual selection.
-- Complete final Windows source suite: **534 passed, zero failures/skips/cancellations**.
+- Complete final Windows source suite: **535 passed, zero failures/skips/cancellations**.
   This includes two added real encrypted Core chat / desktop IPC regressions,
   checking the full structured message and Automatic/manual Load model behavior.
 - Focused local routing/resources/startup/stability/hybrid: **80 passed**.
@@ -55,7 +62,7 @@ extension manifests are regenerated at 3.0.2. No extension behavior changed.
   dependency installation passed with lifecycle scripts deliberately disabled;
   no runtime dependency versions changed.
 
-## Windows candidate acceptance
+## Interim Windows candidate acceptance (4f118fe)
 
 The genuine new NSIS installer built successfully. All 589 staged files were
 hashed, 415 PE binaries validated, and packaged changed source/style/guide/build

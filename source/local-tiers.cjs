@@ -96,7 +96,10 @@ async function generateTiers(router,s,messages,options,evaluate){
   }
   if(calls<2&&memoryBlocked.length&&resources?.isBackground()){
    const row=memoryBlocked.sort((a,b)=>a.bytes-b.bytes)[0];
-   await resources.checkpoint(requiredMemory(row.bytes,s.localContext));
+   const original={...s,localModelPath:row.file},candidate={...original,localContext:2048};
+   const waiting=s.localContext>2048&&candidate.localContext>candidate.localMaxOutput+256&&fits(candidate,messages,fullOptions)?candidate:original;
+   const reserve=(core.settings().ramReserveMB||1024)*1024**2;
+   await resources.checkpoint(Math.max(requiredMemory(row.bytes,waiting.localContext)+Math.max(0,reserve-1024**3),(core.stability?.minimumFor(waiting)||0)+reserve));
    const result=await run(row,messages,fullOptions);
    if(ORDER.indexOf(row.tier)<desired)route.notice='Resumed with a smaller model after waiting for RAM. Review the response.';
    return finish(result,row.tier);

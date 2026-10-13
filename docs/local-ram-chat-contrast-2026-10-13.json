@@ -4,7 +4,7 @@
   "baseCommit": "dbdf4709fcae67e1b5355e1f99d39ab06ff54a22",
   "codeCommit": "4f118fe98b02aea05873e97b716bbafc756f42e6",
   "reviewPR": 16,
-  "status": "source-and-packaged-startup-passed-final-installer-and-packaged-inference-pending",
+  "status": "interim-4f118fe-evidence-superseded-by-final-background-recovery-source",
   "source": {
     "testsPassed": 534,
     "testsFailed": 0,

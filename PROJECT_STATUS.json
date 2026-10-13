@@ -715,7 +715,7 @@
     "version": "3.0.2-dev",
     "report": "docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md",
     "sourceTests": {
-      "passed": 534,
+      "passed": 535,
       "failed": 0,
       "skipped": 0,
       "cancelled": 0
@@ -740,7 +740,14 @@
       "binariesValidated": 406,
       "buildSourcesUnchanged": true
     },
-    "windowsCandidateAcceptance": {
+    "windowsCandidateAcceptance": "Final background recovery candidate rebuild/acceptance pending; prior flags belong to 4f118fe",
+    "androidSourceChanged": false,
+    "actualSourceSmallInferenceExecuted": true,
+    "sourceInferenceRequests": 2,
+    "frozenWindowsCodeCommit": "4f118fe98b02aea05873e97b716bbafc756f42e6",
+    "receipt": "docs/local-ram-chat-contrast-2026-10-13.json",
+    "backgroundRecovery": "Complete-request fitted context, reserve and learned peak; bounded regression passed",
+    "interimWindowsCandidateAcceptance": {
       "installerBuilt": true,
       "windowsInstallerExecuted": false,
       "windowsApplicationExecuted": true,
@@ -755,11 +762,6 @@
       "packagedAutomaticBlock": "actual LOW_MEMORY at localLoad",
       "productionAppUpdated": false,
       "releaseEvidenceGatePassed": false
-    },
-    "androidSourceChanged": false,
-    "actualSourceSmallInferenceExecuted": true,
-    "sourceInferenceRequests": 2,
-    "frozenWindowsCodeCommit": "4f118fe98b02aea05873e97b716bbafc756f42e6",
-    "receipt": "docs/local-ram-chat-contrast-2026-10-13.json"
+    }
   }
 }

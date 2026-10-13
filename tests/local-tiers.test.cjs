@@ -42,6 +42,13 @@ test('A manually chosen Small tier preserves its explicit context settings',asyn
  const f=fixture({memory:3*GIB});f.s.localTier='small';
  await assert.rejects(f.run(),{code:'LOW_MEMORY'});assert.equal(f.calls.length,0);assert.equal(f.s.localContext,4096);
 });
+test('paused Automatic background chat resumes when the full request fits Small at 3 GiB',async()=>{
+ const f=fixture(),prompt='Hello';f.s.ramRecoverySeconds=0;let memory=2.5*GIB,waits=0;
+ f.core.resources.memory=()=>memory;f.core.resources.sleep=async()=>{memory=3*GIB;if(++waits>2)assert.fail('Recovery must not keep waiting for the larger configured context');};
+ const result=await f.core.resources.task('background',()=>f.router.generate('',f.s,[{role:'user',content:prompt}],{}));
+ assert.equal(waits,1);assert.equal(f.calls.length,1);assert.equal(f.calls[0].settings.localContext,2048);
+ assert.equal(f.calls[0].messages[0].content,prompt);assert.equal(result.routing.selectedTier,'small');assert.equal(f.s.localContext,4096);
+});
 test('real keyless Core chat fits complete ordinary input through Automatic Small at 3 GiB',async t=>{
  const {core}=require('./helpers.cjs').fixture(t),calls=[];
  core.deleteKey('openai');core.saveSettings({processingMode:'local-only',allowCloud:false,localTier:'auto',localContext:4096,localMaxOutput:768});

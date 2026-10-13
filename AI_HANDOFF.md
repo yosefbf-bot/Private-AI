@@ -4,9 +4,12 @@ Read [the current repair checkpoint](docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md)
 Based on fetched main dbdf470, review branch chatgpt/local-ram-and-chat-contrast-2026-10-13
 adds Automatic context fitting without changing saved settings or reserves and
 corrects light/dark reply contrast. Desktop version is 3.0.2-dev; Android is unchanged.
-All 534 source tests, 25 explicit hardening and 25 real Core/Edge UI checks passed;
+All 535 source tests passed after also aligning background RAM recovery with the
+safe fitted-context requirement. Earlier 25 explicit hardening and 25 real Core/Edge UI checks passed;
 production audit is zero. Source real Small inference passed twice. Frozen Windows
-code 4f118fe built and its packaged startup/14 checks/12 diagnostics/19 views passed.
+interim code 4f118fe built and its packaged startup/14 checks/12 diagnostics/19 views passed.
+That package is superseded by the final background recovery source; rebuild/accept
+the final candidate separately and preserve the interim receipts.
 Packaged model loading was blocked by actual low RAM; installer/upgrade execution
 and final packaged Automatic inference are pending owner app exit/memory recovery.
 Keep the older accepted 3.0.1 preview separate and preserve current user data.
