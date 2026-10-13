@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "version": "3.0.2-dev",
+  "baseCommit": "dbdf4709fcae67e1b5355e1f99d39ab06ff54a22",
+  "codeCommit": "4f118fe98b02aea05873e97b716bbafc756f42e6",
+  "reviewPR": 16,
+  "status": "source-and-packaged-startup-passed-final-installer-and-packaged-inference-pending",
+  "source": {
+    "testsPassed": 534,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "testsCancelled": 0,
+    "hardeningPassed": 25,
+    "syntaxFiles": 199,
+    "uiChecks": 25,
+    "productionVulnerabilities": 0,
+    "cleanLockedInstall": true,
+    "lifecycleScriptsExecuted": false,
+    "actualSourceInferenceExecuted": true,
+    "sourceInferenceRequests": 2,
+    "configuredContext": 4096,
+    "effectiveContext": 2048,
+    "cloudCalls": 0
+  },
+  "nativeInputs": {
+    "manifestFiles": 411,
+    "inputPEBinaries": 406
+  },
+  "windows": {
+    "installerBuilt": true,
+    "windowsInstallerExecuted": false,
+    "windowsApplicationExecuted": true,
+    "packagedStartupPassed": true,
+    "checksPassed": 14,
+    "builtInChecksPassed": 12,
+    "navigationViewsPassed": 19,
+    "stageFiles": 589,
+    "peBinaries": 415,
+    "actualPackagedModelInferenceExecuted": false,
+    "packagedAutomaticAttemptPassed": false,
+    "packagedAutomaticBlock": "actual LOW_MEMORY at localLoad",
+    "productionAppUpdated": false,
+    "releaseEvidenceGatePassed": false
+  },
+  "hashes": {
+    "installer": "4fbe5df965e2bd5a7b7ce8ef8db1896695bf0d0802fb8c953ef4aa462e28e656",
+    "executable": "7bcfe835e3d3bffc9191389f871d62ee1996e2b3a8e495c8225e49d7c73d8a28",
+    "asar": "53aaa46a2ff74ddf25451e0972e43bac4e1d883859335c02a48ffb42c22eb435",
+    "runtime": "8c6faeaf07346cd4ef32d6b1ea0e4a71103d81962b7c9e2cb70291ce06d0107b"
+  },
+  "androidSourceChanged": false,
+  "remaining": [
+    "Owner exits installed Private AI and frees enough RAM for packaged inference",
+    "Preserve current user data before installer upgrade",
+    "Execute actual installer upgrade and verify installed hashes",
+    "Complete packaged Automatic inference and unchanged release evidence gate"
+  ],
+  "scope": "Synthetic isolated Windows checks; no live Outlook/WhatsApp/PCC account operation, no phone or different-PC hardware acceptance"
+}

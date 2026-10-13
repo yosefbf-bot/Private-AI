@@ -715,7 +715,7 @@
     "version": "3.0.2-dev",
     "report": "docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md",
     "sourceTests": {
-      "passed": 532,
+      "passed": 534,
       "failed": 0,
       "skipped": 0,
       "cancelled": 0
@@ -740,7 +740,26 @@
       "binariesValidated": 406,
       "buildSourcesUnchanged": true
     },
-    "windowsCandidateAcceptance": "pending",
-    "androidSourceChanged": false
+    "windowsCandidateAcceptance": {
+      "installerBuilt": true,
+      "windowsInstallerExecuted": false,
+      "windowsApplicationExecuted": true,
+      "packagedStartupPassed": true,
+      "checksPassed": 14,
+      "builtInChecksPassed": 12,
+      "navigationViewsPassed": 19,
+      "stageFiles": 589,
+      "peBinaries": 415,
+      "actualPackagedModelInferenceExecuted": false,
+      "packagedAutomaticAttemptPassed": false,
+      "packagedAutomaticBlock": "actual LOW_MEMORY at localLoad",
+      "productionAppUpdated": false,
+      "releaseEvidenceGatePassed": false
+    },
+    "androidSourceChanged": false,
+    "actualSourceSmallInferenceExecuted": true,
+    "sourceInferenceRequests": 2,
+    "frozenWindowsCodeCommit": "4f118fe98b02aea05873e97b716bbafc756f42e6",
+    "receipt": "docs/local-ram-chat-contrast-2026-10-13.json"
   }
 }

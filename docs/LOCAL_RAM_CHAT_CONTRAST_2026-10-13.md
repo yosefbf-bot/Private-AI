@@ -2,7 +2,9 @@
 
 Base: GitHub main `dbdf4709fcae67e1b5355e1f99d39ab06ff54a22`.
 Review branch: `chatgpt/local-ram-and-chat-contrast-2026-10-13`.
-Desktop candidate version: **3.0.2-dev**. Android source and protocol are unchanged.
+Desktop candidate version: **3.0.2-dev**. Frozen package code:
+`4f118fe98b02aea05873e97b716bbafc756f42e6`.
+Android source and protocol are unchanged.
 
 ## Reported problems and changes
 
@@ -30,12 +32,18 @@ panel. Their panel and text now follow the same theme: navy text on a light pane
 in light mode, light text on a dark panel in dark mode. The AI label and response
 footnotes use the theme's accent/muted colors.
 
+Packaging also exposed stale sidebar build-version metadata. The existing asset
+preparer now keeps that version aligned with package.json; Chrome/Firefox
+extension manifests are regenerated at 3.0.2. No extension behavior changed.
+
 ## Verification
 
 - Reproduced the 3 GiB rejection before the fix. Seven regressions cover fitted
   input retention, unchanged saved settings, ample RAM, warm reuse, oversized
   input, configured reserve, learned peak protection and manual selection.
-- Complete Windows source suite: **532 passed, zero failures/skips/cancellations**.
+- Complete final Windows source suite: **534 passed, zero failures/skips/cancellations**.
+  This includes two added real encrypted Core chat / desktop IPC regressions,
+  checking the full structured message and Automatic/manual Load model behavior.
 - Focused local routing/resources/startup/stability/hybrid: **80 passed**.
 - Explicit security hardening: **25 passed** outside the Windows sandbox.
   The restricted attempt had 23 passes and two sandbox folder/junction failures;
@@ -49,10 +57,28 @@ footnotes use the theme's accent/muted colors.
 
 ## Windows candidate acceptance
 
-Pending: a new package, installer and actual inference acceptance for these exact
-new binaries. Earlier 3.0.1 execution flags must not be reused. A source Core
-inference attempt was blocked by real available RAM below the unchanged Small
-2,048-token requirement; its failed evidence is retained in ignored Validation.
+The genuine new NSIS installer built successfully. All 589 staged files were
+hashed, 415 PE binaries validated, and packaged changed source/style/guide/build
+metadata verified against the frozen checkout. Native inputs were independently
+verified against all 411 retained manifest entries; their 406 input binaries
+passed the unchanged release-file check. No native source or dependency changed.
+
+The new packaged app actually executed on Windows and passed 14 acceptance checks,
+12 built-in diagnostics, 19 views, DPAPI/SQLite synthetic persistence and restore,
+lock/permission checks, optional PCC controls and shared companion HTTPS/IPC
+acceptance. No real account message or production record was used.
+
+Real Small inference passed twice through source Core/SQLite/router at a 3 GiB
+admission ceiling, with 2,048-token context and the saved 4,096-token context
+unchanged. Earlier attempts blocked by actual low RAM are retained. A packaged
+Automatic inference attempt passed its startup checks but was blocked at Load
+model by actual LOW_MEMORY; it did **not** execute inference.
+
+Still pending: installer execution/upgrade and packaged Automatic real inference.
+The old installed app is still running. Preserve its current data and wait for
+the owner to exit it and free RAM. The unchanged release evidence gate has **not**
+passed for this candidate. Do not publish it as Windows accepted or reuse older
+3.0.1 execution flags. See [the sanitized receipt](local-ram-chat-contrast-2026-10-13.json).
 
 The packaged synthetic hook can optionally exercise Automatic Load model and
 real Small inference with a 3 GiB admission ceiling, always capped further by
