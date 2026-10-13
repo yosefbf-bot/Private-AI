@@ -70,13 +70,14 @@ class Resources {
    this.state(task,'running','');return await fn();
   }finally{if(this.ai===task)this.ai=null;}
  }
- async preflight(kind,target){
+ async preflight(kind,target,body){
   if(kind==='messaging'&&target){
    const policy=require('./messaging-policy.cjs');
    policy.assertWritable(this.core,target);
-   if(policy.backgroundReplyAllowed(this.core,target))return;
+   policy.assertSendAllowed(this.core,target);
+   if(typeof body!=="string"||!body.trim())throw fail("POLICY");
   }
-  const detail=WARNINGS[kind]||WARNINGS.desktop;
+  const detail=(kind==="messaging"&&target?"Send this WhatsApp message?\nTo: "+target.groupName+" ("+target.groupId+")\n\n"+body+"\n\n":"")+(WARNINGS[kind]||WARNINGS.desktop);
   if(this.isBackground() || this.core.locked || !this.approve)throw fail('INTERFERENCE');
   if(!await this.approve(detail))throw fail('DEFERRED');
  }

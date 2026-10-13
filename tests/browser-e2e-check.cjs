@@ -4,6 +4,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {fixture}=require('./helpers.cjs'),{BrowserWorker,validateRecipe}=require('../source/browser-worker.cjs');
 const {chromium,firefox}=require('playwright-core');
+const {BrowserReports}=require('../source/browser-reports.cjs');
 (async()=>{
  const {extractVisible}=await import('../chrome_extension/capture.mjs');
  const targets=(process.env.PRIVATE_AI_TEST_BROWSERS||'edge,chrome,firefox,chromium').split(',');
@@ -29,8 +30,12 @@ const {chromium,firefox}=require('playwright-core');
    await page.evaluate(()=>{const range=document.createRange();range.selectNodeContents(document.body);const s=window.getSelection();s.removeAllRanges();s.addRange(range);});
    const selection=await page.evaluate(extractVisible,true);assert.equal(selection.text,'Public report text');
    await page.evaluate(()=>{const r=document.createRange(),n=document.querySelector('#safe').firstChild;r.setStart(n,7);r.setEnd(n,13);window.getSelection().removeAllRanges();window.getSelection().addRange(r);});assert.equal((await page.evaluate(extractVisible,true)).text,'report');
+   core.browserReports=new BrowserReports(core,worker);
    const calls=[];await page.exposeFunction('fixtureCall',async(op,data)=>{
-    calls.push({op,data});if(op==='browserRecipes')return core.store.list('browserRecipe');
+    calls.push({op,data});if(op==='browserRecipes')return core.browserReports.list();
+    if(op==='browserRun')return worker.run(core.store.get('browserRecipe',data.id));
+    if(op==='browserGrant'){const plan=core.browserReports.plan(data.id);return core.browserReports.grant(data.id,plan.hash,data.enabled);}
+    if(op==='browserSchedule')return core.browserReports.save(data);
     if(op==='browserSave'){const r=validateRecipe(data);core.store.put('browserRecipe',r.id,r);return r;}
     if(op==='browserOpen')return true;throw Error(op);
    });
@@ -46,7 +51,23 @@ const {chromium,firefox}=require('playwright-core');
    await page.locator('[data-act=browser-edit]').click();await page.waitForFunction(expected=>document.querySelector('[name=recipeBrowser]').value===expected,selected);assert.equal(await page.locator('[name=recipeLogin]').inputValue(),'#ready');
    await page.locator('[name=recipeName]').fill('Synthetic edited workflow');await page.locator('[data-act=browser-save]').click();await page.getByText('Synthetic edited workflow',{exact:true}).waitFor();assert.equal(core.store.list('browserRecipe').length,1);
    await page.locator('[data-act=browser-open][data-id]').click();await page.waitForTimeout(50);assert.equal(calls.find(c=>c.op==='browserOpen').data.browser,selected);assert.deepEqual(errors,[]);
-   console.log('PASS '+selected+': synthetic download/sign-in wait, protected capture and browser choice save/edit/reload/use.');
+   await page.locator('[data-act=browser-run]').click();
+   await page.getByText('This saved workflow has completed a manual download.',{exact:true}).waitFor({state:'attached'});
+   await page.locator('.card details > summary').click();
+   await page.locator('[data-act=browser-grant]').click();
+   await page.getByText('Revoke unattended access',{exact:true}).waitFor({state:'attached'});
+   await page.locator('.card details > summary').click();
+   await page.locator('[name=frequency]').selectOption('once');
+   const at=new Date(Date.now()+86400000);at.setMinutes(15,0,0);
+   const localAt=new Date(at-at.getTimezoneOffset()*60000).toISOString().slice(0,16);
+   await page.locator('[name=at]').fill(localAt);
+   await page.locator('[name=analysisPrompt]').fill('Summarize the supplied report.');
+   await page.locator('[data-act=browser-schedule]').click();
+   await page.waitForFunction(()=>document.querySelector('[name=frequency]').value==='once');
+   for(let i=0;i<30&&!core.store.count('schedule');i++)await new Promise(r=>setTimeout(r,50));
+   const saved=core.store.list('schedule')[0];assert.equal(saved.frequency,'once');assert.equal(saved.next,+at);assert.equal(saved.gapMinutes,5);assert.equal(saved.analysisPrompt,'Summarize the supplied report.');
+   assert.equal(core.browserReports.list()[0].unattended,true);assert.deepEqual(errors,[]);
+   console.log('PASS '+selected+': synthetic download/sign-in wait, protected capture, browser choice persistence, exact tested grant, one-time schedule and five-minute spacing.');
   }finally{await worker?.close();await uiBrowser?.close();for(const fn of cleanup.reverse())fn();}
  }
 })().catch(e=>{console.error(e);process.exitCode=1;});

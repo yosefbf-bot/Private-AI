@@ -229,7 +229,7 @@ export function createAccessUI(ctx) {
                 "action",
                 [
                   ["chat", "Use in new chat"],
-                  ["todo", "Extract action items & add to To-Do / Follow-up list"],
+                  ["todo", "Track a reply / follow-up in Dashboard"],
                   ["delete", "Delete this message with approval"],
                   ["close", "Close without changes"]
                 ],
@@ -241,14 +241,17 @@ export function createAccessUI(ctx) {
               if (action.action === "chat") {
                 await ctx.useReference(await api("importReference", { name: "Outlook: " + (m.subject || "Message"), text: result.text }));
               } else if (action.action === "todo") {
-                await api("todoSave", {
-                  title: "Follow-up: " + (m.subject || "Email action item"),
-                  description: `From: ${m.sender}\nReceived: ${m.received}\n\n${result.text.slice(0, 1000)}`,
-                  source: "email",
-                  priority: "normal",
-                  reminderEnabled: true
-                });
-                toast("Saved to your To-Do & Follow-up list with automated reminders.");
+                const reviewed=await form('Track this correspondence',
+                  field('Reminder deadline (optional, this PC’s time zone)','dueAt','','datetime-local')+
+                  '<p>The saved message becomes a source-linked note with review items. A configured local model can prepare a draft plan. No email is sent or deleted.</p>','Track follow-up');
+                if(reviewed){
+                  const sourceText=`Follow up on correspondence. Subject: ${m.subject||'No subject'}\nFrom: ${m.sender}\nReceived: ${m.received}\n\n${result.text}`;
+                  const excerpt=sourceText.length>11900?sourceText.slice(0,11900)+'\n[Excerpt only — read the complete email in Outlook.]':sourceText;
+                  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([m.storeId,m.id,excerpt,reviewed.dueAt])));
+                  const sourceId=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+                  await api('captureCreate',{sourceId,text:excerpt,kind:'note',dueAt:reviewed.dueAt?new Date(reviewed.dueAt).getTime():null,draftChannel:'outlook'});
+                  toast('Saved in Notes and Dashboard for review. Nothing sent.');
+                }
               } else if (action.action === "delete") {
                 await api("outlookDelete", {
                   id: m.id,

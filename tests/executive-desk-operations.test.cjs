@@ -640,7 +640,7 @@ test('Consolidation and Architectural Invariants: Canonical Action Sync, Schedul
     assert.equal(browserSpeechAllowed({ hipaa: true, processingMode: 'smart-hybrid' }), false);
     assert.equal(browserSpeechAllowed({ hipaa: true, processingMode: 'cloud-first' }), false);
     assert.equal(browserSpeechAllowed({ hipaa: false, processingMode: 'local-only' }), false);
-    assert.equal(browserSpeechAllowed({ hipaa: false, processingMode: 'smart-hybrid' }), true);
+    assert.equal(browserSpeechAllowed({ hipaa: false, processingMode: 'smart-hybrid' }), false);
     assert.equal(browserSpeechAllowed(null), false);
   });
 

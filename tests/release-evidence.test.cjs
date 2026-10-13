@@ -2,6 +2,31 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const modulePath = path.join(__dirname, '../build/release-evidence-gate.cjs');
 
 const {fixture}=require('./helpers.cjs'),{verify}=require(modulePath);
+if(process.platform==='win32')test('Windows installer validator retains real redirected-process exit codes and rejects failure',t=>{
+ const {dir}=fixture(t),quote=value=>"'"+value.replaceAll("'","''")+"'";
+ const powershell=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
+ const command=`$ErrorActionPreference='Stop'
+$errors=$null;$tokens=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile(${quote(path.join(__dirname,'../build/Test-CleanWindowsInstall.ps1'))},[ref]$tokens,[ref]$errors)
+if($errors.Count){throw 'Validator parse failed'}
+$body=$ast.Find({param($n) $n -is [System.Management.Automation.Language.TryStatementAst] -and $n.Finally},$true).Body.Statements
+$capture=$body | Where-Object {$_.Extent.Text.StartsWith('$applicationHandle=')}
+$wait=$body | Where-Object {$_.Extent.Text.StartsWith('if (-not $appProcess.WaitForExit(')}
+$guard=$body | Where-Object {$_.Extent.Text.StartsWith('if ($appProcess.ExitCode -ne 0)')}
+if(-not $capture -or -not $wait -or -not $guard){throw 'Shipped process acceptance checks not found'}
+foreach($code in @(0,7)){
+ $appProcess=Start-Process -FilePath ${quote(powershell)} -ArgumentList ('-NoProfile -NonInteractive -Command "Start-Sleep -Milliseconds 300; exit '+$code+'"') -WindowStyle Hidden -PassThru -RedirectStandardOutput ${quote(path.join(dir,'out.log'))} -RedirectStandardError ${quote(path.join(dir,'err.log'))}
+ . ([ScriptBlock]::Create($capture.Extent.Text))
+ . ([ScriptBlock]::Create($wait.Extent.Text))
+ if($appProcess.ExitCode -ne $code){throw 'Actual process exit code was lost'}
+ $rejected=$false
+ try{. ([ScriptBlock]::Create($guard.Extent.Text))}catch{$rejected=$true}
+ if($rejected -ne ($code -ne 0)){throw 'Exit-code gate did not enforce success'}
+}
+[Console]::Write('verified')`;
+ const stdout=require('node:child_process').execFileSync(powershell,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(command,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:15000});
+ assert.equal(stdout.trim(),'verified');
+});
 function gateFixture(t){
  const {dir}=fixture(t),stage=path.join(dir,'synthetic-stage');fs.mkdirSync(path.join(stage,'resources/local-runtime'),{recursive:true});
  const write=(file,data)=>{fs.writeFileSync(file,data);return crypto.createHash('sha256').update(data).digest('hex');};

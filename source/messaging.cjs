@@ -5,7 +5,7 @@ const {conversationId,conversations,selected,writable}=require('./messaging-poli
 const captures=require('./capture-workflows.cjs');
 const DEFAULT={enabled:false,adapter:'web',groupId:'',groupName:'',senders:[],conversations:[],readAll:true,disableAllWriting:false,prefix:'AI:',allowTasks:false,notifyStarted:false,notifyProgress:false,notifyComplete:true,notifyFailure:true,notifyJobs:false,sendSummaries:true,sendAttachments:false,forwardDesktop:false,allowWhileLocked:false,warningAccepted:false};
 class MessagingBridge{
- constructor(core){this.core=core;this.adapters={};this.busy=false;this.state='off';this.baselined=new Set();this.verified=new Set();this.generation=0;this.timer=setInterval(()=>this.tick().catch(()=>{this.state='unavailable';}),5000);this.timer.unref?.();}
+ constructor(core){this.core=core;this.adapters={};this.approving=new Set();this.busy=false;this.state='off';this.baselined=new Set();this.verified=new Set();this.generation=0;this.timer=setInterval(()=>this.tick().catch(()=>{this.state='unavailable';}),5000);this.timer.unref?.();}
  settings(){const saved=this.core.store.get('messaging','settings')||{};return {...DEFAULT,...saved,disableAllWriting:saved.disableAllWriting??saved.readOnly??false};}
  code(){let s=this.core.store.get('secret','messaging');if(!s){s={code:crypto.randomBytes(16).toString('base64url')};this.core.store.put('secret','messaging',s);}return s.code;}
  save(input){this.core.assertUnlocked();if(input.readOnly!==undefined&&input.disableAllWriting===undefined)input={...input,disableAllWriting:input.readOnly};const s={...this.settings()};for(const k of Object.keys(DEFAULT))if(input[k]!==undefined)s[k]=input[k];
@@ -57,6 +57,8 @@ class MessagingBridge{
  }
  actor(target,sender){return {kind:'whatsapp',id:crypto.createHmac('sha256',this.code()).update([target.adapter,target.groupId,sender].join('|')).digest('hex')};}
  async captureCommand(adapter,target,message,command){
+  // Plain note prefixes are accepted only after the same verified sender/task gates.
+  command=command.replace(/^(?:note|save (?:a |this )?note)\s*:\s*/i,'/note ').replace(/^(?:round|rounding)\s*:\s*/i,'/round ').replace(/^remind me(?: to)?\s+/i,'/remind ');
   const match=command.match(/^\/(note|round|remind|draft)\s+([\s\S]+)$/i);if(!match)return null;
   const mode=match[1].toLowerCase();let body=match[2].trim(),dueAt=null,draftChannel=null;
   if(mode==='draft'){const draft=body.match(/^(outlook|whatsapp)\s+([\s\S]+)$/i);if(!draft)throw fail('INVALID');draftChannel=draft[1].toLowerCase();body=draft[2].trim();}
@@ -79,14 +81,14 @@ class MessagingBridge{
   const result=captures.create(this.core,{sourceId,text:body,kind:mode==='round'?'round':mode==='remind'?'reminder':'note',observedAt:Number.isSafeInteger(message.time)?message.time:undefined,dueAt,evidenceIds,...(draftChannel?{draftChannel}:{})},actor);
   const routing={adapter:target.adapter,groupId:target.groupId,groupName:target.groupName,sender:message.sender};
   this.core.store.put('capture_whatsapp_route',result.capture.id,{id:result.capture.id,actorKey:captures.actorKey(actor),...routing});
-  return `Saved note ${result.capture.id.slice(0,8)} and ${result.actions.length} review item(s). `+(dueAt?'Reminder deadline saved. ':'Owner and any ambiguous deadline need review in Notes and rounds. ')+(evidenceIds.length?'Attachment preserved as evidence; no image interpretation claimed. ':'')+(draftChannel?`${draftChannel==='outlook'?'Outlook':'WhatsApp'} draft prepared for review. Nothing sent. `:'')+'Open Private AI → Action Center → Notes and rounds.';
+  return `Saved note ${result.capture.id.slice(0,8)} and ${result.actions.length} review item(s). `+(dueAt?'Reminder deadline saved. ':'Owner and any ambiguous deadline need review in Notes and rounds. ')+(evidenceIds.length?'Attachment preserved as evidence; no image interpretation claimed. ':'')+(draftChannel?`${draftChannel==='outlook'?'Outlook':'WhatsApp'} draft prepared for review. Nothing sent. `:'')+'Open Private AI → Notes.';
  }
  async reminders(adapter){
   const settings=this.settings();
   if(this.core.locked&&!settings.allowWhileLocked||!settings.enabled||!settings.allowTasks)return;
   for(const route of this.core.store.list('capture_whatsapp_route')){
    const current=this.settings(),c=selected(current,{...route,adapter:route.adapter});
-   if(!c||!c.senders.includes(route.sender)||!writable(current,route)||!require('./messaging-policy.cjs').backgroundReplyAllowed(this.core,route))continue;
+   if(!c||!c.senders.includes(route.sender)||!writable(current,route))continue;
    const actor={kind:'whatsapp',id:this.core.store.get('capture_note',route.id)?.actor?.id};if(!actor.id)continue;
    for(const notice of captures.notifications(this.core,actor).notifications.filter(n=>n.status==='pending')){
     const delivery=this.core.store.get('capture_delivery',notice.id);
@@ -114,12 +116,12 @@ class MessagingBridge{
  }
  progress(adapter,target,taskId,chatId,intervalMs=60000){
   let pending=Promise.resolve(),sending=false,closed=false;const started=Date.now();
-  const timer=target.notifyProgress?setInterval(()=>{if(closed||sending)return;sending=true;pending=this.send(adapter,target,uuid(),'Task '+taskId.slice(0,8)+' is still running ('+Math.max(1,Math.floor((Date.now()-started)/1000))+' seconds).').catch(()=>{this.core.stop(chatId);}).finally(()=>{sending=false;});},intervalMs):null;timer?.unref?.();
+  const timer=target.notifyProgress?setInterval(()=>{if(closed||sending)return;sending=true;pending=this.send(adapter,target,taskId+'-progress','Task '+taskId.slice(0,8)+' is still running ('+Math.max(1,Math.floor((Date.now()-started)/1000))+' seconds).').catch(()=>{this.core.stop(chatId);}).finally(()=>{sending=false;});},intervalMs):null;timer?.unref?.();
   return {close:async()=>{closed=true;clearInterval(timer);await pending;}};
  }
  async sendResponse(adapter,target,id,body){
   const chunks=Array.from(String(body||'Task completed.').matchAll(/[\s\S]{1,3500}/gu),m=>m[0]);
-  for(let i=0;i<chunks.length;i++){const result=await this.send(adapter,target,i?uuid():id,(chunks.length>1?'['+(i+1)+'/'+chunks.length+']\n':'')+chunks[i]);if(result?.blocked||result?.deferred)break;}
+  for(let i=0;i<chunks.length;i++){const result=await this.send(adapter,target,i?id+'-part-'+i:id,(chunks.length>1?'['+(i+1)+'/'+chunks.length+']\n':'')+chunks[i]);if(result?.blocked)break;}
  }
  observe(shot){
   const s=this.settings();if(!s.enabled||this.core.settings().workerPaused||(this.core.locked&&!s.allowWhileLocked)||!shot.verified||!conversationId.test(shot.groupId)||(!s.readAll&&!selected(s,{...shot,adapter:s.adapter})))return;
@@ -133,9 +135,38 @@ class MessagingBridge{
  readings(){this.core.assertUnlocked();return this.core.store.recent('messageIn',200);}
  clearReadings(){this.core.assertUnlocked();this.core.store.deleteKind('messageIn');}
  claim(s,m){if(typeof m.id!=='string'||m.id.length>300)return false;const id=crypto.createHmac('sha256',this.code()).update(s.adapter+'|'+s.groupId+'|'+m.id).digest('hex');return this.core.store.claim('wa-'+id);}
- async send(adapter,s,id,body){const current=this.settings();if(!current.enabled)throw fail('MESSAGING');if(!writable(current,s)||(s.generation!==undefined&&s.generation!==this.generation))return {blocked:true};
-  const row={id,time:Date.now(),status:'sending',groupId:s.groupId,body:'Private AI ['+id.slice(0,8)+']\n'+body};this.core.store.put('messageOut',id,row,{expires:this.core.settings().retentionDays?Date.now()+this.core.settings().retentionDays*86400000:null});
-  try{await adapter.send(s,row.body);row.status='sent';}catch(e){if(e.code==='POLICY'){row.status='blocked';this.state='permissions-changed';return {blocked:true};}if(['INTERFERENCE','DEFERRED'].includes(e.code)){row.status='deferred';this.state='paused-interference';return {deferred:true};}row.status='delivery-uncertain';this.core.store.put('messaging','settings',{...this.settings(),enabled:false});this.state='delivery-uncertain';throw fail('MESSAGING');}finally{this.core.store.put('messageOut',id,row,{expires:this.core.settings().retentionDays?Date.now()+this.core.settings().retentionDays*86400000:null});}
+ outbox(){this.core.assertUnlocked();return this.core.store.recent('messageOut',100).map(({id,time,status,groupName,body})=>({id,time,status,groupName,body}));}
+ async send(adapter,s,id,body){
+  const current=this.settings();if(!current.enabled)throw fail('MESSAGING');
+  if(!writable(current,s)||(s.generation!==undefined&&s.generation!==this.generation))return {blocked:true};
+  const existing=this.core.store.get('messageOut',id);if(existing)return existing.status==='sent'?{sent:true}:{deferred:true,pendingApproval:existing.status==='pending-approval'};
+  const row={id,time:Date.now(),status:'pending-approval',groupId:s.groupId,groupName:s.groupName,adapter:s.adapter,revision:current.revision,body:'Private AI ['+id.slice(0,8)+']\n'+body};
+  this.core.store.put('messageOut',id,row,{expires:this.core.settings().retentionDays?Date.now()+this.core.settings().retentionDays*86400000:null});
+  this.state='approval-needed';this.core.emit?.({type:'message_approval_needed',id});return {deferred:true,pendingApproval:true};
+ }
+ async approve(id){
+  this.core.assertUnlocked();if(this.core.resources.isBackground())throw fail('POLICY');
+  if(this.approving.has(id))throw fail('BUSY');
+  const row=this.core.store.get('messageOut',id);if(!row||row.status!=='pending-approval')throw fail('NOT_FOUND');
+  const settings=this.settings(),conversation=selected(settings,row);
+  if(!conversation||!writable(settings,row)||row.revision!==settings.revision)throw fail('REVIEW_CHANGED');
+  const adapter=this.adapters[row.adapter];if(!adapter)throw fail('MESSAGING');
+  const target={...settings,...conversation,adapter:row.adapter,revision:row.revision};
+  this.approving.add(id);
+  try{
+   // The adapter asks for this exact body/destination through Resources.preflight.
+   row.status='sending';this.core.store.put('messageOut',id,row);
+   await adapter.send(target,row.body);row.status='sent';
+   const delivery=this.core.store.get('capture_delivery',id);if(delivery){
+    this.core.store.put('capture_delivery',id,{...delivery,status:'sent',at:Date.now()});
+    const note=this.core.store.get('capture_note',delivery.captureId);
+    if(note?.actor)captures.acknowledge(this.core,{id},note.actor);
+   }
+  }catch(e){
+   if(['INTERFERENCE','DEFERRED','POLICY','REVIEW_CHANGED'].includes(e.code)){row.status='pending-approval';throw e;}
+   row.status='delivery-uncertain';this.core.store.put('messaging','settings',{...this.settings(),enabled:false});throw fail('MESSAGING');
+  }finally{this.approving.delete(id);this.core.store.put('messageOut',id,row,{expires:this.core.settings().retentionDays?Date.now()+this.core.settings().retentionDays*86400000:null});}
+  return {sent:true};
  }
  async desktopResult(text,override='default'){const s=this.settings();if(!s.enabled||override==='never'||(override!=='send'&&!s.forwardDesktop)||!s.notifyComplete)return;const a=this.adapters[s.adapter];if(!a)return;try{await this.send(a,s,uuid(),s.sendSummaries?text.slice(0,12000):'Your desktop task is complete. Open Private AI to review it.');}catch{}}
  async jobFinished(id){
@@ -145,7 +176,7 @@ class MessagingBridge{
   if(job.status==='completed'?!s.notifyComplete:!s.notifyFailure)return;
   const c=selected(s,s),adapter=this.adapters[s.adapter];if(!c||!adapter)return;
   const target={...s,...c,generation:this.generation};
-  if(!require('./messaging-policy.cjs').backgroundReplyAllowed(this.core,target))return;
+  if(!writable(s,target))return;
   const claim=crypto.createHmac('sha256',this.code()).update([id,job.completed||job.started||0,job.status].join('|')).digest('hex');
   if(!this.core.store.claim('wa-job-'+claim))return;
   // Only task state is disclosed: no resident names, report titles, paths,

@@ -354,6 +354,8 @@ async function dispatch(
   }
   core.assertUnlocked();
   if (op !== "summary") core.touch();
+  if (op === "assistantDraftRetry") return require("./assistant-drafts.cjs").retry(core,data);
+  if (op.startsWith("speech")) return require("./local-speech.cjs").dispatch(core,op,data);
   if (op.startsWith("voiceTranscript")) return require("./voice-history.cjs").dispatch(core,op,data);
   if (op.startsWith("snf")) return require("./snf/index.cjs").dispatch(core,op,data);
   if (op.startsWith("workflow")) return require("./workflows/index.cjs").dispatch(core,op,data);
@@ -379,6 +381,8 @@ async function dispatch(
     case "messagingOpenWeb": await messaging.adapters.web.open(); return true;
     case "messagingPair": return messaging.pair(data.adapter,data.groupId);
     case "messagingConversations": return messaging.list(data.adapter);
+    case "messagingOutbox": return messaging.outbox();
+    case "messagingApprove": return messaging.approve(data.id);
     case "messagingReadings": return messaging.readings();
     case "messagingClearReadings": messaging.clearReadings();return true;
     case "messagingWindows": {
@@ -386,7 +390,15 @@ async function dispatch(
       if(!Number.isSafeInteger(data.pid)||data.pid<=0)throw fail("INVALID");
       core.store.put("messaging","windows",{appId:data.appId,pid:data.pid});return true;
     }
-    case "browserRecipes": return core.store.list("browserRecipe");
+    case "browserRecipes": return core.browserReports.list();
+    case "browserGrant": {
+      if(data.enabled===false)return core.browserReports.grant(data.id,null,false);
+      const plan=core.browserReports.plan(data.id);
+      await confirmWrite('Allow this tested report workflow to run unattended?',
+        'Report: '+plan.recipe.name+'\nWebsite: '+plan.recipe.url+'\nBrowser: '+plan.recipe.browser+'\n\n'+JSON.stringify(plan.recipe.steps,null,2)+'\n\nAuthorize only report retrieval steps. Scheduled runs use the dedicated browser session, pause for login/MFA or errors, and retain downloaded reports in your work folder. Changing this workflow invalidates approval. Email and WhatsApp sending remain separately approved.');
+      return core.browserReports.grant(data.id,plan.hash,true);
+    }
+    case "browserSchedule": return core.browserReports.save(data);
     case "browserSave": {const r=validateRecipe(data);core.store.put("browserRecipe",r.id,r);return r;}
     case "browserDelete": core.store.delete("browserRecipe",data.id);return true;
     case "browserOpen": {const r=validateBrowserTarget(data);await browserWorker.open(r.url,r.origins,false,r.browser);return true;}
@@ -956,6 +968,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       modelManager=new ModelManager({directory:path.join(process.env.LOCALAPPDATA||os.homedir(),"PrivateAIModels"),fetcher:(url,opts)=>session.fromPartition("privateai-download-memory",{cache:false}).fetch(url,opts),emit});
       core.modelManager=modelManager;
       browserWorker=new BrowserWorker(core);
+      core.browserReports=new (require("./browser-reports.cjs").BrowserReports)(core,browserWorker);
       core.localTools=createTools(core,access,browserWorker);
       messaging=new MessagingBridge(core);
       messaging.adapters.web=new WhatsAppWeb(core);

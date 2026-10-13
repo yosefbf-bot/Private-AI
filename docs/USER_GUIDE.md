@@ -1,20 +1,52 @@
-> Historical/pre-hardening document. Read ../ARCHITECTURE.md and ../PROJECT_STATUS.json for current status; procedures and release claims below require revalidation.
+# Private AI 3.0.1-dev — User guide
 
-# Private AI 3.0.0 — User guide
+Assistant-first source guide, updated October 11, 2026. Use with matching desktop and companion builds. Source testing does not establish new installer or physical-phone acceptance.
 
-This guide is bundled with the app. Open User guide in the sidebar, or type /help in chat. Common how-to answers use local code without loading a model or calling OpenAI. Help explains features; it does not change settings or grant permissions.
+## Start here
 
-### Start here
+**Where:** New chat; Dashboard, Notes, Meetings, Library
 
-**Where:** User guide
+1. Start a New chat to ask questions, review documents or prepare a draft. Dashboard is the single overview of recorded follow-ups and alerts.
+2. Use Notes for a quick observation, Meetings for notes or local recording, and Library for projects, documents and facility policies. More contains optional automation, connections and clinical tools.
+3. Choose Settings → Local models & processing to configure local AI. Choose a work folder in Settings. More → User guide and /help work without a model or API key.
 
-1. Open User guide in the sidebar to browse or search these instructions at any time.
-2. For help in chat, ask “How do I change my local brain?” or type /help models. Common guide answers are retrieved locally without loading a brain or calling OpenAI.
-3. Choose AI Processing to configure local models or cloud use. Choose Settings to select your approved work folder. Then start a New chat.
+**Keep in mind:** Standalone executive dashboards were removed from routine navigation; existing records and analysis engines are preserved. Source changes do not update an installed application automatically.
 
-**Keep in mind:** The guide explains supported features. Asking for instructions does not itself change settings or grant permissions.
+## Clinical analytics with optional PointClickCare
 
-### Chat, edit and save a response
+**Where:** More → Clinical imports; Settings → Integrations → PointClickCare; Dashboard
+
+1. Clinical rules, nursing-home references, projects and document analysis work without PCC or an API key. Configure a local model in AI Processing for AI reasoning.
+2. Use Clinical imports for reviewed CSV/JSON reports from any supported source. Generic and PCC reports use the same normalized clinical engine and source-evidence review workflow.
+3. Enable PointClickCare manual imports in Settings → Integrations only when needed. Disabling it hides PCC panels and blocks PCC import/sync; it preserves data and general clinical findings.
+4. Unknown, stale and incomplete data are not confirmed negative findings. Review original records and clinical findings before acting.
+
+**Keep in mind:** Live PCC synchronization is not included. Existing legacy PCC imports preserve manual mode; explicit disabled settings remain disabled. Built-in reference/template replies are labeled and are not model inference.
+
+## Pair the Android companion
+
+**Where:** Android main screens → connection badge; Desktop Settings → Companion
+
+1. Enable the optional desktop HTTPS gateway on an approved private interface and pair using its complete per-device link and certificate. No sample IP or shared default key is used.
+2. The phone opens Chat; Dashboard, Notes, Meetings and Library are the main destinations. Existing selected-PC-chat sharing, encrypted pending requests and scoped access remain.
+3. The main screens show a connection light and last successful sync time. Tap the status to check/sync. Red means disconnected, amber means syncing/checking or an old check. A cached timestamp is not proof of a live connection.
+4. Record a meeting on the phone while it stays unlocked and the recording screen remains open. Encrypted audio waits for the same paired PC; the PC performs local transcription and draft notes. Finish uploads only after every saved chunk is acknowledged.
+5. Settings → Appearance offers Follow system, Light or Dark. The choice stays on this phone and also applies to the locked screen.
+
+**Keep in mind:** Navigation, backgrounding or authentication expiry stops phone recording; up to 20 seconds not yet saved can be lost. Resume after unlocking. A 60-minute limit and storage bounds apply. Physical-phone microphone, Keystore, LAN and notification acceptance remain separate from unit tests.
+
+## Capture notes, rounds, reminders and drafts
+
+**Where:** Notes; Dashboard
+
+1. Write a simple note and choose Save note. The PC preserves the source and creates review follow-ups; Details is optional for a confirmed owner, deadline, location or email/WhatsApp draft.
+2. A configured local model can prepare an additional draft summary and suggested plan while the app is unlocked and background work is enabled. This never calls a cloud provider or sends correspondence. Without a local model, source notes and text-based review suggestions still work.
+3. Review assignments and confirm deadlines in Dashboard. Add a completion note before closing a follow-up. Source clinical alerts require their own evidence review.
+4. Use Outlook → Read a message → Track a reply / follow-up to preserve correspondence as a note and prepare an internal draft. In an approved WhatsApp conversation, use note:, rounding:, remind me to, or /note, /round, /remind and /draft.
+
+**Keep in mind:** Model drafts and text extraction need review. Ambiguous deadlines/owners remain unknown; undated items are follow-ups, not timed notifications. Images remain evidence for review, not an implemented image interpretation.
+
+## Chat, edit and save a response
 
 **Where:** New chat
 
@@ -25,9 +57,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** The saved response can include verification notices. A local evidence score is a heuristic, not a measured accuracy percentage.
 
-### Choose and download a local brain
+## Choose and download a local brain
 
-**Where:** AI Processing
+**Where:** Settings → Local models & processing
 
 1. Open AI Processing → Local brain tiers. Small is Qwen3 1.7B Q4_K_M; Medium is Llama 3.2 3B Q4_K_M; High is Qwen3 4B Q4_K_M; Extra High is Qwen3 8B Q4_K_M.
 2. Use Download model for a missing tier, or Locate existing file to reuse a compatible GGUF already on disk. Existing downloads are verified and reused.
@@ -36,9 +68,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** A larger model is not guaranteed to be correct. Downloads require internet, but ordinary local inference does not. Missing models are never downloaded automatically.
 
-### Automatic tier selection
+## Automatic tier selection
 
-**Where:** AI Processing
+**Where:** Settings → Local models & processing
 
 1. In AI Processing, choose Automatic for the local tier and choose the highest allowed automatic tier. Save processing settings.
 2. With Small installed, the app uses it for a short assessment and may switch to an available larger tier. It checks available RAM and stops the previous engine before loading another.
@@ -47,9 +79,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** The selection is a heuristic. It does not guarantee the best tier, and allowing a higher cap does not install that model.
 
-### Reduce RAM use and model loading problems
+## Reduce RAM use and model loading problems
 
-**Where:** AI Processing; Health & recovery
+**Where:** Settings → Local models & processing; Health & recovery
 
 1. Open AI Processing and choose Unload now before changing to a smaller model or context.
 2. Try Small or Medium, Local context tokens 2048, and Maximum local answer tokens 512. Save processing settings, then Load selected / starting model.
@@ -58,31 +90,31 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Do not reduce the RAM reserve just to force an oversized model to load. Work may wait or pause until enough RAM returns. The engine can stop when RAM becomes critically low.
 
-### Local Only, Local First and cloud modes
+## Local Only, Local First and cloud modes
 
-**Where:** AI Processing
+**Where:** Settings → Local models & processing
 
-1. Open AI Processing → Processing mode. Local Only blocks every OpenAI request, including model-list and connection tests.
-2. Local First and Smart Hybrid can use OpenAI only when cloud access is allowed and the required API/privacy settings are complete. Cloud First uses the configured API for AI reasoning.
+1. Open AI Processing → Processing mode. Local Only blocks cloud providers; configured GGUF and loopback Ollama models remain available.
+2. Local First and Smart Hybrid may escalate only to a configured, permitted provider. Cloud First uses local text when cloud is unconfigured or fails before producing output; it never bypasses privacy/authentication refusal.
 3. Ordinary local commands and built-in guide answers use local code, without a model or API key.
 4. Use Save processing settings after changing the mode. The provider information beneath a response shows how that response was produced.
 
-**Keep in mind:** Local Only cannot provide live web search through OpenAI. Some tasks may be refused or need a smaller scope when local capability or RAM is insufficient.
+**Keep in mind:** No model/key is required for saved data, clinical rules, references or deterministic tools. Model reasoning needs a configured local model or optional provider. Missing records remain unknown. Local drafts require review; image/web capability and RAM limits still apply.
 
-### Set up OpenAI API access
+## Configure an optional AI provider
 
-**Where:** Settings; AI Processing; API Usage
+**Where:** Settings; Local models & processing; Usage
 
-1. Open Settings to save your OpenAI API key and configure the model, organization or project fields when needed.
+1. Open Settings to select an optional provider and save its key/model. OpenAI, other allowed cloud providers and local Ollama remain separate configurations.
 2. Complete the privacy approval shown by the app before using cloud requests in HIPAA mode.
-3. In AI Processing, choose a mode that permits cloud use and enable Allow OpenAI when needed if appropriate. Local Only continues to block OpenAI.
+3. Choose a processing mode that permits cloud use only when desired. HIPAA cloud approval remains bound to the approved OpenAI configuration; other cloud providers remain blocked in HIPAA mode.
 4. API Usage shows recorded usage. Configure price inputs for estimates; an unknown price is not a promise that a request is free.
 
 **Keep in mind:** ChatGPT subscriptions do not supply an API key to this app. API billing is separate. Guide answers use no API credits, and no key belongs in a prompt or shared work folder.
 
-### Attach and ask about documents
+## Attach and ask about documents
 
-**Where:** Files; chat attachment button
+**Where:** Library; chat attachment button
 
 1. Use the + attachment button in chat, or Files → Import files. From Files, choose Ask about this file to begin a related chat.
 2. Ask a specific question and identify the documents to compare. The current build supports text PDFs, DOCX, XLSX, CSV, TXT, EML, MSG and images.
@@ -91,7 +123,7 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Image understanding depends on the selected provider/model; the bundled text brains cannot inspect image pixels. Scanned PDFs may need OCR outside this app. Unsupported legacy file formats should be converted before import.
 
-### Choose an output folder or ShareSync
+## Choose an output folder or ShareSync
 
 **Where:** Settings → Work folder
 
@@ -102,9 +134,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Do not place the app database, encrypted key file, browser profiles, caches or model downloads into the shared task folder. Each PC keeps its protected application data locally.
 
-### Organize a project
+## Organize a project
 
-**Where:** Projects
+**Where:** Library → Manage projects / chats
 
 1. Open Projects → New project. Enter its name, instructions and optional output subfolder.
 2. Choose New project chat to work with its instructions. Import or attach the relevant documents explicitly.
@@ -112,9 +144,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Project instructions guide answers; they do not grant access to apps, folders, websites or cloud services.
 
-### Create a reusable report agent
+## Create a reusable report agent
 
-**Where:** Agents
+**Where:** More → Automation → Saved assistants
 
 1. Open Agents → New agent. Enter a name and clear instructions, select an output format and choose any working files to include.
 2. Use Run report, then choose this PC or a connected Worker when offered. The job follows AI Processing settings.
@@ -122,9 +154,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** An agent is a reusable task configuration. This version is not a general-purpose autonomous controller that can perform arbitrary operations across every desktop app.
 
-### Schedule a report
+## Schedule a report
 
-**Where:** Scheduled tasks; Worker
+**Where:** More → Automation
 
 1. Open Scheduled tasks and create or edit a report with its prompt, selected files, and output format.
 2. Choose one-time, daily, weekdays, weekly, monthly, custom interval, or a work-folder file-change watcher. Enter the fields for your chosen recurrence. Times use this PC's local time.
@@ -134,9 +166,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** One-time jobs disable after their run. A file watcher detects file metadata changes, not arbitrary conditions in emails or websites. Scheduled reports use your existing processing and privacy settings.
 
-### Pause background work and understand job states
+## Pause background work and understand job states
 
-**Where:** Top bar; Health & recovery
+**Where:** Header menu → Pause background work; Health & recovery
 
 1. Use Pause background work in the top bar. Active work reaches a safe boundary before it pauses; this is not an immediate termination of an in-progress action.
 2. Use Resume background work when ready. Foreground chat receives priority at safe boundaries.
@@ -145,9 +177,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** One background AI job and one browser session are permitted. Close an open automation browser session before local reasoning needs its RAM.
 
-### Set up a Worker PC and Windows startup
+## Set up a Worker PC and Windows startup
 
-**Where:** Worker
+**Where:** More → Automation → Worker settings
 
 1. Open Worker, choose this PC’s role, and enable background jobs if desired. Save Worker settings.
 2. Enable Start Private AI when I sign in to Windows if you want it to launch at sign-in; this can be changed later.
@@ -156,17 +188,18 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Each PC needs its own local credentials and model files. A Worker role does not remove approvals or provide guaranteed desktop-input isolation.
 
-### Run a reviewed browser report
+## Run a reviewed browser report
 
-**Where:** Browser reports
+**Where:** More → Browser tasks; Automation
 
-1. Open Browser reports to create or review a supported recipe for the approved site and its defined steps.
-2. Review the interference warning before manually opening or running browser work. Log in or complete verification yourself when required.
-3. Run the reviewed recipe from the interface or use /report NAME for a saved recipe. Close the browser session when finished.
+1. Create an exact report workflow, choose its allowed website and controls, and test it manually using your authorized account. Choose PointClickCare as the source for PCC reports; enable the optional PCC integration first.
+2. After a successful tested download, explicitly allow that exact workflow to run unattended. Changes invalidate the grant and require a new test and approval.
+3. Add a daily, weekday, weekly, monthly or one-time schedule. Report pulls run one at a time with a default five-minute gap measured from the previous pull’s completion. An optional analysis prompt uses existing provider/privacy settings after download.
+4. Keep the PC awake, the app running and unlocked, and background work enabled. Review login/MFA, rate-limit and changed-page errors manually; the affected schedule pauses instead of retrying indefinitely.
 
-**Keep in mind:** Separate profiles do not guarantee focus isolation. Visible browser actions can take focus, share session state, open windows or download files. Unattended interfering actions are deferred.
+**Keep in mind:** Website retrieval requires network access; local analysis can run offline. This feature does not evade site controls or guarantee acceptance by PCC. Live PCC report retrieval must be tested with your facility’s authorized workflow. Downloads are not automatically mapped into resident records.
 
-### Automation warnings and safe deferral
+## Automation warnings and safe deferral
 
 **Where:** Preflight dialog; Apps; Browser reports
 
@@ -175,9 +208,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 3. Choose Defer safely to leave the action unexecuted, or Run now — I approve when you are ready for that invocation.
 4. Keep Private AI visible, focused and unlocked for manual approval. Unattended jobs do not bring it forward to ask.
 
-**Keep in mind:** App help is explanatory. It never grants permissions, clicks approval buttons, or bypasses these controls.
+**Keep in mind:** App help is explanatory. It never grants permissions, clicks approval buttons, or bypasses these controls. Exact tested report recipes may receive separate explicit unattended approval. This never authorizes Outlook or WhatsApp sending/deleting.
 
-### Use the browser companion in Chrome, Edge or Firefox
+## Use the browser companion in Chrome, Edge or Firefox
 
 **Where:** Settings → Browser Companion
 
@@ -187,11 +220,11 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 4. Pin and click the toolbar icon to open the sidebar. Ask a question. Enable Include page only when you intend to read the current page; click the icon on that tab first to grant access.
 5. Disconnect browser companions in Settings and close open panels when finished. Re-run setup if the desktop executable moves.
 
-**Keep in mind:** Firefox live native integration is not yet validated and permanent distribution requires Mozilla signing. Brave is an unverified Chromium compatibility candidate. Browser-internal pages and some PDF viewers cannot be captured. The companion uses the desktop app; it contains no independent model or API key.
+**Keep in mind:** Firefox live native integration is not yet validated and permanent distribution requires Mozilla signing. Brave/Vivaldi are unverified Chromium compatibility candidates; a toolbar popup is used when sidebar APIs are unavailable. Browser-internal pages, Bitwarden's hosted vault, extension pages and some PDF viewers cannot be captured. The companion uses the desktop app; it contains no independent model or API key.
 
-### Use approved Outlook access
+## Use approved Outlook access
 
-**Where:** Apps
+**Where:** More → Connections → Outlook
 
 1. Open Apps to review and grant the available Outlook read permissions you intend to use.
 2. Use /unread for unread messages, or /calendar today and /calendar tomorrow for the supported calendar lookup.
@@ -199,21 +232,18 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** A help question about Outlook does not read your mailbox. The actual commands require permissions and may be deferred when unattended.
 
-### Configure the WhatsApp bridge
+## Configure the WhatsApp bridge
 
-**Where:** Messaging; Apps
+**Where:** More → WhatsApp
 
-1. Open Messaging and connect the dedicated WhatsApp Web account by scanning its QR code. Keep Private AI and the connection running; no particular chat needs to stay open.
-2. Read all conversations continuously defaults on when the bridge is enabled. Turn it off to stop broad reading without changing selected-conversation permissions.
-3. Load connected conversations, select and verify each permitted destination, and configure approved sender IDs and command-only or open read/write mode. Open read/write accepts ordinary messages from approved senders.
-4. Disable all writing overrides every WhatsApp reply and forwarding option and pauses incoming task execution; reading continues according to the read settings. Enable actual response text and task-start commands separately as needed.
-5. Show latest observed messages to inspect encrypted local observations. Reading does not automatically send messages to an AI model. Clear locally observed messages removes those app records, not messages in WhatsApp.
-6. Follow-up context is kept separately per conversation and sender. Send /new to start fresh; approved-command mode also requires the configured prefix and PC code.
-7. Enable progress notices for a running-time notice each minute. Actual response text is on by default for new configurations, and long answers are split into numbered messages. Existing saved preferences are preserved.
+1. Connect your authorized WhatsApp session and select conversations and verified senders. Read-all can be turned off independently of selected conversation permissions.
+2. Selected command/read-write conversations can accept authorized inquiries and notes. Reading a conversation alone never grants task execution or sending.
+3. Review each prepared outgoing message in the outbox on the PC. Every send requires explicit approval of the destination and exact text. Disable all writing overrides selected write grants.
+4. Status messages, progress and reminders are also prepared for approval. Outlook/WhatsApp drafts remain internal until reviewed; Outlook drafts can be created with desktop confirmation.
 
-**Keep in mind:** The Web account receives new text-message events across conversations and refreshes up to 100 available recent messages per conversation. It does not download media, recover unavailable history, or operate while the PC/app/connection is offline. History never starts tasks. Windows-native intake remains open-conversation-only. The unofficial whatsapp-web.js connection needs live account validation before release.
+**Keep in mind:** Unattended sending has been removed at the owner’s request. Replies are not delivered merely because a remote task completed. The PC must be awake and reachable. WhatsApp attachment sending and deleting WhatsApp messages are not implemented.
 
-### Privacy settings and retention
+## Privacy settings and retention
 
 **Where:** Settings
 
@@ -224,9 +254,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** HIPAA mode is an app control, not a compliance certification. The app does not change your organization’s provider agreements, endpoint controls or approved channels.
 
-### Use a temporary chat
+## Use a temporary chat
 
-**Where:** Temporary chat
+**Where:** More → Temporary chat
 
 1. Choose Temporary chat before sending. It does not use or save the app’s memory and is removed when closed.
 2. Choose Save chat to convert it to a saved conversation when you intentionally want to keep it.
@@ -234,9 +264,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Temporary chat does not erase copies held by an external provider or other applications. Processing-mode and provider permissions still apply.
 
-### Manage what the app remembers
+## Manage what the app remembers
 
-**Where:** Settings → Memory
+**Where:** Settings → Review saved memories
 
 1. Open the Memory controls from Settings. Enable memory only when you intend it to be used.
 2. Add, edit or delete an entry, choose its duration, and choose global or project scope.
@@ -244,9 +274,9 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Saved memory is user-approved text included in eligible requests; it is different from the PC’s RAM.
 
-### Recover interrupted work and export diagnostics
+## Recover interrupted work and export diagnostics
 
-**Where:** Health & recovery
+**Where:** Header menu → Health & recovery
 
 1. Open Health & recovery after a crash, interrupted session or sleep. Read the recorded status and reason before resuming.
 2. Acknowledge startup notice dismisses the safe-start notice. Resume background work is a separate action.
@@ -255,7 +285,7 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Diagnostics exclude prompts, file contents, credentials, paths and device names. Recovery does not replay every kind of job or guarantee that an external action was undone. Do not delete the data folder to repair a launch error.
 
-### Install, use portable and upgrade safely
+## Install, use portable and upgrade safely
 
 **Where:** Installer; Portable folder
 
@@ -266,7 +296,7 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Copying the portable folder to another PC does not automatically transfer protected data or models. Windows execution of a new build must still be checked on the target PC.
 
-### Set global custom instructions
+## Set global custom instructions
 
 **Where:** Settings → Custom instructions
 
@@ -275,7 +305,7 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Instructions do not override app permissions or provider restrictions. Do not use this field to store resident data or credentials.
 
-### Archive and restore chats
+## Archive and restore chats
 
 **Where:** Chat → Archive; Settings → Manage archived chats
 
@@ -284,7 +314,7 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Archiving does not delete the chat or exempt it from retention. Temporary chats cannot be archived. Archiving a WhatsApp session makes its next inquiry start a new chat.
 
-### Ask Private AI to troubleshoot
+## Ask Private AI to troubleshoot
 
 **Where:** Chat; Health & recovery; User guide
 
@@ -295,7 +325,7 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** Diagnostics do not automatically fix settings or send messages. They do not expose your API key, work-folder path, or resident records. Other questions still follow your selected AI processing mode.
 
-### Check when this app source was updated
+## Check when this app source was updated
 
 **Where:** Bottom of sidebar
 
@@ -304,10 +334,31 @@ This guide is bundled with the app. Open User guide in the sidebar, or type /hel
 
 **Keep in mind:** This is a source-build timestamp, not evidence of an automatic update or completed release validation.
 
+## Record and transcribe a meeting locally
 
+**Where:** Meetings
 
-## Integrated standalone and optional-source update
+1. Create a meeting. Paste notes or choose Set up local transcription once to download the verified Windows CPU runtime and English model (about 87 MB). Subsequent recording and transcription are local; no browser speech service is used.
+2. Record with participants’ permission. Bounded audio chunks are stored encrypted before transcription. Retry pending audio before finishing; a missing runtime never produces a fake transcript.
+3. Finish to prepare source-based minutes and follow-ups. With a configured local language model, an additional draft summary/plan can be prepared. Review the transcript and confirm assignments/deadlines before acting.
+4. Use Speaker review to correct attribution and manage confirmed voice profiles. Experimental acoustic suggestions require human confirmation; new continuous recordings use Unknown Speaker until reviewed.
 
-See [Standalone clinical use and optional connections](INTEGRATED_STANDALONE_GUIDE.md) for PCC-off general analytics, optional AI providers and the opt-in WhatsApp report-job status alerts. The app version remains 3.0.1-dev; current source validation does not establish a new installer release.
+**Keep in mind:** Automatic multi-speaker diarization is not implemented. Do not treat acoustic similarity as verified identity. Long AI drafts can be explicitly marked partial; original transcript/minutes are retained. Local speech setup currently requires a one-time download; English Tiny model accuracy and physical microphone quality need review.
 
-See [Android companion setup and developer contract](ANDROID_COMPANION_CONTRACT.md) for the optional HTTPS gateway, pairing, supported endpoints and required Android changes.
+## Keep facility policies together
+
+**Where:** Library → Facility policies
+
+1. Choose Facility policies to select or create that collection. Upload reference documents or link existing files.
+2. Use a project chat or extracted-text search to consult the saved documents. Keep approval dates and versions in the source documents.
+
+**Keep in mind:** Uploading a document does not establish that a policy is approved, current or applicable. Existing documents and clinical rules are preserved.
+
+## Light and dark appearance
+
+**Where:** Settings → Appearance
+
+1. Choose Follow system, Light or Dark. The change applies immediately and is saved automatically on this PC.
+2. The Android companion has its own Appearance selection in Settings. Theme choices do not change privacy, connection or model settings.
+
+**Keep in mind:** Only this non-sensitive appearance preference is stored outside the encrypted workspace so the locked screen can use the same theme.

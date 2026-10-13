@@ -42,6 +42,9 @@ const EVENTS = new Set([
   "meeting_commitment_confirmed",
 ]);
 const META = {
+  companion_meeting: ["id", "meetingId", "deviceId", "sourceId"],
+  meeting_upload: ["id", "meetingId"],
+  meeting_audio: ["id", "meetingId", "chunkId", "status", "created", "bytes", "sha256", "retryAt"],
   chat: ["id", "title", "project", "updated", "hipaa", "archived"],
   file: ["id", "name", "size", "updated", "hipaa", "ownerChat"],
 };
@@ -181,6 +184,11 @@ class Store {
   }
   summaries(kind) {
     if (!META[kind]) throw fail("INVALID");
+    // Additive metadata backfill for records from earlier application versions.
+    this.transaction(() => {
+      for (const r of this._stmt("SELECT r.id,r.updated,r.payload FROM records r LEFT JOIN record_meta m ON m.kind=r.kind AND m.id=r.id WHERE r.kind=? AND m.id IS NULL").iterate(kind))
+        this.putMeta(kind,r.id,this.cipher.open(r.payload,kind+":"+r.id),r.updated);
+    });
     return this._stmt(
       "SELECT id,payload FROM record_meta WHERE kind=? ORDER BY updated DESC",
     )
@@ -312,7 +320,7 @@ class Store {
     this.db.exec("BEGIN IMMEDIATE");
     let committed = false;
     try {
-      const captureKinds = ['capture_note','capture_draft','capture_evidence','capture_upload','capture_notification','capture_delivery','capture_whatsapp_route'];
+      const captureKinds = ['capture_note','capture_draft','capture_evidence','capture_upload','capture_notification','capture_delivery','capture_whatsapp_route','meeting_upload'];
       const activeCaptures = this.list('capture_note').filter(c=>c.actionIds.some(id=>this.get('todo',id)?.status==='pending'));
       const activeCaptureIds = new Set(activeCaptures.map(c=>c.id));
       const activeEvidenceIds = new Set(activeCaptures.flatMap(c=>c.evidenceIds));
@@ -342,6 +350,7 @@ class Store {
             (r.expires && r.expires <= now) ||
             (targetCutoff && kind !== "memory" && r.updated <= targetCutoff)
           ) {
+            if(kind === "meeting")for(const childKind of ["meeting_audio","meeting_upload","companion_meeting"])for(const child of this.summaries(childKind))if(child.meetingId===r.id)this.delete(childKind,child.id);
             this.delete(kind, r.id);
             if (isReportFile || isReportJob) {
               counts.reports++;

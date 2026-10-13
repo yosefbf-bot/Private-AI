@@ -63,6 +63,7 @@ async function dispatch(op, data = {}, native = false) {
     case "messagingStatus":
       return {settings:require("../source/messaging.cjs").DEFAULT,state:"off",code:"synthetic-code",windows:{pid:null}};
     case "browserRecipes": return [];
+    case "speechStatus": return {supported:true,ready:false};
     case "localStatus": return {brain:{state:"failed",error:{code:"LOCAL_DEPENDENCY",message:"Engine component missing",exitCode:"0xc0000135"}}};
     case "downloadModel": requestedModel=data.modelId; return {state:"downloading"};
     case "summary":
@@ -205,9 +206,9 @@ let browser;
     };
   });
   await desktop.goto(base + "/source/ui/index.html");
-  await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
-  // Current navigation starts at Today and groups less-used tools in disclosure menus.
-  for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator('summary').click();
+  await desktop.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
+  // Current navigation starts at chat and groups less-used tools in disclosure menus.
+  for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator(':scope > summary').click();
   fs.mkdirSync(path.join(root,'build/screenshots'),{recursive:true});
   await desktop.screenshot({path:path.join(root,'build/screenshots/clinical-pcc-off.png'),fullPage:true});
   assert.equal(await desktop.locator('#sidebar [data-view=pcc]').isVisible(),false);
@@ -225,10 +226,10 @@ let browser;
   await desktop.locator('[name="integration-pcc-enabled"]').check();
   await desktop.locator('[data-act=integration-save]').click();
   await desktop.locator('.integration-status').getByText('Manual import',{exact:true}).waitFor();
-  await desktop.reload();await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
-  for(const menu of await desktop.locator('#sidebar details').all()) if(!(await menu.evaluate(el=>el.open)))await menu.locator('summary').click();
+  await desktop.reload();await desktop.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
+  for(const menu of await desktop.locator('#sidebar details').all()) if(!(await menu.evaluate(el=>el.open)))await menu.locator(':scope > summary').click();
   assert.equal(await desktop.locator('#sidebar [data-view=pcc]').isVisible(),true);
-  await desktop.locator('#section-data-health').waitFor();
+  assert.equal(await desktop.locator('#sidebar [data-view=pcc]').isVisible(),true);
   await desktop.locator('#sidebar [data-view=pcc]').click();await desktop.getByRole('heading',{name:'PCC Import Center',exact:true}).waitFor();
   await desktop.locator('#sidebar [data-view=snf]').click();await desktop.locator('[data-tab=feeds]').click();await desktop.getByRole('heading',{name:/PointClickCare Daily Feeds/}).waitFor();
   await desktop.locator('[data-tab=retention]').click();
@@ -242,7 +243,7 @@ let browser;
   await desktop.locator('#sidebar [data-view=settings]').click();await desktop.locator('[name="integration-pcc-enabled"]').uncheck();await desktop.locator('[data-act=integration-save]').click();
   await desktop.locator('.integration-status').getByText('Disabled',{exact:true}).waitFor();
   await desktop.locator('[data-integration=pcc]').scrollIntoViewIfNeeded();await desktop.screenshot({path:path.join(root,'build/screenshots/pcc-settings-disabled.png')});
-  await desktop.locator('#sidebar [data-view=today]').click();await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
+  await desktop.locator('#sidebar [data-view=dashboard]').click();await desktop.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
   assert.equal(await desktop.locator('#section-data-health').count(),0);assert.equal(await desktop.locator('#sidebar [data-view=pcc]').isVisible(),false);assert.equal(core.store.count('snf_resident'),1);
   checks.push('General clinical import reaches normalized records with PCC off; PCC settings save/reload controls dashboard/imports/feeds without deleting records');
 
@@ -281,7 +282,7 @@ let browser;
     path: path.join(root, "build/screenshots/desktop-home.png"),
   });
   checks.push("Desktop home renders");
-  await desktop.locator('#top-actions [data-view="health"]').click();
+  await desktop.locator('#top-actions summary').click();await desktop.locator('#top-actions [data-view="health"]').click();
   await desktop.locator('h1').filter({hasText:'Health & recovery'}).waitFor();
   await desktop.locator('[name="ramReserveMB"]').fill('1536');
   await desktop.locator('[name="keepBrainMinutes"]').fill('2');
@@ -311,7 +312,7 @@ let browser;
   noted.messages = [{role:"assistant",text:"The recommended larger model was unavailable or did not fit. Review this Small-model draft.\n\nLocal draft — not sufficiently verified. No OpenAI call was made.\n\nYes. Open **User guide** in the sidebar for instructions on models, files, schedules and privacy. You can also ask me how to use a feature."}];
   core.saveChat(noted);
   await desktop.reload();
-  for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator('summary').click();
+  for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator(':scope > summary').click();
   await desktop.locator(`[data-id="${noted.id}"]`).click();
   const body = desktop.locator('.message.assistant .message-body');
   const notes = desktop.locator('.response-footnotes');
@@ -350,7 +351,7 @@ let browser;
   await desktop.screenshot({
     path: path.join(root, "build/screenshots/desktop-settings.png"),
   });
-  await desktop.locator('#sidebar [data-view="projects"]').click();
+  await desktop.locator('#sidebar [data-view="workspace"]').click();await desktop.locator('#content [data-view="projects"]').click();
   await desktop.locator('[data-act="project-new"]').click();
   await desktop.locator('[name="name"]').fill("Operations");
   await desktop
@@ -361,7 +362,7 @@ let browser;
     .getByRole("heading", { name: "Operations", exact: true })
     .waitFor();
   checks.push("Project creation saves through the real Core");
-  await desktop.locator('#sidebar [data-view="schedules"]').click();
+  await desktop.locator('#sidebar [data-view="automation"]').click();
   await desktop.locator('[data-act="schedule-new"]').click();
   assert.equal(await desktop.locator('#modal input').first().evaluate(el=>el===document.activeElement),true);
   await desktop.keyboard.press('Escape');assert.equal(await desktop.locator('#modal').evaluate(el=>el.open),false);
@@ -373,10 +374,10 @@ let browser;
     .fill("Draft a short status report with follow-up items.");
   await desktop.locator("#modal-submit").click();
   await desktop
-    .getByRole("heading", { name: "Morning report", exact: true })
+    .getByText("Morning report", { exact: true })
     .waitFor();
   checks.push("Schedule creation saves through the real Core");
-  await desktop.locator('#sidebar [data-view="worker"]').click();
+  await desktop.locator('#sidebar [data-view="automation"]').click();await desktop.getByRole('button',{name:'Worker settings',exact:true}).click();
   await desktop.screenshot({
     path: path.join(root, "build/screenshots/desktop-worker.png"),
   });
@@ -445,7 +446,7 @@ let browser;
   ];
   core.saveChat(unsafe);
   await desktop.reload();
-  for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator('summary').click();
+  for(const menu of await desktop.locator('#sidebar details').all()) await menu.locator(':scope > summary').click();
   await desktop.locator(`[data-id="${unsafe.id}"]`).click();
   assert.equal(
     await desktop.locator(".message-body img,.message-body script").count(),
@@ -556,7 +557,7 @@ let browser;
   checks.push(
     "Page extraction excludes form controls, hidden text, and scripts",
   );
-  await desktop.locator('#sidebar [data-view="processing"]').click();
+  await desktop.locator('#sidebar [data-view="settings"]').click();await desktop.locator('#content [data-view="processing"]').click();
   await desktop.locator('[name="processingMode"]').selectOption('local-only');
   await desktop.locator('[data-act="hybrid-save"]').click();
   await desktop.waitForFunction(()=>document.querySelector('#model-label').textContent.startsWith('Local Only · '));
@@ -577,7 +578,7 @@ let browser;
   await desktop.locator('#local-brain-error').filter({hasText:'0xc0000135'}).waitFor();
   assert.equal(await desktop.locator('[name="localContext"]').inputValue(),'2048');
   checks.push('Model selection event refreshes correctly; startup error stays visible without losing settings');
-  await desktop.locator('#sidebar [data-view="usage"]').click();
+  await desktop.locator('#sidebar [data-view="settings"]').click();await desktop.locator('#content [data-view="usage"]').click();
   await desktop.locator('h1').filter({hasText:'API Usage'}).waitFor();
   await desktop.screenshot({path:path.join(root,'build/screenshots/api-usage.png')});
   checks.push('API usage dashboard displays unpriced calls without fabricated prices');
@@ -599,10 +600,11 @@ let browser;
   await wa.setContent('<div id="main"><header><span title="Private AI"></span></header><div data-id="display-name-only"><span class="selectable-text">AI: example /status</span></div></div>');
   assert.equal((await wa.evaluate(readWhatsApp)).verified,false);
   checks.push('WhatsApp DOM adapter requires stable group and sender identifiers');
-  await desktop.locator('#sidebar [data-view="actions"]').click();
+  await desktop.locator('#sidebar [data-view="dashboard"]').click();
   await desktop.locator('#sidebar [data-view="captures"]').click();
   await desktop.locator('#capture-form').waitFor();
   await desktop.locator('#capture-form [name="text"]').fill('Tell maintenance room 204 has a leak.');
+  await desktop.locator('#capture-form .manual-details > summary').click();
   await desktop.locator('#capture-form [name="kind"]').selectOption('round');
   await desktop.locator('#capture-form [name="draftChannel"]').selectOption('whatsapp');
   await desktop.locator('#capture-file').setInputFiles({name:'Synthetic evidence.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2dr8AAAAASUVORK5CYII=','base64')});
@@ -628,35 +630,19 @@ let browser;
   const bounded=captures.list(core);
   assert.equal(bounded.truncated,true);
   assert.ok(bounded.captures.length<100,'The response byte limit is reached before the note-count limit');
-  await desktop.locator('#sidebar [data-view="actions"]').click();
+  await desktop.locator('#sidebar [data-view="dashboard"]').click();
   await desktop.locator('#sidebar [data-view="captures"]').click();
-  await desktop.getByText('Showing a bounded set of recent notes; use Action Center for other follow-ups.',{exact:true}).waitFor();
+  await desktop.getByText('Showing a bounded set of recent notes; use Dashboard for other follow-ups.',{exact:true}).waitFor();
   assert.equal(await desktop.locator('#content article.card').count(),bounded.captures.length);
   checks.push('Notes list explains byte-limited truncation and renders the actual bounded result');
-  core.saveSettings({hipaa:false,publicModeConfirmed:true,processingMode:'local-first'});
-  await desktop.reload();await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
-  await desktop.locator('#voice-sidebar-btn').click();
-  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),1);
-  await desktop.locator('#voice-close-btn').click();
-  await desktop.evaluate(()=>window.__recognition.onend());
-  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),1);
-  assert.ok(await desktop.evaluate(()=>window.__voiceAborts)>0);
-  await desktop.locator('#voice-sidebar-btn').click();
-  await desktop.locator('#sidebar [data-view=settings]').click();
-  await desktop.evaluate(()=>window.__recognition.onend());
-  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),2);
-  assert.equal(await desktop.locator('#voice-hud').isVisible(),false);
-  await desktop.locator('#voice-sidebar-btn').click();
-  await desktop.evaluate(()=>window.__deliver({type:'locked'}));
-  await desktop.getByRole('heading',{name:'Private AI is locked'}).waitFor();
-  await desktop.evaluate(()=>window.__recognition.onend());
-  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),3);
-  assert.equal(await desktop.locator('#voice-hud').isVisible(),false);
-  core.saveSettings({hipaa:true,processingMode:'local-only'});
-  await desktop.reload();await desktop.getByRole('heading',{name:/Administrator Today/}).waitFor();
-  await desktop.locator('#voice-sidebar-btn').click();
-  assert.equal(await desktop.evaluate(()=>window.__voiceStarts),0);
-  checks.push('Voice closes on HUD close, navigation and lock; browser recognition remains blocked under HIPAA/Local Only');
+  for(const settings of [{hipaa:false,publicModeConfirmed:true,processingMode:'local-first'},{hipaa:true,processingMode:'local-only'}]){
+    core.saveSettings(settings);await desktop.reload();await desktop.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
+    await desktop.locator('#sidebar .more-tools > summary').click();await desktop.locator('#voice-sidebar-btn').click();
+    await desktop.getByText('Set up local transcription in Meetings before using voice. No audio was recorded.',{exact:false}).first().waitFor();
+    assert.equal(await desktop.evaluate(()=>window.__voiceStarts),0);
+    await desktop.locator('#sidebar [data-view=settings]').click();assert.equal(await desktop.locator('#voice-hud').isVisible(),false);
+  }
+  checks.push('Voice setup fails safely before microphone access; online browser recognizer is never started');
   checks.push('Surveillance retention notice makes no regulatory exemption claim');
   assert.deepEqual(errors, []);
   checks.push("No browser JavaScript errors");

@@ -17,6 +17,8 @@ function createMockCore() {
   const todos = [];
 
   const store = {
+    transaction(fn) { return fn(); },
+    project(kind, fn) { return this.list(kind).map(fn); },
     list(kind) {
       const items = [];
       for (const [k, v] of storeMap.entries()) {
@@ -239,13 +241,14 @@ test('Operations Intelligence & Meeting Copilot Module Suite', async (t) => {
     assert.ok(fs.existsSync(uiModulePath), 'operations-copilot.mjs must exist');
     const uiContent = fs.readFileSync(uiModulePath, 'utf8');
     assert.match(uiContent, /export function createOperationsCopilotUI/);
-    assert.match(uiContent, /Operations Intelligence &amp; Meeting Copilot/);
+    assert.match(uiContent, /Speaker review/);
 
     // 2. index.html contains operations nav
     const htmlPath = path.join(__dirname, '../source/ui/index.html');
     const htmlContent = fs.readFileSync(htmlPath, 'utf8');
-    assert.match(htmlContent, /data-view="operations"/);
-    assert.match(htmlContent, /id="operations-sidebar-btn"/);
+    assert.match(htmlContent, /data-view="meetings"/);
+    assert.doesNotMatch(htmlContent, /data-view="(?:operations|playbooks|actions)"/);
+    assert.match(htmlContent, /data-view="dashboard"/);
 
     // 3. app.mjs imports and routes operations
     const appPath = path.join(__dirname, '../source/ui/app.mjs');

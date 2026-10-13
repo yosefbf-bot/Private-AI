@@ -27,6 +27,8 @@ $result=[ordered]@{schema=1;version=$ExpectedVersion;platform='win32';passed=$fa
 try {
   # NSIS requires /D to be last and its path is unquoted, including spaces.
   $process=Start-Process -FilePath $installerPath -ArgumentList ('/S /D='+$installPath) -WindowStyle Hidden -PassThru
+  # PowerShell 5.1 can lose ExitCode after WaitForExit unless the handle is retained.
+  $installerHandle=$process.Handle
   $result.windowsInstallerExecuted=$true
   if (-not $process.WaitForExit(300000)) { throw 'Installer has not exited after five minutes. Inspect it manually; no success is recorded.' }
   $result.installerExitCode=$process.ExitCode
@@ -38,8 +40,10 @@ try {
   if ($result.executableSHA256 -ne $ExpectedExecutableSHA256 -or $result.applicationArchiveSHA256 -ne $ExpectedArchiveSHA256) { throw 'Installed payload does not match the tested candidate.' }
   $appReport=Join-Path $evidencePath 'application-evidence.json'
   $appProcess=Start-Process -FilePath $exe -ArgumentList ('"--release-validation='+$appReport+'"') -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $evidencePath 'application.stdout.log') -RedirectStandardError (Join-Path $evidencePath 'application.stderr.log')
+  $applicationHandle=$appProcess.Handle
   $result.windowsApplicationExecuted=$true
   if (-not $appProcess.WaitForExit(120000)) { throw 'Application validation did not finish. Inspect it manually; no success is recorded.' }
+  $result.applicationExitCode=$appProcess.ExitCode
   if ($appProcess.ExitCode -ne 0) { throw 'Application validation process failed.' }
   $appEvidence=Get-Content -LiteralPath $appReport -Raw | ConvertFrom-Json
   if (-not $appEvidence.passed -or $appEvidence.version -ne $ExpectedVersion -or $appEvidence.applicationArchiveSHA256 -ne $result.applicationArchiveSHA256 -or $appEvidence.executableSHA256 -ne $result.executableSHA256) { throw 'Application evidence is missing, failed, or belongs to another artifact.' }

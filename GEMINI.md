@@ -1,3 +1,16 @@
+## October 12 completed Windows and Android validation checkpoint
+
+Read [the final checkpoint](docs/FINAL_VALIDATION_2026-10-12.md) and
+[the Windows report](docs/WINDOWS_VALIDATION_2026-10-12.md). Frozen Windows code
+6e915aa passed actual installer/application/Small inference, uninstall/reinstall
+retention, installed restart, portable execution and the unchanged release gate;
+all 525 Windows tests passed. Android 47e3b4a passed 51 local tests and all four
+instrumented tests in both hosted runs, including real OS authentication and cleanup.
+Only GitHub artifact retention failed on account quota. The later PR checks are
+authoritative for later heads. These are development candidates with the report's
+physical/account/clinical limits. Current workspace instructions reserve main merges
+to the owner; keep review branches until successful integration.
+
 # Google AI Studio / Gemini handoff
 
 ## Audit follow-up — 2026-10-07

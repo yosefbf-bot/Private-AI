@@ -115,7 +115,7 @@ test('meeting microphone fails closed without settings and under HIPAA or Local 
   assert.equal(browserSpeechAllowed(null), false);
   assert.equal(browserSpeechAllowed({hipaa:true}), false);
   assert.equal(browserSpeechAllowed({hipaa:false, processingMode:'local-only'}), false);
-  assert.equal(browserSpeechAllowed({hipaa:false, processingMode:'smart-hybrid'}), true);
+  assert.equal(browserSpeechAllowed({hipaa:false, processingMode:'smart-hybrid'}), false);
   const {createOperationsCopilotUI} = await import('../source/ui/operations-copilot.mjs');
   let attempts = 0;
   global.window = {SpeechRecognition: class {constructor(){attempts++;}}};

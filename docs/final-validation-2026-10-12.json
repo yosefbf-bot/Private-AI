@@ -1,0 +1,75 @@
+{
+  "scope": "Completed October 12, 2026 validation; historical exact-head evidence, not a pass for a later commit",
+  "windowsBinaryCode": "6e915aafee2ee8cd94870f1c521e7b1788d77085",
+  "androidProductionApkSource": "28a6fe12605a128aa5be8554a5f8d7c6461d348b",
+  "androidApkSha256": "4b3ea024d6d748a382682587834f1d5bf7168c7f83812b2c786828c79fb91425",
+  "allHostedChecksPassed": false,
+  "androidDeviceAcceptancePassedInBothRuns": true,
+  "mainMerged": false,
+  "checks": [
+    {
+      "repository": "Private-AI-OG-google-version",
+      "testedHead": "f7777a55be830f0994dc8f3a937de3784bcee2ec",
+      "mainAtCheck": "40566c94acd38577fc03f0456d647f9619ebcb64",
+      "runId": 38307898924,
+      "event": "pull_request",
+      "url": "https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/38307898924",
+      "overallConclusion": "failure",
+      "failedSteps": [
+        "Retain source-built Windows packaging inputs"
+      ],
+      "failureReason": "GitHub Actions artifact storage quota",
+      "functionalBuildAndTestStepsPassed": true,
+      "androidInstrumentedTestsPassed": null,
+      "logsSha256": "f642d977c8018c2f42b5d19cb9bfeeb69ca3bfe109c234beeee533a3d337fd3b"
+    },
+    {
+      "repository": "Private-AI-OG-google-version",
+      "testedHead": "f7777a55be830f0994dc8f3a937de3784bcee2ec",
+      "mainAtCheck": "40566c94acd38577fc03f0456d647f9619ebcb64",
+      "runId": 38307891274,
+      "event": "push",
+      "url": "https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/38307891274",
+      "overallConclusion": "failure",
+      "failedSteps": [
+        "Retain source-built Windows packaging inputs"
+      ],
+      "failureReason": "GitHub Actions artifact storage quota",
+      "functionalBuildAndTestStepsPassed": true,
+      "androidInstrumentedTestsPassed": null,
+      "logsSha256": "50497660c38dc3cd50c85ae80805fecf3e16b78c72a8a0a5ef309b0ad6b28b85"
+    },
+    {
+      "repository": "AI-Mobile-companion-app",
+      "testedHead": "47e3b4af55fa3034ae4349eca0956c7bd7fc4061",
+      "mainAtCheck": "1e15c200d646cae647cb16139d41d66f2b9e16e0",
+      "runId": 38310131979,
+      "event": "pull_request",
+      "url": "https://github.com/yosefbf-bot/AI-Mobile-companion-app/actions/runs/38310131979",
+      "overallConclusion": "failure",
+      "failedSteps": [
+        "Upload exact-run candidate and validation reports"
+      ],
+      "failureReason": "GitHub Actions artifact storage quota",
+      "functionalBuildAndTestStepsPassed": true,
+      "androidInstrumentedTestsPassed": 4,
+      "logsSha256": "7bb61014f8cf6b76f052c2d3cb1656db0be4317641408838b7fcec031d566b6a"
+    },
+    {
+      "repository": "AI-Mobile-companion-app",
+      "testedHead": "47e3b4af55fa3034ae4349eca0956c7bd7fc4061",
+      "mainAtCheck": "1e15c200d646cae647cb16139d41d66f2b9e16e0",
+      "runId": 38310126915,
+      "event": "push",
+      "url": "https://github.com/yosefbf-bot/AI-Mobile-companion-app/actions/runs/38310126915",
+      "overallConclusion": "failure",
+      "failedSteps": [
+        "Upload exact-run candidate and validation reports"
+      ],
+      "failureReason": "GitHub Actions artifact storage quota",
+      "functionalBuildAndTestStepsPassed": true,
+      "androidInstrumentedTestsPassed": 4,
+      "logsSha256": "993a3bb16f2b1496e46d1596690269d6e7a9e21b9af7fd21294bb598874effa2"
+    }
+  ]
+}

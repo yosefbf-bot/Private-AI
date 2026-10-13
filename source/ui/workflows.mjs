@@ -20,8 +20,7 @@ export function createWorkflowUI({
           .slice(0, 16)
       : "";
   const parseDate = (v) => (v ? new Date(v).getTime() : null);
-  const nav =
-    '<p><button data-act="view" data-view="today">Today</button> <button data-act="view" data-view="actions">Action Center</button> <button data-act="view" data-view="captures">Notes and rounds</button> <button data-act="view" data-view="decisions">Decisions</button> <button data-act="view" data-view="metrics">Data sources</button></p>';
+  const nav = "";
   const fileChecks = (files, ids = []) =>
     files
       .map(
@@ -262,7 +261,21 @@ export function createWorkflowUI({
           };
       }
       if (page === "workspace") {
-        body.innerHTML = `<h1>Projects &amp; documents</h1><p><button data-act="view" data-view="projects">Manage projects / chats</button> <button data-act="view" data-view="files">Import or remove files</button></p>${restricted ? "<p>Document search is available in the production desktop workspace.</p>" : `<label>Project<select id="wf-project"><option value="">All files</option>${state.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select></label><button id="wf-link-files">Choose project files</button><form id="wf-search"><label>Find words in extracted text<input name="query" type="search" maxlength="200"></label><button>Search / show coverage</button></form><div id="wf-search-results"></div>`}`;
+        body.innerHTML = `<h1>Library</h1><p>Keep reference documents and facility policies together. Use them in project chats or search their contents.</p><p><button data-act="view" data-view="projects">Manage projects / chats</button> <button data-act="view" data-view="files">Import or remove files</button></p>${restricted ? "<p>Document search is available in the production desktop workspace.</p>" : `<button id="wf-policies">Facility policies</button><label>Collection<select id="wf-project"><option value="">All files</option>${state.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select></label><button id="wf-upload">Upload to collection</button><button id="wf-link-files">Choose existing files</button><form id="wf-search"><label>Find words in extracted text<input name="query" type="search" maxlength="200"></label><button>Search / show coverage</button></form><div id="wf-search-results"></div>`}`;
+        listen("#wf-policies", async () => {
+          let p = state.projects.find(p => p.name === "Facility policies");
+          if (!p) { p = await api("projectSave", {name:"Facility policies", instructions:"Use the attached facility policies as references. Cite the document and section. Distinguish supplied policy text from recommendations; uploaded documents do not establish approval or currency."}); await refresh(); state.projects.push(p); const option=document.createElement('option');option.value=p.id;option.textContent=p.name;container.querySelector('#wf-project').append(option); }
+          container.querySelector('#wf-project').value=p.id;
+          await search();
+          toast('Facility policies selected. Import files, then choose project files to add them.');
+        });
+        listen("#wf-upload", async()=>{
+          const id=container.querySelector('#wf-project').value,p=state.projects.find(p=>p.id===id);
+          if(!p)throw Error('Select a collection, or choose Facility policies first.');
+          const imported=await api('pickFiles');if(!imported.length)return;
+          const saved=await api('workflowProjectFiles',{projectId:id,fileIds:[...new Set([...(p.fileIds||[]),...imported.map(f=>f.id)])]});p.fileIds=saved.fileIds;
+          await refresh();await search();toast('Files added to the collection.');
+        });
         listen("#wf-link-files", async () => {
           const id = container.querySelector("#wf-project").value,
             p = state.projects.find((p) => p.id === id);

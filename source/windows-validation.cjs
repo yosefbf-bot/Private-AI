@@ -67,23 +67,37 @@ async function run({core,win,reportPath,exe,asar}){
   });
   assert.ok(selfCheck.result.checks.every(c=>c.status==='pass'),'Bundled self-check must pass every check');
   evidence.checks.push('packaged helper, ACL, named pipe, encrypted backup, DOCX/XLSX/PDF self-checks passed');
-  const views={today:'Administrator Today',actions:'Action Center',decisions:'Decision log',workspace:'Projects & documents',playbooks:'Playbooks & cloud budgets',metrics:'Set up data sources','clinical-imports':'Clinical imports',snf:'SNF Clinical Surveillance Command Center',operations:'Operations Intelligence & Meeting Copilot',automation:'Automation & Agent Center',projects:'A place for each project',files:'Your working files',agents:'Your reusable assistants',schedules:'Have reports ready for you',worker:'Let another PC handle the work',settings:'Make Private AI yours',processing:'AI Processing',usage:'API Usage',browser:'Browser reports',apps:'Your apps. Your permission.',guide:'User guide'};
-  evidence.navigation=[];
-  for(const [view,heading] of Object.entries(views)){
-   await win.webContents.executeJavaScript(`document.querySelectorAll('#sidebar details').forEach(e=>e.open=true);document.querySelector('#sidebar [data-view="${view}"]').click()`);
-   // Navigation refreshes state before rendering. Old nonempty content is not readiness.
-   let page,complete=false;
+  const views={dashboard:'Dashboard',captures:'Notes',meetings:'Meetings',workspace:'Library',decisions:'Decision log',metrics:'Set up data sources','clinical-imports':'Clinical imports',snf:'SNF Clinical Surveillance Command Center',automation:'Automation',projects:'A place for each project',files:'Your working files',agents:'Your reusable assistants',worker:'Let another PC handle the work',settings:'Make Private AI yours',processing:'AI Processing',usage:'API Usage',browser:'Browser reports',apps:'Your apps. Your permission.',guide:'User guide'};
+  const parents={projects:'workspace',files:'workspace',agents:'automation',worker:'automation',processing:'settings',usage:'settings'};
+  const navigate=async view=>{
+   if(parents[view])await navigate(parents[view]);
+   let clicked=false;
+   for(let n=0;n<100&&!clicked;n++){
+    clicked=await win.webContents.executeJavaScript(`document.querySelectorAll('#sidebar details').forEach(e=>e.open=true);(()=>{const b=document.querySelector('[data-act="view"][data-view="${view}"]');if(!b)return false;b.click();return true})()`);
+    if(!clicked)await new Promise(r=>setTimeout(r,100));
+   }
+   assert.ok(clicked,'Visible route to '+view);
    for(let n=0;n<300;n++){
     await new Promise(r=>setTimeout(r,100));
-    page=await win.webContents.executeJavaScript(`({active:document.querySelector('#sidebar [data-view="${view}"]').classList.contains('active'),heading:document.querySelector('#content h1')?.innerText||'',content:document.querySelector('#content').innerText,guideReady:!!document.querySelector('#guide-search')})`);
-    complete=page.active&&page.heading.includes(heading)&&(view!=='guide'||page.guideReady);
-    if(complete)break;
+    const page=await win.webContents.executeJavaScript(`({heading:document.querySelector('#content h1')?.innerText||'',content:document.querySelector('#content').innerText,guideReady:!!document.querySelector('#guide-search')})`);
+    if(page.heading.includes(views[view])&&(view!=='guide'||page.guideReady))return page;
    }
-   assert.ok(complete,'Expected page '+view+'; observed heading: '+page?.heading);assert.doesNotMatch(page.content,/Error loading|is not defined|Cannot read properties/);
+   throw Error('Expected page '+view);
+  };
+  evidence.navigation=[];
+  assert.equal(await win.webContents.executeJavaScript("document.querySelectorAll('.primary-nav button').length"),4);
+  assert.equal(await win.webContents.executeJavaScript("document.querySelectorAll('#sidebar [data-view=actions],#sidebar [data-view=today],#sidebar [data-view=operations],#sidebar [data-view=playbooks],#sidebar [data-view=worker]').length"),0);
+  for(const view of Object.keys(views)){
+   const page=await navigate(view);assert.doesNotMatch(page.content,/Error loading|is not defined|Cannot read properties/);
    evidence.navigation.push({view,heading:page.heading});
-   if(['today','operations','settings','processing'].includes(view))fs.writeFileSync(path.join(path.dirname(reportPath),'screen-'+view+'.png'),(await capture()).toPNG());
+   if(['dashboard','meetings','settings','processing'].includes(view))fs.writeFileSync(path.join(path.dirname(reportPath),'screen-'+view+'.png'),(await capture()).toPNG());
+   if(view==='settings'){
+    await win.webContents.executeJavaScript("(()=>{const choice=document.querySelector('[name=appearance]');choice.value='dark';choice.dispatchEvent(new Event('change',{bubbles:true}));})()");
+    assert.equal(await win.webContents.executeJavaScript("document.documentElement.dataset.theme"),'dark');
+    fs.writeFileSync(path.join(path.dirname(reportPath),'screen-settings-dark.png'),(await capture()).toPNG());
+   }
   }
-  evidence.checks.push('21 packaged navigation views rendered without loading/error states; four screenshots captured');
+  evidence.checks.push('19 packaged primary and secondary views rendered; one Dashboard, four primary destinations and dark appearance verified');
   const call=async(op,data={})=>win.webContents.executeJavaScript('window.privateAI.call('+JSON.stringify(op)+','+JSON.stringify(data)+')');
   assert.equal((await call('setPassphrase',{passphrase:'SYNTHETIC validation passphrase'})).ok,true);
   try{

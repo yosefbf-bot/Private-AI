@@ -26,7 +26,7 @@ test("Voice subsystem logic and state management", async (t) => {
   await t.test("Cleans markdown and code snippets cleanly for natural speech", () => {
     const vm = new VoiceManager({
       onSend: async () => ({ text: "ok" }),
-      getState: () => ({}),
+      getState: () => ({ settings: { processingMode: 'local-only', hipaa: true } }),
       getChat: () => null,
       onStateChange: () => {}
     });
@@ -46,7 +46,7 @@ test("Voice subsystem logic and state management", async (t) => {
     let lastState = null;
     const vm = new VoiceManager({
       onSend: async () => ({ text: "ok" }),
-      getState: () => ({}),
+      getState: () => ({ settings: { processingMode: 'local-only', hipaa: true } }),
       getChat: () => null,
       onStateChange: (s) => { lastState = s; }
     });
@@ -71,6 +71,7 @@ test("Voice subsystem logic and state management", async (t) => {
         return { text: "Report completed." };
       },
       getState: () => ({
+        settings: { processingMode: 'local-only', hipaa: true },
         agents: [
           { id: "clinical-agent", name: "Clinical Reviewer", prompt: "Review for HIPAA compliance." }
         ]
@@ -94,7 +95,7 @@ test("Voice subsystem logic and state management", async (t) => {
   await t.test("VoiceManager runs strictly locally with no external network or API dependencies", () => {
     const vm = new VoiceManager({
       onSend: async () => ({ text: "ok" }),
-      getState: () => ({}),
+      getState: () => ({ settings: { processingMode: 'local-only', hipaa: true } }),
       getChat: () => null,
       onStateChange: () => {}
     });
@@ -113,7 +114,7 @@ test("Voice subsystem logic and state management", async (t) => {
   await t.test("Turn detection patience modes adjust silence thresholds", () => {
     const vm = new VoiceManager({
       onSend: async () => ({ text: "ok" }),
-      getState: () => ({}),
+      getState: () => ({ settings: { processingMode: 'local-only', hipaa: true } }),
       getChat: () => null,
       onStateChange: () => {}
     });
@@ -139,7 +140,7 @@ test("Voice subsystem logic and state management", async (t) => {
         sentPayload = payload;
         return { text: "Here is your updated census summary." };
       },
-      getState: () => ({}),
+      getState: () => ({ settings: { processingMode: 'local-only', hipaa: true } }),
       getChat: () => ({ id: "chat-xyz" }),
       callApi: async (op, data) => {
         if (op === "stop") stopCalledWith = data;
@@ -175,7 +176,7 @@ test("Voice subsystem logic and state management", async (t) => {
   await t.test("Streaming Audio Playback Queue enqueues and flushes sentence chunks cleanly", () => {
     const vm = new VoiceManager({
       onSend: async () => ({ text: "ok" }),
-      getState: () => ({}),
+      getState: () => ({ settings: { processingMode: 'local-only', hipaa: true } }),
       getChat: () => null,
       onStateChange: () => {}
     });
@@ -201,7 +202,7 @@ test("Voice subsystem logic and state management", async (t) => {
         sentPayload = payload;
         return { text: "Buenos días, ¿cómo puedo ayudarle?" };
       },
-      getState: () => ({}),
+      getState: () => ({ settings: { processingMode: 'local-only', hipaa: true } }),
       getChat: () => ({ id: "chat-es" }),
       onStateChange: () => {}
     });
@@ -226,7 +227,7 @@ test("Voice subsystem logic and state management", async (t) => {
         sentPayload = payload;
         return { text: "Acknowledged." };
       },
-      getState: () => ({}),
+      getState: () => ({ settings: { processingMode: 'local-only', hipaa: true } }),
       getChat: () => ({ id: "chat-mood" }),
       onStateChange: (s) => { notifiedState = s; }
     });
@@ -274,7 +275,7 @@ test("Voice subsystem logic and state management", async (t) => {
     let notifiedState = null;
     const vm = new VoiceManager({
       onSend: async () => ({ text: "ok" }),
-      getState: () => ({}),
+      getState: () => ({ settings: { processingMode: 'local-only', hipaa: true } }),
       getChat: () => null,
       onStateChange: (s) => { notifiedState = s; }
     });

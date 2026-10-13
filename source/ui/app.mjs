@@ -1,9 +1,11 @@
+import {appearance, setAppearance} from "./theme.mjs";
 import {integrationSettings} from "./integrations.mjs";
 import {companionSettings} from "./companion.mjs";
 import {createWorkflowUI} from "./workflows.mjs";
 import {createCaptureUI} from "./captures.mjs";
 import {migrateLegacyStorage} from "./legacy-storage.mjs";
-import {createTodayUI} from "./snf/today.mjs";
+import {createDashboardUI} from "./dashboard.mjs";
+import {createMeetingsUI} from "./meetings.mjs";
 import {createImportCenter} from "./snf/import-center.mjs";
 import {responseLayout,responseChecks} from "./response-layout.mjs";
 import {createMessagingUI} from "./messaging.mjs";
@@ -83,7 +85,8 @@ function idsFrom(r) {
 }
 const workflowUI=createWorkflowUI({api,esc,toast,form,field,textarea,select,renderPage,refresh});
 const captureUI=createCaptureUI({api,esc,toast,form,field,textarea,select,refresh});
-const todayUI=createTodayUI({api,esc,toast,refresh,renderPage});
+const dashboardUI=createDashboardUI({api,esc,toast,form,field,textarea,refresh,renderPage});
+const meetingsUI=createMeetingsUI({api,esc,toast,form,field,textarea,refresh,renderPage});
 const importUI=createImportCenter({api,esc,toast,form});
 const snfUI = createSNFUI({ api, toast, esc, renderPage });
 const automationUI = createAutomationCenterUI({
@@ -167,7 +170,7 @@ function renderChatHistory() {
 function renderSidebar() {
   const snfEnabled = state.settings.snfEnabled !== false;
   const alertBar = $("universal-alert-bar");
-  if (alertBar) alertBar.style.display = snfEnabled || state.snfAlerts?.critical > 0 ? "" : "none";
+  if (alertBar) alertBar.style.display = (state.snfAlerts?.critical > 0 || state.snfAlerts?.high > 0) ? "" : "none";
   const snfNavBtn = $("snf-sidebar-btn");
   if (snfNavBtn) snfNavBtn.style.display = snfEnabled ? "" : "none";
   snfUI?.updateUniversalAlertBar(state.snfAlerts);
@@ -184,11 +187,12 @@ function updateTop() {
   const ram=state.ramProfile||state.health?.ramProfile;
   const ramPart=ram?`Hardware RAM: ${ram.totalGB} GB (${ram.availableGB} GB Free · ${ram.statusBadge}) · `:``;
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
+  $("resource-status").hidden = !resource || !["blocked","error","low_memory"].includes(resource.background?.state);
   const names = {
-    today: "Today",
+    dashboard: "Dashboard", meetings: "Meetings", today: "Dashboard",
     execdesk: "👔 Executive Desk",
     opanalytics: "📈 Operations Analytics & Compliance",
-    actions: "Action Center", captures: "Notes and rounds", decisions: "Decision log", metrics: "Data sources", workspace: "Projects & Documents", playbooks: "Playbooks & Budgets",
+    actions: "Action Center", captures: "Notes", decisions: "Decision log", metrics: "Data sources", workspace: "Library", playbooks: "Playbooks & Budgets",
     operations: "📊 Operations Intelligence & Meeting Copilot",
     automation: "⚡ Automation & Agent Center",
     pcc: "PCC Import Center", "clinical-imports": "Clinical imports",
@@ -215,13 +219,9 @@ function updateTop() {
       ? chat.hipaa || state.settings.hipaa
       : state.settings.hipaa;
   $("top-actions").innerHTML =
-    `<button class="primary" data-act="pause-worker">${state.settings.workerPaused?'Resume background work':'Pause background work'}</button>` +
-    `<button data-act="view" data-view="health">Health &amp; recovery</button>` +
-    `<button data-act="shortcuts" class="shortcuts-help-btn" id="shortcuts-help-btn" title="Keyboard Shortcuts (?)">? Shortcuts</button>` +
-    `<span class="badge ${hipaa ? "" : "public"}">${hipaa ? "HIPAA mode" : "Public mode"}</span>` +
-    (view === "chat" && chat
-      ? `${chat.temporary ? '<button data-act="save-temp">Save chat</button>' : '<button data-act="rename">Rename</button>'}<button data-act="delete-chat" title="Delete chat">Delete</button>`
-      : "");
+    `<span class="badge ${hipaa ? "" : "public"}">${hipaa ? "HIPAA mode" : "Public mode"}</span><details class="header-menu"><summary aria-label="Conversation and app options">•••</summary><div class="header-menu-items">` +
+    (view === "chat" && chat ? `${chat.temporary ? '<button data-act="save-temp">Save chat</button>' : '<button data-act="rename">Rename chat</button>'}<button data-act="delete-chat">Delete chat</button>` : "") +
+    `<button data-act="pause-worker">${state.settings.workerPaused?'Resume background work':'Pause background work'}</button><button data-act="view" data-view="health">Health &amp; recovery</button><button data-act="shortcuts" id="shortcuts-help-btn">Shortcuts</button></div></details>`;
   $("compose").hidden = view !== "chat";
   $("web").disabled = hipaa || state.settings.processingMode==="local-only" || !state.settings.allowCloud || !state.providerCapabilities?.selected?.ready || state.providerCapabilities.selected.classification!=="cloud";
   if ($("web").disabled) $("web").checked = false;
@@ -419,6 +419,7 @@ function autoResizePrompt() {
   p.style.height = `${h}px`;
 }
 function renderChat() {
+  meetingsUI.stop();dashboardUI.stop();
   voiceManager?.enforcePolicy();
   view = "chat";
   updateTop();
@@ -426,7 +427,7 @@ function renderChat() {
   updateResponseTimeEstimate();
   if (!chat || !chat.messages.length) {
     $("content").innerHTML =
-      `<div class="welcome"><img src="icon.png" alt=""><h1>What would you like to work on?</h1><p>Chat, review documents, and prepare reports.<br>Your history stays on this PC.</p><div class="suggestions"><button data-act="suggest" data-text="Help me draft a clear, professional report."><b>Draft a report</b><span>Turn notes into something ready to share</span></button><button data-act="attach"><b>Review a document</b><span>Attach a PDF, Word, or Excel file</span></button><button data-act="suggest" data-text="Help me compare the information in my attached files."><b>Compare information</b><span>Find differences and useful details</span></button><button data-act="view" data-view="schedules"><b>Prepare a scheduled report</b><span>Let a Worker PC handle recurring work</span></button></div></div>`;
+      `<div class="welcome"><img src="icon.png" alt=""><h1>What would you like to work on?</h1><p>Chat, review documents, and prepare reports.<br>Your history stays on this PC.</p><div class="suggestions"><button data-act="suggest" data-text="Help me draft a clear, professional report."><b>Draft a report</b><span>Turn notes into something ready to share</span></button><button data-act="attach"><b>Review a document</b><span>Attach a PDF, Word, or Excel file</span></button><button data-act="suggest" data-text="Help me compare the information in my attached files."><b>Compare information</b><span>Find differences and useful details</span></button><button data-act="view" data-view="automation"><b>Prepare a scheduled report</b><span>Let a Worker PC handle recurring work</span></button></div></div>`;
     return;
   }
   $("content").innerHTML =
@@ -1002,7 +1003,7 @@ function settingsHTML() {
     `;
   }
 
-  return `<div class="page"><h1>Make Private AI yours</h1><label class="check"><input name="uiAdvanced" type="checkbox" ${s.uiAdvanced ? "checked" : ""}> Advanced response details</label><p class="subtitle">Set up once, then open Private AI and start working.</p><section class="section"><h2>1. AI Provider &amp; API Key Configuration</h2><p>You can run Private AI completely locally on this PC without an API key or subscription, or connect an API key for Google Gemini, Anthropic Claude, OpenAI, DeepSeek, Groq, or custom endpoints.</p><label class="field">Selected AI Provider<select name="provider" id="provider-select">${Object.values(provs).map(p=>`<option value="${esc(p.id)}" ${currentProvider===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>${providerSection}</section>
+  return `<div class="page"><h1>Make Private AI yours</h1>${select("Appearance", "appearance", [["system","Follow system"],["light","Light"],["dark","Dark"]], appearance())}<p class="help">Saved automatically on this PC.</p><label class="check"><input name="uiAdvanced" type="checkbox" ${s.uiAdvanced ? "checked" : ""}> Advanced response details</label><p class="subtitle">Set up once, then open Private AI and start working.</p><section class="section"><h2>1. AI Provider &amp; API Key Configuration</h2><p>You can run Private AI completely locally on this PC without an API key or subscription, or connect an API key for Google Gemini, Anthropic Claude, OpenAI, DeepSeek, Groq, or custom endpoints.</p><label class="field">Selected AI Provider<select name="provider" id="provider-select">${Object.values(provs).map(p=>`<option value="${esc(p.id)}" ${currentProvider===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>${providerSection}<p><button data-act="view" data-view="processing">Local models &amp; processing</button> <button data-act="view" data-view="usage">Usage</button></p><details><summary>Cloud usage limits</summary><p>Optional per-PC limits remain enforced for cloud requests.</p><button data-act="cloud-limits">Manage limits</button></details></section>
   <section class="section"><h2>2. Choose where reports are saved</h2><p>Choose a normal folder or your approved ShareSync folder. You can change it later.</p><div class="path-display">${esc(s.workspace || "No work folder selected")}</div><div class="button-row"><button class="primary" data-act="choose-workspace">Choose folder</button><button class="secondary" data-act="open-workspace">Open folder</button></div><p>Finished reports stay here until you remove them. Private history, keys, and settings stay on this PC.</p></section>
   <section class="section"><h2>3. Privacy and retention</h2><label class="check"><input name="hipaa" type="checkbox" ${s.hipaa ? "checked" : ""}> HIPAA mode</label><p>PHI use requires your organization’s approved devices and policies, an applicable OpenAI BAA, and approved API retention and endpoint configuration. This switch does not verify or establish compliance.</p><label class="check"><input name="approved" type="checkbox" ${s.approved ? "checked" : ""}> Approved for this organization’s configured HIPAA workflow. I confirm organizational/contractual approval of this provider, endpoint, project, credentials and retention settings. Save configuration changes first, then approve the saved configuration.</label><div class="fields">${select(
     "Keep local chat history",
@@ -1027,7 +1028,7 @@ function settingsHTML() {
   ${integrationSettings(state.integrations, esc)}
   ${companionSettings(state.companion, esc)}
   <section class="section"><h2>Browser Companion</h2><p>Ask beside your webpage. Pages are read only after you explicitly include a page and send your request.</p><button class="secondary" data-act="connect-chrome">Set up browser companion</button><details><summary>Browser installation steps</summary><p>Click the setup button above. For Chrome, Brave or Vivaldi, open chrome://extensions; for Edge, open edge://extensions. Enable Developer mode, click Load unpacked, and select the folder that opens. For Firefox, open about:debugging#/runtime/this-firefox, click Load Temporary Add-on, and choose manifest.json in the firefox subfolder. Temporary Firefox installation lasts until Firefox restarts; permanent installation needs Mozilla signing. Pin Private AI Companion. Compatible browsers without a sidebar use a toolbar popup. For Bitwarden and saved-password sign-in, see Browser reports. If your organization blocks extension installation, it needs to approve the extension.</p><button class="secondary" data-act="disconnect-chrome">Disconnect browser companions</button></details></section>
-  <section class="section"><h2>Custom instructions</h2>${textarea("Instructions used across chats", "customInstructions", s.customInstructions||"")}<p>Project instructions are added for the current project.</p><button data-act="chat-archives">Manage archived chats</button></section><section class="section"><h2>Memory</h2><label class="check"><input name="memoryEnabled" type="checkbox" ${s.memoryEnabled ? "checked" : ""}> Use the memories I explicitly save</label><p>Memory is off by default. Private AI never silently creates permanent memory from chats.</p><button class="secondary" data-act="view" data-view="memory">Review saved memories</button></section><section class="section"><h2>To-Do &amp; Follow-Up Reminders</h2><label class="check"><input name="autoReminders" type="checkbox" ${s.autoReminders !== false ? "checked" : ""}> Remind me automatically on pending follow-ups</label><p>Private AI monitors follow-up dates and deadlines extracted from Outlook emails or manual to-dos, notifying you on this PC when a task is due.</p><button class="secondary" data-act="view" data-view="todos">View To-Do list &amp; reminders</button></section><section class="section clinical-surveillance-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h2 style="margin:0;display:flex;align-items:center;gap:8px;">🏥 Clinical Surveillance &amp; SNF Module <span class="clinical-status-badge ${s.snfEnabled !== false ? 'active' : 'disabled'}">${s.snfEnabled !== false ? '● ACTIVE' : '○ DISABLED'}</span></h2><label class="clinical-toggle-switch" title="Toggle Clinical Surveillance"><input name="snfEnabled" type="checkbox" ${s.snfEnabled !== false ? "checked" : ""}><span class="clinical-toggle-slider"></span></label></div><p style="margin-top:6px;">Continuous safety surveillance of PointClickCare daily orders, admissions, eMAR exceptions, and behavior logs. Surfaces new psychotropics, missing indications, PRN 14-day limits, and persistent clinical alerts. <strong>When turned off, all clinical surveillance banners, sidebar navigation, and healthcare features are completely hidden for a clean, distraction-free assistant.</strong></p>${s.snfEnabled !== false ? '<div style="margin-top:14px;"><button class="secondary" data-act="view" data-view="snf">Open SNF Command Center</button></div>' : ''}</section>
+  <section class="section"><h2>Custom instructions</h2>${textarea("Instructions used across chats", "customInstructions", s.customInstructions||"")}<p>Project instructions are added for the current project.</p><button data-act="chat-archives">Manage archived chats</button></section><section class="section"><h2>Memory</h2><label class="check"><input name="memoryEnabled" type="checkbox" ${s.memoryEnabled ? "checked" : ""}> Use the memories I explicitly save</label><p>Memory is off by default. Private AI never silently creates permanent memory from chats.</p><button class="secondary" data-act="view" data-view="memory">Review saved memories</button></section><section class="section"><h2>To-Do &amp; Follow-Up Reminders</h2><label class="check"><input name="autoReminders" type="checkbox" ${s.autoReminders !== false ? "checked" : ""}> Remind me automatically on pending follow-ups</label><p>Private AI monitors confirmed follow-up deadlines. Reading an email does not by itself establish a reminder date.</p><button class="secondary" data-act="view" data-view="todos">View To-Do list &amp; reminders</button></section><section class="section clinical-surveillance-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h2 style="margin:0;display:flex;align-items:center;gap:8px;">🏥 Clinical Surveillance &amp; SNF Module <span class="clinical-status-badge ${s.snfEnabled !== false ? 'active' : 'disabled'}">${s.snfEnabled !== false ? '● ACTIVE' : '○ DISABLED'}</span></h2><label class="clinical-toggle-switch" title="Toggle Clinical Surveillance"><input name="snfEnabled" type="checkbox" ${s.snfEnabled !== false ? "checked" : ""}><span class="clinical-toggle-slider"></span></label></div><p style="margin-top:6px;">Continuous safety surveillance of PointClickCare daily orders, admissions, eMAR exceptions, and behavior logs. Surfaces new psychotropics, missing indications, PRN 14-day limits, and persistent clinical alerts. <strong>When turned off, all clinical surveillance banners, sidebar navigation, and healthcare features are completely hidden for a clean, distraction-free assistant.</strong></p>${s.snfEnabled !== false ? '<div style="margin-top:14px;"><button class="secondary" data-act="view" data-view="snf">Open SNF Command Center</button></div>' : ''}</section>
   <section class="section voice-transcripts-section" id="voice-transcripts-section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <h2 style="margin:0;display:flex;align-items:center;gap:8px;">🎙 View Voice Transcripts</h2>
@@ -1058,6 +1059,7 @@ function settingsHTML() {
   )}${field("Maximum output tokens", "maxOutput", s.maxOutput, "number")}${field("OpenAI organization (optional)", "org", s.org)}${field("OpenAI project (optional)", "projectId", s.projectId)}${field("App lock after minutes", "lockMinutes", s.lockMinutes, "number")}</div><p>Reasoning controls depend on the selected model. Automatic locking inside Private AI requires an app passphrase; your organization’s Windows lock remains separate.</p><div class="button-row"><button class="secondary" data-act="passphrase">Set app passphrase</button><button class="secondary" data-act="lock">Lock app</button><button class="secondary" data-act="backup">Create local encrypted backup</button><button class="secondary" data-act="self-check">Run local checks</button><button class="secondary" data-act="diagnostics">Create diagnostic report</button></div><p>Diagnostics contain technical metadata only. Local backups require this Windows profile and its original encryption key. A portable app does not make encrypted history portable.</p></details></div>`;
 }
 function showLocked() {
+  meetingsUI.stop({discard:true});dashboardUI.stop();operationsCopilotUI.stopListening();
   closeVoiceSession();
   if ($("modal").open) $("modal-cancel").click();
   $("modal-content").innerHTML = "";
@@ -1372,6 +1374,8 @@ function updateVoiceUIState(vState) {
   const muteLabel = $("voice-mute-label");
   const sideBadge = $("voice-sidebar-badge");
   const orb = $("voice-orb");
+  const status = $("voice-status-message");
+  if (status) { status.textContent = vState.statusMessage || ""; status.hidden = !vState.statusMessage; }
 
   if (orb) {
     orb.className = "voice-orb " + (vState.isHardMuted ? "muted" : vState.state);
@@ -1399,6 +1403,10 @@ function updateVoiceUIState(vState) {
     }
     const stateLabels = {
       idle: "READY",
+      error: "VOICE UNAVAILABLE",
+      closed: "CLOSED",
+      waiting_for_user: "WAITING",
+      reconnecting: "RECONNECTING…",
       connecting: "CONNECTING…",
       listening:
         vState.mode === "always" ? "ALWAYS LISTENING" : "LISTENING",
@@ -1413,7 +1421,7 @@ function updateVoiceUIState(vState) {
     text.textContent = stateLabels[vState.state] || "READY";
     if (sideBadge) {
       sideBadge.textContent =
-        vState.state === "listening" || vState.state === "user_speaking" ? "Listening" : "Ready";
+        vState.state === "listening" || vState.state === "user_speaking" ? "Listening" : vState.state === "error" ? "Unavailable" : "Ready";
       sideBadge.className =
         "voice-badge " + (vState.state === "listening" || vState.state === "user_speaking" ? "listening" : "");
     }
@@ -1470,19 +1478,19 @@ async function init() {
     initVoice();
     initAutosave();
     await migrateLegacyStorage(api,localStorage,AUTOSAVE_STORAGE_KEY,VOICE_TRANSCRIPTS_KEY);
-    const isLocal = state.settings.provider === "local" || (!state.keySaved && state.settings.provider !== "openai");
-    if (state.settings.snfEnabled!==false) {renderPage("today");return;}
-    if (!isLocal && !state.providerCapabilities?.local?.configured && !state.providerCapabilities?.selected?.ready) {
-      view = "processing";
-      renderPage(view);
-    } else if(state.settings.snfEnabled!==false) renderPage("today"); else renderChat();
+    renderChat();
   } catch (e) {
     if (view !== "locked") toast(e.message);
   }
 }
 function renderPage(name, options = {}) {
+  dashboardUI.stop();
+  if (name === "schedules") name = "automation";
+  if (["today", "actions", "execdesk", "opanalytics", "playbooks"].includes(name)) name = "dashboard";
+  if (name === "operations" && !["sbar", "speaker_review", "voice_profiles"].includes(options.tab)) name = "meetings";
   closeVoiceSession();
   operationsCopilotUI.stopListening();
+  meetingsUI.stop();
   if (name === "snf" && state.settings.snfEnabled === false) {
     renderChat();
     return;
@@ -1495,12 +1503,16 @@ function renderPage(name, options = {}) {
     captureUI.render($("content")).catch(e=>toast(e.message));
     return;
   }
-  if (["actions","decisions","metrics","workspace","playbooks"].includes(name)) {
+  if (name === 'dashboard' || name === 'meetings') {
+    $("content").innerHTML='<p>Loading…</p>';
+    (name === 'dashboard' ? dashboardUI : meetingsUI).render($("content"),options).catch(e=>toast(e.message));return;
+  }
+  if (["decisions","metrics","workspace"].includes(name)) {
     $("content").innerHTML="<p>Loading…</p>";workflowUI.render($("content"),name).catch(e=>toast(e.message));return;
   }
-  if (["today","pcc","clinical-imports"].includes(name)) {
+  if (["pcc","clinical-imports"].includes(name)) {
     $("content").innerHTML="<p>Loading…</p>";
-    (name==="today"?todayUI:importUI).render($("content"),{sourceProvider:name==="pcc"?"pcc":"generic"}).catch(e=>toast(e.message));return;
+    importUI.render($("content"),{sourceProvider:name==="pcc"?"pcc":"generic"}).catch(e=>toast(e.message));return;
   }
   if (name === "execdesk") {
     $("content").innerHTML="<p>Loading Executive Desk…</p>";
@@ -1526,7 +1538,7 @@ function renderPage(name, options = {}) {
     snfUI.render($("content"));
     return;
   }
-  if(name==="messaging"||name==="browser"){const ui=name==="messaging"?messagingUI:browserUI;$("content").innerHTML="<p>Loading…</p>";ui.html().then(html=>{if(view===name)$("content").innerHTML='<p class="error-note">Primary-PC safety: visible browser actions and Outlook access require manual interruption approval. WhatsApp replies may run unattended only in conversations explicitly granted that permission; Disable all writing blocks every WhatsApp send. The account WhatsApp connection can remain open for local reasoning; report-browser sessions still reserve the browser lane. Separate profiles do not guarantee focus isolation.</p>'+html;}).catch(e=>toast(e.message));return;}
+  if(name==="messaging"||name==="browser"){const ui=name==="messaging"?messagingUI:browserUI;$("content").innerHTML="<p>Loading…</p>";ui.html().then(html=>{if(view===name)$("content").innerHTML='<p class="error-note">Primary-PC safety: visible browser actions and Outlook access require manual interruption approval. Every WhatsApp send needs your approval; Disable all writing blocks all WhatsApp sending. Tested website report workflows can separately be allowed to run on a schedule. The account WhatsApp connection can remain open for local reasoning; report-browser sessions still reserve the browser lane. Separate profiles do not guarantee focus isolation.</p>'+html;}).catch(e=>toast(e.message));return;}
   if(name==="processing"||name==="usage"){$("content").innerHTML=hybridUI[name]();return;}
   if(name==="guide"){renderGuide();return;}
   if(name==="health"){$("content").innerHTML=healthHTML();return;}
@@ -1809,6 +1821,7 @@ async function runAgent(id) {
     renderPage("worker");
   }
 }
+document.addEventListener("change", event => { if (event.target.matches('[name="appearance"]')) setAppearance(event.target.value); });
 $("search").addEventListener("input", () => {
   if (state) renderChatHistory();
 });
@@ -1942,6 +1955,20 @@ document.addEventListener("click", async (e) => {
       return;
     }
     switch (act) {
+      case "cloud-limits": {
+        const b=(await api('workflowSummary')).budget;
+        if(!b){toast('Switch to Production to manage cloud usage limits.');break;}
+        const p=b.policy, r=await form('Per-PC monthly cloud limits',
+          `<label class="check"><input type="checkbox" name="enabled" ${p.enabled?'checked':''}> Enable limits</label>`+
+          field('Maximum requests (blank = unlimited)','maxRequests',p.maxRequests??'','number')+
+          field('Maximum estimated USD (blank = unlimited)','maxAllowance',p.maxAllowance??'')+
+          field('Exact provider','provider',p.provider||'openai')+field('Exact model','model',p.model)+
+          field('Input USD per million tokens','inputRate',p.inputRate??'')+
+          field('Output USD per million tokens','outputRate',p.outputRate??'')+
+          '<p>Enter your verified provider rates. An allowance blocks unpriced models, web tools and images. Existing reservations are preserved.</p>');
+        if(r){await api('workflowBudgetSave',{...r,enabled:r.enabled==='on'});toast('Cloud limits saved.');}
+        break;
+      }
       case "shortcuts":
         await showShortcutsModal();
         break;
@@ -2296,6 +2323,11 @@ document.addEventListener("click", async (e) => {
         await editTask("schedule");
         break;
       case "schedule-edit":
+        if(state.schedules.find(s=>s.id===id)?.browserRecipeId){
+          const s=state.schedules.find(s=>s.id===id);
+          const r=await form('Website report schedule',field('Name','name',s.name)+select('Repeat','frequency',['daily','weekdays','weekly','monthly'].map(x=>[x,x]),s.frequency)+field('Time','time',s.time,'time')+field('Weekdays (0=Sunday)','weekdays',(s.weekdays||[1]).join(','))+field('Day of month','monthDay',s.monthDay||1,'number')+field('Minutes between pulls','gapMinutes',s.gapMinutes||5,'number')+textarea('Analysis instructions (optional)','analysisPrompt',s.analysisPrompt));
+          if(r){await api('scheduleSave',{...s,...r});await refresh();renderPage('automation');}break;
+        }
         await editTask("schedule", id);
         break;
       case "chat-archive":
@@ -2305,12 +2337,12 @@ document.addEventListener("click", async (e) => {
         if(result?.id){await api('archiveChat',{id:result.id,archived:false});await refresh();toast('Chat restored.');}break;
       }
       case "schedule-duplicate":
-        await api('scheduleDuplicate',{id});await refresh();renderPage('schedules');break;
+        await api('scheduleDuplicate',{id});await refresh();renderPage('automation');break;
       case "schedule-toggle": {
         const s = state.schedules.find((s) => s.id === id);
         await api("scheduleSave", { ...s, enabled: !s.enabled });
         await refresh();
-        renderPage("schedules");
+        renderPage("automation");
         break;
       }
       case "todo-new":

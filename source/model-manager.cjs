@@ -19,11 +19,11 @@ class ModelManager{
  }
  async verifyTier(tier,settings,signal){
   const row=this.catalog(settings).find(t=>t.tier===tier);if(!row?.installed)throw fail('LOCAL_FILE_MISSING');
-  const model=this.models.find(m=>m.id===row.id),stat=fs.statSync(row.file),signature=[stat.size,stat.mtimeMs,stat.ctimeMs,stat.ino].join('|');
+  const model=this.models.find(m=>m.id===row.id),stat=fs.statSync(row.file,{bigint:true}),signature=[stat.size,stat.mtimeNs,stat.ctimeNs,stat.ino].join('|');
   if(this.verified.get(row.file)===signature)return row;
   const hash=crypto.createHash('sha256');let size=0;
   for await(const chunk of fs.createReadStream(row.file)){if(signal?.aborted)throw fail('CANCELLED');size+=chunk.length;if(size>model.bytes)throw fail('LOCAL_MODEL');hash.update(chunk);}
-  const after=fs.statSync(row.file);if(signature!==[after.size,after.mtimeMs,after.ctimeMs,after.ino].join('|')||size!==model.bytes||hash.digest('hex')!==model.sha256)throw fail('LOCAL_MODEL');
+  const after=fs.statSync(row.file,{bigint:true});if(signature!==[after.size,after.mtimeNs,after.ctimeNs,after.ino].join('|')||size!==model.bytes||hash.digest('hex')!==model.sha256)throw fail('LOCAL_MODEL');
   this.verified.set(row.file,signature);return row;
  }
  status(){return {...this.progress,model:this.selected.name,modelId:this.selected.id,installed:fs.existsSync(path.join(this.directory,this.selected.file))};}

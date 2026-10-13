@@ -74,7 +74,7 @@ class WhatsAppAccount{
   return [shot];
  }
  async send(target,body){
-  await this.core.resources.preflight('messaging',target);
+  await this.core.resources.preflight('messaging',target,body);
   if(!this.client||!['connected','read-error','queue-overflow'].includes(this.state))throw fail('MESSAGING');
   const chat=await this.client.getChatById(target.groupId);
   if(serial(chat.id)!==target.groupId||chat.name!==target.groupName)throw fail('MESSAGING');

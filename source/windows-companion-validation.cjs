@@ -155,7 +155,7 @@ async function run({core,win,reportPath}){
   await bounded(win.webContents.executeJavaScript('document.querySelector(\'#sidebar [data-view="captures"]\').click()'));
   const uiText='SYNTHETIC packaged UI note '+runId;
   for(let attempt=0;attempt<100;attempt++){
-   if(await bounded(win.webContents.executeJavaScript('document.querySelector(\'#content h1\')?.textContent===\'Notes and rounds\' && !!document.querySelector(\'#capture-form\')')))break;
+   if(await bounded(win.webContents.executeJavaScript('document.querySelector(\'#content h1\')?.textContent===\'Notes\' && !!document.querySelector(\'#capture-form\')')))break;
    if(attempt===99)throw Error('Notes navigation timeout');await sleep(100);
   }
   await bounded(win.webContents.executeJavaScript('document.querySelector(\'#capture-form [name="text"]\').value='+JSON.stringify(uiText)+';document.querySelector(\'#capture-form button[type="submit"]\').click()'));
@@ -167,7 +167,7 @@ async function run({core,win,reportPath}){
   }
   assert.equal(uiCapture.actor.kind,'desktop');
   assert.ok(await bounded(win.webContents.executeJavaScript('document.querySelector(\'#content\').textContent.includes('+JSON.stringify(uiText)+')')));
-  result.checks.push('packaged Notes and rounds route and actual form submit save an independent desktop note through protected IPC');
+  result.checks.push('packaged Notes route and actual form submit save an independent desktop note through protected IPC');
 
   phase='full lock versus restricted generic metadata';
   await call('setPassphrase',{passphrase:phrase});ownedLock=true;

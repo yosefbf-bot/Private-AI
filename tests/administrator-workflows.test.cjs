@@ -504,6 +504,7 @@ test("budget guard is reached by routed requests and connection tests; realtime 
   await assert.rejects(core.testConnection("openai"), { code: "BUDGET" });
   assert.equal(calls.length, 0);
   const realtime = await core.createLiveSession();
-  assert.equal(realtime.provider, "local-full-duplex");
-  assert.match(realtime.fallbackReason, /budget/i);
+  assert.equal(realtime.provider, "local-offline");
+  assert.equal(realtime.ready, false);
+  assert.equal(calls.length, 0);
 });
