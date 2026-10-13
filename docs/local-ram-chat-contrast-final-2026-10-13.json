@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "version": "3.0.2-dev",
+  "codeCommit": "2cf3f397fd2128060c82d95c28ed6d1b616687fc",
+  "baseCommit": "dbdf4709fcae67e1b5355e1f99d39ab06ff54a22",
+  "reviewPR": 16,
+  "status": "final-source-and-packaged-startup-passed-installer-and-packaged-inference-pending",
+  "source": {
+    "testsPassed": 535,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "syntaxFiles": 199,
+    "hardeningPassedBeforeBackgroundFix": 25,
+    "unchangedUIChecksPassed": 25,
+    "productionAdvisories": 0,
+    "actualSourceModelInferenceExecuted": true,
+    "sourceInferenceRequests": 2,
+    "backgroundRecoveryWaits": 1,
+    "initialAdmissionCapBytes": 2684354560,
+    "recoveredAdmissionCapBytes": 3221225472,
+    "actualMemoryGuardRetained": true,
+    "configuredContext": 4096,
+    "effectiveContext": 2048,
+    "savedContextUnchanged": true,
+    "cloudCalls": 0
+  },
+  "windows": {
+    "installerBuilt": true,
+    "windowsInstallerExecuted": false,
+    "windowsApplicationExecuted": true,
+    "packagedStartupPassed": true,
+    "actualPackagedModelInferenceExecuted": false,
+    "finalModelAttemptNotYetRun": true,
+    "applicationChecks": 14,
+    "diagnostics": 12,
+    "views": 19,
+    "stageFiles": 590,
+    "peBinaries": 415,
+    "releaseEvidenceGatePassed": false,
+    "installedAppUpdated": false
+  },
+  "hashes": {
+    "installer": "e8daabbd6b78069cf7404ac1a1b8529d3e28493ce226fbd0926eb45e7c7fadec",
+    "exe": "9864347537608abdc032f40da260d61441b908df8288232ada79d133a36920db",
+    "asar": "e41720455dbb60e89688e5add0ebb2344383b9bb192b32d6eb9fbb29732818e4",
+    "runtime": "8c6faeaf07346cd4ef32d6b1ea0e4a71103d81962b7c9e2cb70291ce06d0107b"
+  },
+  "remaining": [
+    "Owner fully exits old installed Private AI and frees RAM",
+    "Local recovery copy, actual installer upgrade, installed hash verification",
+    "Final packaged Automatic inference and unchanged release evidence gate"
+  ],
+  "androidUnchanged": true,
+  "syntheticOnly": true
+}

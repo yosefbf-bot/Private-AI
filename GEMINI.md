@@ -10,7 +10,9 @@ production audit is zero. Source real Small inference passed twice. Frozen Windo
 interim code 4f118fe built and passed actual packaged startup, 14 checks, 12 diagnostics
 and 19 views. Packaged model loading was blocked by actual LOW_MEMORY. Installer
 execution/upgrade and packaged Automatic inference await owner app exit and RAM.
-Rebuild the final background recovery source and preserve interim receipts.
+Final frozen code 2cf3f39 built and passed actual packaged 14 checks/12 diagnostics/
+19 views. Source real background recovery and foreground inference passed at an
+actual bounded 2.5→3 GiB admission ceiling. Preserve interim receipts.
 The new release evidence gate has not passed. Do not label
 the older preview as containing this fix. Preserve installed data and models;
 the owner merges the separate review branch.

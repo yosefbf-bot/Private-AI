@@ -10,8 +10,15 @@ Final source also corrects background recovery: after a RAM pause it waits for
 the context that actually fits the complete request, including the configured
 reserve and learned peak protection. A bounded regression reproduced waiting
 forever at 3 GiB under the old 4,096-token threshold. All **535 final source tests**
-pass after the fix. A new final package is being built; interim Windows receipts
-below remain tied to 4f118fe and do not establish final-binary acceptance.
+pass after the fix. Final frozen code is
+`2cf3f397fd2128060c82d95c28ed6d1b616687fc`. Its genuine installer built and its
+packaged startup passed 14 checks, 12 diagnostics and 19 views. Real source
+background recovery/inference and a second foreground request passed with a
+2.5→3 GiB admission ceiling, always bounded by actual available memory. Saved
+4,096-token context remained intact; actual inference used 2,048 tokens.
+Installer execution/upgrade and final packaged inference are still pending owner
+app exit and memory headroom. See [the final-source receipt](local-ram-chat-contrast-final-2026-10-13.json).
+Interim Windows receipts below remain tied to 4f118fe and do not establish final-binary acceptance.
 
 ## Reported problems and changes
 

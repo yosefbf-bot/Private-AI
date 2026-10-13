@@ -8,8 +8,10 @@ All 535 source tests passed after also aligning background RAM recovery with the
 safe fitted-context requirement. Earlier 25 explicit hardening and 25 real Core/Edge UI checks passed;
 production audit is zero. Source real Small inference passed twice. Frozen Windows
 interim code 4f118fe built and its packaged startup/14 checks/12 diagnostics/19 views passed.
-That package is superseded by the final background recovery source; rebuild/accept
-the final candidate separately and preserve the interim receipts.
+That package is superseded by final frozen code 2cf3f39: its installer built and
+packaged 14 checks/12 diagnostics/19 views passed. Source real background recovery
+and foreground inference passed at actual bounded 2.5→3 GiB admission. Preserve
+interim receipts; installer upgrade and final packaged inference remain pending.
 Packaged model loading was blocked by actual low RAM; installer/upgrade execution
 and final packaged Automatic inference are pending owner app exit/memory recovery.
 Keep the older accepted 3.0.1 preview separate and preserve current user data.

@@ -740,12 +740,26 @@
       "binariesValidated": 406,
       "buildSourcesUnchanged": true
     },
-    "windowsCandidateAcceptance": "Final background recovery candidate rebuild/acceptance pending; prior flags belong to 4f118fe",
+    "windowsCandidateAcceptance": {
+      "installerBuilt": true,
+      "windowsInstallerExecuted": false,
+      "windowsApplicationExecuted": true,
+      "packagedStartupPassed": true,
+      "actualPackagedModelInferenceExecuted": false,
+      "finalModelAttemptNotYetRun": true,
+      "applicationChecks": 14,
+      "diagnostics": 12,
+      "views": 19,
+      "stageFiles": 590,
+      "peBinaries": 415,
+      "releaseEvidenceGatePassed": false,
+      "installedAppUpdated": false
+    },
     "androidSourceChanged": false,
     "actualSourceSmallInferenceExecuted": true,
     "sourceInferenceRequests": 2,
-    "frozenWindowsCodeCommit": "4f118fe98b02aea05873e97b716bbafc756f42e6",
-    "receipt": "docs/local-ram-chat-contrast-2026-10-13.json",
+    "frozenWindowsCodeCommit": "2cf3f397fd2128060c82d95c28ed6d1b616687fc",
+    "receipt": "docs/local-ram-chat-contrast-final-2026-10-13.json",
     "backgroundRecovery": "Complete-request fitted context, reserve and learned peak; bounded regression passed",
     "interimWindowsCandidateAcceptance": {
       "installerBuilt": true,
@@ -762,6 +776,7 @@
       "packagedAutomaticBlock": "actual LOW_MEMORY at localLoad",
       "productionAppUpdated": false,
       "releaseEvidenceGatePassed": false
-    }
+    },
+    "sourceInferenceCheckpoint": "2cf3f397fd2128060c82d95c28ed6d1b616687fc"
   }
 }
