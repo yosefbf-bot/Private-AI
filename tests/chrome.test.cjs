@@ -32,7 +32,7 @@ test("Include page OFF does not query tabs or execute page extraction", async ()
 });
 test("Page capture runs only for an explicitly enabled request", async () => {
   const { buildQuestion } = await import("../chrome_extension/capture.mjs");
-  let calls = 0;
+  const calls = [];
   const browser = {
     tabs: {
       query: async () => [
@@ -41,7 +41,7 @@ test("Page capture runs only for an explicitly enabled request", async () => {
     },
     scripting: {
       executeScript: async (options) => {
-        calls++;
+        calls.push(options);
         assert.equal(options.target.tabId, 3);
         return [{ result: { text: "Selected reference" } }];
       },
@@ -51,13 +51,18 @@ test("Page capture runs only for an explicitly enabled request", async () => {
     { prompt: "Explain", includePage: true },
     browser,
   );
-  assert.equal(calls, 1);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0].files,['vendor/readability.js']);
+  assert.equal(typeof calls[1].func,'function');
   assert.deepEqual(question.page, {
     text: "Selected reference",
     confirmed: true,
   });
   assert.equal(question.url, undefined);
   assert.equal(question.title, undefined);
+  calls.length=0;
+  await buildQuestion({prompt:'Explain',includePage:true,selectionOnly:true},browser);
+  assert.equal(calls.length,1);assert.equal(calls[0].files,undefined);assert.deepEqual(calls[0].args,[true]);
 });
 test("Blank questions cannot trigger extraction even with the checkbox enabled", async () => {
   const { buildQuestion } = await import("../chrome_extension/capture.mjs");

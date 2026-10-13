@@ -154,21 +154,28 @@ async function main(workerData) {
       try {
         const doc = await job.promise;
         if (doc.numPages > 300) throw Error("LIMIT");
-        let out = "";
+        let out = "",ocr=null,ocrPages=0;const emptyPages=[];
+        try{
         for (let p = 1; p <= doc.numPages; p++) {
           const page = await doc.getPage(p);
           const content = await page.getTextContent();
-          out +=
-            "\n[Page " +
-            p +
-            "]\n" +
-            content.items.map((i) => i.str + (i.hasEOL ? "\n" : " ")).join("") +
-            "\n";
+          let pageText=content.items.map((i) => i.str + (i.hasEOL ? "\n" : " ")).join("");
+          if(!pageText.trim()&&workerData.ocrDirectory){
+            const engine=require('./offline-ocr.cjs');if(++ocrPages>engine.MAX_OCR_PAGES)throw Error('LIMIT');
+            const viewport=page.getViewport({scale:2}),width=Math.ceil(viewport.width),height=Math.ceil(viewport.height);engine.pixels(width,height);
+            const {createCanvas}=require('@napi-rs/canvas'),canvas=createCanvas(width,height);
+            try{await page.render({canvasContext:canvas.getContext('2d'),viewport,background:'rgb(255,255,255)'}).promise;
+              ocr??=await engine.create(workerData.ocrDirectory);pageText=(await ocr.recognize(canvas.toBuffer('image/png'))).text;
+            }finally{canvas.width=1;canvas.height=1;}
+          }
+          if(!pageText.trim())emptyPages.push(p);
+          out+='\n[Page '+p+']\n'+pageText+'\n';page.cleanup();
           limit(out);
         }
         if (out.replace(/\[Page \d+\]/g, "").trim().length < 10)
           throw Error("FILE");
-        return { text: out };
+        return { text: out,...(ocrPages?{ocr:{engine:'tesseract-local-eng',pages:ocrPages,unreadablePages:emptyPages,verified:false,notice:'Machine OCR text may omit or misread information. Verify against the original pages before clinical or operational decisions.'}}:{}) };
+        }finally{await ocr?.close();}
       } finally {
         await job.destroy();
       }
@@ -184,7 +191,14 @@ async function main(workerData) {
               b.subarray(8, 12).toString() === "WEBP"
             : b[0] === 255 && b[1] === 216;
       if (!valid) throw Error("FILE");
+      let extracted={};
+      if(workerData.ocrDirectory){
+        const engine=require('./offline-ocr.cjs');engine.pixels(...engine.dimensions(b,ext));const ocr=await engine.create(workerData.ocrDirectory);
+        try{const result=await ocr.recognize(b);extracted={text:limit(result.text),ocr:{engine:'tesseract-local-eng',confidence:result.confidence,verified:false,notice:'Machine OCR reads visible text only; verify it against the original image. It is not visual or clinical interpretation.'}};}
+        finally{await ocr.close();}
+      }
       return {
+        ...extracted,
         image: true,
         mime:
           ext === ".png"
@@ -254,7 +268,7 @@ function receive(data) {
   main(data)
     .then((result) => reply({ ok: true, result }))
     .catch((e) =>
-      reply({ ok: false, code: e.message === "LIMIT" ? "LIMIT" : "FILE" }),
+      reply({ ok: false, code: ['LIMIT','OCR_FAILED'].includes(e.message)?e.message:'FILE' }),
     );
 }
 if (process.parentPort)

@@ -12,6 +12,7 @@ export function createWorkflowUI({
 }) {
   let filter = "open",
     query = "";
+  let activeSearch=null,renderRevision=0;
   const date = (v) => (v ? new Date(v).toLocaleString() : "Not recorded");
   const dateInput = (v) =>
     v
@@ -33,9 +34,12 @@ export function createWorkflowUI({
       .filter((k) => k.startsWith("file_"))
       .map((k) => k.slice(5));
   return {
+    stop(){renderRevision++;const id=activeSearch;activeSearch=null;if(id)api('stop',{id}).catch(()=>{});},
     async render(container, page = "actions") {
+      this.stop();const revision=renderRevision;
       const state = await api("workflowSummary"),
         restricted = state.demo || state.developmentMode;
+      if(revision!==renderRevision)return;
       container.innerHTML = `<div class="page workflow-page">${state.demo ? '<p class="error-note">DEMO DATA — NOT FOR CLINICAL USE</p>' : ""}${nav}<div id="workflow-body"></div></div>`;
       const body = container.querySelector("#workflow-body");
       const listen = (selector, fn) =>
@@ -261,7 +265,14 @@ export function createWorkflowUI({
           };
       }
       if (page === "workspace") {
-        body.innerHTML = `<h1>Library</h1><p>Keep reference documents and facility policies together. Use them in project chats or search their contents.</p><p><button data-act="view" data-view="projects">Manage projects / chats</button> <button data-act="view" data-view="files">Import or remove files</button></p>${restricted ? "<p>Document search is available in the production desktop workspace.</p>" : `<button id="wf-policies">Facility policies</button><label>Collection<select id="wf-project"><option value="">All files</option>${state.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select></label><button id="wf-upload">Upload to collection</button><button id="wf-link-files">Choose existing files</button><form id="wf-search"><label>Find words in extracted text<input name="query" type="search" maxlength="200"></label><button>Search / show coverage</button></form><div id="wf-search-results"></div>`}`;
+        let tools=restricted?null:await api('workflowDocumentToolsStatus'),searchId=null;
+        if(revision!==renderRevision)return;
+        body.innerHTML = `<h1>Library</h1><p>Keep reference documents and facility policies together. Use them in project chats or search their contents.</p><p><button data-act="view" data-view="projects">Manage projects / chats</button> <button data-act="view" data-view="files">Import or remove files</button></p>${restricted ? "<p>Document search is available in the production desktop workspace.</p>" : `<button id="wf-policies">Facility policies</button><label>Collection<select id="wf-project"><option value="">All files</option>${state.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select></label><button id="wf-upload">Upload to collection</button><button id="wf-link-files">Choose existing files</button><p><button id="wf-tools" ${tools.embedding&&tools.ocr?'disabled':''}>${tools.embedding&&tools.ocr?'Local search and English OCR ready':'Set up local search & English OCR (~68 MB)'}</button></p><form id="wf-search"><label>Search references<input name="query" type="search" maxlength="200" placeholder="Ask a question or enter words"></label><label>Search by<select name="mode"><option value="words">Words</option><option value="semantic" ${tools.embedding?'selected':'disabled'}>Meaning · local</option></select></label><button type="submit">Search / show coverage</button><button type="button" id="wf-search-stop" hidden>Stop search</button></form><div id="wf-search-results"></div>`}`;
+        listen('#wf-tools',async()=>{
+          const button=container.querySelector('#wf-tools');button.disabled=true;button.textContent='Downloading verified local tools…';
+          try{tools=await api('workflowDocumentToolsSetup',{kind:'all'});if(revision!==renderRevision)return;const mode=container.querySelector('#wf-search').elements.mode;mode.querySelector('[value="semantic"]').disabled=!tools.embedding;mode.value=tools.embedding?'semantic':'words';button.textContent=tools.embedding&&tools.ocr?'Local search and English OCR ready':'Retry local tool setup';toast('Local tools installed. Searches and OCR run offline; verify extracted text against originals.');}
+          finally{button.disabled=!!(tools.embedding&&tools.ocr);if(!button.disabled)button.textContent='Retry local tool setup';}
+        });
         listen("#wf-policies", async () => {
           let p = state.projects.find(p => p.name === "Facility policies");
           if (!p) { p = await api("projectSave", {name:"Facility policies", instructions:"Use the attached facility policies as references. Cite the document and section. Distinguish supplied policy text from recommendations; uploaded documents do not establish approval or currency."}); await refresh(); state.projects.push(p); const option=document.createElement('option');option.value=p.id;option.textContent=p.name;container.querySelector('#wf-project').append(option); }
@@ -295,13 +306,20 @@ export function createWorkflowUI({
           }
         });
         const search = async () => {
-          const r = await api("workflowDocumentSearch", {
+          if(searchId)throw Error('A search is already running. Stop it before starting another.');
+          const id=crypto.randomUUID();searchId=id;activeSearch=id;const stop=container.querySelector('#wf-search-stop');stop.hidden=false;
+          try{const r = await api("workflowDocumentSearch", {
             projectId: container.querySelector("#wf-project").value,
             query: container.querySelector("#wf-search").elements.query.value,
+            mode: container.querySelector('#wf-search').elements.mode.value,
+            requestId:id,
           });
+          if(revision!==renderRevision)return;
           container.querySelector("#wf-search-results").innerHTML =
-            `<p>${esc(r.notice)}</p><p>${r.totalMatches} matching sections${r.totalMatches > 50 ? "; showing first 50 — refine search" : ""}.</p><details open><summary>Extraction coverage</summary>${r.coverage.map((f) => `<p>${esc(f.name)}: ${f.characters} characters, ${f.sections} sections${f.pages ? ", " + f.pages + " page markers" : ""} · ${f.searchable ? "Text available" : "No searchable text"}</p>`).join("") || "<p>No files in this selection.</p>"}</details>${r.results.map((p) => `<section class="card"><h3>${esc(p.citation)}</h3><p>Source revision ${esc(p.revision.slice(0, 12))} · Imported ${esc(date(p.updated))}</p><pre style="white-space:pre-wrap">${esc(p.text)}</pre></section>`).join("")}`;
+            `<p>${esc(r.notice)}</p><p>${r.totalMatches} ${r.mode==='semantic'?'ranked passages':'matching sections'}${r.totalMatches > 50 ? "; showing first 50 — refine search" : ""}.</p><details open><summary>Extraction coverage</summary>${r.coverage.map((f) => `<p>${esc(f.name)}: ${f.characters} characters, ${f.sections} sections${f.pages ? ", " + f.pages + " page markers" : ""} · ${f.searchable ? "Text available" : "No searchable text"}</p>`).join("") || "<p>No files in this selection.</p>"}</details>${r.results.map((p) => `<section class="card"><h3>${esc(p.citation)}</h3><p>Source revision ${esc(p.revision.slice(0, 12))} · Stored / reviewed ${esc(date(p.updated))}</p><pre style="white-space:pre-wrap">${esc(p.text)}</pre></section>`).join("")}`;
+          }finally{if(searchId===id)searchId=null;if(activeSearch===id)activeSearch=null;stop.hidden=true;}
         };
+        listen('#wf-search-stop',async()=>{if(searchId)await api('stop',{id:searchId});});
         const f = container.querySelector("#wf-search");
         if (f) {
           f.onsubmit = (e) => {

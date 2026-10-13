@@ -1,8 +1,8 @@
 {
-  "version": "3.0.2-dev",
-  "updatedAt": "2026-10-13T17:24:02.980Z",
+  "version": "3.0.3-dev",
+  "updatedAt": "2026-10-13T23:13:31.538Z",
   "baselineCommit": "40566c94acd38577fc03f0456d647f9619ebcb64",
   "releaseStatus": "validation-pending",
   "note": "Assistant-first candidate; consult its dated hash-bound Windows validation before use.",
-  "sourceSHA256": "5d89fea75cdeecd37b783865808bf2232a8acc228591d83b7ac41655544f514a"
+  "sourceSHA256": "090a589dc6f3afa0d6eae17f27a9f5acd5e8cd9f430a0bcd40d0f4f60ce32467"
 }

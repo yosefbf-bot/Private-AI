@@ -1,0 +1,25 @@
+{
+  "embedding": {
+    "file": "bge-small-en-v1.5-f16.gguf",
+    "name": "BGE Small English local search",
+    "url": "https://huggingface.co/ggml-org/models/resolve/499bc8821c6b12b4e53c5bffcb21ec206f212d81/bert-bge-small/ggml-model-f16.gguf",
+    "bytes": 67308128,
+    "sha256": "f0b2fef971e8366438bfd2d9aefea1b0115919389448806d290237f638bae999",
+    "dimensions": 384,
+    "context": 512
+  },
+  "ocr": {
+    "file": "eng.traineddata",
+    "name": "English offline OCR",
+    "url": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd/eng.traineddata",
+    "bytes": 4113088,
+    "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+  },
+  "sqliteVec": {
+    "version": "v0.1.9",
+    "hashes": {
+      "win32-x64": "fcf98662a7ad9dce394b96a88f91032047823831b951c76636787c312a6476e6",
+      "linux-x64": "5923730861b86c707cca5602b5f91092f9e52a46706dbc6e269fd4bb9c4498e8"
+    }
+  }
+}

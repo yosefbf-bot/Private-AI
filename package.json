@@ -1,7 +1,7 @@
 {
   "name": "private-ai-desktop",
   "productName": "Private AI",
-  "version": "3.0.2-dev",
+  "version": "3.0.3-dev",
   "description": "Private Windows chat and an explicitly controlled Chrome companion",
   "author": "Private AI",
   "license": "UNLICENSED",
@@ -22,6 +22,7 @@
     "build:dir": "electron-builder --win --x64 --dir",
     "test:messaging-ui": "node tests/messaging-ui-check.cjs",
     "check:repository": "node scripts/check-repository.cjs",
+    "check:secrets": "node scripts/secret-scan.cjs",
     "check:release": "node scripts/check-release-files.cjs",
     "test:hardening": "node --test tests/provider-hardening.test.cjs tests/server-hardening.test.cjs tests/clinical-hardening.test.cjs tests/privacy-hardening.test.cjs",
     "start:desktop": "electron .",
@@ -33,7 +34,21 @@
     "executableName": "PrivateAI",
     "asar": true,
     "asarUnpack": [
-      "node_modules/@napi-rs/canvas-win32-x64-msvc/**/*"
+      "node_modules/@napi-rs/canvas-win32-x64-msvc/**/*",
+      "node_modules/sqlite-vec-windows-x64/**/*",
+      "source/ocr-thread.cjs",
+      "node_modules/tesseract.js/**/*",
+      "node_modules/tesseract.js-core/**/*",
+      "node_modules/bmp-js/**/*",
+      "node_modules/idb-keyval/**/*",
+      "node_modules/is-url/**/*",
+      "node_modules/node-fetch/**/*",
+      "node_modules/whatwg-url/**/*",
+      "node_modules/webidl-conversions/**/*",
+      "node_modules/tr46/**/*",
+      "node_modules/regenerator-runtime/**/*",
+      "node_modules/wasm-feature-detect/**/*",
+      "node_modules/zlibjs/**/*"
     ],
     "afterPack": "build/after-pack.cjs",
     "beforePack": "build/prepare-browser-assets.cjs",
@@ -88,6 +103,7 @@
   "dependencies": {
     "@google/genai": "^2.23.0",
     "@kenjiuno/msgreader": "1.28.0",
+    "@mozilla/readability": "0.6.0",
     "docx": "9.7.1",
     "dompurify": "3.4.16",
     "exceljs": "4.4.0",
@@ -99,6 +115,8 @@
     "pdfkit": "0.20.2",
     "playwright-core": "1.63.0",
     "selfsigned": "5.5.0",
+    "sqlite-vec": "0.1.9",
+    "tesseract.js": "7.0.0",
     "whatsapp-web.js": "1.34.7"
   },
   "devDependencies": {

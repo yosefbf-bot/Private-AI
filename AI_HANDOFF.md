@@ -1,3 +1,17 @@
+## October 13 offline document tools
+
+Read [the offline tools checkpoint](docs/OFFLINE_DOCUMENT_TOOLS_2026-10-13.md).
+Based on fetched main 421370e, branch chatgpt/offline-knowledge-tools-2026-10-13
+adds optional local semantic Library search, offline English image/scanned-PDF OCR,
+filtered Readability article capture and a redacted Gitleaks current-source/history
+CI gate. Version 3.0.3-dev. Existing workflows and Android production code remain.
+Source real BGE/sqlite-vec/image/PDF execution and five Edge acceptance checks passed;
+41 focused regressions and all 551 automated tests passed, along with 25 explicit
+hardening, 208 syntax, repository policy, clean locked installation and general/
+hardening Edge UI checks. Production audit is zero. Fresh packaging/installer/
+exact-head CI are pending. Do not transfer 3.0.2 acceptance to this changed source.
+Current workspace instructions reserve main merging to the owner.
+
 ## October 13 local RAM and assistant response contrast
 
 Read [the current repair checkpoint](docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md).

@@ -11,6 +11,7 @@ test('restored browser preparation supports development versions and preserves r
   fs.mkdirSync(path.join(root, 'source'));
   fs.copyFileSync(path.join(__dirname, '../build/prepare-browser-assets.cjs'), path.join(root, 'build/prepare-browser-assets.cjs'));
   fs.cpSync(path.join(__dirname, '../chrome_extension'), path.join(root, 'chrome_extension'), {recursive: true});
+  fs.cpSync(path.dirname(require.resolve('@mozilla/readability/package.json')),path.join(root,'node_modules/@mozilla/readability'),{recursive:true});
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({version: '3.0.1-dev'}));
   fs.writeFileSync(path.join(root, 'source/browser-hosts.cjs'), 'module.exports={firefoxId:"synthetic@example.invalid"};');
   const infoFile = path.join(root, 'source/build-info.json');
@@ -22,6 +23,8 @@ test('restored browser preparation supports development versions and preserves r
   assert.equal(JSON.parse(fs.readFileSync(path.join(root,'chrome_extension/manifest.json'))).version,manifest.version);
   assert.equal(manifest.background.type,undefined);
   assert.ok(!manifest.permissions.includes('sidePanel'));
+  assert.equal(fs.readFileSync(path.join(root,'chrome_extension/vendor/readability.js'),'utf8'),fs.readFileSync(require.resolve('@mozilla/readability/Readability.js'),'utf8'));
+  assert.equal(fs.readFileSync(path.join(root,'chrome_extension/firefox/vendor/readability.js'),'utf8'),fs.readFileSync(path.join(root,'chrome_extension/vendor/readability.js'),'utf8'));
   const first = fs.readFileSync(infoFile, 'utf8'), info = JSON.parse(first);
   assert.equal(info.version, '3.0.1-dev');
   assert.equal(info.releaseStatus, 'blocked');

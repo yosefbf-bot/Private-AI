@@ -117,6 +117,10 @@ async function run({core,win,reportPath,exe,asar}){
   evidence.checks.push('real desktop IPC toggles optional PCC while general clinical tools remain available');
   evidence.sharedCompanion=await require('./windows-companion-validation.cjs').run({core,win,reportPath});
   evidence.checks.push('packaged shared companion capture, evidence, action, draft, reminder, selected-chat, lock and revocation acceptance passed');
+  if(process.env.PRIVATE_AI_VALIDATION_DOCUMENT_TOOLS==='1'){
+   evidence.documentTools=await require('./windows-document-validation.cjs').run({core,win,reportPath});
+   evidence.checks.push('packaged offline image/scanned PDF OCR and real BGE/sqlite-vec renderer IPC search passed with originals and source citations retained');
+  }
   // Optional real inference uses only isolated synthetic input. Never confuse
   // the built-in template helper with a loaded model or silently use a cloud key.
   if(process.env.PRIVATE_AI_VALIDATION_MODEL){

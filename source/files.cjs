@@ -17,8 +17,9 @@ const FOLDERS = [
 ];
 // A native PDF parser crash must never terminate the desktop process. Inputs and
 // outputs travel in memory; the child receives neither the vault nor API keys.
-function processFile(args) {
+function processFile(args,{signal,minimumFree=0}={}) {
   return new Promise((resolve, reject) => {
+    if(signal?.aborted)return reject(fail('CANCELLED'));
     const entry = path.join(__dirname, "files-worker.cjs");
     const electron = !!process.versions.electron;
     let child;
@@ -38,32 +39,40 @@ function processFile(args) {
       return reject(fail("FILE"));
     }
     let done = false;
-    const timer = setTimeout(() => finish(fail("LIMIT")), 60000);
-    function finish(err, result) {
+    const timer = setTimeout(() => finish(fail("LIMIT")), args.ocrDirectory?300000:60000);
+    const pressure=minimumFree?setInterval(()=>{const os=require('node:os');if(Math.min(os.freemem(),process.availableMemory?.()||Infinity)<minimumFree)finish(fail('LOW_MEMORY'));},500):null;
+    const abort=()=>finish(fail('CANCELLED'));signal?.addEventListener('abort',abort,{once:true});
+    function finish(err, result, exited=false) {
       if (done) return;
       done = true;
       clearTimeout(timer);
-      try {
-        child.kill();
-      } catch {}
-      err ? reject(err) : resolve(result);
+      if(pressure)clearInterval(pressure);signal?.removeEventListener('abort',abort);
+      // Signalling termination is not proof that a memory-heavy worker exited.
+      let settled=false,retirement;
+      const complete=()=>{if(settled)return;settled=true;clearTimeout(retirement);err?reject(err):resolve(result);};
+      if(exited||child.exitCode!==undefined&&child.exitCode!==null||child.signalCode!==undefined&&child.signalCode!==null){complete();return;}
+      child.once('exit',complete);
+      retirement=setTimeout(()=>{if(settled)return;settled=true;reject(fail('BUSY'));},10000);
+      try{child.kill();}catch{}
     }
     child.on("message", (m) =>
       m?.ok
         ? finish(null, m.result)
-        : finish(fail(m?.code === "LIMIT" ? "LIMIT" : "FILE")),
+        : finish(fail(['LIMIT','OCR_FAILED'].includes(m?.code)?m.code:'FILE')),
     );
-    child.on("error", () => finish(fail("FILE")));
+    child.on("error", () => finish(fail("FILE"),undefined,!child.pid));
     child.on("exit", () => {
-      if (!done) finish(fail("FILE"));
+      if (!done) finish(fail("FILE"),undefined,true);
     });
     child.once("spawn", () => {
+      if(done){try{child.kill();}catch{}return;}
       try {
         electron ? child.postMessage(args) : child.send(args);
       } catch {
         finish(fail("FILE"));
       }
     });
+    if(signal?.aborted)abort();
   });
 }
 function workspace(root, privateRoot) {
