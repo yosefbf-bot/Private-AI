@@ -42,6 +42,20 @@ test('A manually chosen Small tier preserves its explicit context settings',asyn
  const f=fixture({memory:3*GIB});f.s.localTier='small';
  await assert.rejects(f.run(),{code:'LOW_MEMORY'});assert.equal(f.calls.length,0);assert.equal(f.s.localContext,4096);
 });
+test('real keyless Core chat fits complete ordinary input through Automatic Small at 3 GiB',async t=>{
+ const {core}=require('./helpers.cjs').fixture(t),calls=[];
+ core.deleteKey('openai');core.saveSettings({processingMode:'local-only',allowCloud:false,localTier:'auto',localContext:4096,localMaxOutput:768});
+ const row={tier:'small',name:'Synthetic Small',file:'C:\\synthetic\\qwen-small.gguf',bytes:1282439584,installed:true};
+ core.resources.memory=()=>3*GIB;core.modelManager={catalog:()=>[row],verifyTier:async()=>row};
+ core.router.local={state:'unloaded',validate:()=>row.bytes,modelName:()=>row.name,close(){},generate:async(settings,messages,options)=>{
+  calls.push({settings,messages,options});return {text:JSON.stringify({required_tier:'small',answer:'Synthetic connection test reply.',evidence:[],uncertainties:[]}),localTokens:10};
+ }};
+ const chat=core.createChat({}),prompt='1st chat, testing to see if chat sync and phone are syncing';
+ await core.send({chatId:chat.id,prompt});const answer=core.chat(chat.id).messages.at(-1);
+ assert.equal(answer.error,undefined);assert.equal(answer.processing.provider,'local');assert.equal(calls.length,1);
+ assert.equal(calls[0].settings.localContext,2048);assert.equal(require('../source/deterministic.cjs').userText(calls[0].messages),prompt);
+ assert.equal(core.settings().localContext,4096);assert.equal(answer.processing.routing.contextTokens,2048);
+});
 test('Small assessment jumps directly to High and preserves complete answer input',async()=>{const f=fixture({respond:(tier,n)=>({text:JSON.stringify(n===1?{required_tier:'high'}:{answer:'Comparison.',evidence:[],uncertainties:[]}),localTokens:n===1?5:20})});const prompt='Compare option A and option B in detail';const result=await f.run(prompt);assert.deepEqual(f.calls.map(c=>c.tier),['small','high']);assert.equal(f.calls[0].settings.localMaxOutput,128);assert.equal(f.calls[1].messages[0].content,prompt);assert.equal(result.localTokens,25);assert.equal(result.routing.recommendedTier,'high');});
 test('Small may recommend Medium for a request that local rules consider simple',async()=>{const f=fixture({respond:(tier,n)=>({text:JSON.stringify({required_tier:n===1?'medium':'small',answer:'Answer',evidence:[],uncertainties:[]})})});const result=await f.run('Hello');assert.deepEqual(f.calls.map(c=>c.tier),['small','medium']);assert.equal(result.routing.selectedTier,'medium');});
 test('Extra High cannot exceed automatic cap; response discloses downgrade',async()=>{const f=fixture({respond:()=>({text:JSON.stringify({required_tier:'extra',answer:'A draft',evidence:[],uncertainties:[]})})});const result=await f.run();assert.deepEqual(f.calls.map(c=>c.tier),['small','high']);assert.match(result.text,/larger tier was recommended/);assert.equal(result.routing.recommendedTier,'extra');});

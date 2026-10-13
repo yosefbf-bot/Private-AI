@@ -51,6 +51,16 @@ test('entry point reaches chat startup and wires approval only after real Core i
 test('background entry point starts without opening a window or asking unattended approval',async t=>{
  const b=await boot(t,{background:true});assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.ok(b.core);assert.equal(b.windows.length,0);assert.equal(await b.core.resources.approve('Desktop input'),false);assert.equal(b.dialogs.length,0);assert.equal(b.core.router.local.state,'unloaded');
 });
+test('desktop Load model IPC fits Automatic context and preserves explicit manual context',async t=>{
+ const b=await boot(t),loads=[],row={tier:'small',file:'C:\\synthetic\\qwen-small.gguf',bytes:1282439584,installed:true};
+ b.core.saveSettings({localTier:'auto',localContext:4096,localMaxOutput:768});b.core.resources.memory=()=>3*1024**3;
+ b.core.modelManager.catalog=()=>[row];b.core.modelManager.verifyTier=async()=>row;
+ b.core.router.local={state:'unloaded',validate:()=>row.bytes,status:()=>({state:'ready'}),close(){},load:async s=>loads.push(s)};
+ const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=()=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op:'localLoad',data:{}});
+ assert.equal((await call()).ok,true);assert.equal(loads.length,1);assert.equal(loads[0].localContext,2048);assert.equal(b.core.settings().localContext,4096);
+ b.core.saveSettings({localTier:'small'});assert.equal((await call()).error.code,'LOW_MEMORY');assert.equal(loads.length,1);
+});
 test('entry point preserves existing encrypted chat and paused local-only settings',async t=>{
  const b=await boot(t,{existing:true});assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.equal(b.core.store.get('chat','kept').title,'Saved chat');assert.equal(b.core.settings().workerPaused,true);assert.equal(b.core.settings().processingMode,'local-only');assert.equal(b.core.settings().allowCloud,false);
 });
