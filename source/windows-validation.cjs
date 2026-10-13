@@ -122,8 +122,24 @@ async function run({core,win,reportPath,exe,asar}){
   if(process.env.PRIVATE_AI_VALIDATION_MODEL){
    const model=path.resolve(process.env.PRIVATE_AI_VALIDATION_MODEL);
    const localContext=Number(process.env.PRIVATE_AI_VALIDATION_CONTEXT||2048),localMaxOutput=Number(process.env.PRIVATE_AI_VALIDATION_OUTPUT||256);
-   core.saveSettings({localModelPath:model,localTier:'selected',localContext,localMaxOutput});
+   const automatic=process.env.PRIVATE_AI_VALIDATION_AUTOMATIC==='1';
+   if(automatic){
+    assert.equal(path.basename(model),require('./model-manager.cjs').MODELS.find(m=>m.id==='qwen3-1.7b').file);
+    // A lower admission ceiling exercises the reported condition without ever
+    // replacing actual system pressure with invented available RAM.
+    const actualMemory=core.resources.memory,actualLocalMemory=core.router.local.memory;
+    core.resources.memory=()=>Math.min(3*1024**3,actualMemory());
+    core.router.local.memory=()=>Math.min(3*1024**3,actualLocalMemory());
+    evidence.automaticAdmissionCapBytes=3*1024**3;
+   }
+   core.saveSettings({localModelPath:model,localTier:automatic?'auto':'selected',localContext:automatic?4096:localContext,localMaxOutput,keepBrainMinutes:0});
    assert.equal(core.key(),null);
+   if(automatic){
+    const loaded=await call('localLoad');assert.equal(loaded.ok,true,JSON.stringify(loaded.error));
+    assert.equal(core.router.local.activeSettings.localContext,2048);
+    assert.equal(core.settings().localContext,4096);
+    evidence.checks.push('Automatic Load model IPC fits verified Small at 2048 under a 3 GiB admission ceiling; saved context retained');
+   }
    const created=await call('createChat',{temporary:true});assert.equal(created.ok,true);
    const response=await call('send',{chatId:created.result.id,prompt:'Use only this synthetic source. Medication feed: unavailable. Medication status: unknown. What is the medication status? Reply briefly using that word; do not infer absence.'});
    const answer=response.result?.chat.messages.at(-1);
@@ -131,6 +147,15 @@ async function run({core,win,reportPath,exe,asar}){
    evidence.actualModelInferenceExecuted=answer?.processing?.provider==='local'&&answer?.processing?.reason!=='local_offline_assistant'&&!!answer.text&&!answer.error;
    evidence.inference={model:path.basename(model),modelSHA256:await hashFile(model),runtimeSHA256:await hashFile(core.router.local.runtime),localContext,localMaxOutput,response:answer?.text,error:answer?.error,provider:answer?.processing?.provider};
    assert.equal(response.ok,true);assert.equal(answer?.error,undefined);assert.equal(evidence.actualModelInferenceExecuted,true);assert.match(answer.text,/unknown/i);
+   if(automatic){
+    assert.equal(answer.processing.routing.selectedTier,'small');
+    assert.equal(answer.processing.routing.contextTokens,2048);
+    assert.equal(core.settings().localContext,4096);
+    assert.ok(answer.processing.routing.attempts.filter(a=>a.status==='completed').length<=2);
+    evidence.inference.automaticRouting=answer.processing.routing;
+    evidence.inference.configuredContext=4096;evidence.inference.localContext=2048;
+    evidence.checks.push('Automatic renderer IPC/Core real Small inference retained full synthetic input and disclosed the fitted context');
+   }
    assert.equal(core.store.list('usage').filter(x=>!['local','deterministic'].includes(x.provider)).length,0);
    evidence.checks.push('real local inference through renderer IPC/Core/router with no key and PCC disabled; synthetic missing information stays unknown');
    core.router.local.stop('validation-complete');await core.router.local.waitStopped();

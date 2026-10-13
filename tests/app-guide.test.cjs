@@ -35,4 +35,6 @@ test('only the known leading response notices move to footnotes; answer content 
  const a='The recommended larger model was unavailable or did not fit. Review this Small-model draft.',b='Local draft — not sufficiently verified. No OpenAI call was made.';
  assert.deepEqual(responseLayout(a+'\n\n'+b+'\n\nHere is the answer.'),{body:'Here is the answer.',footnotes:[a,b]});
  const answer='Keep this quotation:\n\n'+b;assert.deepEqual(responseLayout(answer),{body:answer,footnotes:[]});
+ const memory='Used a smaller local context to fit available RAM; all supplied message input was retained.';
+ assert.deepEqual(responseLayout(memory+'\n\n'+b+'\n\nHere is the complete answer.'),{body:'Here is the complete answer.',footnotes:[memory,b]});
 });

@@ -660,7 +660,7 @@
     ],
     "note": "Historical 10/1 source integration before the actual 10/2 Windows candidate validation; PR #11 subsequently merged into main."
   },
-  "releaseStatusReason": "Assistant-first redesign source checks pass; fresh exact-binary installer/portable acceptance is still pending. Historical binary checkpoints do not validate this source.",
+  "releaseStatusReason": "3.0.2-dev repair passed genuine Windows upgrade, installed startup and Automatic Small inference, portable execution and unchanged release gate at frozen code 2cf3f39; source regression suite 535 passed. PR #16 awaits owner merge. Historical checkpoints retain their original scope; live integrations and physical-phone limitations are not newly qualified.",
   "binaryCheckpoint": {
     "version": "3.0.1-dev",
     "codeCommit": "46a385d2a8d1b14acf3e960f2b4c601159ba3d04",
@@ -708,5 +708,108 @@
       "notRerunForCurrentArchive": true
     },
     "conditionalOnResources": true
+  },
+  "localRAMChatContrast20261013": {
+    "baseCommit": "dbdf4709fcae67e1b5355e1f99d39ab06ff54a22",
+    "branch": "chatgpt/local-ram-and-chat-contrast-2026-10-13",
+    "version": "3.0.2-dev",
+    "report": "docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md",
+    "sourceTests": {
+      "passed": 535,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    "hardening": {
+      "passed": 25,
+      "restrictedAttempt": {
+        "passed": 23,
+        "failed": 2,
+        "reason": "Windows sandbox folder and junction restrictions; unchanged unsandboxed rerun passed"
+      }
+    },
+    "syntaxFiles": 199,
+    "uiChecks": 25,
+    "productionAdvisories": 0,
+    "cleanLockedInstall": {
+      "passed": true,
+      "lifecycleScripts": false
+    },
+    "nativeInputs": {
+      "verifiedManifestFiles": 411,
+      "binariesValidated": 406,
+      "buildSourcesUnchanged": true
+    },
+    "windowsCandidateAcceptance": {
+      "installerBuilt": true,
+      "windowsInstallerExecuted": true,
+      "windowsApplicationExecuted": true,
+      "packagedStartupPassed": true,
+      "actualPackagedModelInferenceExecuted": true,
+      "finalModelAttemptNotYetRun": false,
+      "applicationChecks": 14,
+      "diagnostics": 12,
+      "views": 19,
+      "stageFiles": 590,
+      "peBinaries": 415,
+      "releaseEvidenceGatePassed": true,
+      "installedAppUpdated": true,
+      "installedStartupChecks": 14,
+      "installedInferenceChecks": 17,
+      "installerExitCode": 0,
+      "existingDataByteIdentical": true,
+      "existingDataFilesVerified": 25,
+      "privateLocalRecoveryVerified": true,
+      "inference": {
+        "provider": "local",
+        "selectedTier": "small",
+        "configuredContext": 4096,
+        "effectiveContext": 2048,
+        "admissionCapBytes": 3221225472,
+        "actualMemoryGuardRetained": true,
+        "apiKeyPresent": false,
+        "cloudCalls": 0,
+        "input": "isolated synthetic unknown medication feed",
+        "missingInformationRemainedUnknown": true
+      },
+      "portable": {
+        "version": "3.0.2-dev",
+        "codeCommit": "2cf3f397fd2128060c82d95c28ed6d1b616687fc",
+        "passed": true,
+        "filesVerified": 590,
+        "zipCRCVerified": true,
+        "sha256": "30f4c0361b188ce73c639cd0ea66a7a776021e7f062b90a53c9b95aaf58a7cf0",
+        "bytes": 291786338,
+        "portableApplicationExecuted": true,
+        "initialExtractionAttempt": "Retained Windows long-path failure in the deep validation directory; fresh short-path extraction passed",
+        "applicationChecksPassed": 14,
+        "builtInChecksPassed": 12,
+        "navigationViewsPassed": 19
+      }
+    },
+    "androidSourceChanged": false,
+    "actualSourceSmallInferenceExecuted": true,
+    "sourceInferenceRequests": 2,
+    "frozenWindowsCodeCommit": "2cf3f397fd2128060c82d95c28ed6d1b616687fc",
+    "receipt": "docs/local-ram-chat-contrast-final-2026-10-13.json",
+    "backgroundRecovery": "Complete-request fitted context, reserve and learned peak; bounded regression passed",
+    "interimWindowsCandidateAcceptance": {
+      "installerBuilt": true,
+      "windowsInstallerExecuted": false,
+      "windowsApplicationExecuted": true,
+      "packagedStartupPassed": true,
+      "checksPassed": 14,
+      "builtInChecksPassed": 12,
+      "navigationViewsPassed": 19,
+      "stageFiles": 589,
+      "peBinaries": 415,
+      "actualPackagedModelInferenceExecuted": false,
+      "packagedAutomaticAttemptPassed": false,
+      "packagedAutomaticBlock": "actual LOW_MEMORY at localLoad",
+      "productionAppUpdated": false,
+      "releaseEvidenceGatePassed": false
+    },
+    "sourceInferenceCheckpoint": "2cf3f397fd2128060c82d95c28ed6d1b616687fc",
+    "status": "final-windows-upgrade-installed-small-inference-portable-and-release-gate-passed"
   }
 }

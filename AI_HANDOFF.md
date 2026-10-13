@@ -1,3 +1,27 @@
+## October 13 local RAM and assistant response contrast
+
+Read [the current repair checkpoint](docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md).
+Based on fetched main dbdf470, review branch chatgpt/local-ram-and-chat-contrast-2026-10-13
+adds Automatic context fitting without changing saved settings or reserves and
+corrects light/dark reply contrast. Desktop version is 3.0.2-dev; Android is unchanged.
+All 535 source tests passed after also aligning background RAM recovery with the
+safe fitted-context requirement. Earlier 25 explicit hardening and 25 real Core/Edge UI checks passed;
+production audit is zero. Source real Small inference passed twice. Frozen Windows
+interim code 4f118fe built and its packaged startup/14 checks/12 diagnostics/19 views passed.
+That package is superseded by final frozen code 2cf3f39: its installer built and
+packaged 14 checks/12 diagnostics/19 views passed. Source real background recovery
+and foreground inference passed at actual bounded 2.5→3 GiB admission. Preserve
+interim failed/low-memory receipts. The genuine 3.0.2 installer upgrade now passed
+with exit 0, exact installed EXE/ASAR hashes and all 25 existing owner data files
+byte-identical. A private verified local recovery copy was retained outside Git.
+Installed startup passed 14 checks/12 diagnostics/19 views. Actual installed
+Automatic Small inference passed through renderer IPC/Core at a 3 GiB admission
+ceiling, using 2,048 tokens while retaining the saved 4,096-token setting; no cloud
+key/call or production test input. The unchanged release evidence gate passed.
+Portable extraction, all 590 files/CRC and actual portable startup also passed.
+This is constrained admission on the actual host, not qualification of a 3 GiB PC.
+Keep the older 3.0.1 preview separate. The owner merges PR #16 into main.
+
 ## October 12 final hosted validation result
 
 Read [the completed validation checkpoint](docs/FINAL_VALIDATION_2026-10-12.md)

@@ -744,12 +744,12 @@ summary {
 .new-chat { border-color: #b9c9ed; box-shadow:0 2px 6px #20387808; }
 .nav.active { box-shadow:inset 3px 0 #5364cf; }
 .message.assistant { padding-right:0; }
-.message.assistant .message-body { background: #f2f3f5; border: 1px solid var(--theme-border, #e3e6ec); border-radius: 4px 18px 18px 18px; padding:14px 20px; }
+.message.assistant .message-body { background: var(--theme-surface-soft, #f2f3f5); color: var(--theme-text, #17264b); border: 1px solid var(--theme-border, #e3e6ec); border-radius: 4px 18px 18px 18px; padding:14px 20px; }
 .message.assistant .message-body > :first-child { margin-top:0; }
 .message.assistant .message-body > :last-child { margin-bottom:0; }
-.message-label { color: #263e77; }
+.message-label { color: var(--accent); }
 .message-label img { height:25px; width:25px; object-fit:contain; }
-.response-footnotes { display:block; margin:7px 8px 0; color: #526079; font-size:11px; line-height:1.2; }
+.response-footnotes { display:block; margin:7px 8px 0; color: var(--muted); font-size:11px; line-height:1.2; }
 .response-footnotes > div { margin:0; padding:1px 0; }
 .usage { color: var(--theme-text-muted, #63718b); line-height:1.25; }
 .usage details { margin-top:3px; }

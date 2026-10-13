@@ -58,6 +58,26 @@ const server=http.createServer((req,res)=>{
   await page.reload();await page.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
   assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
   await page.screenshot({path:path.join(out,'chat-dark.png'),fullPage:true});
+  const guideChat=core.createChat({});await core.send({chatId:guideChat.id,prompt:'/help'});
+  core.emit({type:'jobs_changed'});await page.reload();
+  await page.locator(`[data-id="${guideChat.id}"]`).click();
+  await page.locator('.message.assistant .message-body').waitFor();
+  assert.equal(core.chat(guideChat.id).messages.at(-1).processing.provider,'deterministic');
+  const replyContrast=()=>page.locator('.message.assistant .message-body').evaluate(el=>{
+    const luminance=color=>{const c=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;});return c[0]*0.2126+c[1]*0.7152+c[2]*0.0722;};
+    return [el,...el.querySelectorAll('p,li,a,strong')].map(node=>{
+      let bg=node;while(getComputedStyle(bg).backgroundColor==='rgba(0, 0, 0, 0)'&&bg.parentElement)bg=bg.parentElement;
+      const a=luminance(getComputedStyle(node).color),b=luminance(getComputedStyle(bg).backgroundColor);
+      return (Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
+    });
+  });
+  for(const theme of ['dark','light']){
+    await page.locator('#sidebar [data-view=settings]').click();await page.locator('[name=appearance]').selectOption(theme);
+    await page.locator(`[data-id="${guideChat.id}"]`).click();
+    for(const ratio of await replyContrast())assert.ok(ratio>=4.5,`${theme} assistant response contrast: ${ratio}`);
+    await page.screenshot({path:path.join(out,`response-${theme}.png`),fullPage:true});
+  }
+  await page.locator('#sidebar [data-view=settings]').click();await page.locator('[name=appearance]').selectOption('dark');
   await page.locator('#sidebar [data-view=dashboard]').click();await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
   await page.screenshot({path:path.join(out,'dashboard-dark.png'),fullPage:true});
   await page.locator('#sidebar [data-view=meetings]').click();await page.getByRole('heading',{name:'Meetings',exact:true}).waitFor();
@@ -79,5 +99,5 @@ const server=http.createServer((req,res)=>{
   await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
   await page.locator('[name=appearance]').selectOption('light');await page.reload();
   assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({checks:22,scope:'Synthetic Core/SQLite + Edge: chat default, navigation, note, dashboard, meeting, follow-up, library, automation, dark settings contrast',browser:await browser.version()}));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({checks:25,scope:'Synthetic Core/SQLite + Edge: chat default, navigation, note, dashboard, meeting, follow-up, library, automation, dark settings contrast and keyless assistant reply contrast in both themes',browser:await browser.version()}));
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();for(const fn of cleanup)fn();});

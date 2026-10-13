@@ -8,6 +8,7 @@ const notices = [
   'Your automatic tier cap prevented the recommended larger model. Review this Small-model draft.',
   'A larger tier was recommended but was capped, unavailable, or did not fit. Review this smaller-model response.',
   'Reused the loaded brain under your follow-up setting.',
+  'Used a smaller local context to fit available RAM; all supplied message input was retained.',
 ];
 export function responseLayout(text) {
   let body=String(text||'');const footnotes=[];

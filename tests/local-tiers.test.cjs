@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {generateTiers}=require('../source/local-tiers.cjs'),{HybridRouter,evaluateLocal}=require('../source/hybrid-router.cjs'),{Resources}=require('../source/resources.cjs'),{HYBRID_DEFAULTS,validateHybrid}=require('../source/hybrid-settings.cjs'),{ModelManager,TIERS,MODELS}=require('../source/model-manager.cjs');
 const GIB=1024**3;
 function fixture({cap='high',missing=[],memory=20*GIB,respond}={}){
- const s={...HYBRID_DEFAULTS,processingMode:'local-only',allowCloud:false,hipaa:false,localMaxTier:cap},calls=[],rows=TIERS.map((t,i)=>({...t,name:t.label,file:'/models/'+t.tier+'-qwen.gguf',bytes:[1,2,4,6][i]*GIB,installed:!missing.includes(t.tier)}));
+ const s={...HYBRID_DEFAULTS,processingMode:'local-only',allowCloud:false,hipaa:false,localMaxTier:cap},calls=[],rows=TIERS.map((t,i)=>({...t,name:t.label,file:'/models/'+t.tier+'-qwen.gguf',bytes:[1282439584,2*GIB,4*GIB,6*GIB][i],installed:!missing.includes(t.tier)}));
  const core={settings:()=>s,key:()=>s.model?'synthetic-key':'',emit:()=>{},store:{list:()=>[],put:()=>{},get:()=>null,transaction:fn=>fn()},canSend:()=>{},client:{generate:()=>assert.fail('No API call allowed')}};
  const router=new HybridRouter(core);core.router=router;core.resources=new Resources(core,{memory:()=>memory,sleep:()=>new Promise(r=>setTimeout(r,2))});core.modelManager={catalog:()=>rows,verifyTier:async tier=>rows.find(t=>t.tier===tier)};
  router.local={state:'unloaded',validate:settings=>rows.find(t=>t.file===settings.localModelPath).bytes,modelName:settings=>settings.localModelPath,generate:async(settings,messages,options)=>{const tier=rows.find(t=>t.file===settings.localModelPath)?.tier;calls.push({tier,settings,messages,options});return respond?respond(tier,calls.length,settings,messages,options):{text:JSON.stringify({required_tier:'small',answer:'Hello.',evidence:[],uncertainties:[]}),localTokens:10};}};
@@ -11,6 +11,58 @@ function fixture({cap='high',missing=[],memory=20*GIB,respond}={}){
 }
 test('catalog has four pinned tiers and preserves existing Medium/High identities',()=>{assert.equal(TIERS.length,4);assert.equal(TIERS[1].id,'llama32-3b');assert.equal(TIERS[2].id,'qwen3-4b');for(const t of TIERS){const m=MODELS.find(m=>m.id===t.id);assert.match(m.sha256,/^[0-9a-f]{64}$/);assert.match(m.url,/\/resolve\/[0-9a-f]{40}\//);assert.ok(m.bytes>0);}assert.equal(MODELS.find(m=>m.id==='qwen3-1.7b').bytes,1282439584);});
 test('Small answers simple requests without a second inference',async()=>{const f=fixture(),result=await f.run();assert.deepEqual(f.calls.map(c=>c.tier),['small']);assert.equal(result.routing.selectedTier,'small');assert.equal(result.localTokens,10);assert.equal(result.model,'Small / Low — 1.7B');});
+test('Automatic fits the real Small model into 3 GiB without changing saved context or dropping input',async()=>{
+ const f=fixture({memory:3*GIB}),prompt='1st chat, testing to see if chat sync and phone are syncing';
+ const result=await f.run(prompt);
+ assert.deepEqual(f.calls.map(c=>c.tier),['small']);assert.equal(f.calls[0].settings.localContext,2048);
+ assert.equal(f.calls[0].messages[0].content,prompt);assert.equal(f.s.localContext,4096);
+ assert.equal(result.routing.contextTokens,2048);assert.match(result.text,/smaller local context to fit available RAM/);
+});
+test('Automatic retains the requested context when it already fits',async()=>{
+ const f=fixture();await f.run();assert.equal(f.calls[0].settings.localContext,4096);
+});
+test('Automatic retains a compatible warm Small engine without budgeting its weights twice',async()=>{
+ const f=fixture({memory:1.5*GIB}),row=f.rows[0];
+ Object.assign(f.router.local,{state:'ready',child:{exitCode:null,signalCode:null},activeSettings:{...f.s,localModelPath:row.file,localContext:2048},signature:[row.file,2048,f.s.resourceMode].join('|'),stop:()=>assert.fail('Compatible ready model must stay loaded')});
+ await f.run();assert.equal(f.calls.length,1);assert.equal(f.calls[0].settings.localContext,2048);
+});
+test('Automatic does not shrink context when the complete input cannot fit',async()=>{
+ const f=fixture({memory:3*GIB});await assert.rejects(f.run('Hello '+ 'x'.repeat(2300)),{code:'LOW_MEMORY'});
+ assert.equal(f.calls.length,0);assert.equal(f.s.localContext,4096);
+});
+test('Automatic context fitting preserves the configured RAM reserve',async()=>{
+ const f=fixture({memory:3*GIB});f.s.ramReserveMB=2048;
+ await assert.rejects(f.run(),{code:'LOW_MEMORY'});assert.equal(f.calls.length,0);
+});
+test('Automatic context fitting retains observed peak working-set protection',async()=>{
+ const f=fixture({memory:3*GIB});f.core.stability={minimumFor:s=>s.localContext===2048?3*GIB:0};
+ await assert.rejects(f.run(),{code:'LOW_MEMORY'});assert.equal(f.calls.length,0);
+});
+test('A manually chosen Small tier preserves its explicit context settings',async()=>{
+ const f=fixture({memory:3*GIB});f.s.localTier='small';
+ await assert.rejects(f.run(),{code:'LOW_MEMORY'});assert.equal(f.calls.length,0);assert.equal(f.s.localContext,4096);
+});
+test('paused Automatic background chat resumes when the full request fits Small at 3 GiB',async()=>{
+ const f=fixture(),prompt='Hello';f.s.ramRecoverySeconds=0;let memory=2.5*GIB,waits=0;
+ f.core.resources.memory=()=>memory;f.core.resources.sleep=async()=>{memory=3*GIB;if(++waits>2)assert.fail('Recovery must not keep waiting for the larger configured context');};
+ const result=await f.core.resources.task('background',()=>f.router.generate('',f.s,[{role:'user',content:prompt}],{}));
+ assert.equal(waits,1);assert.equal(f.calls.length,1);assert.equal(f.calls[0].settings.localContext,2048);
+ assert.equal(f.calls[0].messages[0].content,prompt);assert.equal(result.routing.selectedTier,'small');assert.equal(f.s.localContext,4096);
+});
+test('real keyless Core chat fits complete ordinary input through Automatic Small at 3 GiB',async t=>{
+ const {core}=require('./helpers.cjs').fixture(t),calls=[];
+ core.deleteKey('openai');core.saveSettings({processingMode:'local-only',allowCloud:false,localTier:'auto',localContext:4096,localMaxOutput:768});
+ const row={tier:'small',name:'Synthetic Small',file:'C:\\synthetic\\qwen-small.gguf',bytes:1282439584,installed:true};
+ core.resources.memory=()=>3*GIB;core.modelManager={catalog:()=>[row],verifyTier:async()=>row};
+ core.router.local={state:'unloaded',validate:()=>row.bytes,modelName:()=>row.name,close(){},generate:async(settings,messages,options)=>{
+  calls.push({settings,messages,options});return {text:JSON.stringify({required_tier:'small',answer:'Synthetic connection test reply.',evidence:[],uncertainties:[]}),localTokens:10};
+ }};
+ const chat=core.createChat({}),prompt='1st chat, testing to see if chat sync and phone are syncing';
+ await core.send({chatId:chat.id,prompt});const answer=core.chat(chat.id).messages.at(-1);
+ assert.equal(answer.error,undefined);assert.equal(answer.processing.provider,'local');assert.equal(calls.length,1);
+ assert.equal(calls[0].settings.localContext,2048);assert.equal(require('../source/deterministic.cjs').userText(calls[0].messages),prompt);
+ assert.equal(core.settings().localContext,4096);assert.equal(answer.processing.routing.contextTokens,2048);
+});
 test('Small assessment jumps directly to High and preserves complete answer input',async()=>{const f=fixture({respond:(tier,n)=>({text:JSON.stringify(n===1?{required_tier:'high'}:{answer:'Comparison.',evidence:[],uncertainties:[]}),localTokens:n===1?5:20})});const prompt='Compare option A and option B in detail';const result=await f.run(prompt);assert.deepEqual(f.calls.map(c=>c.tier),['small','high']);assert.equal(f.calls[0].settings.localMaxOutput,128);assert.equal(f.calls[1].messages[0].content,prompt);assert.equal(result.localTokens,25);assert.equal(result.routing.recommendedTier,'high');});
 test('Small may recommend Medium for a request that local rules consider simple',async()=>{const f=fixture({respond:(tier,n)=>({text:JSON.stringify({required_tier:n===1?'medium':'small',answer:'Answer',evidence:[],uncertainties:[]})})});const result=await f.run('Hello');assert.deepEqual(f.calls.map(c=>c.tier),['small','medium']);assert.equal(result.routing.selectedTier,'medium');});
 test('Extra High cannot exceed automatic cap; response discloses downgrade',async()=>{const f=fixture({respond:()=>({text:JSON.stringify({required_tier:'extra',answer:'A draft',evidence:[],uncertainties:[]})})});const result=await f.run();assert.deepEqual(f.calls.map(c=>c.tier),['small','high']);assert.match(result.text,/larger tier was recommended/);assert.equal(result.routing.recommendedTier,'extra');});
