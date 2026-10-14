@@ -1,10 +1,10 @@
 {
   "fourPhaseReliability20261014": {
-    "phase": "phase2-source-validated-phase3-next",
+    "phase": "phase3-source-validated-publication-pending",
     "report": "docs/FOUR_PHASE_PROGRESS_2026-10-13.md",
     "matrix": "docs/FOUR_PHASE_LIBRARY_AUDIT_2026-10-14.md",
-    "base": "c2815043f6f065a2de0e4ff5ddad03df3bd0c9db",
-    "branch": "chatgpt/four-phase-reliability-2026-10-13",
+    "base": "c11c1afb5af31900ee301f4b0913bcbe48fae063",
+    "branch": "chatgpt/assistant-workflows-2026-10-14",
     "tests": {
       "passed": 595,
       "failed": 0,
@@ -12,10 +12,26 @@
     },
     "actualEdgeUIPassed": true,
     "currentHistorySecretFindings": 0,
-    "newNativeCompilationPending": true,
+    "newNativeCompilationPending": false,
     "installedAppsChanged": false,
-    "androidHead": "13694876e82c74691dbc8d788861dd186c81c145",
-    "androidFreshDeviceAcceptance": "pending"
+    "androidHead": "5a2fe0f61e0cbbb8c6896f66cb8b16a32e253126",
+    "androidFreshDeviceAcceptance": "both-runs-four-of-four-executed-passed-three-real-credential-cycles",
+    "pushedDesktopHead": "3d348f43e85e9292b45310fa59872e588c1961f0",
+    "pushedDesktopCI": "all-four-jobs-passed-both-runs",
+    "workingTreeTests": {
+      "passed": 671,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "uncommitted": true
+    },
+    "overallPlanningEstimatePercent": 65,
+    "resumeAutomation": "one-time-fired-no-new-schedule",
+    "phase3Report": "docs/ASSISTANT_WORKFLOWS_2026-10-14.md",
+    "phase2NativeCompilation": "both-exact-head-GitHub-runs-passed",
+    "androidMain": "7e817069468a5106f35a6908e916dad92e72e1ef",
+    "desktopMain": "c11c1afb5af31900ee301f4b0913bcbe48fae063",
+    "cleanupVerifiedBytes": 2670292757
   },
   "assistantFirstRedesign": {
     "status": "windows-accepted-android-device-passed-artifact-retention-blocked",

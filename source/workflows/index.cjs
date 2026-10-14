@@ -11,6 +11,7 @@ const READ_DEMO = [
   "workflowReview",
   "workflowDecisionSave",
   "workflowPacket",
+  "workflowNoticeUpdate",
 ];
 async function dispatch(core, op, data = {}) {
   core.assertUnlocked();
@@ -23,6 +24,7 @@ async function dispatch(core, op, data = {}) {
         demo: !!snf.demoMode,
         developmentMode: !!core.developmentMode,
         changes: actions.changes(core, snf),
+        notices: require('./notices.cjs').list(core,snf),
         decisions: snf.store.list("wf_decision"),
         metrics: imports.metrics(snf),
         mappings: snf.store.list("wf_mapping"),
@@ -51,6 +53,8 @@ async function dispatch(core, op, data = {}) {
               )
               .filter(Boolean),
       };
+    case "workflowNoticeUpdate":
+      return require('./notices.cjs').update(core,snf,data);
     case "workflowActionSave":
       return actions.update(core, snf, data);
     case "workflowReview":
@@ -85,6 +89,28 @@ async function dispatch(core, op, data = {}) {
       return imports.metricPreview(snf, data);
     case "workflowMetricImport":
       return imports.metricImport(snf, data);
+    case "workflowSearch":
+      return require('./universal-search.cjs').search(core,data);
+    case "workflowDocumentReview":
+      return docs.review(core,data);
+    case "workflowDocumentReviewSave":
+      return docs.saveReview(core,data);
+    case "workflowDisclosureReview":
+      return require('./disclosure-review.cjs').review(core,data);
+    case "workflowDisclosureRedact":
+      return require('./disclosure-review.cjs').redactCopy(core,data);
+    case "workflowCommunicationSettings":
+      return require('./correspondence.cjs').settings(core);
+    case "workflowCommunicationSave":
+      return require('./correspondence.cjs').save(core,data);
+    case "workflowCommunicationCheck":
+      return require('./correspondence.cjs').check(core,data);
+    case "workflowCommunicationList":
+      return require('./correspondence.cjs').list(core,data);
+    case "workflowCommunicationFollowup":
+      return require('./correspondence.cjs').createFollowup(core,data);
+    case "workflowCommunicationDismiss":
+      return require('./correspondence.cjs').dismiss(core,data);
     case "workflowDocumentSearch":
       if(data.mode!==undefined&&!['words','semantic'].includes(data.mode))throw fail('INVALID');
       return data.mode==='semantic'?require('./semantic-search.cjs').search(core,data):docs.search(core, data);

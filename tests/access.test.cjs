@@ -246,3 +246,14 @@ test("Old webpage snapshots are not sent again on a follow-up", (t) => {
     false,
   );
 });
+
+
+test('selected Outlook message triage is opt-in and follows both permission checks',async t=>{
+ const triage=require('../source/workflows/correspondence.cjs');
+ const {core,access}=setup(t,async()=>({text:'Please reply about this synthetic selected email.'}));
+ access.setOutlook({readMessages:true});await access.outlook('outlook.message',{id:'synthetic-id',storeId:'synthetic-store'});assert.equal(core.store.count('wf_communication_source'),0);
+ triage.save(core,{enabled:true,outlook:true});await access.outlook('outlook.messages');assert.equal(core.store.count('wf_communication_source'),0);
+ await access.outlook('outlook.message',{id:'synthetic-id',storeId:'synthetic-store'});assert.equal(triage.list(core).candidates.length,1);assert.equal(core.store.count('todo'),0);assert.equal(core.store.count('messageOut'),0);
+ const original=core.store.list('wf_communication_source');access.helper=async()=>{access.setOutlook({readMessages:false});return {text:'URGENT unapproved new source'};};
+ await assert.rejects(access.outlook('outlook.message',{id:'new-id',storeId:'synthetic-store'}),{code:'POLICY'});assert.deepEqual(core.store.list('wf_communication_source'),original);
+});

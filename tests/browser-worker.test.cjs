@@ -38,7 +38,7 @@ test('launch configuration enables installed managers without plaintext password
  assert.notEqual(profilePath('root','firefox'),profilePath('root','chrome'));
 });
 test('missing engine fails visibly and releases its reservation without falling back',async t=>{
- const {core}=fixture(t);core.resources.approve=async()=>true;
+ const {core}=fixture(t);core.resources.approve=async()=>true;core.resources.memory=()=>8*1024**3; // Reach the synthetic missing-engine branch regardless of host RAM; resource guards have dedicated tests.
  const worker=new BrowserWorker(core,{firefox:{launchPersistentContext:async()=>{throw Error('private diagnostic');}},chromium:{launchPersistentContext:()=>assert.fail('fallback')}});
  await assert.rejects(worker.open(base.url,['https://example.com'],false,'firefox'),e=>e.code==='BROWSER_SETUP'&&!e.message.includes('private diagnostic'));assert.equal(core.resources.browser,null);
 });

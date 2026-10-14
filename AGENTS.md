@@ -15,3 +15,17 @@ No invented production measurements, diagnoses, medication, code status, staff i
 Run the verification commands in `AI_HANDOFF.md`. Record failures and unperformed tests honestly. Update the handoff and project status with the actual tested scope; no source test result establishes Windows release readiness.
 
 Workflow edits must retain stale-revision checks, source-linked clinical closure, demo isolation and budget reservation before network calls. Keep expired/missing source data distinct from resolved work. Do not weaken normal input limits when changing opt-in sectioned jobs.
+
+## Current assignment authorization — 2026-10-14
+
+For this four-phase assignment, the owner explicitly authorized Codex to merge
+completed review pull requests after their current exact-head GitHub tests and
+checks pass, then synchronize the local main and development checkouts safely.
+This supersedes older owner-only merge instructions for this assignment only.
+Continue using separate `chatgpt/*` branches and review PRs; do not bypass failed
+or pending checks, force-push, discard unfinished work, or remove unique history.
+The owner also authorized removing obsolete build/version files and fully merged
+branches after verifying they are no longer needed. Preserve active work, current
+accepted delivery, recovery/reference evidence, credentials, signing keys, models
+and pairings. This permission does not authorize replacing installed production
+apps/data or weakening release, privacy, resource or security gates.

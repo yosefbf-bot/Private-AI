@@ -76,9 +76,12 @@ function create(core, data, actor) {
   core.emit({type:'captures_changed'});
   return bundle(core,row);
 }
-function list(core, actor) {
+function list(core, actor, data={}) {
+  assertFields(data,['captureId']);
+  if(data.captureId!==undefined&&!isId(data.captureId))throw fail('INVALID');
   const ctx = context(core,actor); core = ctx.core;
-  const rows = core.store.list('capture_note').filter(r=>owns(r,ctx.key,ctx.actor));
+  const rows = (data.captureId ? [core.store.get('capture_note',data.captureId)] : core.store.list('capture_note')).filter(r=>owns(r,ctx.key,ctx.actor));
+  if(data.captureId&&rows.length===0)throw fail('NOT_FOUND');
   const result={captures:[],actions:[],drafts:[],truncated:false,demo:!!core.executiveDemo};
   for(const row of rows.slice(0,100)) {
     const added=bundle(core,row),candidate={...result,captures:[...result.captures,row],actions:[...result.actions,...added.actions],drafts:[...result.drafts,...added.drafts]};
@@ -206,7 +209,7 @@ function acknowledgeRow(core,data,ctx) {
 function backgroundAcknowledge(core,data,principal) { return acknowledgeRow(core,data,notificationPrincipal(core,principal)); }
 function dispatch(core, op, data) {
   switch (op) {
-    case 'captureList': return list(core);
+    case 'captureList': return list(core,undefined,data);
     case 'captureCreate': return create(core,data);
     case 'captureActionUpdate': return update(core,data);
     case 'captureDraftSave': return saveDraft(core,data);

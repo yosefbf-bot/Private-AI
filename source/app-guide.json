@@ -705,6 +705,64 @@
         "After setup, import English photos or scanned PDFs through the existing file importer. Local Only chat can use recognized photo text. Original images remain stored; check unverified machine text, names, doses and dates against the original."
       ],
       "note": "OCR and meaning search work offline after setup. English print is the initial language; handwriting and poor scans may be inaccurate. Search covers at most 2,048 passages and discloses incomplete coverage. No cloud inference or API key is required."
+    },
+    {
+      "id": "savedsearch",
+      "title": "Search saved work",
+      "location": "Sidebar → Search",
+      "steps": [
+        "Enter a word or phrase to search saved chats, notes, meetings, projects, documents, follow-ups and report job metadata.",
+        "Open Sources and collection to narrow the selection. Dedicated clinical records require explicit opt-in.",
+        "Open a result to review its current source. Library results retain the searched phrase and selected file."
+      ],
+      "note": "Search is local word search of saved text. It does not search attachment bytes, credentials, archived/temporary chats, live feeds or arbitrary files. Import completed report exports into Library to search their text. Scan limits and unknown clinical coverage are shown.",
+      "aliases": [
+        "saved search",
+        "search saved",
+        "search notes",
+        "search chats",
+        "search reports",
+        "universal search"
+      ]
+    },
+    {
+      "id": "referencereview",
+      "title": "Review source dates and prepare a redacted copy",
+      "location": "Library → Search/show coverage → open a file",
+      "steps": [
+        "Open Source dates and review metadata to record publication/effective dates, version, reviewer and review deadline. Save and reload the review.",
+        "Open Privacy review and redacted copy, find identifier patterns, and select the exact spans you want removed. Optional manual ranges use extracted-text positions.",
+        "Prepare the selected redacted copy, review it, and copy the reviewed text. The original document remains unchanged."
+      ],
+      "note": "Upload dates do not prove source currency. Owner approval attestation is not independent proof of facility approval. Pattern suggestions can miss sensitive information; a redacted copy is not a guarantee of de-identification or permission to disclose.",
+      "aliases": [
+        "source review",
+        "reference review",
+        "review metadata",
+        "redacted copy",
+        "redaction",
+        "privacy review",
+        "reference dates"
+      ]
+    },
+    {
+      "id": "correspondence",
+      "title": "Review correspondence follow-ups",
+      "location": "Dashboard → Correspondence follow-ups",
+      "steps": [
+        "Open Settings to choose approved WhatsApp cache, selected Outlook snapshots, keywords, explicit unread flags and an optional recurring cache-review interval.",
+        "Review cached messages now, then inspect the source text before creating a follow-up. Enter an owner or deadline only when known.",
+        "Save review suggestions to the existing Notes/follow-up queue. Internal Outlook or WhatsApp drafts are reviewed separately; no message is sent automatically."
+      ],
+      "note": "Recurring review is off by default. Outlook snapshots are saved only from messages you explicitly open after granting read access and enabling this option. This does not watch the Inbox or establish whether someone replied. Missing dates, unread status and reply status stay unknown; duplicate source reviews retain the same canonical follow-up.",
+      "aliases": [
+        "correspondence",
+        "cached messages",
+        "message triage",
+        "important messages",
+        "outlook follow-up",
+        "whatsapp follow-up"
+      ]
     }
   ]
 }

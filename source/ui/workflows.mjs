@@ -26,7 +26,7 @@ export function createWorkflowUI({
     files
       .map(
         (f) =>
-          `<label class="check"><input type="checkbox" name="file_${esc(f.id)}" ${ids.includes(f.id) ? "checked" : ""}>${esc(f.name)}</label>`,
+          `<label class="check"><input type="checkbox" name="file_${esc(f.id)}" ${Array.isArray(ids) && ids.includes(f.id) ? "checked" : ""}>${esc(f.name)}</label>`,
       )
       .join("");
   const fileIds = (r) =>
@@ -35,7 +35,7 @@ export function createWorkflowUI({
       .map((k) => k.slice(5));
   return {
     stop(){renderRevision++;const id=activeSearch;activeSearch=null;if(id)api('stop',{id}).catch(()=>{});},
-    async render(container, page = "actions") {
+    async render(container, page = "actions", options = {}) {
       this.stop();const revision=renderRevision;
       const state = await api("workflowSummary"),
         restricted = state.demo || state.developmentMode;
@@ -55,7 +55,7 @@ export function createWorkflowUI({
             }
           }),
         );
-      const reload = () => this.render(container, page);
+      const reload = () => this.render(container, page, options);
       if (page === "actions") {
         const changes = state.changes;
         body.innerHTML = `<h1>Action Center</h1><p>Assignments from alerts, meetings, follow-ups and SBAR callbacks. Related items stay visible; linked meeting tasks appear once. Clinical closure stays in its source workflow.</p><p>Last reviewed: ${esc(date(changes.reviewedAt))}. First review establishes a baseline.</p><label>Show<select id="wf-filter">${[
@@ -265,9 +265,91 @@ export function createWorkflowUI({
           };
       }
       if (page === "workspace") {
+        options=options || {};
+        for(const value of [options.fileId,options.projectId])if(value!==undefined && value!==null && value!=='' && typeof value!=='string'){body.innerHTML='<p class="error-note">The requested source selection is invalid. Return to Library without that selection.</p>';return;}
+        let focusedFileId=options.fileId ?? "",focusedSectionId=options.sectionId ?? null;
+        const freshnessLabel = value => ({unknown:"Currency unknown","source-changed":"Source changed · Review again","review-overdue":"Review overdue","not-yet-effective":"Not yet effective","review-recorded":"Owner review recorded · Currency unverified"}[value?.status] || "Currency unknown");
+        const current = element => revision===renderRevision && body.isConnected && (!element || element.isConnected);
+        const sourceRequest = fileId => ({fileId,projectId:container.querySelector('#wf-project').value});
+        const updateFreshness = (fileId,freshness) => container.querySelectorAll('[data-source-status]').forEach(el=>{if(el.dataset.sourceStatus===fileId)el.textContent=freshnessLabel(freshness);});
         let tools=restricted?null:await api('workflowDocumentToolsStatus'),searchId=null;
         if(revision!==renderRevision)return;
-        body.innerHTML = `<h1>Library</h1><p>Keep reference documents and facility policies together. Use them in project chats or search their contents.</p><p><button data-act="view" data-view="projects">Manage projects / chats</button> <button data-act="view" data-view="files">Import or remove files</button></p>${restricted ? "<p>Document search is available in the production desktop workspace.</p>" : `<button id="wf-policies">Facility policies</button><label>Collection<select id="wf-project"><option value="">All files</option>${state.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select></label><button id="wf-upload">Upload to collection</button><button id="wf-link-files">Choose existing files</button><p><button id="wf-tools" ${tools.embedding&&tools.ocr?'disabled':''}>${tools.embedding&&tools.ocr?'Local search and English OCR ready':'Set up local search & English OCR (~68 MB)'}</button></p><form id="wf-search"><label>Search references<input name="query" type="search" maxlength="200" placeholder="Ask a question or enter words"></label><label>Search by<select name="mode"><option value="words">Words</option><option value="semantic" ${tools.embedding?'selected':'disabled'}>Meaning · local</option></select></label><button type="submit">Search / show coverage</button><button type="button" id="wf-search-stop" hidden>Stop search</button></form><div id="wf-search-results"></div>`}`;
+        body.innerHTML = `<h1>Library</h1><p>Keep reference documents and facility policies together. Use them in project chats or search their contents.</p><p><button data-act="view" data-view="projects">Manage projects / chats</button> <button data-act="view" data-view="files">Import or remove files</button></p>${restricted ? "<p>Document search and source review are available in the production desktop workspace.</p>" : `<button id="wf-policies">Facility policies</button><label>Collection<select id="wf-project"><option value="">All files</option>${state.projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select></label><button id="wf-upload">Upload to collection</button><button id="wf-link-files">Choose existing files</button><p><button id="wf-tools" ${tools.embedding&&tools.ocr?'disabled':''}>${tools.embedding&&tools.ocr?'Local search and English OCR ready':'Set up local search & English OCR (~68 MB)'}</button></p><p id="wf-file-focus" ${focusedFileId?'':'hidden'}>Showing the selected file. <button type="button" id="wf-all-files">Show whole collection</button></p><form id="wf-search"><label>Search references<input name="query" type="search" maxlength="200" placeholder="Ask a question or enter words" value="${esc(typeof options.query==='string'?options.query.slice(0,200):'')}"></label><label>Search by<select name="mode"><option value="words">Words</option><option value="semantic" ${tools.embedding?'selected':'disabled'}>Meaning · local</option></select></label><button type="submit">Search / show coverage</button><button type="button" id="wf-search-stop" hidden>Stop search</button></form><div id="wf-search-results"></div>`}`;
+        if(!restricted && options.projectId){
+          if(!state.projects.some(p=>p.id===options.projectId)){body.innerHTML+='<p class="error-note">The requested collection is unavailable. Return to Library without that source selection.</p>';return;}
+          container.querySelector('#wf-project').value=options.projectId;
+        }
+        const loadDocument = async detail => {
+          if(!detail.open || detail.dataset.loading==='true' || detail.dataset.loaded==='true')return;
+          const fileId=detail.dataset.fileDetails,request=sourceRequest(fileId),panel=detail.querySelector('[data-document-panel]');
+          detail.dataset.loading='true';panel.textContent='Loading source review…';
+          try {
+            const reviewed=await api('workflowDocumentReview',request);
+            if(!current(detail) || container.querySelector('#wf-project').value!==request.projectId)return;
+            detail.dataset.loaded='true';updateFreshness(fileId,reviewed.freshness);
+            const metadata=reviewed.metadata;
+            panel.innerHTML=`<p class="help">${esc(reviewed.freshness.notice)}</p><p>${reviewed.approval.attested?'Owner-recorded approval attestation · Independent proof not established.':'Approval not attested for this source.'}</p><button type="button" data-doc-reload>Reload saved source review</button><details><summary>Source dates and review metadata</summary><form data-source-review>${field('Source / publication date','sourceDate',metadata.sourceDate,'date')}${field('Effective date','effectiveDate',metadata.effectiveDate,'date')}${field('Source version','version',metadata.version)}${field('Reviewed on (this PC’s date)','reviewDate',metadata.reviewDate,'date')}${field('Review due (this PC’s date)','reviewDue',metadata.reviewDue,'date')}${field('Reviewed by','reviewer',metadata.reviewer)}<label class="check"><input type="checkbox" name="approvedAttestation" ${metadata.approvedAttestation?'checked':''}> I record an approval attestation for this exact source</label><p class="help">An attestation needs a reviewer and review date. It is not proof of facility approval or source currency. Blank dates stay unknown.</p><button type="submit">Save source review</button></form></details><details data-privacy-details><summary>Privacy review and redacted copy</summary><p class="help">Local patterns assist your review. They may miss sensitive information or flag harmless text. These results do not guarantee that a copy contains no sensitive information.</p><button type="button" data-privacy-refresh>Find identifier patterns</button><div data-privacy-panel></div></details>`;
+            panel.querySelector('[data-doc-reload]').onclick=async()=>{if(!current(detail))return;detail.dataset.loaded='false';await loadDocument(detail);};
+            const reviewForm=panel.querySelector('[data-source-review]');
+            reviewForm.elements.version.maxLength=150;reviewForm.elements.reviewer.maxLength=120;
+            reviewForm.onsubmit=async event=>{
+              event.preventDefault();if(!current(detail))return;const button=reviewForm.querySelector('button[type="submit"]');button.disabled=true;
+              try {
+                const values=Object.fromEntries(new FormData(reviewForm));
+                const saved=await api('workflowDocumentReviewSave',{...request,revision:reviewed.revision,metadata:{...values,approvedAttestation:reviewForm.elements.approvedAttestation.checked}});
+                if(!current(detail))return;updateFreshness(fileId,saved.freshness);detail.dataset.loaded='false';
+                await loadDocument(detail);if(current(detail))toast('Source review saved. Original document unchanged.');
+              } catch(error){if(current(detail))toast(error.message);}finally{button.disabled=false;}
+            };
+            let manualSpans=[],privacyRevision=0;
+            const privacyPanel=panel.querySelector('[data-privacy-panel]'),refreshPrivacy=panel.querySelector('[data-privacy-refresh]');
+            const showPrivacy = async()=>{
+              if(!current(privacyPanel))return;
+              const attempt=++privacyRevision;refreshPrivacy.disabled=true;privacyPanel.textContent='Checking extracted text locally…';
+              try {
+                const result=await api('workflowDisclosureReview',{...request,manualSpans});
+                if(!current(privacyPanel) || attempt!==privacyRevision)return;
+                manualSpans=result.manualSpans;
+                privacyPanel.innerHTML=`<p class="help">${esc(result.notice)}</p><p>${result.coverage.characters} extracted-text positions · ${result.spans.length} suggestions${result.coverage.incomplete?' · Incomplete coverage':''}.</p><fieldset><legend>Select only the spans to redact</legend>${result.spans.map(span=>`<label class="check"><input type="checkbox" data-privacy-span value="${esc(span.id)}"><span><strong>${esc(span.type)}</strong> · positions ${span.start+1}–${span.end}<br><code>${esc(span.value)}${span.valueTruncated?'…':''}</code><br><span class="help">${esc(span.snippet)}</span></span></label>`).join('') || '<p>No pattern suggestions. This does not establish absence of sensitive information.</p>'}</fieldset><details><summary>Manual range (optional)</summary><p class="help">Use the extracted-text positions shown above. Start and last position are 1-based; include whole characters. Manual ranges are also suggestions until selected.</p>${field('Start position','manualStart','','number')}${field('Last position (inclusive)','manualEnd','','number')}<button type="button" data-manual-add>Add range and refresh</button><button type="button" data-manual-clear ${manualSpans.length?'':'disabled'}>Clear manual ranges</button></details><button type="button" data-redacted-generate disabled>Prepare selected redacted copy</button><div data-redacted-output></div>`;
+                const generate=privacyPanel.querySelector('[data-redacted-generate]'),output=privacyPanel.querySelector('[data-redacted-output]');
+                privacyPanel.querySelectorAll('[data-privacy-span]').forEach(input=>input.onchange=()=>{output.innerHTML='';generate.disabled=!privacyPanel.querySelector('[data-privacy-span]:checked');});
+                for(const input of privacyPanel.querySelectorAll('[name="manualStart"],[name="manualEnd"]')){input.min='1';input.max=String(result.coverage.characters);input.step='1';}
+                privacyPanel.querySelector('[data-manual-add]').onclick=async()=>{
+                  try {
+                    const start=Number(privacyPanel.querySelector('[name="manualStart"]').value),end=Number(privacyPanel.querySelector('[name="manualEnd"]').value);
+                    if(!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start<1 || end<start || end>result.coverage.characters)throw Error('Choose valid whole start and last positions in this extracted text.');
+                    if(manualSpans.length>=100)throw Error('Up to 100 manual ranges are supported.');
+                    manualSpans=[...manualSpans,{start:start-1,end}];await showPrivacy();
+                  } catch(error){if(current(privacyPanel))toast(error.message);}
+                };
+                privacyPanel.querySelector('[data-manual-clear]').onclick=async()=>{manualSpans=[];await showPrivacy();};
+                generate.onclick=async()=>{
+                  if(!current(privacyPanel))return;
+                  generate.disabled=true;
+                  const copyRequest={...request,revision:result.revision,manualSpans:result.manualSpans,selectedSpans:[...privacyPanel.querySelectorAll('[data-privacy-span]:checked')].map(input=>input.value)};
+                  try {
+                    const copy=await api('workflowDisclosureRedact',copyRequest);
+                    if(!current(output) || attempt!==privacyRevision)return;
+                    output.innerHTML=`<p><strong>Redacted COPY · Original unchanged</strong> · ${copy.redactions} redaction ranges</p><p class="help">${esc(copy.notice)}</p><textarea readonly rows="12" aria-label="Redacted copy">${esc(copy.text)}</textarea><button type="button" data-redacted-copy>Copy reviewed text</button>`;
+                    output.querySelector('[data-redacted-copy]').onclick=async event=>{
+                      if(!current(output))return;
+                      const button=event.currentTarget;button.disabled=true;
+                      try {
+                        const fresh=await api('workflowDisclosureRedact',copyRequest);
+                        if(!current(output) || attempt!==privacyRevision)return;
+                        if(!navigator.clipboard?.writeText)throw Error('Select the copy text and copy it manually.');
+                        await navigator.clipboard.writeText(fresh.text);if(current(output))toast('Reviewed redacted copy copied. Originals and disclosure permissions unchanged.');
+                      }catch(error){if(current(output))toast(error.message);}finally{button.disabled=false;}
+                    };
+                  }catch(error){if(current(output))toast(error.message);}finally{if(current(generate))generate.disabled=!privacyPanel.querySelector('[data-privacy-span]:checked');}
+                };
+              }catch(error){if(current(privacyPanel) && attempt===privacyRevision){privacyPanel.textContent=error.message;toast(error.message);}}
+              finally{if(current(refreshPrivacy))refreshPrivacy.disabled=false;}
+            };
+            refreshPrivacy.onclick=showPrivacy;
+          }catch(error){if(current(detail)){panel.textContent=error.message;toast(error.message);}}
+          finally{detail.dataset.loading='false';}
+        };
         listen('#wf-tools',async()=>{
           const button=container.querySelector('#wf-tools');button.disabled=true;button.textContent='Downloading verified local tools…';
           try{tools=await api('workflowDocumentToolsSetup',{kind:'all'});if(revision!==renderRevision)return;const mode=container.querySelector('#wf-search').elements.mode;mode.querySelector('[value="semantic"]').disabled=!tools.embedding;mode.value=tools.embedding?'semantic':'words';button.textContent=tools.embedding&&tools.ocr?'Local search and English OCR ready':'Retry local tool setup';toast('Local tools installed. Searches and OCR run offline; verify extracted text against originals.');}
@@ -307,27 +389,37 @@ export function createWorkflowUI({
         });
         const search = async () => {
           if(searchId)throw Error('A search is already running. Stop it before starting another.');
-          const id=crypto.randomUUID();searchId=id;activeSearch=id;const stop=container.querySelector('#wf-search-stop');stop.hidden=false;
+          const id=crypto.randomUUID();searchId=id;activeSearch=id;const stop=container.querySelector('#wf-search-stop'),collection=container.querySelector('#wf-project');stop.hidden=false;collection.disabled=true;
           try{const r = await api("workflowDocumentSearch", {
             projectId: container.querySelector("#wf-project").value,
+            ...(focusedFileId?{fileId:focusedFileId}:{}),
             query: container.querySelector("#wf-search").elements.query.value,
             mode: container.querySelector('#wf-search').elements.mode.value,
             requestId:id,
           });
           if(revision!==renderRevision)return;
           container.querySelector("#wf-search-results").innerHTML =
-            `<p>${esc(r.notice)}</p><p>${r.totalMatches} ${r.mode==='semantic'?'ranked passages':'matching sections'}${r.totalMatches > 50 ? "; showing first 50 — refine search" : ""}.</p><details open><summary>Extraction coverage</summary>${r.coverage.map((f) => `<p>${esc(f.name)}: ${f.characters} characters, ${f.sections} sections${f.pages ? ", " + f.pages + " page markers" : ""} · ${f.searchable ? "Text available" : "No searchable text"}</p>`).join("") || "<p>No files in this selection.</p>"}</details>${r.results.map((p) => `<section class="card"><h3>${esc(p.citation)}</h3><p>Source revision ${esc(p.revision.slice(0, 12))} · Stored / reviewed ${esc(date(p.updated))}</p><pre style="white-space:pre-wrap">${esc(p.text)}</pre></section>`).join("")}`;
-          }finally{if(searchId===id)searchId=null;if(activeSearch===id)activeSearch=null;stop.hidden=true;}
+            `<p>${esc(r.notice)}</p><p>${r.totalMatches} ${r.mode==='semantic'?'ranked passages':'matching sections'}${r.totalMatches > 50 ? "; showing first 50 — refine search" : ""}.</p><details open><summary>Extraction coverage and source review</summary>${r.coverage.map((f) => `<details class="section" data-file-details="${esc(f.id)}"><summary>${esc(f.name)} · <span data-source-status="${esc(f.id)}">${esc(freshnessLabel(f.freshness))}</span></summary><p>${f.characters} characters, ${f.sections} sections${f.pages ? ", " + f.pages + " page markers" : ""} · ${f.searchable ? "Text available" : "No searchable text"}</p><div data-document-panel></div></details>`).join("") || "<p>No files in this selection.</p>"}</details>${r.results.map((p) => `<section class="card" data-section-file="${esc(p.fileId)}" data-section-id="${esc(p.id)}"><h3>${esc(p.citation)}</h3><p>Source revision ${esc(p.revision.slice(0, 12))} · Stored ${esc(date(p.updated))} · <span data-source-status="${esc(p.fileId)}">${esc(freshnessLabel(p.freshness))}</span></p><pre style="white-space:pre-wrap">${esc(p.text)}</pre></section>`).join("")}`;
+          container.querySelectorAll('[data-file-details]').forEach(detail=>detail.addEventListener('toggle',()=>{if(detail.open)loadDocument(detail).catch(error=>toast(error.message));}));
+          if(focusedFileId){
+            const detail=[...container.querySelectorAll('[data-file-details]')].find(el=>el.dataset.fileDetails===focusedFileId);
+            if(detail){detail.open=true;await loadDocument(detail);if(current(detail))detail.scrollIntoView({block:'nearest'});}
+            if(focusedSectionId!==null){const section=[...container.querySelectorAll('[data-section-file]')].find(el=>el.dataset.sectionFile===focusedFileId && el.dataset.sectionId===String(focusedSectionId));if(section && current(section))section.scrollIntoView({block:'nearest'});}
+          }
+          }finally{if(searchId===id)searchId=null;if(activeSearch===id)activeSearch=null;stop.hidden=true;collection.disabled=false;}
         };
         listen('#wf-search-stop',async()=>{if(searchId)await api('stop',{id:searchId});});
+        listen('#wf-all-files',async()=>{focusedFileId='';focusedSectionId=null;container.querySelector('#wf-file-focus').hidden=true;await search();});
         const f = container.querySelector("#wf-search");
         if (f) {
           f.onsubmit = (e) => {
             e.preventDefault();
             search().catch((e) => toast(e.message));
           };
-          container.querySelector("#wf-project").onchange = () =>
+          container.querySelector("#wf-project").onchange = () => {
+            focusedFileId='';focusedSectionId=null;container.querySelector('#wf-file-focus').hidden=true;
             search().catch((e) => toast(e.message));
+          };
           await search();
         }
       }

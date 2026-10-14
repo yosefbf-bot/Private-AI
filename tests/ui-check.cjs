@@ -637,6 +637,27 @@ let browser;
   await desktop.getByText('Showing a bounded set of recent notes; use Dashboard for other follow-ups.',{exact:true}).waitFor();
   assert.equal(await desktop.locator('#content article.card').count(),bounded.captures.length);
   checks.push('Notes list explains byte-limited truncation and renders the actual bounded result');
+  // Actual app navigation and controls over the synthetic real encrypted Core.
+  const phase3File={id:require('node:crypto').randomUUID(),name:'Synthetic Phase3 policy.txt',text:'Syntheticphase3 policy passage contact person@example.test',bytes:Buffer.from('Synthetic original file').toString('base64'),hipaa:true,updated:Date.now()};core.store.put('file',phase3File.id,phase3File);
+  const phase3Project=core.projectSave({name:'Synthetic Phase3 collection'});require('../source/workflows/documents.cjs').link(core,{projectId:phase3Project.id,fileIds:[phase3File.id]});
+  await desktop.locator('#sidebar [data-view="search"]').click();await desktop.locator('#saved-search-query').fill('syntheticphase3');await desktop.locator('#saved-search-submit').click();
+  const docMatch=desktop.locator('#saved-search-results article').filter({hasText:phase3File.name}).first();await docMatch.locator('[data-search-open]').click();
+  await desktop.locator(`[data-file-details="${phase3File.id}"] [data-document-panel] [data-doc-reload]`).waitFor();
+  assert.equal(await desktop.locator('#wf-file-focus').isVisible(),true);assert.equal(await desktop.locator('[data-file-details]').count(),1);
+  assert.equal(await desktop.locator(`[data-section-file="${phase3File.id}"]`).count()>0,true);
+  checks.push('Search opens the selected Library file and matching section through real app navigation');
+  core.store.put('messaging','settings',{enabled:true,adapter:'web',readAll:true,disableAllWriting:true,conversations:[]});
+  core.store.put('messageIn','synthetic-ui-correspondence',{id:'synthetic-ui-correspondence',adapter:'web',groupId:'123456789@g.us',incoming:true,text:'Please reply about the syntheticphase3 policy.'});
+  core.store.put('job','synthetic-ui-notice',{id:'synthetic-ui-notice',title:'Synthetic Phase3 interrupted job',status:'failed',error:'INTERRUPTED',completed:Date.now()});
+  await desktop.locator('#sidebar [data-view="dashboard"]').click();await desktop.locator('[data-notice-review]').filter({hasText:'Acknowledge'}).first().click();await desktop.locator('#modal [name="ack"]').check();await desktop.locator('#modal-submit').click();
+  await desktop.getByText('No administrative notices in the available records.',{exact:true}).waitFor();assert.equal(core.store.get('job','synthetic-ui-notice').status,'failed');
+  await desktop.locator('#correspondence-panel > summary').click();await desktop.locator('#communication-settings').click();await desktop.locator('#modal [name="enabled"]').check();await desktop.locator('#modal [name="intervalMinutes"]').fill('5');await desktop.locator('#modal-submit').click();
+  await desktop.locator('#correspondence-panel > summary').waitFor();await desktop.locator('#correspondence-panel > summary').click();await desktop.locator('#communication-settings').click();assert.equal(await desktop.locator('#modal [name="enabled"]').isChecked(),true);assert.equal(await desktop.locator('#modal [name="intervalMinutes"]').inputValue(),'5');await desktop.locator('#modal-cancel').click();
+  await desktop.locator('#communication-check').click();await desktop.locator('#correspondence-panel > summary').click();await desktop.locator('[data-communication-review]').click();
+  await desktop.locator('#modal [name="owner"]').fill('Synthetic correspondence reviewer');await desktop.locator('#modal [name="draftChannel"]').selectOption('outlook');await desktop.locator('#modal-submit').click();
+  await desktop.getByText('Synthetic correspondence reviewer',{exact:false}).first().waitFor();
+  await desktop.locator('#correspondence-panel > summary').click();await desktop.locator('[data-communication-note]').click();await desktop.locator('[data-capture-id]').waitFor();assert.equal(await desktop.locator('[data-capture-id]').count(),1);assert.equal(await desktop.locator('[data-draft]').count(),1);
+  assert.equal(core.store.count('messageOut'),0);checks.push('Dashboard notice acknowledgment preserves failed source; cached correspondence settings reload and create one reviewed canonical note/draft without sending');
   for(const settings of [{hipaa:false,publicModeConfirmed:true,processingMode:'local-first'},{hipaa:true,processingMode:'local-only'}]){
     core.saveSettings(settings);await desktop.reload();await desktop.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
     await desktop.locator('#sidebar .more-tools > summary').click();await desktop.locator('#voice-sidebar-btn').click();

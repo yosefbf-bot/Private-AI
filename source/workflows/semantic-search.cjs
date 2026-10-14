@@ -54,11 +54,12 @@ async function search(core,data={},options={}){
   if(!await tools.verified(core,'embedding'))throw fail('DOCUMENT_SETUP');
   check();
   outer:for(const f of docs.selectedFiles(core,data)){
-   const revision=signature(f.text||'');revisions.push({id:f.id,revision,updated:f.updated});
+   const revision=signature(f.text||''),reviewRevision=signature({name:f.name,referenceReview:f.referenceReview||null}),freshness=docs.reviewState(f);
+   revisions.push({id:f.id,revision,updated:f.updated,reviewRevision});
    for(const part of docs.sections(f))for(const fragment of fragments(part)){
     if(rows.length>=MAX_PASSAGES){incomplete=true;break outer;}
     if(!fragment.text.trim())continue;
-    rows.push({fileId:f.id,name:f.name,updated:f.updated,revision,id:part.id,page:part.page,...fragment,
+    rows.push({fileId:f.id,name:f.name,updated:f.updated,revision,freshness,id:part.id,page:part.page,...fragment,
      citation:`${f.name} — ${part.page?'page '+part.page+', ':''}section ${part.id}, characters ${fragment.start+1}–${fragment.end}`});
    }
   }
@@ -83,7 +84,7 @@ async function search(core,data={},options={}){
     for(let i=0;i<vectors.length;i++)insert.run(BigInt(i+1),new Uint8Array(vectors[i].buffer,vectors[i].byteOffset,vectors[i].byteLength));
     const matches=db.prepare('SELECT rowid,distance FROM passages WHERE embedding MATCH ? AND k=? ORDER BY distance').all(new Uint8Array(question.buffer,question.byteOffset,question.byteLength),BigInt(Math.min(10,rows.length)));
     // Abort if an import/deletion/project edit invalidated these citations.
-    for(const revision of revisions){const file=core.store.get('file',revision.id);if(!file||file.updated!==revision.updated||signature(file.text||'')!==revision.revision)throw fail('REVIEW_CHANGED');}
+    for(const revision of revisions){const file=core.store.get('file',revision.id);if(!file||file.updated!==revision.updated||signature(file.text||'')!==revision.revision||signature({name:file.name,referenceReview:file.referenceReview||null})!==revision.reviewRevision)throw fail('REVIEW_CHANGED');}
     if(projectRevision!==null&&signature(core.store.get('project',data.projectId)?.fileIds||[])!==projectRevision)throw fail('REVIEW_CHANGED');
     check();
     const results=matches.map(match=>({...rows[Number(match.rowid)-1],score:Math.max(-1,Math.min(1,1-match.distance*match.distance/2)),retrieval:'local-semantic'}));
