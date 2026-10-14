@@ -81,6 +81,19 @@ async function run({core,win,reportPath}){
   await denied(limited,'/captures/create',{},403);
   result.checks.push('real generated TLS certificate passes normal CA/host validation and pinning; wrong identity, missing key and missing scope are denied');
 
+  phase='native QR bootstrap';
+  const invitation=await call('companionInvite',{name:'SYNTHETIC packaged QR phone',scopes:{alerts:true}}),uri=new URL(invitation.pairingUrl);
+  assert.equal(uri.pathname,'/v2');assert.equal(uri.searchParams.has('key'),false);assert.equal(uri.searchParams.has('certificate'),false);
+  const exchangeBody={version:2,id:invitation.id,token:uri.searchParams.get('token')};
+  const qrPhone=await ok(phone,'/pair/exchange',exchangeBody,{key:null});ids.push(qrPhone.id);
+  assert.equal((await call('companionInviteStatus',{id:invitation.id})).awaitingConnection,true);
+  assert.equal((await ok(qrPhone,'/status')).status,'ONLINE');
+  assert.equal((await call('companionInviteStatus',{id:invitation.id})).state,'paired');
+  await denied(phone,'/pair/exchange',exchangeBody,401,{key:null});await denied(qrPhone,'/tasks',undefined,403);
+  await call('companionInviteCancel',{id:invitation.id});assert.equal((await ok(qrPhone,'/status')).status,'ONLINE');
+  result.checks.push('packaged native QR bootstrap commits once through pinned HTTPS, confirms actual authenticated status, retains scope denial and preserves pairing after closing');
+
+
   phase='multi-chunk encrypted evidence';
   const evidenceBytes=Buffer.alloc(96*1024,83),sha256=hash(evidenceBytes),uploadId=crypto.randomUUID();
   const upload={uploadId,total:2,name:'SYNTHETIC packaged evidence.txt',mime:'text/plain',bytes:evidenceBytes.length,sha256};
@@ -171,6 +184,7 @@ async function run({core,win,reportPath}){
 
   phase='full lock versus restricted generic metadata';
   await call('setPassphrase',{passphrase:phrase});ownedLock=true;
+  const lockedInvitation=await call('companionInvite',{name:'SYNTHETIC locked QR phone',scopes:{chat:true}}),lockedCode=new URL(lockedInvitation.pairingUrl);
   await call('lock');await ipcDenied('captureList',{},'LOCKED');
   await denied(phone,'/actions',undefined,423);await denied(phone,'/notifications',undefined,423);
   await denied(other,'/notifications',undefined,423,{key:other.notificationKey});
@@ -182,6 +196,8 @@ async function run({core,win,reportPath}){
   assert.equal((await ok(phone,'/notifications/ack',{id:notice.id},{key:phone.notificationKey})).status,'acknowledged');
   await ipcDenied('unlock',{passphrase:'SYNTHETIC wrong companion passphrase'},'UNLOCK');
   await call('unlock',{passphrase:phrase});
+  await denied(phone,'/pair/exchange',{version:2,id:lockedInvitation.id,token:lockedCode.searchParams.get('token')},401,{key:null});
+  result.checks.push('actual packaged app lock invalidates unused QR invitations without deleting existing phone or restricted notification access');
   assert.equal(core.store.get('todo',reminder.actions[0].id).status,'pending');
   await call('companionRevoke',{id:phone.id});
   await denied(phone,'/actions',undefined,401);await denied(phone,'/notifications',undefined,401,{key:phone.notificationKey});

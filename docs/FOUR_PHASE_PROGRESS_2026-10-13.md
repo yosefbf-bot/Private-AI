@@ -314,3 +314,31 @@ Desktop PR #18 merged to c11c1afb; Android PR #3 merged to 7e817069 after both e
 Phase 3 now has native RPC, HTTP denial and simple UI integration for saved search, source freshness, selected redacted copies, correspondence suggestions and administrative notices. Final complete suite: 671 passed, zero failures/cancellations/skips. Full app Edge and isolated Search/Library Edge flows passed. Gitleaks current/history findings: zero. Root fixed confirmed Dashboard save/navigation races; deferred regressions and stale clinical loads are covered. Grouped details and truthful limits are in `docs/ASSISTANT_WORKFLOWS_2026-10-14.md`.
 
 Desktop source publication/exact-head CI remains the next gate; then Phase 4 QR/session/device/release work. No production installation/data changed. Five verified cleanup targets (~2.49 GiB) were removed after containment/process/duplicate checks; latest recovery/current delivery remain. At 1% five-hour remaining, save progress, report actual completion and recommendations, and pause. The previous one-time resumption has fired and must not recur.
+
+
+## October 14 Phase 4 implementation checkpoint
+
+Phase3 PR19 is merged to desktopmain1c1389d; its main workflow38575423666 passed.
+Androidmain7e817069 workflow38570691148 also passed. Both new Phase4 source
+branches start at those verified mains; existing apps/data remain untouched.
+
+Desktop QR bootstrap and native/UI wiring are implemented. Hash-only bounded
+RAM invitations, three-minute monotonic expiry, exact grants, atomic encrypted
+commit, replay/cancellation/lock/reconfigure/restart and full-key status
+confirmation are covered. Existing manual pairs remain reusable until revoked.
+The UI clears QR pixels and both textarea contents; delayed successful connection
+after QR expiry is covered. The development HTTP server denies new native ops.
+Current complete source suite699pass/0fail/0cancel/0skip; actual Edge36checks pass.
+New candidate label3.0.4-dev, existing installation3.0.3-dev unchanged.
+
+Android bootstrap/certificate client, on-device scanner and truthful five-minute
+session policy are in validation. New source candidate1.2-dev code3 must retain
+appID/signer/data and existing pairings. Unsupported longer/Off options remain
+disabled; no actual Keystore rotation/migration. New local guides describe
+manual fallback and response-loss recovery. Read COMPANION_PAIRING_2026-10-14.md.
+
+Publication/current-head CI, actual Kotlin→Core interoperability and changed
+Windows installer/portable/APK acceptance remain pending. Real phone camera,
+Wi-Fi/VPN, microphone, background/OEM/notification/account/signed-existing-upgrade
+acceptance remains separate. Overall roughly75% planning estimate, not release
+acceptance. Owner-approved merge only follows passing exact-head gates.

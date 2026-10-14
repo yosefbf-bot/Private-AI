@@ -1,3 +1,30 @@
+## October 14 current Phase 4 source checkpoint
+
+Read [Local companion pairing](docs/COMPANION_PAIRING_2026-10-14.md) and
+[the four-phase tracker](docs/FOUR_PHASE_PROGRESS_2026-10-13.md) first.
+Phases1/2/3 are merged: desktopmain1c1389d and Androidmain7e817069, both
+passing main checks. Earlier pending/failure entries below are historical and
+superseded by the saved actual completion evidence.
+
+Phase4 adds local expiring QR bootstrap, preserves existing pairings/manual
+links and notification-only boundaries, and retains five-minute OS-authenticated
+Keystore sessions without an owner key migration. Desktop complete suite699pass,
+zero failures/skips; actual Edge36checks, nativeIPC/HTTPS and development denial
+pass. Final27caseguide/native/UI checks pass with explicit deterministicfixture
+RAM input after ownedGradle contention exposed unrelated LOW_MEMORY failures;
+failedreceipts retained and productionresourceguards unchanged. New source candidate3.0.4-dev is distinct from installed3.0.3-dev.
+Android/source exact-head CI and changed-binary/device acceptance are still
+pending. Do not claim a complete release from these source results.
+
+Owner permits reviewed PR merge only after exact-head checks pass, then safe
+main synchronization and verified obsolete cleanup. Do not replace production
+apps/data, keys or pairings. At1% five-hour remaining save/report thenpause;
+the previous one-time resume already fired. No new schedule or reset redemption
+is authorized. Future additions first consider trustworthy free GitHub components
+and reuse existing features.
+
+---
+
 ## October 14 1% pause — current working source
 
 Read the final pause section in docs/FOUR_PHASE_PROGRESS_2026-10-13.md first.

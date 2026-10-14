@@ -121,7 +121,7 @@ function loadCipher(create) {
   return loadVault(localRoot, safeStorage, create);
 }
 function emit(event) {
-  if (event.type === 'locked') browserWorker?.close();
+  if (event.type === 'locked') { browserWorker?.close(); companion?.invalidateInvites(); }
   if(event.type==='job_finished')messaging?.jobFinished(event.jobId).catch(()=>{});
   if (win && !win.isDestroyed()) win.webContents.send("privateai:event", event);
   bridge?.broadcast(event);
@@ -441,6 +441,9 @@ async function dispatch(
     case "companionStatus": return companion.status();
     case "companionSave": return companion.configure(data);
     case "companionPair": return companion.pair(data);
+    case "companionInvite": return companion.invite(data);
+    case "companionInviteCancel": return companion.cancelInvite(data.id);
+    case "companionInviteStatus": return companion.inviteStatus(data.id);
     case "companionRevoke": return companion.revoke(data.id);
     case "companionGrant": return companion.grant(data);
     case "usageSummary": return core.router.meter.summary();

@@ -29,3 +29,8 @@ branches after verifying they are no longer needed. Preserve active work, curren
 accepted delivery, recovery/reference evidence, credentials, signing keys, models
 and pairings. This permission does not authorize replacing installed production
 apps/data or weakening release, privacy, resource or security gates.
+
+
+## Standing feature-addition preference — 2026-10-14
+
+Before implementing a new feature, check GitHub for suitable free open-source components. Evaluate license, maintenance, security, offline/privacy behavior and compatibility. Reuse existing capabilities instead of adding duplicates. Prefer focused integration of trustworthy components when it saves work; use custom code when available projects do not fit. Explain selected components and meaningful feature/function changes. This does not override release or permission gates.

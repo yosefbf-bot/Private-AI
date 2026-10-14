@@ -1,5 +1,5 @@
 {
-  "version": "3.0.3-dev",
+  "version": "3.0.4-dev",
   "title": "Private AI user guide",
   "topics": [
     {
@@ -60,16 +60,20 @@
         "companion gateway",
         "mobile companion",
         "pair a phone",
-        "phone connection"
+        "phone connection",
+        "qr pairing",
+        "scan qr",
+        "secure pairing"
       ],
       "steps": [
-        "Enable the optional desktop HTTPS gateway on an approved private interface and pair using its complete per-device link and certificate. No sample IP or shared default key is used.",
-        "The phone opens Chat; Dashboard, Notes, Meetings and Library are the main destinations. Existing selected-PC-chat sharing, encrypted pending requests and scoped access remain.",
-        "The main screens show a connection light and last successful sync time. Tap the status to check/sync. Red means disconnected, amber means syncing/checking or an old check. A cached timestamp is not proof of a live connection.",
-        "Record a meeting on the phone while it stays unlocked and the recording screen remains open. Encrypted audio waits for the same paired PC; the PC performs local transcription and draft notes. Finish uploads only after every saved chunk is acknowledged.",
-        "Settings → Appearance offers Follow system, Light or Dark. The choice stays on this phone and also applies to the locked screen."
+        "On the PC, open Settings → Android Companion Gateway. Enable HTTPS on the actual approved private LAN/VPN interface and save. The PC must be awake and reachable; no firewall, hotspot or VPN changes are made automatically.",
+        "Choose Pair a phone with QR. Name the phone, grant only the access you need, and explicitly choose any shared PC conversations. Optional workflow and notification scopes remain off until selected.",
+        "On the unlocked Android app, open Settings → Desktop connection → Scan desktop QR, or paste the private invitation. Camera permission is requested only when you choose Scan. The invitation expires after three minutes and can be used once.",
+        "Wait for Connected after the phone verifies the certificate and completes a real authenticated status request. A scanned code alone is not a connection. If a response is lost after a device was created, inspect Paired phones on the PC, revoke the incomplete device, and create a new invitation.",
+        "Older companion versions can use the legacy manual link in Older companion app / manual setup on the PC. Its device credential remains reusable until revoked; keep it private.",
+        "Physical camera, microphone, background notifications and LAN/VPN behavior require device acceptance. Five-minute phone sessions preserve the existing encryption key. Longer periods and Off while active remain unavailable until a reviewed key migration is authorized."
       ],
-      "note": "Navigation, backgrounding or authentication expiry stops phone recording; up to 20 seconds not yet saved can be lost. Resume after unlocking. A 60-minute limit and storage bounds apply. Physical-phone microphone, Keystore, LAN and notification acceptance remain separate from unit tests."
+      "note": "Closing, locking or reconfiguring invalidates unused QR invitations without deleting established pairings. Full phone access is denied while the desktop is locked; separately authorized generic notification-only access keeps its existing boundaries. Never put pairing links in websites, messages, logs or GitHub."
     },
     {
       "id": "capturenotes",

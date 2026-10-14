@@ -7,3 +7,7 @@
 *.key binary
 *.ico binary
 *.png binary
+
+# Preserve exact hashes of the pinned upstream QR sources.
+source/ui/vendor/qrcodegen.mjs text eol=lf
+source/ui/vendor/qrcodegen.ts text eol=lf

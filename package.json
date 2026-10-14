@@ -1,7 +1,7 @@
 {
   "name": "private-ai-desktop",
   "productName": "Private AI",
-  "version": "3.0.3-dev",
+  "version": "3.0.4-dev",
   "description": "Private Windows chat and an explicitly controlled Chrome companion",
   "author": "Private AI",
   "license": "UNLICENSED",

@@ -1,6 +1,7 @@
 import {appearance, setAppearance} from "./theme.mjs";
 import {integrationSettings} from "./integrations.mjs";
 import {companionSettings} from "./companion.mjs";
+import {createCompanionPairingUI} from "./companion-pairing.mjs";
 import {createWorkflowUI} from "./workflows.mjs";
 import {createCaptureUI} from "./captures.mjs";
 import {migrateLegacyStorage} from "./legacy-storage.mjs";
@@ -84,6 +85,7 @@ function idsFrom(r) {
     .filter((k) => k.startsWith("file_"))
     .map((k) => k.slice(5));
 }
+const companionPairingUI=createCompanionPairingUI({api,form,esc});
 const workflowUI=createWorkflowUI({api,esc,toast,form,field,textarea,select,renderPage,refresh});
 const captureUI=createCaptureUI({api,esc,toast,form,field,textarea,select,refresh});
 const dashboardUI=createDashboardUI({api,esc,toast,form,field,textarea,select,refresh,renderPage});
@@ -421,6 +423,7 @@ function autoResizePrompt() {
   p.style.height = `${h}px`;
 }
 function renderChat() {
+  companionPairingUI.stop();
   workflowUI.stop();
   searchUI.stop();
   snfUI.stop();
@@ -1071,6 +1074,7 @@ function settingsHTML() {
   )}${field("Maximum output tokens", "maxOutput", s.maxOutput, "number")}${field("OpenAI organization (optional)", "org", s.org)}${field("OpenAI project (optional)", "projectId", s.projectId)}${field("App lock after minutes", "lockMinutes", s.lockMinutes, "number")}</div><p>Reasoning controls depend on the selected model. Automatic locking inside Private AI requires an app passphrase; your organization’s Windows lock remains separate.</p><div class="button-row"><button class="secondary" data-act="passphrase">Set app passphrase</button><button class="secondary" data-act="lock">Lock app</button><button class="secondary" data-act="backup">Create local encrypted backup</button><button class="secondary" data-act="self-check">Run local checks</button><button class="secondary" data-act="diagnostics">Create diagnostic report</button></div><p>Diagnostics contain technical metadata only. Local backups require this Windows profile and its original encryption key. A portable app does not make encrypted history portable.</p></details></div>`;
 }
 function showLocked() {
+  companionPairingUI.stop();
   workflowUI.stop();
   searchUI.stop();
   snfUI.stop();
@@ -1500,6 +1504,7 @@ async function init() {
   }
 }
 function renderPage(name, options = {}) {
+  companionPairingUI.stop();
   workflowUI.stop();
   searchUI.stop();
   snfUI.stop();
@@ -2206,12 +2211,15 @@ document.addEventListener("click", async (e) => {
         } finally { b.disabled=false; }
         break;
       }
-      case "companion-pair": {
-        const choice=await form("Pair a phone",`${field("Phone name","name", "My phone")}<p>Grant access only to a phone you control. Its pairing key gives access while the desktop is unlocked. Store it securely on the phone.</p><label class="check"><input name="chat" type="checkbox" checked> Text chat using desktop privacy settings</label><label class="check"><input name="tasks" type="checkbox"> Task status metadata</label><label class="check"><input name="alerts" type="checkbox"> Clinical alert metadata (no resident details)</label><label class="check"><input name="workflow" type="checkbox"> Notes, evidence, follow-ups and internal drafts created by this phone</label><label class="check"><input name="notifications" type="checkbox"> Due follow-up notifications for this phone</label><label class="check"><input name="notificationsWhileLocked" type="checkbox"> Allow the separate notification-only key to report generic due-reminder metadata while this desktop app is locked (requires notifications above)</label><p>Select PC conversations this phone may read and continue:</p>${(state.chats || []).filter(c=>!c.archived).map(c=>`<label class="check"><input name="share_${esc(c.id)}" type="checkbox">${esc(c.title)}</label>`).join('')}`,"Create pairing key");
+      case "companion-pair":
+      case "companion-pair-legacy": {
+        const choice=await form("Pair a phone",`${field("Phone name","name", "My phone")}<p>Grant access only to a phone you control. Its pairing key gives access while the desktop is unlocked. Store it securely on the phone.</p><label class="check"><input name="chat" type="checkbox" checked> Text chat using desktop privacy settings</label><label class="check"><input name="tasks" type="checkbox"> Task status metadata</label><label class="check"><input name="alerts" type="checkbox"> Clinical alert metadata (no resident details)</label><label class="check"><input name="workflow" type="checkbox"> Notes, evidence, follow-ups and internal drafts created by this phone</label><label class="check"><input name="notifications" type="checkbox"> Due follow-up notifications for this phone</label><label class="check"><input name="notificationsWhileLocked" type="checkbox"> Allow the separate notification-only key to report generic due-reminder metadata while this desktop app is locked (requires notifications above)</label><p>Select PC conversations this phone may read and continue:</p>${(state.chats || []).filter(c=>!c.archived).map(c=>`<label class="check"><input name="share_${esc(c.id)}" type="checkbox">${esc(c.title)}</label>`).join('')}`,act==="companion-pair"?"Create private QR invitation":"Create legacy pairing key");
         if(!choice)break;
-        const pairing=await api("companionPair",{name:choice.name,scopes:{chat:!!choice.chat,tasks:!!choice.tasks,alerts:!!choice.alerts,workflow:!!choice.workflow,notifications:!!choice.notifications},sharedChats:Object.keys(choice).filter(k=>k.startsWith('share_')).map(k=>k.slice(6)),notificationsWhileLocked:!!choice.notificationsWhileLocked});
+        const grants={name:choice.name,scopes:{chat:!!choice.chat,tasks:!!choice.tasks,alerts:!!choice.alerts,workflow:!!choice.workflow,notifications:!!choice.notifications},sharedChats:Object.keys(choice).filter(k=>k.startsWith('share_')).map(k=>k.slice(6)),notificationsWhileLocked:!!choice.notificationsWhileLocked};
+        if(act==="companion-pair") { await companionPairingUI.open(grants); if(view==="settings") { await refresh();if(view==="settings")renderPage("settings"); } break; }
+        const pairing=await api("companionPair",grants);
         await refresh();renderPage("settings");
-        await form("Phone pairing — shown once",`<p>Transfer privately to your phone's Quick Paste. The Android app must import and verify the supplied certificate and host. Never paste this link into a website or chat; it contains a secret key.</p><label class="field">Pairing link<textarea readonly rows="5" autocomplete="off">${esc(pairing.pairingUrl)}</textarea></label><p>Address: ${esc(pairing.baseUrl)}</p><p>Certificate SHA-256: <code style="overflow-wrap:anywhere">${esc(pairing.fingerprint)}</code></p><p>If pairing is cancelled or unsupported, revoke this phone below.</p>`,"Done");
+        await form("Legacy phone pairing — shown once",`<p>Transfer privately to your phone's Quick Paste. The Android app must import and verify the supplied certificate and host. Never paste this link into a website or chat; it contains reusable credentials that remain valid until this phone is revoked.</p><label class="field">Pairing link<textarea readonly rows="5" autocomplete="off">${esc(pairing.pairingUrl)}</textarea></label><p>Address: ${esc(pairing.baseUrl)}</p><p>Certificate SHA-256: <code style="overflow-wrap:anywhere">${esc(pairing.fingerprint)}</code></p><p>If pairing is cancelled or unsupported, revoke this phone below.</p>`,"Done");
         $("modal-content").replaceChildren();
         break;
       }
