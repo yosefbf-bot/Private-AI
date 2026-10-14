@@ -19,7 +19,7 @@ Native Android source has now been inspected and integrated on its review branch
    certificate-store modification is required. The listener uses only the selected
    address, never all adapters. There is no plain HTTP mode.
 4. Select **Pair a phone**, name it, and grant text chat and optional task/alert,
-   workflow and notification access. Select any PC chat histories to share. Transfer the one-time pairing link privately. Its key is a secret;
+   workflow and notification access. Select any PC chat histories to share. Transfer the legacy pairing link privately; its credential remains reusable until revoked. Its key is a secret;
    do not put it in GitHub, logs, a public QR site or a support conversation.
 5. Android must validate the paired certificate and the address before sending the
    key or a prompt. See the required Android changes below. An IP alone cannot pair.
@@ -65,7 +65,7 @@ verify the new pairing on the phone. Android developer guidance:
 
 ## HTTP API
 
-Use the saved HTTPS origin and **`X-Pair-Key: <device-key>` on every request**.
+Use the saved HTTPS origin and **`X-Pair-Key: <device-key>` on every ordinary request**. The invitation-authenticated v2 bootstrap below is the only exception.
 There are no unauthenticated status, task or alert endpoints. Tokens in URL queries,
 browser Origin requests, arbitrary Host headers, cookies and arbitrary desktop RPC
 forwarding are not supported. Responses have `Cache-Control: no-store`.
@@ -227,3 +227,13 @@ The phone captures only in its visible unlocked meeting screen. Navigation, back
 and OS-authentication expiry stop the microphone; an unsaved partial chunk (up to 20 seconds)
 can be lost. Committed encrypted chunks survive, and can resume uploading to the same PC.
 The desktop must be awake/reachable and unlocked. Physical-device acceptance is separate.
+
+
+## Local QR bootstrap — October 14, 2026
+
+The additive bootstrap and compatibility contract is documented in
+[Local companion pairing](COMPANION_PAIRING_2026-10-14.md). The ordinary mobile
+API remains protocol version 1 and advertises `pairing-bootstrap-v2` in capabilities.
+Only POST `/mobile/api/v1/pair/exchange` accepts a short-lived invitation instead
+of an existing X-Pair-Key. Existing paired clients and notification-only
+authentication retain their prior boundaries.

@@ -220,3 +220,27 @@ test('desktop IPC executes local search, document review, safe copy and correspo
  await call('snfDemo',{mode:'demo'});for(const op of ops)assert.equal((await raw(op)).error.code,'POLICY',op);assert.equal((await call('workflowSummary')).notices.items.length,0);
  core.lock();for(const op of [...ops,'workflowNoticeUpdate'])assert.equal((await raw(op)).error.code,'LOCKED',op);
 });
+
+
+test('native QR pairing confirms actual HTTPS status and lock invalidates invitations without revoking paired devices',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);
+ const {freePort,request}=require('./companion-fixture.cjs'),{describeCertificate}=require('../source/companion-tls.cjs');
+ const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ const port=await freePort();assert.equal((await call('companionSave',{enabled:true,host:'127.0.0.1',port})).ok,true);
+ const gateway={settings:()=>({host:'127.0.0.1',port})},ca=describeCertificate(b.core.store.get('secret','companion_tls'),'127.0.0.1');
+ const invite=(await call('companionInvite',{name:'Synthetic QR phone',scopes:{chat:true}})).result;
+ const uri=new URL(invite.pairingUrl),body={version:2,id:invite.id,token:uri.searchParams.get('token')};
+ const exchange=await request(gateway,ca,'/pair/exchange',body);assert.equal(exchange.status,200);
+ assert.equal((await call('companionInviteStatus',{id:invite.id})).result.awaitingConnection,true);
+ assert.equal((await request(gateway,exchange.body,'/status')).status,200);
+ assert.equal((await call('companionInviteStatus',{id:invite.id})).result.state,'paired');
+ await call('companionInviteCancel',{id:invite.id});assert.equal((await request(gateway,exchange.body,'/status')).status,200);
+ const cancelled=(await call('companionInvite',{name:'Interrupted QR phone',scopes:{chat:true}})).result;
+ b.core.lock();assert.equal((await call('companionInvite',{name:'Blocked phone'})).error.code,'LOCKED');b.core.unlock();
+ const old=new URL(cancelled.pairingUrl);
+ const rejected=await request(gateway,ca,'/pair/exchange',{version:2,id:cancelled.id,token:old.searchParams.get('token')});assert.notEqual(rejected.status,200);
+ assert.equal((await call('companionStatus')).result.devices.length,1);
+ assert.equal((await request(gateway,exchange.body,'/status')).status,200);
+ await call('companionSave',{enabled:false});
+});

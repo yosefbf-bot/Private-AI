@@ -4,7 +4,7 @@ const {answerHelp,modelContext,guide}=require('../source/app-guide.cjs');
 const {fixture}=require('./helpers.cjs');
 test('common guide questions return documentation without loading a brain or calling OpenAI',async t=>{
  const {core,calls}=fixture(t);core.saveSettings({processingMode:'local-only',allowCloud:false});core.router.local={generate:()=>assert.fail('Model was called')};
- for(const prompt of ['Do you have a user guide?','How do I change my local brain?','How can I choose a ShareSync output folder?','/help diagnostics','/help saved search','/help source review','/help correspondence']){
+ for(const prompt of ['Do you have a user guide?','How do I change my local brain?','How can I choose a ShareSync output folder?','/help diagnostics','/help saved search','/help source review','/help correspondence','/help qr pairing']){
   const c=core.createChat({temporary:true});await core.send({chatId:c.id,prompt});const m=c.messages.at(-1);assert.equal(m.error,undefined);assert.equal(m.processing.model,'Built-in user guide');assert.equal(m.processing.provider,'deterministic');assert.ok(m.text.length>80);assert.equal(m.usage.outputTokens,0);
  }
  assert.equal(calls.length,0);core.router.local=null;

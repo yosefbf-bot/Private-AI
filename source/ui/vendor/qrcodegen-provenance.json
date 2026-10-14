@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/nayuki/QR-Code-generator",
+  "tag": "v1.8.0",
+  "commit": "720f62bddb7226106071d4728c292cb1df519ceb",
+  "source": "https://raw.githubusercontent.com/nayuki/QR-Code-generator/720f62bddb7226106071d4728c292cb1df519ceb/typescript-javascript/qrcodegen.ts",
+  "sourceSha256": "c4749095a91bf9696e3a303998b9905e467094f53041e64393e65e6d887737fd",
+  "compiler": "TypeScript 5.9.3",
+  "compilerIntegrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+  "moduleSha256": "9d280987fbceb5452103050c3d06ca71bfb97d2f74e6a747433347ff328f2d60"
+}

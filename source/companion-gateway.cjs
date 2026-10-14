@@ -4,14 +4,16 @@ const https = require('node:https');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const net = require('node:net');
+const {performance} = require('node:perf_hooks');
 const {fail, safeError, uuid, isId} = require('./security.cjs');
 const captures = require('./capture-workflows.cjs');
 const {createCertificate, describeCertificate, tlsOptions} = require('./companion-tls.cjs');
 const DEFAULT = Object.freeze({enabled: false, host: '127.0.0.1', port: 8443});
 const PREFIX = '/mobile/api/v1';
 const MAX_BODY = 192 * 1024;
+const INVITE_BODY = 2048, INVITE_TTL = 180000, INVITE_RECEIPT_TTL = 600000;
 const SCOPES = ['chat','tasks','alerts','workflow','notifications'];
-const CAPABILITIES = ['conversations','captures','actions','drafts','evidence-chunks','reminder-notifications','meetings'];
+const CAPABILITIES = ['conversations','captures','actions','drafts','evidence-chunks','reminder-notifications','meetings','pairing-bootstrap-v2'];
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const allowedId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 function privateAddress(host) {
@@ -31,19 +33,20 @@ function sendJSON(res, status, data) {
   res.writeHead(status, {'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer'});
   res.end(JSON.stringify(data));
 }
-async function readJSON(req) {
+async function readJSON(req, maximum = MAX_BODY) {
   if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '') || req.headers['content-encoding']) throw httpError('INVALID', 415);
-  if (Number(req.headers['content-length']) > MAX_BODY) throw httpError('LIMIT', 413);
+  if (Number(req.headers['content-length']) > maximum) throw httpError('LIMIT', 413);
   let bytes = 0; const chunks = [];
-  for await (const chunk of req) { bytes += chunk.length; if (bytes > MAX_BODY) throw httpError('LIMIT', 413); chunks.push(chunk); }
+  for await (const chunk of req) { bytes += chunk.length; if (bytes > maximum) throw httpError('LIMIT', 413); chunks.push(chunk); }
   try { const result = JSON.parse(Buffer.concat(chunks).toString('utf8')); if (!result || typeof result !== 'object' || Array.isArray(result)) throw Error(); return result; }
   catch { throw httpError('INVALID', 400); }
 }
 
 class CompanionGateway {
-  constructor(core, {certificateFactory = createCertificate, networkInterfaces = interfaces} = {}) {
+  constructor(core, {certificateFactory = createCertificate, networkInterfaces = interfaces, monotonicNow = () => performance.now(), wallNow = () => Date.now()} = {}) {
     this.core = core; this.certificateFactory = certificateFactory; this.networkInterfaces = networkInterfaces;
     this.server = null; this.sockets = new Set(); this.active = new Map(); this.generation = 0; this.error = null; this.changing = false; this.closed = false; this.rate = new Map();
+    this.monotonicNow = monotonicNow; this.wallNow = wallNow; this.invites = new Map(); this.inviteRate = new Map();
   }
   settings() { return {...DEFAULT, ...this.core.store.get('companion', 'settings')}; }
   devices() { return this.core.store.list('companion_device').map(({id, name, scopes, created, sharedChats = [], notificationsWhileLocked = false}) => ({id, name, scopes, created, sharedChats, notificationsWhileLocked})); }
@@ -100,6 +103,7 @@ class CompanionGateway {
     } catch (e) { this.stop(); this.error = safeError(fail(e.code === 'COMPANION_TLS' ? 'COMPANION_TLS' : 'COMPANION_BIND')); throw fail(this.error.code); }
   }
   stop() {
+    this.invalidateInvites();
     this.generation++;
     for (const job of this.active.values()) { job.controller.abort(); if (job.chatId) this.core.stop(job.chatId); }
     const server = this.server; this.server = null;
@@ -107,22 +111,107 @@ class CompanionGateway {
     this.error = null;
   }
   close() { this.closed = true; this.stop(); }
-  pair({name, scopes = {chat: true}, sharedChats = [], notificationsWhileLocked = false}) {
-    this.assertDesktop();
-    if (!this.server?.listening || this.changing) throw fail('COMPANION_BIND');
+  pairGrants({name, scopes = {chat: true}, sharedChats = [], notificationsWhileLocked = false}) {
     if (typeof name !== 'string' || !name.trim() || name.length > 60 || /[\u0000-\u001f]/.test(name) || !scopes || typeof scopes !== 'object' || Array.isArray(scopes) || Object.entries(scopes).some(([k,v]) => !SCOPES.includes(k) || typeof v !== 'boolean')) throw fail('INVALID');
     this.validateSharedChats(sharedChats);
     if (sharedChats.length && !scopes.chat) throw fail('INVALID');
     if (typeof notificationsWhileLocked!=='boolean' || notificationsWhileLocked && !scopes.notifications) throw fail('INVALID');
+    return {name:name.trim(), scopes:Object.fromEntries(SCOPES.map(k=>[k,scopes[k]===true])), sharedChats:[...sharedChats], notificationsWhileLocked};
+  }
+  newDevice(grants) {
     if (this.devices().length >= 10) throw fail('LIMIT');
     const key = crypto.randomBytes(32).toString('base64url');
-    const notificationKey = scopes.notifications ? crypto.randomBytes(32).toString('base64url') : null;
-    const device = {id: uuid(), name: name.trim(), scopes: Object.fromEntries(SCOPES.map(k=>[k,scopes[k]===true])), sharedChats, notificationsWhileLocked, keyHash: digest(key),notificationKeyHash:notificationKey?digest(notificationKey):null, created: Date.now()};
+    const notificationKey = grants.scopes.notifications ? crypto.randomBytes(32).toString('base64url') : null;
+    const device = {id: uuid(), ...grants, keyHash: digest(key), notificationKeyHash:notificationKey?digest(notificationKey):null, created:Date.now()};
+    return {device,key,notificationKey};
+  }
+  pair(input) {
+    this.assertDesktop();
+    if (!this.server?.listening || this.changing) throw fail('COMPANION_BIND');
+    const grants = this.pairGrants(input), {device,key,notificationKey} = this.newDevice(grants);
     this.core.store.put('companion_device', device.id, device);
     const s = this.settings(), certificate = describeCertificate(this.core.store.get('secret', 'companion_tls'),s.host);
     const params = new URLSearchParams({host:s.host, port:String(s.port), scheme:'https', key, fingerprint:certificate.fingerprint, certificate:certificate.certificate});
     if(notificationKey)params.set('notificationKey',notificationKey);
     return {id:device.id, name:device.name, key,...(notificationKey?{notificationKey}:{}), baseUrl:`https://${s.host}:${s.port}`, pairingUrl:`privateai://pair?${params}`, ...certificate};
+  }
+  pruneInvites() {
+    const now = this.monotonicNow();
+    for (const [id,row] of this.invites) {
+      if (row.state==='pending' && now >= (row.consumed ? row.receiptUntil : row.deadline)) { row.state='expired'; row.tokenHash=null; }
+      if (now >= row.receiptUntil) this.invites.delete(id);
+    }
+  }
+  invalidateInvites() {
+    for (const row of this.invites.values()) if (row.state==='pending') { row.state='cancelled'; row.tokenHash=null; }
+  }
+  invite(input) {
+    this.assertDesktop();
+    if (!this.server?.listening || this.changing) throw fail('COMPANION_BIND');
+    if (!input || typeof input!=='object' || Array.isArray(input) || Object.keys(input).some(k=>!['name','scopes','sharedChats','notificationsWhileLocked'].includes(k))) throw fail('INVALID');
+    const grants=this.pairGrants(input);
+    if (this.devices().length>=10) throw fail('LIMIT');
+    this.pruneInvites();
+    if ([...this.invites.values()].filter(row=>row.state==='pending'&&!row.consumed).length>=3) throw fail('LIMIT');
+    // Terminal receipts contain no token; retain only a small, bounded owner-visible history.
+    while (this.invites.size>=32) {
+      const oldest=[...this.invites].find(([,row])=>row.state!=='pending'||row.consumed);
+      if (!oldest) throw fail('LIMIT');
+      this.invites.delete(oldest[0]);
+    }
+    const s=this.settings(), certificate=describeCertificate(this.core.store.get('secret','companion_tls'),s.host);
+    const id=uuid(), token=crypto.randomBytes(32).toString('base64url'), now=this.monotonicNow(), expires=this.wallNow()+INVITE_TTL;
+    this.invites.set(id,{id,...grants,scopes:{...grants.scopes},sharedChats:[...grants.sharedChats],tokenHash:digest(token),host:s.host,port:s.port,fingerprint:certificate.fingerprint,generation:this.generation,expires,deadline:now+INVITE_TTL,receiptUntil:now+INVITE_RECEIPT_TTL,state:'pending',consumed:false});
+    const params=new URLSearchParams({version:'2',host:s.host,port:String(s.port),fingerprint:certificate.fingerprint,id,token,expires:String(expires)});
+    return {id,pairingUrl:`privateai://pair/v2?${params}`,expires,...grants};
+  }
+  inviteStatus(id) {
+    this.assertDesktop(); if (!isId(id)) throw fail('INVALID');
+    this.pruneInvites();
+    const row=this.invites.get(id);
+    if (row?.state==='paired' && !this.core.store.get('companion_device',row.issuedDeviceId)) row.state='cancelled';
+    return {id,state:row?.state||'cancelled',expires:row?.expires||null,awaitingConnection:row?.state==='pending'&&row.consumed===true,...(row?.state==='paired'?{deviceId:row.issuedDeviceId}:{})};
+  }
+  cancelInvite(id) {
+    this.assertDesktop(); if (!isId(id)) throw fail('INVALID');
+    const row=this.invites.get(id);
+    // Closing a pairing wizard invalidates its invitation, never a durable device.
+    // Device revocation remains the existing explicit owner action.
+    if (row) { row.state='cancelled'; row.tokenHash=null; }
+    return this.inviteStatus(id);
+  }
+  throttleInvite(address) {
+    const now=this.monotonicNow();
+    for (const [id,row] of this.inviteRate) if (now>=row.until) this.inviteRate.delete(id);
+    if (!this.inviteRate.has(address)) {
+      if (this.inviteRate.size>=64) throw httpError('BUSY',429);
+      this.inviteRate.set(address,{count:0,until:now+60000});
+    }
+    if (++this.inviteRate.get(address).count>12) throw httpError('BUSY',429);
+  }
+  exchangeInvite(data,generation) {
+    this.assertDesktop();
+    if (!this.server?.listening || this.changing || generation!==this.generation) throw httpError('COMPANION_AUTH',401);
+    if (Object.keys(data).length!==3 || Object.keys(data).some(k=>!['version','id','token'].includes(k)) || data.version!==2 || !isId(data.id) || typeof data.token!=='string' || !/^[A-Za-z0-9_-]{43}$/.test(data.token)) throw httpError('INVALID',400);
+    this.pruneInvites();
+    const row=this.invites.get(data.id), hash=digest(data.token);
+    if (!row || row.state!=='pending' || row.consumed || !row.tokenHash || !crypto.timingSafeEqual(Buffer.from(hash,'hex'),Buffer.from(row.tokenHash,'hex'))) throw httpError('COMPANION_AUTH',401);
+    const s=this.settings(), certificate=describeCertificate(this.core.store.get('secret','companion_tls'),s.host);
+    if (!s.enabled || row.generation!==generation || row.host!==s.host || row.port!==s.port || row.fingerprint!==certificate.fingerprint) { row.state='cancelled'; row.tokenHash=null; throw httpError('CHANGED',409); }
+    const grants=this.pairGrants(row);
+    // Never expose a credential before another asynchronous/nested Store transaction commits.
+    if (this.core.store.db?.isTransaction) throw httpError('BUSY',409);
+    const {device,key,notificationKey}=this.newDevice(grants);
+    const response={version:2,id:device.id,name:device.name,key,...(notificationKey?{notificationKey}:{}),baseUrl:`https://${s.host}:${s.port}`,...certificate,scopes:device.scopes,sharedChats:device.sharedChats,notificationsWhileLocked:device.notificationsWhileLocked};
+    // Synchronous commit and consumption: concurrent requests cannot both issue a device.
+    this.core.store.transaction(()=>this.core.store.put('companion_device',device.id,device));
+    row.consumed=true; row.tokenHash=null; row.issuedDeviceId=device.id;
+    return response;
+  }
+  confirmInvite(device,generation) {
+    if (this.closed || this.core.locked || generation!==this.generation || device.notificationOnly) return;
+    this.pruneInvites();
+    for (const row of this.invites.values()) if (row.state==='pending' && row.consumed && row.issuedDeviceId===device.id && row.generation===generation) row.state='paired';
   }
   validateSharedChats(ids) {
     if (!Array.isArray(ids) || ids.length>50 || new Set(ids).size!==ids.length || ids.some(id=>!isId(id) || !this.core.store.get('chat',id) || this.core.store.get('chat',id).archived)) throw fail('INVALID');
@@ -173,6 +262,13 @@ class CompanionGateway {
       // Native clients only. Browser origins, query-string credentials and redirects are not accepted.
       if (req.headers.host !== `${s.host}:${s.port}` || req.headers.origin || req.headers['sec-fetch-site'] || !req.url.startsWith(PREFIX+'/') || req.url.includes('?') || req.url.includes('#')) throw httpError('POLICY',403);
       this.throttle(req.socket.remoteAddress || 'unknown');
+      if (req.method==='POST' && req.url===PREFIX+'/pair/exchange') {
+        this.throttleInvite(req.socket.remoteAddress||'unknown');
+        this.assertDesktop();
+        const generation=this.generation, data=await readJSON(req,INVITE_BODY);
+        sendJSON(res,200,this.exchangeInvite(data,generation));
+        return;
+      }
       const device = this.authenticate(req), generation = this.generation;
       if(device.notificationOnly && !((req.method==='GET'&&req.url===PREFIX+'/notifications')||(req.method==='POST'&&req.url===PREFIX+'/notifications/ack')))throw httpError('POLICY',403);
       this.assertSession(device,generation,device.notificationOnly?'notifications':undefined);
@@ -215,6 +311,7 @@ class CompanionGateway {
       } else throw httpError('NOT_FOUND',404);
       this.assertSession(device,generation,device.notificationOnly?'notifications':undefined);
       sendJSON(res,200,response);
+      if (req.method==='GET' && req.url===PREFIX+'/status' && !res.destroyed) this.confirmInvite(device,generation);
     } catch (e) { sendJSON(res,e.status || (['BUSY','CHANGED','REVIEW_CHANGED'].includes(e.code) ? 409 : e.code === 'NOT_FOUND' ? 404 : e.code === 'INVALID' ? 400 : e.code === 'LIMIT' ? 413 : e.code === 'LOCKED' ? 423 : e.code === 'POLICY' ? 403 : 503),{error:safeError(e)}); }
   }
   async chat(device,generation,data,res) {

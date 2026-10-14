@@ -1,37 +1,34 @@
 {
   "fourPhaseReliability20261014": {
-    "phase": "phase3-source-validated-publication-pending",
+    "phase": "phase4-desktop-source-validated-android-and-publication-pending",
     "report": "docs/FOUR_PHASE_PROGRESS_2026-10-13.md",
-    "matrix": "docs/FOUR_PHASE_LIBRARY_AUDIT_2026-10-14.md",
-    "base": "c11c1afb5af31900ee301f4b0913bcbe48fae063",
-    "branch": "chatgpt/assistant-workflows-2026-10-14",
-    "tests": {
-      "passed": 595,
-      "failed": 0,
-      "skipped": 0
-    },
-    "actualEdgeUIPassed": true,
-    "currentHistorySecretFindings": 0,
-    "newNativeCompilationPending": false,
-    "installedAppsChanged": false,
-    "androidHead": "5a2fe0f61e0cbbb8c6896f66cb8b16a32e253126",
-    "androidFreshDeviceAcceptance": "both-runs-four-of-four-executed-passed-three-real-credential-cycles",
-    "pushedDesktopHead": "3d348f43e85e9292b45310fa59872e588c1961f0",
-    "pushedDesktopCI": "all-four-jobs-passed-both-runs",
-    "workingTreeTests": {
-      "passed": 671,
+    "phase4Report": "docs/COMPANION_PAIRING_2026-10-14.md",
+    "base": "1c1389d8116e6c18991aaef14b9231fda6023e75",
+    "branch": "chatgpt/companion-pairing-2026-10-14",
+    "version": "3.0.4-dev",
+    "desktopFullTests": {
+      "passed": 699,
       "failed": 0,
       "cancelled": 0,
       "skipped": 0,
-      "uncommitted": true
+      "scope": "current desktop source before version-label-only bump; isolated packaged acceptance still pending"
     },
-    "overallPlanningEstimatePercent": 65,
-    "resumeAutomation": "one-time-fired-no-new-schedule",
-    "phase3Report": "docs/ASSISTANT_WORKFLOWS_2026-10-14.md",
-    "phase2NativeCompilation": "both-exact-head-GitHub-runs-passed",
-    "androidMain": "7e817069468a5106f35a6908e916dad92e72e1ef",
-    "desktopMain": "c11c1afb5af31900ee301f4b0913bcbe48fae063",
-    "cleanupVerifiedBytes": 2670292757
+    "actualEdgeUIChecks": 36,
+    "currentHistorySecretFindings": 0,
+    "installedAppsChanged": false,
+    "androidBase": "7e817069468a5106f35a6908e916dad92e72e1ef",
+    "androidSource": "phase4-bootstrap-scanner-session-in-validation",
+    "sourceAndInstalledBuildDistinct": true,
+    "priorDesktopMain": "1c1389d8116e6c18991aaef14b9231fda6023e75",
+    "priorAndroidMain": "7e817069468a5106f35a6908e916dad92e72e1ef",
+    "priorMainChecks": "all-passed",
+    "overallPlanningEstimatePercent": 75,
+    "resumeAutomation": "previous-one-time-fired-no-new-schedule",
+    "resourceContendedFocusedRun": {
+      "passed": 24,
+      "failed": 3,
+      "reason": "actual LOW_MEMORY gates while owned Gradle build used host RAM; retain failed receipt and rerun sequentially after owned build exits; no production guard relaxed"
+    }
   },
   "assistantFirstRedesign": {
     "status": "windows-accepted-android-device-passed-artifact-retention-blocked",

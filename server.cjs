@@ -173,6 +173,9 @@ async function dispatch(op, data = {}) {
     case "companionStatus":
     case "companionSave":
     case "companionPair":
+    case "companionInvite":
+    case "companionInviteCancel":
+    case "companionInviteStatus":
     case "companionRevoke": throw fail("POLICY");
     case "companionGrant": throw fail("POLICY");
     case "userGuide":

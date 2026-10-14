@@ -1,6 +1,6 @@
-# Private AI 3.0.1-dev — User guide
+# Private AI 3.0.4-dev — User guide
 
-Assistant-first source guide, updated October 11, 2026. Use with matching desktop and companion builds. Source testing does not establish new installer or physical-phone acceptance.
+Current source guide, updated October 14, 2026. Use with matching builds. Source changes do not update installed applications or establish physical-phone acceptance.
 
 ## Start here
 
@@ -27,13 +27,14 @@ Assistant-first source guide, updated October 11, 2026. Use with matching deskto
 
 **Where:** Android main screens → connection badge; Desktop Settings → Companion
 
-1. Enable the optional desktop HTTPS gateway on an approved private interface and pair using its complete per-device link and certificate. No sample IP or shared default key is used.
-2. The phone opens Chat; Dashboard, Notes, Meetings and Library are the main destinations. Existing selected-PC-chat sharing, encrypted pending requests and scoped access remain.
-3. The main screens show a connection light and last successful sync time. Tap the status to check/sync. Red means disconnected, amber means syncing/checking or an old check. A cached timestamp is not proof of a live connection.
-4. Record a meeting on the phone while it stays unlocked and the recording screen remains open. Encrypted audio waits for the same paired PC; the PC performs local transcription and draft notes. Finish uploads only after every saved chunk is acknowledged.
-5. Settings → Appearance offers Follow system, Light or Dark. The choice stays on this phone and also applies to the locked screen.
+1. On the PC, open Settings → Android Companion Gateway. Enable HTTPS on the actual approved private LAN/VPN interface and save. The PC must be awake and reachable; no firewall, hotspot or VPN changes are made automatically.
+2. Choose Pair a phone with QR. Name the phone, grant only the access you need, and explicitly choose any shared PC conversations. Optional workflow and notification scopes remain off until selected.
+3. On the unlocked Android app, open Settings → Desktop connection → Scan desktop QR, or paste the private invitation. Camera permission is requested only when you choose Scan. The invitation expires after three minutes and can be used once.
+4. Wait for Connected after the phone verifies the certificate and completes a real authenticated status request. A scanned code alone is not a connection. If a response is lost after a device was created, inspect Paired phones on the PC, revoke the incomplete device, and create a new invitation.
+5. Older companion versions can use the legacy manual link in Older companion app / manual setup on the PC. Its device credential remains reusable until revoked; keep it private.
+6. Physical camera, microphone, background notifications and LAN/VPN behavior require device acceptance. Five-minute phone sessions preserve the existing encryption key. Longer periods and Off while active remain unavailable until a reviewed key migration is authorized.
 
-**Keep in mind:** Navigation, backgrounding or authentication expiry stops phone recording; up to 20 seconds not yet saved can be lost. Resume after unlocking. A 60-minute limit and storage bounds apply. Physical-phone microphone, Keystore, LAN and notification acceptance remain separate from unit tests.
+**Keep in mind:** Closing, locking or reconfiguring invalidates unused QR invitations without deleting established pairings. Full phone access is denied while the desktop is locked; separately authorized generic notification-only access keeps its existing boundaries. Never put pairing links in websites, messages, logs or GitHub.
 
 ## Capture notes, rounds, reminders and drafts
 
@@ -74,8 +75,9 @@ Assistant-first source guide, updated October 11, 2026. Use with matching deskto
 
 1. In AI Processing, choose Automatic for the local tier and choose the highest allowed automatic tier. Save processing settings.
 2. With Small installed, the app uses it for a short assessment and may switch to an available larger tier. It checks available RAM and stops the previous engine before loading another.
-3. When a larger tier is unavailable, capped or cannot fit, the answer may remain a smaller-model draft with a visible footnote.
-4. Health & recovery → Keep loaded brain for follow-ups controls optional reuse. Zero keeps the default Small-first behavior.
+3. When the configured context does not fit available RAM, Automatic may use 2048 context tokens if all supplied input and instructions fit. The saved context setting, RAM reserve and observed memory protection stay intact; a response footnote discloses the adjustment.
+4. When a larger tier is unavailable, capped or cannot fit, the answer may remain a smaller-model draft with a visible footnote.
+5. Health & recovery → Keep loaded brain for follow-ups controls optional reuse. Zero keeps the default Small-first behavior.
 
 **Keep in mind:** The selection is a heuristic. It does not guarantee the best tier, and allowing a higher cap does not install that model.
 
@@ -161,10 +163,10 @@ Assistant-first source guide, updated October 11, 2026. Use with matching deskto
 1. Open Scheduled tasks and create or edit a report with its prompt, selected files, and output format.
 2. Choose one-time, daily, weekdays, weekly, monthly, custom interval, or a work-folder file-change watcher. Enter the fields for your chosen recurrence. Times use this PC's local time.
 3. Weekly days use 0 for Sunday through 6 for Saturday. Monthly dates beyond the end of a shorter month use its last day. Interval and watcher polling use minutes.
-4. The first watcher poll records a baseline. A later metadata change must stay unchanged across two polls, separated by at least the configured stability wait (30 seconds by default). Missing/deleted files do not trigger. The watcher path is relative to the approved work folder; its observation persists after restart. Editing the schedule or changing work folders starts a new baseline.
+4. The first watcher poll records a baseline; a later file metadata change triggers a report. The watcher path is relative to the approved work folder.
 5. Duplicate creates a paused copy. Review it before enabling. Keep the PC, app, and Worker running; paused background work cannot run scheduled jobs.
 
-**Keep in mind:** One-time jobs disable after their run. A file watcher detects metadata changes, not arbitrary conditions in emails or websites. It triggers a report using the schedule's selected Library attachments; it does not automatically read or import new contents from the watched path. Scheduled reports use your existing processing and privacy settings.
+**Keep in mind:** One-time jobs disable after their run. A file watcher detects file metadata changes, not arbitrary conditions in emails or websites. Scheduled reports use your existing processing and privacy settings.
 
 ## Pause background work and understand job states
 
@@ -362,3 +364,43 @@ Assistant-first source guide, updated October 11, 2026. Use with matching deskto
 2. The Android companion has its own Appearance selection in Settings. Theme choices do not change privacy, connection or model settings.
 
 **Keep in mind:** Only this non-sensitive appearance preference is stored outside the encrypted workspace so the locked screen can use the same theme.
+
+## Local meaning search and scanned document OCR
+
+**Where:** Library → Set up local search & English OCR
+
+1. Set up the optional local tools once in Library. Approximately 68 MiB of public model/language files are downloaded; documents and queries stay on the PC.
+2. Choose a collection and Meaning · local, then ask a question. Word search remains available without setup. Results cite original passages; ranking is not clinical confidence or proof of source currency. Stop cancels the search.
+3. After setup, import English photos or scanned PDFs through the existing file importer. Local Only chat can use recognized photo text. Original images remain stored; check unverified machine text, names, doses and dates against the original.
+
+**Keep in mind:** OCR and meaning search work offline after setup. English print is the initial language; handwriting and poor scans may be inaccurate. Search covers at most 2,048 passages and discloses incomplete coverage. No cloud inference or API key is required.
+
+## Search saved work
+
+**Where:** Sidebar → Search
+
+1. Enter a word or phrase to search saved chats, notes, meetings, projects, documents, follow-ups and report job metadata.
+2. Open Sources and collection to narrow the selection. Dedicated clinical records require explicit opt-in.
+3. Open a result to review its current source. Library results retain the searched phrase and selected file.
+
+**Keep in mind:** Search is local word search of saved text. It does not search attachment bytes, credentials, archived/temporary chats, live feeds or arbitrary files. Import completed report exports into Library to search their text. Scan limits and unknown clinical coverage are shown.
+
+## Review source dates and prepare a redacted copy
+
+**Where:** Library → Search/show coverage → open a file
+
+1. Open Source dates and review metadata to record publication/effective dates, version, reviewer and review deadline. Save and reload the review.
+2. Open Privacy review and redacted copy, find identifier patterns, and select the exact spans you want removed. Optional manual ranges use extracted-text positions.
+3. Prepare the selected redacted copy, review it, and copy the reviewed text. The original document remains unchanged.
+
+**Keep in mind:** Upload dates do not prove source currency. Owner approval attestation is not independent proof of facility approval. Pattern suggestions can miss sensitive information; a redacted copy is not a guarantee of de-identification or permission to disclose.
+
+## Review correspondence follow-ups
+
+**Where:** Dashboard → Correspondence follow-ups
+
+1. Open Settings to choose approved WhatsApp cache, selected Outlook snapshots, keywords, explicit unread flags and an optional recurring cache-review interval.
+2. Review cached messages now, then inspect the source text before creating a follow-up. Enter an owner or deadline only when known.
+3. Save review suggestions to the existing Notes/follow-up queue. Internal Outlook or WhatsApp drafts are reviewed separately; no message is sent automatically.
+
+**Keep in mind:** Recurring review is off by default. Outlook snapshots are saved only from messages you explicitly open after granting read access and enabling this option. This does not watch the Inbox or establish whether someone replied. Missing dates, unread status and reply status stay unknown; duplicate source reviews retain the same canonical follow-up.
