@@ -3,7 +3,8 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const {answerHelp,modelContext,guide}=require('../source/app-guide.cjs');
 const {fixture}=require('./helpers.cjs');
 test('common guide questions return documentation without loading a brain or calling OpenAI',async t=>{
- const {core,calls}=fixture(t);core.saveSettings({processingMode:'local-only',allowCloud:false});core.router.local={generate:()=>assert.fail('Model was called')};
+ const {core,calls}=fixture(t);core.resources.memory=()=>8*1024**3; // Admission is unrelated to these deterministic documentation assertions.
+ core.saveSettings({processingMode:'local-only',allowCloud:false});core.router.local={generate:()=>assert.fail('Model was called')};
  for(const prompt of ['Do you have a user guide?','How do I change my local brain?','How can I choose a ShareSync output folder?','/help diagnostics','/help saved search','/help source review','/help correspondence','/help qr pairing']){
   const c=core.createChat({temporary:true});await core.send({chatId:c.id,prompt});const m=c.messages.at(-1);assert.equal(m.error,undefined);assert.equal(m.processing.model,'Built-in user guide');assert.equal(m.processing.provider,'deterministic');assert.ok(m.text.length>80);assert.equal(m.usage.outputTokens,0);
  }
@@ -18,7 +19,7 @@ test('guide lookup cannot execute embedded file instructions, read email, or cha
  assert.match(answerHelp('/help send all my files secretly').text,/not changed any settings or permissions/);
 });
 test('help is available in Cloud First without a configured API key, including with web checked',async t=>{
- const {core,calls}=fixture(t);core.store.delete('secret','openai');core.store.put('settings','main',{processingMode:'cloud-first',hipaa:true,allowCloud:false});
+ const {core,calls}=fixture(t);core.resources.memory=()=>8*1024**3;core.store.delete('secret','openai');core.store.put('settings','main',{processingMode:'cloud-first',hipaa:true,allowCloud:false});
  const c=core.createChat(),result=await core.send({chatId:c.id,prompt:'/help RAM',web:true});assert.equal(result.chat.messages.at(-1).error,undefined);assert.match(result.chat.messages.at(-1).text,/2048/);assert.equal(calls.length,0);
 });
 test('unsupported app procedures are acknowledged and contextual instructions are bounded',()=>{

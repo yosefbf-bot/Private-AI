@@ -27,7 +27,15 @@
     "resourceContendedFocusedRun": {
       "passed": 24,
       "failed": 3,
-      "reason": "actual LOW_MEMORY gates while owned Gradle build used host RAM; retain failed receipt and rerun sequentially after owned build exits; no production guard relaxed"
+      "reason": "actual LOW_MEMORY gates while owned Gradle build used host RAM; retain failed receipt and rerun sequentially after owned build exits; no production guard relaxed",
+      "resolved": "controlled narrow fixtures passed27/27; no production change"
+    },
+    "finalFocusedTests": {
+      "passed": 27,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "scope": "guide/version/native/UI lifecycle with explicit deterministic fixture RAM input"
     }
   },
   "assistantFirstRedesign": {

@@ -10,7 +10,9 @@ Phase4 adds local expiring QR bootstrap, preserves existing pairings/manual
 links and notification-only boundaries, and retains five-minute OS-authenticated
 Keystore sessions without an owner key migration. Desktop complete suite699pass,
 zero failures/skips; actual Edge36checks, nativeIPC/HTTPS and development denial
-pass. New source candidate3.0.4-dev is distinct from installed3.0.3-dev.
+pass. Final27caseguide/native/UI checks pass with explicit deterministicfixture
+RAM input after ownedGradle contention exposed unrelated LOW_MEMORY failures;
+failedreceipts retained and productionresourceguards unchanged. New source candidate3.0.4-dev is distinct from installed3.0.3-dev.
 Android/source exact-head CI and changed-binary/device acceptance are still
 pending. Do not claim a complete release from these source results.
 

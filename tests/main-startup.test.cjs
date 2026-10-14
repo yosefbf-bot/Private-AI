@@ -42,6 +42,7 @@ async function boot(t,{background=false,existing=false,browserWorker}={}){
 }
 test('entry point reaches chat startup and wires approval only after real Core initialization',async t=>{
  const b=await boot(t);assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.ok(b.core);assert.equal(b.windows.length,1);assert.match(b.windows[0].url,/ui\/index.html$/);assert.ok(b.handlers.has('privateai:call'));assert.equal(b.core.router.local.state,'unloaded');
+ b.core.resources.memory=()=>8*1024**3; // Startup/IPC fixture; real resource admission is covered separately.
  const chat=b.core.createChat({temporary:true}),answer=await b.core.send({chatId:chat.id,prompt:'/calc 2+3'});assert.match(answer.chat.messages.at(-1).text,/5/);
  assert.equal(await b.core.resources.approve('May affect the focused app.'),true);assert.equal(b.dialogs[0].defaultId,0);
  b.windows[0].focused=false;assert.equal(await b.core.resources.approve('test'),false);
