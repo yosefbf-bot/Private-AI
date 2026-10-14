@@ -141,11 +141,13 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
   }
 
   return {
-    async render(container, state) {
+    async render(container, state,options={}) {
       if (!state) { container.innerHTML='<p>Loading…</p>';return; }
       const schedules=state.schedules||[],jobs=state.jobs||[],worker=state.worker||{peers:[]},now=Date.now();
       container.innerHTML = `<div class="page"><h1>Automation</h1><p class="help">Scheduled work and run history. Worker settings are managed here.</p><p><button data-act="schedule-new">New scheduled task</button><button data-act="view" data-view="browser">Website report schedules</button><button data-act="view" data-view="agents">Saved assistants</button><button data-act="view" data-view="worker">Worker settings</button><button data-act="auto-refresh">Refresh</button></p><nav><button data-act="auto-tab" data-tab="upcoming">Schedules</button><button data-act="auto-tab" data-tab="history">Run history</button></nav>${activeTab==='history'?renderHistoryTab({jobs,schedules}):renderUpcomingTab({schedules,worker,now})}<div id="auto-modal-container"></div></div>`;
       bindEvents(container, state);
+      if(options.jobId){const job=jobs.find(j=>j.id===options.jobId);if(job)renderRunDetailsModal(job);else toast('This report is outside current run history or no longer available. Import its saved export into Library to review the report text.');}
+      if(options.scheduleId){const schedule=schedules.find(s=>s.id===options.scheduleId);if(schedule)renderScheduleDetailsModal(schedule,jobs.filter(j=>j.scheduleId===schedule.id));else toast('This schedule is no longer available.');}
     }
   };
 

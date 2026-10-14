@@ -392,6 +392,12 @@ class WorkerManager {
       }
       this.reconcileStatuses();
       this.syncStatuses();
+      // Reuse the existing cadence on either PC role. This bounded cache-only
+      // pass makes no provider, mailbox or browser call and yields to active work.
+      if (!c.jobRunning && !c.resources.foreground && !c.resources.background) {
+        try { require('./workflows/correspondence.cjs').tick(c); }
+        catch { c.stability?.incident('service-failed'); }
+      }
       if(await c.browserReports?.tick())return;
       if (
         !s.workerEnabled ||

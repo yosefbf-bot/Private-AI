@@ -5,6 +5,7 @@ import {createWorkflowUI} from "./workflows.mjs";
 import {createCaptureUI} from "./captures.mjs";
 import {migrateLegacyStorage} from "./legacy-storage.mjs";
 import {createDashboardUI} from "./dashboard.mjs";
+import {createSearchUI} from "./search.mjs";
 import {createMeetingsUI} from "./meetings.mjs";
 import {createImportCenter} from "./snf/import-center.mjs";
 import {responseLayout,responseChecks} from "./response-layout.mjs";
@@ -85,7 +86,8 @@ function idsFrom(r) {
 }
 const workflowUI=createWorkflowUI({api,esc,toast,form,field,textarea,select,renderPage,refresh});
 const captureUI=createCaptureUI({api,esc,toast,form,field,textarea,select,refresh});
-const dashboardUI=createDashboardUI({api,esc,toast,form,field,textarea,refresh,renderPage});
+const dashboardUI=createDashboardUI({api,esc,toast,form,field,textarea,select,refresh,renderPage});
+const searchUI=createSearchUI({api,esc,toast,openSource,state:()=>state});
 const meetingsUI=createMeetingsUI({api,esc,toast,form,field,textarea,refresh,renderPage});
 const importUI=createImportCenter({api,esc,toast,form});
 const snfUI = createSNFUI({ api, toast, esc, renderPage });
@@ -189,7 +191,7 @@ function updateTop() {
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
   $("resource-status").hidden = !resource || !["blocked","error","low_memory"].includes(resource.background?.state);
   const names = {
-    dashboard: "Dashboard", meetings: "Meetings", today: "Dashboard",
+    search: "Search", dashboard: "Dashboard", meetings: "Meetings", today: "Dashboard",
     execdesk: "👔 Executive Desk",
     opanalytics: "📈 Operations Analytics & Compliance",
     actions: "Action Center", captures: "Notes", decisions: "Decision log", metrics: "Data sources", workspace: "Library", playbooks: "Playbooks & Budgets",
@@ -420,6 +422,9 @@ function autoResizePrompt() {
 }
 function renderChat() {
   workflowUI.stop();
+  searchUI.stop();
+  snfUI.stop();
+  captureUI.stop();
   meetingsUI.stop();dashboardUI.stop();
   voiceManager?.enforcePolicy();
   view = "chat";
@@ -490,6 +495,12 @@ async function newChat(temporary = false, project = null) {
   await refresh();
   renderChat();
   $("prompt").focus();
+}
+async function openSource(route) {
+  if(!route||!['chat','captures','meetings','projects','workspace','dashboard','automation','snf','operations'].includes(route.view))throw Error('This source view is unavailable.');
+  if(route.view==='chat'){await openChat(route.chatId);return;}
+  if(route.view==='snf'&&state.settings.snfEnabled===false)throw Error('Clinical review is currently disabled.');
+  renderPage(route.view,route);
 }
 async function openChat(id) {
   closeVoiceSession();
@@ -1061,6 +1072,9 @@ function settingsHTML() {
 }
 function showLocked() {
   workflowUI.stop();
+  searchUI.stop();
+  snfUI.stop();
+  captureUI.stop();
   meetingsUI.stop({discard:true});dashboardUI.stop();operationsCopilotUI.stopListening();
   closeVoiceSession();
   if ($("modal").open) $("modal-cancel").click();
@@ -1487,6 +1501,9 @@ async function init() {
 }
 function renderPage(name, options = {}) {
   workflowUI.stop();
+  searchUI.stop();
+  snfUI.stop();
+  captureUI.stop();
   dashboardUI.stop();
   if (name === "schedules") name = "automation";
   if (["today", "actions", "execdesk", "opanalytics", "playbooks"].includes(name)) name = "dashboard";
@@ -1501,9 +1518,10 @@ function renderPage(name, options = {}) {
   view = name;
   updateTop();
   renderSidebar();
+  if (name === 'search') { $('content').innerHTML='<p>Loading…</p>';searchUI.render($('content'),options).catch(e=>toast(e.message));return; }
   if (name === 'captures') {
     $("content").innerHTML="<p>Loading…</p>";
-    captureUI.render($("content")).catch(e=>toast(e.message));
+    captureUI.render($("content"),options).catch(e=>toast(e.message));
     return;
   }
   if (name === 'dashboard' || name === 'meetings') {
@@ -1511,7 +1529,7 @@ function renderPage(name, options = {}) {
     (name === 'dashboard' ? dashboardUI : meetingsUI).render($("content"),options).catch(e=>toast(e.message));return;
   }
   if (["decisions","metrics","workspace"].includes(name)) {
-    $("content").innerHTML="<p>Loading…</p>";workflowUI.render($("content"),name).catch(e=>toast(e.message));return;
+    $("content").innerHTML="<p>Loading…</p>";workflowUI.render($("content"),name,options).catch(e=>toast(e.message));return;
   }
   if (["pcc","clinical-imports"].includes(name)) {
     $("content").innerHTML="<p>Loading…</p>";
@@ -1534,11 +1552,11 @@ function renderPage(name, options = {}) {
   }
   if (name === "automation") {
     $("content").innerHTML="<p>Loading…</p>";
-    automationUI.render($("content"), state).catch(e=>toast(e.message));
+    automationUI.render($("content"), state,options).catch(e=>toast(e.message));
     return;
   }
   if (name === "snf") {
-    snfUI.render($("content"));
+    snfUI.render($("content"),options).catch(e=>toast(e.message));
     return;
   }
   if(name==="messaging"||name==="browser"){const ui=name==="messaging"?messagingUI:browserUI;$("content").innerHTML="<p>Loading…</p>";ui.html().then(html=>{if(view===name)$("content").innerHTML='<p class="error-note">Primary-PC safety: visible browser actions and Outlook access require manual interruption approval. Every WhatsApp send needs your approval; Disable all writing blocks all WhatsApp sending. Tested website report workflows can separately be allowed to run on a schedule. The account WhatsApp connection can remain open for local reasoning; report-browser sessions still reserve the browser lane. Separate profiles do not guarantee focus isolation.</p>'+html;}).catch(e=>toast(e.message));return;}
@@ -1623,7 +1641,8 @@ function renderPage(name, options = {}) {
   const d = layouts[name];
   if (!d) return;
   $("content").innerHTML =
-    `<div class="page"><h1>${d.title}</h1><p class="subtitle">${d.subtitle}</p><button class="primary" data-act="${d.action}">${d.button}</button>${d.items.length ? d.items.map((i) => `<section class="card">${d.card(i)}</section>`).join("") : '<div class="empty">Nothing here yet. Add your first item when you need it.</div>'}${name === "schedules" ? jobsHTML() : ""}</div>`;
+    `<div class="page"><h1>${d.title}</h1><p class="subtitle">${d.subtitle}</p><button class="primary" data-act="${d.action}">${d.button}</button>${d.items.length ? d.items.map((i) => `<section class="card" data-source-id="${esc(i.id)}">${d.card(i)}</section>`).join("") : '<div class="empty">Nothing here yet. Add your first item when you need it.</div>'}${name === "schedules" ? jobsHTML() : ""}</div>`;
+  if(options.projectId){const row=[...$('content').querySelectorAll('[data-source-id]')].find(el=>el.dataset.sourceId===options.projectId);if(row){row.tabIndex=-1;row.focus();row.scrollIntoView({block:'center'});}else toast('This project is no longer in the current list.');}
 }
 function jobsHTML() {
   return `<section class="section"><h2>Recent jobs</h2>${

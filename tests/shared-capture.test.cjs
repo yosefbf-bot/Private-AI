@@ -122,3 +122,14 @@ test('notification-only keys are revokable, content-blind and cannot bypass the 
  assert.equal((await request(gateway,bg,'/notifications/ack',{id:metadata.body.notifications[0].id})).body.status,'acknowledged');
  core.unlock();gateway.revoke(granted.id);assert.equal((await request(gateway,bg,'/notifications')).status,401);
 });
+
+
+test('targeted source navigation reads old canonical capture within actor and Demo scope',async t=>{
+ const {core}=fixture(t),selected=captures.create(core,input,actor);
+ for(let i=0;i<105;i++)captures.create(core,{sourceId:'synthetic-navigation-'+i,text:'Synthetic newer note'},actor);
+ assert.equal(captures.list(core,actor).captures.some(c=>c.id===selected.capture.id),false);
+ const read=captures.list(core,actor,{captureId:selected.capture.id});assert.equal(read.captures.length,1);assert.equal(read.captures[0].id,selected.capture.id);
+ assert.throws(()=>captures.list(core,other,{captureId:selected.capture.id}),{code:'NOT_FOUND'});assert.throws(()=>captures.list(core,undefined,{captureId:'../outside'}),{code:'INVALID'});
+ await require('../source/snf/demo.cjs').forCore(core).set({mode:'demo'});assert.throws(()=>captures.list(core,undefined,{captureId:selected.capture.id}),{code:'NOT_FOUND'});
+ core.lock();assert.throws(()=>captures.list(core,undefined,{captureId:selected.capture.id}),{code:'LOCKED'});
+});

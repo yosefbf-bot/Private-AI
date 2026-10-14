@@ -166,6 +166,12 @@ class AccessManager {
     check();
     const result = await this.helper({ ...data, op });
     check();
+    if (op === 'outlook.message') {
+      // Only the message the owner actually selected, after the post-await grant
+      // check. Optional cached triage must not break a successful mailbox read.
+      try { require('./workflows/correspondence.cjs').observeOutlook(this.core,data,result); }
+      catch { this.core.stability?.incident('service-failed'); }
+    }
     this.core.store.audit(
       permission.startsWith("read") ? "access_read" : "access_action",
     );

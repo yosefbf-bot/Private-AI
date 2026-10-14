@@ -1,3 +1,13 @@
+## October 14 1% pause — current working source
+
+Read the final pause section in docs/FOUR_PHASE_PROGRESS_2026-10-13.md first.
+Desktop3d348f4 is onPR18, all exact-head CI jobs passed. UncommittedPhase3
+backends/notices pass642 full tests; UI/transport integration remains unfinished.
+Android13694876PR3 still fails one actual devicecase: systemcredentialfield
+missing attestline154; newcauseundetermined. Preserve sanitized logs and all
+working files. Both mains/installedapps/data/keys/signer untouched. One-time
+resumealreadyfired; no subsequent resume was scheduled. Pause at1% now.
+
 ## October 14 Phase 2 source checkpoint
 
 Read [the grouped evidence matrix](docs/FOUR_PHASE_LIBRARY_AUDIT_2026-10-14.md)
@@ -335,3 +345,9 @@ Browser passwords stay in browser/manager-controlled profiles. Do not add passwo
 ## Speaker recognition contract
 
 Keep the speaker feature available. Local recordings produce experimental suggestions only after three confirmed recordings, quality checks, a strict similarity threshold and separation from competing profiles. These thresholds are not probabilities. Automatic suggestions are never verified identity or task ownership; a person must confirm each attribution. Do not substitute browser transcript confidence for speaker identity. Do not fabricate acoustic samples, add roster score bonuses, or silently train on corrections. Keep local capture separate from policy-gated browser transcription, and preserve capture cancellation and raw-audio non-retention.
+
+## October 14 current assistant workflow checkpoint
+
+Desktop Phase 1/2 PR #18 is merged at c11c1afb. Android reliability PR #3 is merged at 7e817069; both exact-head 5a2fe0f device runs passed all four cases (three actual PIN cycles, both Home returns, cancellation/rotation). Hosted units64 passed/one external fixture skip; lint zero errors/75 warnings. Keep physical-device acceptance separate.
+
+Desktop Phase 3 is implemented on `chatgpt/assistant-workflows-2026-10-14`: saved-source word search, source review/local-calendar freshness, selected redacted copies, opt-in cached correspondence and one Dashboard's source-linked notices. Final suite671 passed, zero failures/skips/cancellations; syntax230; full-app and isolated Edge flows passed; Gitleaks current/history findings zero. See `docs/ASSISTANT_WORKFLOWS_2026-10-14.md` and the primary four-phase progress file for exact scope and remaining release/device gates. Preserve owner permissions, source revisions and normal provider/privacy safeguards. Installed applications/data remain unchanged; the accepted delivery is still3.0.3-dev. Publication checks are required before merging this new branch.

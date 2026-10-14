@@ -195,3 +195,122 @@ closure, one Dashboard, source links, no global plaintext index or cloud depende
 Do not grant unattended Outlook focus-affecting access merely to enable triage;
 classify authorized cached messages and offer reviewed foreground checks first.
 Full four-phase completion/release/production installation is not claimed.
+
+
+## Phase 3 implementation plan — inspected architecture
+
+Phase2 checkpoint `3d348f43e85e9292b45310fa59872e588c1961f0` is published on
+PR18; all595 local tests/Edge checks passed. Native/exact-head CI is pending.
+Android test-only correction `13694876` is published onPR3; real device rerun is
+pending. No known production cancellation loop was demonstrated by the failed
+IME fixture. Stable owner installations remain untouched.
+
+1. Add one owner-authorized, bounded search service over existing encrypted
+   records and existing document search. No new index or provider; project filters
+   exclude records with unknown/unrelated membership. Dedicated clinical sources
+   require explicit inclusion and SNF capability. No Demo/dev/phone/global pool.
+   Wire a single Search view with source navigation and clear coverage limits.
+2. Add owner-recorded document source/review metadata with stale revisions and
+   calendar validation. Distinguish effective/source/review dates from stored time,
+   user attestation from organizational proof, and unknown/stale/future evidence.
+   Add a bounded local identifier review producing selected-span redacted copies;
+   originals/HIPAA restrictions remain unchanged, no PHI-free claim or cloud path.
+3. Add administrative notices to the existing Dashboard using source references,
+   not cloned tasks. Acknowledge/snooze notice metadata only; clinical alerts keep
+   their separate resolution. Show failed jobs, blocked delivery and correspondence
+   review without claiming silent task completion.
+4. Reuse cached approved WhatsApp readings and explicitly opted-in selected Outlook
+   snapshots for bounded local keyword-based correspondence review. Configurable
+   rules/recurrence, stable source deduplication and canonical capture follow-ups;
+   no arbitrary mailbox scan, send/delete or inferred owner/deadline. Outlook's
+   existing per-action/focus approval remains authoritative; recurring cached review
+   does not claim to monitor new Inbox messages. Current mail reads require the
+   existing foreground connector; record live-watcher limitations honestly.
+5. Reuse current diagnostics, backup/recovery and feed health; explain existing
+   isolated validation/rollback limitations. Do not install/downgrade/rotate keys.
+   Test revised metadata/copies through real Core/SQLite, actual desktop IPC,
+   development denial and actual browser UI. Full suite at Phase3 boundary.
+
+Owners are separated: search module/tests, document review/privacy module/tests,
+correspondence module/tests, and root dispatch/UI/notices/Core integration. No
+agent may overwrite another's files. Preserve originals, demo stores, task closure,
+provider/budget/resource/retention controls and selected conversation grants.
+
+
+## October 14 1% pause checkpoint — Phase 3 backends, integration unfinished
+
+Five-hour usage reached99% used/1% remaining; all agents are idle and no build/test
+process remains running. The one-time3:25 resume fired; no recurring/new resume
+was created. Preserve every saved source file below; do not restart completed work.
+
+Desktop current committed/pushed checkpoint:3d348f43e85e9292b45310fa59872e588c1961f0,
+draftPR18. Its push38531686381 andPR38531692872 each passed dependencies,
+regression,secrets,release-files, including genuine native helper compilation.
+Freshly verified mains remain desktopc2815043 andAndroidcdf64d1. Both owner main
+branches and installed applications/data/models/pairings/signers are unchanged.
+
+Phase3 working tree is **uncommitted/unpublished** and locally source-tested only.
+The complete current desktop suite passed **642 cases, zero failures/skips**,25.864s
+inignoredValidation/four-phase-2026-10-14/phase3-backend-full.tap; diff check passed.
+Focused document/privacy46, correspondence14/broader35, universal search9 and
+administrative notice/workflow18 passed (overlap the complete suite).
+Retain earlier failed notice logs: one bounded lookup defect fixed by resolving
+current source independent of displayed limit; one restart fixture incorrectly
+retained a closed SNF store, corrected to a real reopened Core. No assertionsremoved.
+
+Saved backends:workflows/universal-search.cjs (bounded owner/scoped search),
+workflows/correspondence.cjs (cached-only keyword review/canonical follow-ups),
+workflows/disclosure-review.cjs (selected-span redacted COPY, not PHI-free),
+workflows/documents.cjs review metadata/project intersection and
+workflows/semantic-search.cjs freshness/asynchronous review revision checks.
+Administrative source notices are wired inworkflows/index.cjs andui/dashboard.mjs;
+ack/snooze changes notice metadata only, never task/clinical/delivery state.
+Library timestamp label now says Stored, not a false review date.
+Each backend has new real Core/SQLite tests. No package/schema/provider addition.
+
+**Incomplete:** SearchUI and source selection/navigation; document review/privacy
+forms; correspondence dispatch, opt-in selected Outlook snapshot hook and existing
+Worker.tick hook/settings/review UI; real nativeIPC, development denial and Edge
+end-to-end checks for those flows; safe update/freshness/notification integration
+remaining review; staged syntax/policy/security, commit/publication after acceptance.
+Do not claim these backends are a finished user-visible feature. Current document
+calendar freshness uses UTC dates; decide/document owner-local-day behavior before
+wiring date fields. Contracts are saved inignoredValidation/four-phase-2026-10-14/
+phase3-document-disclosure-contracts.md and agent messages. Source methods are
+implemented, not all dispatched. No additional new APIs were wired prematurely.
+
+Android source/test head remains13694876e82c74691dbc8d788861dd186c81c145,PR3.
+Both new actual API34 runs38531126312 and38531121066 FAILED:3/4 instrumented
+cases pass, one fails atOsCredentialKeystoreAcceptanceTest.kt:154 in
+unlockNavigateAndRelock: 'The real Android screen-lock credential field must appear.'
+Cause is **not established**; inspect actual system UI and first logcat next. Earlier
+IME-cancellation action was corrected; do not repeat that old cause as the new one.
+Full hosted unit:64pass/1external-fixture skip; lint0errors/75warnings (different
+hosted toolchain scope fromlocal42). Build/artifact uploadpassed. Local combined
+65-casecoverage/realHTTPS interop remains historical unchangedproduction evidence,
+not a new passing device result. KeepPR3 draft; no merge/new APK release acceptance.
+Sanitized XML/logs/status are inValidation/four-phase-2026-10-13/
+android-hosted-13694876-inspection.json and android-hosted-385311*-evidence.
+
+Overallapproximately **50% by planning estimate**, not release acceptance. Earlier
+four direct integrations remain accepted; six references guide measuredexisting
+improvements without forced packages. Phase4 QR bootstrap, safe20-minute/Off
+session architecture, real-device/network/battery/signed-upgrade and changedbinary
+release/isolatedWindows acceptance remain pending. Never change the300-second
+Keystore UI timer alone, rotate the actual key, expose plaintext/indexes or weaken
+send/delete/privacy/focus approval to advertise completion.
+
+Resume first:fetch explicitorigin main forbothrepos, verifybranch/status/version,
+readthischeckpoint andbothhandoffs, prioritize unresolvedAndroiddeviceacceptance
+beforemore feature expansion, then finishPhase3UI/transport beforePhase4. Desktop
+fetch-all has an obsoleteconfigured historicalbranch ref; explicitfetchmainworks.
+Do not overwrite the owner installation or merge main. No deadline estimate is
+promised; currentcheckpoints/source are recoverable and originalfailuresretained.
+
+## October 14 resumed checkpoint: Phase 3 source integrated
+
+Desktop PR #18 merged to c11c1afb; Android PR #3 merged to 7e817069 after both exact-head 5a2fe0f runs passed. Android main is locally synchronized and clean. Fully merged obsolete review branches were removed. Source and installed binaries remain distinct.
+
+Phase 3 now has native RPC, HTTP denial and simple UI integration for saved search, source freshness, selected redacted copies, correspondence suggestions and administrative notices. Final complete suite: 671 passed, zero failures/cancellations/skips. Full app Edge and isolated Search/Library Edge flows passed. Gitleaks current/history findings: zero. Root fixed confirmed Dashboard save/navigation races; deferred regressions and stale clinical loads are covered. Grouped details and truthful limits are in `docs/ASSISTANT_WORKFLOWS_2026-10-14.md`.
+
+Desktop source publication/exact-head CI remains the next gate; then Phase 4 QR/session/device/release work. No production installation/data changed. Five verified cleanup targets (~2.49 GiB) were removed after containment/process/duplicate checks; latest recovery/current delivery remain. At 1% five-hour remaining, save progress, report actual completion and recommendations, and pause. The previous one-time resumption has fired and must not recur.

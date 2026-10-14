@@ -12,3 +12,17 @@ Read this file before every change, together with AGENTS.md, GEMINI.md, AI_HANDO
 8. Update the handoff/status with the base SHA, actual changes, exact results and remaining limitations. Source tests do not establish Windows installer/upgrade, real-data clinical, account or speaker acceptance. Preserve working features and make small logical commits; no unrelated rewrite.
 
 Incident reference: main `a5d22b623c5c49fccd36b41bd4488d2a64fac346` deleted the lockfile and nine required build assets. Run 36640248873 failed before regression tests could start. The same update introduced production sample seeding and fabricated operational drafts. Treat these as regression examples, not patterns to repeat.
+
+## Current assignment authorization — 2026-10-14
+
+For this four-phase assignment, the owner explicitly authorized Codex to merge
+completed review pull requests after their current exact-head GitHub tests and
+checks pass, then synchronize the local main and development checkouts safely.
+This supersedes older owner-only merge instructions for this assignment only.
+Continue using separate `chatgpt/*` branches and review PRs; do not bypass failed
+or pending checks, force-push, discard unfinished work, or remove unique history.
+The owner also authorized removing obsolete build/version files and fully merged
+branches after verifying they are no longer needed. Preserve active work, current
+accepted delivery, recovery/reference evidence, credentials, signing keys, models
+and pairings. This permission does not authorize replacing installed production
+apps/data or weakening release, privacy, resource or security gates.

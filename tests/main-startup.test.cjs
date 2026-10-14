@@ -190,3 +190,33 @@ test('desktop IPC preserves unknown matcher inputs and uses only explicit review
  const known=await call({openShift:{role:'CNA',hours:12},roster:[{name:'Synthetic IPC reviewed',role:'CNA',currentHours:35,hourlyRate:20,isAgency:false,overtimeRule:{reviewed:true,periodHoursConfirmed:true,thresholdHours:40,multiplier:1.5}}]});assert.equal(known.ok,true);assert.equal(known.result[0].estimatedShiftCost,310);assert.equal(known.result[0].otHoursAdded,7);
  assert.equal((await call({openShift:{role:'CNA',hours:8},roster:[{name:'Synthetic IPC malformed',role:'CNA',currentHours:'38'}]})).error.code,'INVALID');b.core.lock();assert.equal((await call({openShift:{role:'CNA',hours:8}})).error.code,'LOCKED');
 });
+
+
+test('desktop IPC executes local search, document review, safe copy and correspondence without cloud or sending',async t=>{
+ const b=await boot(t),core=b.core,contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const raw=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ const call=async(op,data={})=>{const r=await raw(op,data);assert.equal(r.ok,true,op+': '+JSON.stringify(r));return r.result;};
+ core.saveSettings({processingMode:'local-only',allowCloud:false,workerPaused:false});
+ const id=require('node:crypto').randomUUID(),file={id,name:'Synthetic IPC policy.txt',text:'Synthetic needletest policy email person@example.test',bytes:Buffer.from('Synthetic original').toString('base64'),hipaa:true,updated:Date.now()};core.store.put('file',id,file);
+ const project=core.projectSave({name:'Synthetic IPC collection'});await call('workflowProjectFiles',{projectId:project.id,fileIds:[id]});
+ const found=await call('workflowSearch',{query:'needletest',types:['documents'],projectId:project.id});assert.equal(found.results[0].sourceId,id);assert.equal(found.results[0].route.fileId,id);
+ const review=await call('workflowDocumentReview',{fileId:id,projectId:project.id});assert.equal(review.freshness.currency,'unknown');
+ await call('workflowDocumentReviewSave',{fileId:id,projectId:project.id,revision:review.revision,metadata:{version:'Synthetic reviewed v1'}});
+ assert.equal((await call('workflowDocumentReview',{fileId:id})).metadata.version,'Synthetic reviewed v1');
+ assert.equal((await raw('workflowDocumentReviewSave',{fileId:id,revision:review.revision,metadata:{}})).error.code,'REVIEW_CHANGED');
+ const privacy=await call('workflowDisclosureReview',{fileId:id,projectId:project.id});assert.equal(privacy.spans.length,1);
+ const copy=await call('workflowDisclosureRedact',{fileId:id,projectId:project.id,revision:privacy.revision,manualSpans:privacy.manualSpans,selectedSpans:[privacy.spans[0].id]});assert.match(copy.text,/REDACTED/);assert.equal(copy.text.includes('person@example.test'),false);
+ const {referenceReview,...original}=core.store.get('file',id);assert.deepEqual(original,file);
+ core.store.put('messaging','settings',{enabled:true,adapter:'web',readAll:true,disableAllWriting:true,conversations:[]});
+ core.store.put('messageIn','synthetic-ipc-message',{id:'synthetic-ipc-message',adapter:'web',groupId:'123456789@g.us',incoming:true,text:'Please reply about synthetic needletest.'});
+ const settings=await call('workflowCommunicationSettings');await call('workflowCommunicationSave',{revision:settings.revision,enabled:true,intervalMinutes:5});assert.equal((await call('workflowCommunicationSettings')).enabled,true);
+ const candidate=(await call('workflowCommunicationCheck')).candidates[0];assert.equal((await call('workflowCommunicationList')).candidates.length,1);
+ const capture=await call('workflowCommunicationFollowup',{id:candidate.id,revision:candidate.revision,draftChannel:'outlook'});assert.equal(capture.drafts[0].channel,'outlook');assert.equal((await call('captureList',{captureId:capture.capture.id})).captures[0].id,capture.capture.id);
+ const after=(await call('workflowCommunicationList')).candidates[0];await call('workflowCommunicationDismiss',{id:after.id,revision:after.revision});assert.equal((await call('workflowCommunicationList')).candidates[0].status,'dismissed');
+ core.store.put('job','synthetic-notice',{id:'synthetic-notice',title:'Synthetic IPC interrupted run',status:'failed',error:'INTERRUPTED',completed:Date.now()});
+ const notice=(await call('workflowSummary')).notices.items[0];await call('workflowNoticeUpdate',{key:notice.key,revision:notice.revision,status:'acknowledged'});assert.equal((await call('workflowSummary')).notices.active,0);assert.equal(core.store.get('job','synthetic-notice').status,'failed');
+ assert.equal(core.store.count('messageOut'),0);assert.equal(b.dialogs.length,0);assert.equal(core.router.local.state,'unloaded');
+ const ops=['workflowSearch','workflowDocumentReview','workflowDocumentReviewSave','workflowDisclosureReview','workflowDisclosureRedact','workflowCommunicationSettings','workflowCommunicationSave','workflowCommunicationCheck','workflowCommunicationList','workflowCommunicationFollowup','workflowCommunicationDismiss'];
+ await call('snfDemo',{mode:'demo'});for(const op of ops)assert.equal((await raw(op)).error.code,'POLICY',op);assert.equal((await call('workflowSummary')).notices.items.length,0);
+ core.lock();for(const op of [...ops,'workflowNoticeUpdate'])assert.equal((await raw(op)).error.code,'LOCKED',op);
+});
