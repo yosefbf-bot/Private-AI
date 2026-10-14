@@ -1,3 +1,15 @@
+## October 14 Windows candidate acceptance in progress
+
+Desktop Phase4 PR20 is merged after all8 exact661b6e8 checks passed; main is
+5f81cb5a0cf4aa055d06b719c24234a19bd2dfaf. Read
+[the current Windows gate](docs/WINDOWS_CANDIDATE_GATE_2026-10-14.md).
+The new release-validation branch runs actual clean hosted Windows installation,
+packaged app, genuine Small inference, restart/reinstall/portable and unchanged
+release gates. Original local low-RAM failure remains retained. Exact-head hosted
+results and release acceptance are pending; no installed owner app/data changed.
+Android corrected e67b323 source passed93 full local tests plus14 focused tests;
+PR4 remains unmerged until fresh six-case actual device checks pass.
+
 ## October 14 current Phase 4 source checkpoint
 
 Read [Local companion pairing](docs/COMPANION_PAIRING_2026-10-14.md) and

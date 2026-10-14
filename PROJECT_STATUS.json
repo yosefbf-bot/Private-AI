@@ -1,6 +1,6 @@
 {
   "fourPhaseReliability20261014": {
-    "phase": "phase4-desktop-source-validated-android-and-publication-pending",
+    "phase": "phase4-desktop-source-merged-windows-candidate-acceptance-pending",
     "report": "docs/FOUR_PHASE_PROGRESS_2026-10-13.md",
     "phase4Report": "docs/COMPANION_PAIRING_2026-10-14.md",
     "base": "1c1389d8116e6c18991aaef14b9231fda6023e75",
@@ -17,12 +17,12 @@
     "currentHistorySecretFindings": 0,
     "installedAppsChanged": false,
     "androidBase": "7e817069468a5106f35a6908e916dad92e72e1ef",
-    "androidSource": "phase4-bootstrap-scanner-session-in-validation",
+    "androidSource": "e67b323e104eeafa899170e2a3443c0485954767",
     "sourceAndInstalledBuildDistinct": true,
     "priorDesktopMain": "1c1389d8116e6c18991aaef14b9231fda6023e75",
     "priorAndroidMain": "7e817069468a5106f35a6908e916dad92e72e1ef",
     "priorMainChecks": "all-passed",
-    "overallPlanningEstimatePercent": 75,
+    "overallPlanningEstimatePercent": 85,
     "resumeAutomation": "previous-one-time-fired-no-new-schedule",
     "resourceContendedFocusedRun": {
       "passed": 24,
@@ -36,7 +36,28 @@
       "cancelled": 0,
       "skipped": 0,
       "scope": "guide/version/native/UI lifecycle with explicit deterministic fixture RAM input"
-    }
+    },
+    "desktopMain": "5f81cb5a0cf4aa055d06b719c24234a19bd2dfaf",
+    "releaseValidationBranch": "chatgpt/release-validation-2026-10-14",
+    "releaseValidationReport": "docs/WINDOWS_CANDIDATE_GATE_2026-10-14.md",
+    "androidLocalTests": {
+      "passed": 93,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "actualHttpsInteropCases": 2
+    },
+    "androidCorrectedFocusedTests": {
+      "passed": 14,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "androidHostedDeviceAcceptance": "fresh-six-case-runs-pending; original-bf4-failures-retained",
+    "currentProductionAdvisories": 0,
+    "actualCandidateWindowsInstallerExecuted": false,
+    "actualCandidateWindowsApplicationPassed": false,
+    "actualCandidateModelInferenceExecuted": false
   },
   "assistantFirstRedesign": {
     "status": "windows-accepted-android-device-passed-artifact-retention-blocked",

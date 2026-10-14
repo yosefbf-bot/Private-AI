@@ -23,7 +23,11 @@ async function run({core,win,reportPath,exe,asar}){
   evidence.loadedApplicationWorkingSetKiB=require('electron').app.getAppMetrics().reduce((n,p)=>n+(p.memory?.workingSetSize||0),0);
   const summary=await win.webContents.executeJavaScript("window.privateAI.call('summary')");assert.equal(summary.ok,true);evidence.checks.push('renderer IPC summary succeeded');
   const created=await win.webContents.executeJavaScript("window.privateAI.call('createChat',{temporary:true})");assert.equal(created.ok,true);
-  const result=await win.webContents.executeJavaScript("window.privateAI.call('send',"+JSON.stringify({chatId:created.result.id,prompt:'/calc 12+7'})+")");assert.equal(result.ok,true);assert.match(result.result.chat.messages.at(-1).text,/19/);evidence.checks.push('packaged renderer IPC deterministic request completed');
+  evidence.availableMemoryBeforeChatBytes=core.resources.memory();
+  const result=await win.webContents.executeJavaScript("window.privateAI.call('send',"+JSON.stringify({chatId:created.result.id,prompt:'/calc 12+7'})+")");assert.equal(result.ok,true);
+  const deterministicAnswer=result.result.chat.messages.at(-1);
+  assert.equal(deterministicAnswer.error,undefined,'Deterministic packaged chat failed: '+(deterministicAnswer.error?.code||'unknown'));
+  assert.match(deterministicAnswer.text,/19/);evidence.checks.push('packaged renderer IPC deterministic request completed');
   const messaging=await win.webContents.executeJavaScript("window.privateAI.call('messagingStatus')");assert.equal(messaging.ok,true);assert.equal(messaging.result.settings.readAll,true);assert.equal(messaging.result.settings.enabled,false);evidence.checks.push('packaged messaging permissions initialized');
   await win.webContents.executeJavaScript("document.querySelector('[data-view=\"messaging\"]').click()");
   let controls=false;for(let n=0;n<50;n++){controls=await win.webContents.executeJavaScript("!!document.querySelector('[name=\"wa-readAll\"]') && !!document.querySelector('[name=\"wa-disableAllWriting\"]')");if(controls)break;await new Promise(r=>setTimeout(r,100));}assert.equal(controls,true);evidence.checks.push('packaged Messaging page renders independent controls');
@@ -67,7 +71,7 @@ async function run({core,win,reportPath,exe,asar}){
   });
   assert.ok(selfCheck.result.checks.every(c=>c.status==='pass'),'Bundled self-check must pass every check');
   evidence.checks.push('packaged helper, ACL, named pipe, encrypted backup, DOCX/XLSX/PDF self-checks passed');
-  const views={dashboard:'Dashboard',captures:'Notes',meetings:'Meetings',workspace:'Library',decisions:'Decision log',metrics:'Set up data sources','clinical-imports':'Clinical imports',snf:'SNF Clinical Surveillance Command Center',automation:'Automation',projects:'A place for each project',files:'Your working files',agents:'Your reusable assistants',worker:'Let another PC handle the work',settings:'Make Private AI yours',processing:'AI Processing',usage:'API Usage',browser:'Browser reports',apps:'Your apps. Your permission.',guide:'User guide'};
+  const views={search:'Search',dashboard:'Dashboard',captures:'Notes',meetings:'Meetings',workspace:'Library',decisions:'Decision log',metrics:'Set up data sources','clinical-imports':'Clinical imports',snf:'SNF Clinical Surveillance Command Center',automation:'Automation',projects:'A place for each project',files:'Your working files',agents:'Your reusable assistants',worker:'Let another PC handle the work',settings:'Make Private AI yours',processing:'AI Processing',usage:'API Usage',browser:'Browser reports',apps:'Your apps. Your permission.',guide:'User guide'};
   const parents={projects:'workspace',files:'workspace',agents:'automation',worker:'automation',processing:'settings',usage:'settings'};
   const navigate=async view=>{
    if(parents[view])await navigate(parents[view]);
@@ -79,13 +83,13 @@ async function run({core,win,reportPath,exe,asar}){
    assert.ok(clicked,'Visible route to '+view);
    for(let n=0;n<300;n++){
     await new Promise(r=>setTimeout(r,100));
-    const page=await win.webContents.executeJavaScript(`({heading:document.querySelector('#content h1')?.innerText||'',content:document.querySelector('#content').innerText,guideReady:!!document.querySelector('#guide-search')})`);
-    if(page.heading.includes(views[view])&&(view!=='guide'||page.guideReady))return page;
+    const page=await win.webContents.executeJavaScript(`({heading:document.querySelector('#content h1')?.innerText||'',content:document.querySelector('#content').innerText,guideReady:!!document.querySelector('#guide-search'),searchReady:!!document.querySelector('#saved-search-form')})`);
+    if(page.heading.includes(views[view])&&(view!=='guide'||page.guideReady)&&(view!=='search'||page.searchReady))return page;
    }
    throw Error('Expected page '+view);
   };
   evidence.navigation=[];
-  assert.equal(await win.webContents.executeJavaScript("document.querySelectorAll('.primary-nav button').length"),4);
+  assert.deepEqual(await win.webContents.executeJavaScript("Array.from(document.querySelectorAll('.primary-nav button'),button=>button.dataset.view)"),['search','dashboard','captures','meetings','workspace']);
   assert.equal(await win.webContents.executeJavaScript("document.querySelectorAll('#sidebar [data-view=actions],#sidebar [data-view=today],#sidebar [data-view=operations],#sidebar [data-view=playbooks],#sidebar [data-view=worker]').length"),0);
   for(const view of Object.keys(views)){
    const page=await navigate(view);assert.doesNotMatch(page.content,/Error loading|is not defined|Cannot read properties/);
@@ -97,7 +101,7 @@ async function run({core,win,reportPath,exe,asar}){
     fs.writeFileSync(path.join(path.dirname(reportPath),'screen-settings-dark.png'),(await capture()).toPNG());
    }
   }
-  evidence.checks.push('19 packaged primary and secondary views rendered; one Dashboard, four primary destinations and dark appearance verified');
+  evidence.checks.push('20 packaged primary and secondary views rendered; Search, one Dashboard, Notes, Meetings, Library and dark appearance verified');
   const call=async(op,data={})=>win.webContents.executeJavaScript('window.privateAI.call('+JSON.stringify(op)+','+JSON.stringify(data)+')');
   assert.equal((await call('setPassphrase',{passphrase:'SYNTHETIC validation passphrase'})).ok,true);
   try{

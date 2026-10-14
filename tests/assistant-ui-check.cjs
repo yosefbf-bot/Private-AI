@@ -31,7 +31,7 @@ const server=http.createServer((req,res)=>{
   await page.addInitScript(()=>{window.privateAI={call:(...args)=>window.testCall(...args),onEvent:cb=>window.__deliver=cb};navigator.mediaDevices.getUserMedia=async()=>{throw Error('Synthetic test does not open the physical microphone.');};});
   await page.goto('http://127.0.0.1:'+server.address().port+'/source/ui/index.html');
   await page.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
-  assert.equal(await page.locator('.primary-nav button').count(),4);
+  assert.deepEqual(await page.locator('.primary-nav button').evaluateAll(buttons=>buttons.map(button=>button.dataset.view)),['search','dashboard','captures','meetings','workspace']);
   assert.equal(await page.locator('#sidebar [data-view=operations],#sidebar [data-view=actions],#sidebar [data-view=playbooks],#sidebar [data-view=worker]').count(),0);
   await page.locator('#sidebar [data-view=captures]').click();await page.locator('#capture-form textarea').fill('Please call maintenance about the broken conference room door.');
   assert.equal(await page.locator('.manual-details').getAttribute('open'),null);

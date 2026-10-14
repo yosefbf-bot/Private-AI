@@ -342,3 +342,19 @@ Windows installer/portable/APK acceptance remain pending. Real phone camera,
 Wi-Fi/VPN, microphone, background/OEM/notification/account/signed-existing-upgrade
 acceptance remains separate. Overall roughly75% planning estimate, not release
 acceptance. Owner-approved merge only follows passing exact-head gates.
+
+
+## October 14 release-validation continuation
+
+Desktop PR20 merged to main5f81cb5 after all8 exact661b6e8 checks passed.
+Android bf4 local93/93 build/lint/signer passed, but both original actual device
+runs failed1 expiry assertion plus a later recursive UI scroll heap exhaustion;
+only3/6 cases attempted. Preserve first receipts. Test-only correctione67b323
+retains both raw OS authentication-expiry assertions and all UI/permission
+checks;14 focused units/build/lint passed. Freshsix-case exact runs pending.
+Windows3.0.4 local preliminary installer built; smoke failed under actual~0.8GB
+free memory. No production guard change. Fresh hosted Windows candidate job and
+immutable release acceptance are in progress; installed3.0.3/phone data intact.
+Four direct OSS integrations remain accepted; six references improved existing
+features without duplicate frameworks. Planning roughly85%; remaining actual
+release/device gates prevent declaring completion.
