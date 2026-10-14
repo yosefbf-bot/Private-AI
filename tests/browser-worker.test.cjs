@@ -5,7 +5,7 @@ const {BrowserWorker,validateRecipe}=require('../source/browser-worker.cjs');
 const {launchOptions,profilePath}=require('../source/browser-options.cjs');
 const base={name:'Synthetic report',url:'https://example.com/report',steps:[{op:'download',selector:'#download'}]};
 function harness(t){
- const {core}=fixture(t),launches=[];core.resources.approve=async()=>true;
+ const {core}=fixture(t),launches=[];core.resources.approve=async()=>true;core.resources.memory=()=>8*1024**3;
  const make=engine=>({launchPersistentContext:async(profile,options)=>{
   let current='about:blank';const handlers={};const page={url:()=>current,goto:async url=>{current=url;}};
   const context={handlers,page,closed:false,pages:()=>[page],newPage:async()=>page,on:(event,fn)=>handlers[event]=fn,route:async(_,fn)=>{context.guard=fn;},unroute:async()=>{context.guard=null;},close:async()=>{context.closed=true;handlers.close?.();}};
@@ -57,4 +57,32 @@ test('locking the app during sign-in prevents subsequent browser actions',async 
  const {core,worker,launches}=harness(t);await worker.open(base.url,['https://example.com']);
  launches[0].context.page.locator=()=>({waitFor:async()=>{core.locked=true;},count:()=>assert.fail('continued after lock')});
  await assert.rejects(worker.run({...base,steps:[{op:'login',selector:'#ready'},...base.steps]}),{code:'LOCKED'});assert.equal(worker.context,null);
+});
+
+for(const mode of ['lock','cancel','close'])test('late browser launch is retired before navigation after '+mode,async t=>{
+ const {core,worker,launches}=harness(t),launch=worker.engines.chromium.launchPersistentContext,controller=new AbortController();
+ worker.engines.chromium.launchPersistentContext=async(...args)=>{const context=await launch(...args);if(mode==='lock')core.lock();if(mode==='cancel')controller.abort();if(mode==='close')await worker.close();return context;};
+ await assert.rejects(core.resources.task('foreground',()=>worker.open(base.url,['https://example.com']),{signal:controller.signal}),{code:mode==='lock'?'LOCKED':'CANCELLED'});
+ assert.equal(launches[0].context.page.url(),'about:blank');assert.equal(launches[0].context.closed,true);assert.equal(worker.context,null);assert.equal(core.resources.browser,null);
+});
+
+test('scheduled permission revocation during launch prevents initial navigation',async t=>{
+ const {core,worker,launches}=harness(t),launch=worker.engines.chromium.launchPersistentContext;let permitted=true;
+ core.browserReports={allowed:()=>{if(!permitted)throw require('../source/security.cjs').fail('POLICY');}};
+ worker.engines.chromium.launchPersistentContext=async(...args)=>{const context=await launch(...args);permitted=false;return context;};
+ await assert.rejects(worker.run(base,{scheduled:true}),{code:'POLICY'});
+ assert.equal(launches[0].context.page.url(),'about:blank');assert.equal(launches[0].context.closed,true);assert.equal(core.resources.browser,null);
+});
+
+test('lock while resolving a browser control prevents its click',async t=>{
+ const {core,worker,launches}=harness(t);await worker.open(base.url,['https://example.com']);
+ launches[0].context.page.locator=()=>({count:async()=>{core.lock();return 1;},click:()=>assert.fail('clicked after lock')});
+ await assert.rejects(worker.run({...base,steps:[{op:'click',selector:'#open'},...base.steps]}),{code:'LOCKED'});
+ assert.equal(launches[0].context.closed,true);assert.equal(core.resources.browser,null);
+});
+
+test('browser network guard blocks previously trusted requests after lock',async t=>{
+ const {core,worker,launches}=harness(t);await worker.open(base.url,['https://example.com'],true);
+ core.lock();let outcome='';await launches[0].context.guard({request:()=>({url:()=>base.url}),continue:()=>{outcome='allowed';},abort:()=>{outcome='blocked';}});
+ assert.equal(outcome,'blocked');
 });

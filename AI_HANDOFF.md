@@ -1,3 +1,27 @@
+## October 14 Phase 2 source checkpoint
+
+Read [the grouped evidence matrix](docs/FOUR_PHASE_LIBRARY_AUDIT_2026-10-14.md)
+and [the phase tracker](docs/FOUR_PHASE_PROGRESS_2026-10-13.md). Watcher stability,
+nullable reviewed staffing comparisons, all-day calendar contract and voice labels
+are corrected. All595 desktop tests and bothEdge UI checks pass; Gitleaks zero.
+No new dependency/schema/installed app/data change. Native helper compilation is
+pending exact-new-head CI because local dotnet has no SDK. Android13694876 fixes
+system-cancellation test action only; fresh hosted device acceptance pending.
+Continue Phase3 onexistingrecords/permissions; Phase4 QR/session/release work follows.
+Owner merges main. The prior one-time resume fired October14 at3:25 Eastern.
+
+## October 13 four-phase source checkpoint
+
+Read [the four-phase tracker](docs/FOUR_PHASE_PROGRESS_2026-10-13.md) first.
+New review branch contains calendar, shutdown, worker recovery, staffing and
+browser authorization fixes plus companion authentication/privacy/polling changes.
+Desktop 577/577 tests, 25 hardening checks and both actual Edge UI checks pass.
+Android combined 65 local cases pass; device tests compiled but are not executed.
+Hosted checks and fresh changed-binary acceptance remain pending. Installed 3.0.3
+and owner data/keys/signer remain untouched. The owner merges main.
+Pause at 1% after saving a status summary; one-time thread resume is scheduled
+for October 14 at 3:25 a.m. America/New_York. Fetch both mains on resumption.
+
 ## October 13 offline tools accepted on Windows
 
 Read [the actual Windows acceptance report](docs/OFFLINE_TOOLS_WINDOWS_VALIDATION_2026-10-13.md).

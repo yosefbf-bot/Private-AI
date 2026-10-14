@@ -121,6 +121,7 @@ function loadCipher(create) {
   return loadVault(localRoot, safeStorage, create);
 }
 function emit(event) {
+  if (event.type === 'locked') browserWorker?.close();
   if(event.type==='job_finished')messaging?.jobFinished(event.jobId).catch(()=>{});
   if (win && !win.isDestroyed()) win.webContents.send("privateai:event", event);
   bridge?.broadcast(event);

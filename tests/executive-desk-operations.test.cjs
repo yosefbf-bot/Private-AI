@@ -390,17 +390,25 @@ ShiftKey Agency Aide,CNA,West Wing,11-7 Night,8.0,8.0,0.0,22:55,07:05,Yes`;
     const analysis = opsDispatch(core, 'staffingAnalyze', { records: parsed.records });
     assert.ok(analysis.periodSummary.totalOvertimeHours > 0);
     assert.ok(analysis.periodSummary.totalAgencyHours > 0);
-    assert.ok(analysis.fteHiringGaps.projectedMonthlySavings > 0);
+    assert.equal(analysis.fteHiringGaps.projectedMonthlySavings, null, 'Missing rates and an unconfirmed period cannot establish monthly savings');
+    assert.equal(analysis.periodSummary.estimatedTotalOTSpend, null);
+    assert.equal(analysis.periodSummary.estimatedTotalAgencySpend, null);
+    assert.equal(analysis.incidentalPunchAudit.estimatedLeakCost, null);
+    assert.equal(analysis.assumptions.weeklyPeriodConfirmed, false);
     assert.ok(analysis.incidentalPunchAudit.flaggedOccurrences.length >= 1);
   });
 
   await t.test('Smart Shift Replacement Matcher', () => {
-    const matches = opsDispatch(core, 'staffingReplacementMatch', { openShift: { role: 'CNA', hours: 8.0 }, roster: engine.getSampleRoster() });
+    const roster = engine.getSampleRoster().map(row => ({ ...row, overtimeRule: {
+      reviewed: true, periodHoursConfirmed: true, thresholdHours: 40, multiplier: 1.5
+    } }));
+    const matches = opsDispatch(core, 'staffingReplacementMatch', { openShift: { role: 'CNA', hours: 8.0 }, roster });
     assert.ok(matches.length >= 4);
 
-    // The top recommendation should be Tier 1 (PRN/Part-time with 0 OT)
+    // Explicit source hours and reviewed compensation permit threshold comparison.
     assert.equal(matches[0].tier, 1);
     assert.equal(matches[0].willIncurOT, false);
+    assert.equal(matches[0].reviewRequired, true, 'Comparison does not establish availability or permission');
 
     // Agency should be ranked last (Tier 4)
     const agencyMatch = matches.find(m => m.isAgency);

@@ -139,7 +139,7 @@ internal static class Program
         items.Sort("[Start]"); items.IncludeRecurrences = true;
         dynamic found = Keep(items.Restrict("[Start] < '" + end.ToString("g", CultureInfo.CurrentCulture) + "' AND [End] > '" + start.ToString("g", CultureInfo.CurrentCulture) + "'"));
         var list = new List<object>(); dynamic item = found.GetFirst();
-        while (item is not null && list.Count < 200) { Keep((object)item); list.Add(new { subject = Clip(item.Subject, 300), start = ((DateTime)item.Start).ToString("s"), end = ((DateTime)item.End).ToString("s"), location = Clip(item.Location, 300) }); item = found.GetNext(); }
+        while (item is not null && list.Count < 200) { Keep((object)item); list.Add(new { subject = Clip(item.Subject, 300), start = ((DateTime)item.Start).ToString("s"), end = ((DateTime)item.End).ToString("s"), location = Clip(item.Location, 300), allDay = (bool)item.AllDayEvent }); item = found.GetNext(); }
         bool truncated = item is not null; if (item is not null) Keep((object)item);
         return new { events = list, truncated };
     }

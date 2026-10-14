@@ -118,7 +118,7 @@ function openJob(receiver, sender, envelope) {
     throw fail("PEER");
   }
 }
-const {nextRun,watchFingerprint}=require('./schedules.cjs');
+const {nextRun,observeWatch}=require('./schedules.cjs');
 class WorkerManager {
   constructor(core) {
     this.core = core;
@@ -404,15 +404,17 @@ class WorkerManager {
         .list("schedule")
         .find((j) => !j.browserRecipeId && j.enabled && j.next!==null && j.next <= Date.now());
       if (due) {
-        let fingerprint;
+        let watchState;
         if(due.frequency==='watch'){
-          try{fingerprint=watchFingerprint(due,s.workspace);}catch(e){c.store.put('schedule',due.id,{...due,enabled:false,error:require('./security.cjs').safeError(e).message});return;}
-          if(due.watchFingerprint===undefined||due.watchFingerprint===fingerprint){c.store.put('schedule',due.id,{...due,watchFingerprint:fingerprint,next:nextRun(due)});return;}
+          let observation;
+          try{observation=observeWatch(due,s.workspace);}catch(e){c.store.put('schedule',due.id,{...due,enabled:false,error:require('./security.cjs').safeError(e).message});return;}
+          watchState=observation.state;
+          if(!observation.ready){c.store.put('schedule',due.id,{...due,...watchState,next:nextRun(due)});return;}
         }
         const runId = uuid(),next=nextRun(due);
         c.store.put("schedule", due.id, {
           ...due, next, enabled:next!==null,
-          ...(fingerprint!==undefined?{watchFingerprint:fingerprint}:{}),
+          ...(watchState||{}),
           lastRun: Date.now(),
         });
         try {
@@ -460,14 +462,28 @@ class WorkerManager {
           } catch {}
           continue;
         }
-        if (!c.store.claim(env.id)) {
+        // Claim and recovery state must commit together. A crash or failed shared
+        // status write must never leave a consumed job with no local record.
+        const claimed = c.store.transaction(() => {
+          if (!c.store.claim(env.id)) return false;
+          c.store.put("job", env.id, {
+            id: env.id,
+            title: payload.title || payload.name,
+            status: "waiting",
+            remote: true,
+            recoveryInput: payload,
+            checkpoint: { phase: "queued", parts: [], fileIndex: 0 },
+          });
+          return true;
+        });
+        if (!claimed) {
           try {
             fs.unlinkSync(f);
           } catch {}
           continue;
         }
         try {
-          this.status(env.id, "running", { started: Date.now() });
+          this.publishStatus(env.id, "running", { started: Date.now() });
           await c.runJob(payload, true, true);
           try {
             fs.unlinkSync(f);

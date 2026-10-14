@@ -136,7 +136,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
     }
     if (freq === 'monthly') return `Monthly on day ${s.monthDay || 1} at ${s.time || '08:00'}`;
     if (freq === 'interval') return `Every ${s.intervalMinutes || 60} minutes`;
-    if (freq === 'watch') return `Watch file: ${s.watchPath || 'unspecified'}`;
+    if (freq === 'watch') return `Watch file: ${s.watchPath || 'unspecified'} · two stable polls, at least ${s.settleSeconds??30}s · ${s.watchStatus||'baseline pending'}`;
     return freq;
   }
 

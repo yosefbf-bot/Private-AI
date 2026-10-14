@@ -832,7 +832,7 @@ export class VoiceManager {
       this.currentUtterance = utterance;
       this.assistantGeneratedText = cleanText;
       this.speechStartTime = Date.now();
-      this.setState(LiveVoiceState.AI_SPEAKING, 'Speaking… (speak to barge in)');
+      this.setState(LiveVoiceState.AI_SPEAKING, 'Speaking…');
 
       utterance.onboundary = (e) => {
         if (e.name === 'word' || typeof e.charIndex === 'number') {

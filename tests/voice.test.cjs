@@ -3,6 +3,18 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 // Dynamic import of ES Module voice.mjs
+test('local playback status does not promise acoustic interruption while recognition is stopped',async t=>{
+  const savedWindow=globalThis.window,savedUtterance=globalThis.SpeechSynthesisUtterance,states=[];
+  globalThis.window={addEventListener(){},speechSynthesis:{getVoices:()=>[],cancel(){},speak:utterance=>{utterance.onend();}}};
+  globalThis.SpeechSynthesisUtterance=class {constructor(text){this.text=text;}};
+  t.after(()=>{if(savedWindow===undefined)delete globalThis.window;else globalThis.window=savedWindow;if(savedUtterance===undefined)delete globalThis.SpeechSynthesisUtterance;else globalThis.SpeechSynthesisUtterance=savedUtterance;});
+  const {VoiceManager}=await import('../source/ui/voice.mjs');
+  const vm=new VoiceManager({getState:()=>({settings:{hipaa:true,processingMode:'local-only'}}),onStateChange:state=>states.push(state)});
+  vm.ttsEnabled=true;vm.recognizerRunning=false;vm.getBestVoiceForPreset=()=>({localService:true});
+  await vm.speakUtteranceChunk('SYNTHETIC local response.');
+  const speaking=states.find(state=>state.state==='speaking');
+  assert.ok(speaking);assert.equal(speaking.statusMessage,'Speaking…');assert.equal(vm.recognizerRunning,false);
+});
 test("Voice subsystem logic and state management", async (t) => {
   const { VoiceManager } = await import("../source/ui/voice.mjs");
 
