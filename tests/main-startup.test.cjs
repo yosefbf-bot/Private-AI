@@ -181,3 +181,12 @@ test('desktop companion IPC saves and reloads, pairs over real HTTPS, revokes an
  b.core.unlock();assert.equal((await call('companionRevoke',{id:paired.result.id})).ok,true);assert.equal((await request(gateway,paired.result,'/status')).status,401);
  assert.equal((await call('companionSave',{enabled:false})).result.state,'off');
 });
+
+
+test('desktop IPC preserves unknown matcher inputs and uses only explicit reviewed costs',async t=>{
+ const b=await boot(t),contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=data=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op:'staffingReplacementMatch',data});
+ const missing=await call({openShift:{role:'CNA',hours:8},roster:[{name:'Synthetic IPC unknown',role:'CNA'}]});assert.equal(missing.ok,true);assert.equal(missing.result[0].estimatedShiftCost,null);assert.equal(missing.result[0].willIncurOT,null);
+ const known=await call({openShift:{role:'CNA',hours:12},roster:[{name:'Synthetic IPC reviewed',role:'CNA',currentHours:35,hourlyRate:20,isAgency:false,overtimeRule:{reviewed:true,periodHoursConfirmed:true,thresholdHours:40,multiplier:1.5}}]});assert.equal(known.ok,true);assert.equal(known.result[0].estimatedShiftCost,310);assert.equal(known.result[0].otHoursAdded,7);
+ assert.equal((await call({openShift:{role:'CNA',hours:8},roster:[{name:'Synthetic IPC malformed',role:'CNA',currentHours:'38'}]})).error.code,'INVALID');b.core.lock();assert.equal((await call({openShift:{role:'CNA',hours:8}})).error.code,'LOCKED');
+});

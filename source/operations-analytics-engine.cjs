@@ -449,62 +449,67 @@ class OperationsAnalyticsEngine {
 
   // Smart Shift Replacement Matcher
   findReplacementMatches(openShift, roster = []) {
-    const role = (openShift.role || 'CNA').toUpperCase();
-    const shiftHours = Number(openShift.hours) || 8.0;
-
-    // Use sample roster if none provided
+    this.core.assertUnlocked();
+    if (!openShift || typeof openShift !== 'object' || Array.isArray(openShift) ||
+        !Array.isArray(roster) || roster.length > 10000) throw fail('INVALID');
+    const nullableNumber = value => {
+      if (value == null) return null;
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw fail('INVALID');
+      return value;
+    };
+    const nullableText = value => value == null || value === '' ? null : text(value, 1000).trim() || null;
+    const role = nullableText(openShift.role)?.toUpperCase();
+    const shiftHours = nullableNumber(openShift.hours);
+    if (!role || shiftHours === null || shiftHours <= 0) throw fail('INVALID');
     const pool = roster.length ? roster : this.core.executiveDemo ? this.getSampleRoster() : [];
-
-    // Filter to matching role
-    const candidates = pool.filter(c => c.role.toUpperCase() === role);
-
-    const scored = candidates.map(c => {
-      const currentHours = c.currentHours || 0;
-      const hoursAfterShift = currentHours + shiftHours;
-      const willIncurOT = hoursAfterShift > 40.0;
-      const otHours = willIncurOT ? Math.max(0, hoursAfterShift - Math.max(40.0, currentHours)) : 0;
-      const regularHoursAdded = shiftHours - otHours;
-
-      // Tier 1: PRN or Part-Time with 0 Overtime
-      // Tier 2: Core Staff with minor OT
-      // Tier 3: Core Staff with full OT
-      // Tier 4: Agency
-      let tier = 1;
-      let costEstimate = 0;
-      let recommendation = '';
-
-      if (c.isAgency) {
-        tier = 4;
-        costEstimate = shiftHours * 54.0;
-        recommendation = 'Agency coverage (highest cost: $54/hr)';
-      } else if (!willIncurOT) {
-        tier = 1;
-        costEstimate = shiftHours * (c.hourlyRate || 24.0);
-        recommendation = `Optimal: PRN/Part-Time at straight time ($${c.hourlyRate || 24}/hr), 0 overtime hours incurred.`;
-      } else if (otHours <= 4) {
-        tier = 2;
-        costEstimate = (regularHoursAdded * (c.hourlyRate || 24.0)) + (otHours * (c.hourlyRate || 24.0) * 1.5);
-        recommendation = `Acceptable: Core staff incurring ${Math.round(otHours * 10) / 10} hours of overtime.`;
-      } else {
-        tier = 3;
-        costEstimate = shiftHours * (c.hourlyRate || 24.0) * 1.5;
-        recommendation = `Heavy Overtime: Full 8 hours will be paid at 1.5x time-and-a-half ($${Math.round((c.hourlyRate || 24.0) * 1.5)}/hr).`;
-      }
-
-      return {
-        ...c,
-        currentHours,
-        hoursAfterShift,
-        willIncurOT,
-        otHoursAdded: Math.round(otHours * 10) / 10,
-        estimatedShiftCost: Math.round(costEstimate),
-        tier,
-        recommendation
-      };
+    const candidates = pool.map(source => {
+      if (!source || typeof source !== 'object' || Array.isArray(source)) throw fail('INVALID');
+      if (source.isAgency != null && typeof source.isAgency !== 'boolean') throw fail('INVALID');
+      const suppliedRule = source.overtimeRule;
+      if (suppliedRule != null && (typeof suppliedRule !== 'object' || Array.isArray(suppliedRule))) throw fail('INVALID');
+      for (const key of ['reviewed', 'periodHoursConfirmed'])
+        if (suppliedRule?.[key] != null && typeof suppliedRule[key] !== 'boolean') throw fail('INVALID');
+      return { ...source, role: nullableText(source.role)?.toUpperCase() ?? null,
+        name: nullableText(source.name), status: nullableText(source.status),
+        currentHours: nullableNumber(source.currentHours), hourlyRate: nullableNumber(source.hourlyRate),
+        isAgency: source.isAgency ?? null,
+        overtimeRule: { reviewed: suppliedRule?.reviewed === true,
+          periodHoursConfirmed: suppliedRule?.periodHoursConfirmed === true,
+          thresholdHours: nullableNumber(suppliedRule?.thresholdHours), multiplier: nullableNumber(suppliedRule?.multiplier) } };
+    }).filter(candidate => candidate.role === role);
+    const rounded = value => {
+      if (value === null) return null;
+      if (!Number.isFinite(value)) throw fail('INVALID');
+      return Number(value.toFixed(2));
+    };
+    const scored = candidates.map(candidate => {
+      const rule = candidate.overtimeRule;
+      const projectionReady = candidate.currentHours !== null && rule.reviewed && rule.periodHoursConfirmed &&
+        rule.thresholdHours !== null && rule.multiplier !== null;
+      const hoursAfterShift = candidate.currentHours === null ? null : rounded(candidate.currentHours + shiftHours);
+      const otHours = projectionReady ? candidate.currentHours >= rule.thresholdHours ? shiftHours :
+        Math.max(0, shiftHours - (rule.thresholdHours - candidate.currentHours)) : null;
+      const regularHoursAdded = otHours === null ? null : shiftHours - otHours;
+      const willIncurOT = otHours === null ? null : otHours > 0;
+      // These retained tiers describe supplied-rule exposure, not availability,
+      // credentials, employment status or permission to schedule/pay someone.
+      const tier = candidate.isAgency === true ? 4 : candidate.isAgency === false && otHours !== null ?
+        otHours === 0 ? 1 : otHours <= 4 ? 2 : 3 : null;
+      const cost = projectionReady && candidate.hourlyRate !== null ?
+        regularHoursAdded * candidate.hourlyRate + otHours * candidate.hourlyRate * rule.multiplier : null;
+      const recommendation = (otHours === null ? 'Overtime projection unavailable; reviewed period hours and compensation rules are incomplete.' :
+        rounded(otHours) + ' overtime hours under the supplied reviewed rule for this ' + shiftHours + '-hour shift.') +
+        (cost === null ? ' Cost unavailable.' : ' Cost is a supplied-rule planning estimate.') +
+        ' Verify availability, credentials, bill terms and scheduling approval.';
+      return { ...candidate, hoursAfterShift, willIncurOT, otHoursAdded: rounded(otHours),
+        regularHoursAdded: rounded(regularHoursAdded), estimatedShiftCost: rounded(cost), tier, recommendation,
+        reviewRequired: true, demo: !!this.core.executiveDemo };
     });
-
     return scored.sort((a, b) => {
-      if (a.tier !== b.tier) return a.tier - b.tier;
+      const tierOrder = (a.tier ?? 5) - (b.tier ?? 5);
+      if (tierOrder) return tierOrder;
+      if (a.estimatedShiftCost === null) return b.estimatedShiftCost === null ? 0 : 1;
+      if (b.estimatedShiftCost === null) return -1;
       return a.estimatedShiftCost - b.estimatedShiftCost;
     });
   }
@@ -528,7 +533,7 @@ class OperationsAnalyticsEngine {
       { id: 'c3', name: 'Tanya Rogers', role: 'CNA', status: 'Full-Time', currentHours: 34.5, hourlyRate: 24.0, isAgency: false, phone: '555-0188', reliableScore: 92 },
       { id: 'c4', name: 'Marcus Wright', role: 'CNA', status: 'Full-Time', currentHours: 39.0, hourlyRate: 25.0, isAgency: false, phone: '555-0133', reliableScore: 96 },
       { id: 'c5', name: 'ShiftKey / IntelyCare Pool', role: 'CNA', status: 'Agency', currentHours: 0, hourlyRate: 54.0, isAgency: true, phone: 'Agency Dispatch', reliableScore: 75 }
-    ];
+    ].map(row => ({ ...row, overtimeRule: { reviewed: true, periodHoursConfirmed: true, thresholdHours: 40, multiplier: 1.5 } }));
   }
 }
 

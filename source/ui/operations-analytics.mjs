@@ -129,7 +129,7 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
             ⏱️ OnShift Overtime &amp; Punch Audit
           </button>
           <button class="ops-tab-btn ${activeSubTab === 'replacement_matcher' ? 'active' : ''}" data-subtab="replacement_matcher">
-            🔄 Smart Shift Replacement Matcher
+            🔄 Shift Replacement Comparison
           </button>
           <button class="ops-tab-btn ${activeSubTab === 'regulatory' ? 'active' : ''}" data-subtab="regulatory">
             🛡️ Regulatory &amp; License Sentinel (${regCritical ? `⚠️ ${regCritical}` : 'Review records'})
@@ -253,8 +253,8 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
       <div class="exec-card">
         <div class="exec-card-header">
           <div>
-            <h3>Smart Shift Replacement Matcher</h3>
-            <p class="exec-text-muted">When a call-off or open shift occurs, automatically finds replacement staff: prioritizing PRN/part-time at straight-time before authorizing overtime or high-cost agency coverage.</p>
+            <h3>Shift Replacement Comparison</h3>
+            <p class="exec-text-muted">Compares supplied roster rows using their recorded hours, explicit rates and reviewed compensation rules. Verify availability, credentials and scheduling approval separately.</p>
           </div>
         </div>
 
@@ -270,23 +270,23 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
           <div>
             <label class="ops-label">Shift Length</label>
             <select class="ops-input" id="select-open-hours" style="min-width: 140px;">
-              <option value="8.0" ${selectedShiftHours === 8.0 ? 'selected' : ''}>8.0 Hours (Standard)</option>
-              <option value="4.0" ${selectedShiftHours === 4.0 ? 'selected' : ''}>4.0 Hours (Half-Shift)</option>
-              <option value="12.0" ${selectedShiftHours === 12.0 ? 'selected' : ''}>12.0 Hours (Weekend Option)</option>
+              <option value="8.0" ${selectedShiftHours === 8.0 ? 'selected' : ''}>8.0 Hours</option>
+              <option value="4.0" ${selectedShiftHours === 4.0 ? 'selected' : ''}>4.0 Hours</option>
+              <option value="12.0" ${selectedShiftHours === 12.0 ? 'selected' : ''}>12.0 Hours</option>
             </select>
           </div>
-          <button class="ops-btn ops-btn-primary" id="btn-re-rank-matches">Re-Rank Available Staff &rarr;</button>
+          <button class="ops-btn ops-btn-primary" id="btn-re-rank-matches">Refresh supplied roster comparison &rarr;</button>
         </div>
 
         <div class="replacement-rankings-table">
           <table class="ops-table">
             <thead>
               <tr>
-                <th>Rank / Priority</th>
+                <th>Planning Group</th>
                 <th>Staff Member</th>
                 <th>Status</th>
-                <th>Current Weekly Hours</th>
-                <th>OT Incurred</th>
+                <th>Recorded Period Hours</th>
+                <th>Supplied-rule OT Estimate</th>
                 <th>Estimated Shift Cost</th>
                 <th>Recommendation</th>
               </tr>
@@ -295,18 +295,18 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
               ${(replacementMatches || []).map((m, idx) => `
                 <tr class="${m.tier === 1 ? 'row-optimal' : m.tier === 4 ? 'row-agency' : ''}">
                   <td>
-                    <span class="exec-pill ${m.tier === 1 ? 'pill-green' : m.tier === 2 ? 'pill-blue' : m.tier === 3 ? 'pill-amber' : 'pill-red'}">
-                      Tier ${m.tier}: ${m.tier === 1 ? 'Optimal PRN' : m.tier === 2 ? 'Minor OT' : m.tier === 3 ? 'Heavy OT' : 'Agency ($54/hr)'}
+                    <span class="exec-pill ${m.tier === 1 ? 'pill-blue' : m.tier === 2 || m.tier === 3 ? 'pill-amber' : 'pill-gray'}">
+                      ${m.tier === null || m.tier === undefined ? 'Unknown — review source' : m.tier === 1 ? 'Below supplied threshold' : m.tier === 2 ? 'Up to 4 supplied-rule OT hours' : m.tier === 3 ? 'Over 4 supplied-rule OT hours' : 'Agency row'}
                     </span>
                   </td>
-                  <td><strong>${esc(m.name)}</strong></td>
-                  <td>${esc(m.status)}</td>
-                  <td>${m.currentHours} hrs</td>
-                  <td>${m.otHoursAdded > 0 ? `<span style="color: #b45309; font-weight: 600;">+${m.otHoursAdded} hrs OT</span>` : '<span style="color: #10b981;">0 hrs OT</span>'}</td>
-                  <td><strong>$${m.estimatedShiftCost}</strong></td>
+                  <td><strong>${esc(m.name || 'Unknown employee')}</strong></td>
+                  <td>${esc(m.status || 'Unknown')}</td>
+                  <td>${numberLabel(m.currentHours, ' hrs')}</td>
+                  <td>${numberLabel(m.otHoursAdded, ' hrs')}</td>
+                  <td><strong>${moneyLabel(m.estimatedShiftCost)}</strong></td>
                   <td>${esc(m.recommendation)}</td>
                 </tr>
-              `).join('')}
+              `).join('') || '<tr><td colspan="7">No reviewed matching roster data supplied. This screen does not discover staff or confirm their availability.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -527,13 +527,16 @@ Elena Rostova,LPN,Subacute Rehab,7-3 Day,8.0,8.8,0.8,06:48,15:35,No`;
     const btnReRank = container.querySelector('#btn-re-rank-matches');
     if (btnReRank) {
       btnReRank.addEventListener('click', async () => {
-        selectedShiftRole = container.querySelector('#select-open-role').value;
-        selectedShiftHours = parseFloat(container.querySelector('#select-open-hours').value) || 8.0;
-        replacementMatches = await api('staffingReplacementMatch', {
-          openShift: { role: selectedShiftRole, hours: selectedShiftHours }
-        });
-        toast('Shift candidate rankings updated', 'info');
-        renderMain(container);
+        const role = container.querySelector('#select-open-role').value;
+        const hours = Number(container.querySelector('#select-open-hours').value);
+        if (!['CNA', 'LPN', 'RN'].includes(role) || ![4, 8, 12].includes(hours))
+          return toast('Choose a supported role and shift length.', 'warn');
+        try {
+          const matches = await api('staffingReplacementMatch', { openShift: { role, hours } });
+          selectedShiftRole = role; selectedShiftHours = hours; replacementMatches = matches;
+          toast(matches.length ? 'Supplied roster comparison updated; review availability and source fields.' : 'No reviewed matching roster data supplied.', 'info');
+          renderMain(container);
+        } catch { toast('Roster comparison could not be validated. Review the source fields and retry.', 'error'); }
       });
     }
 

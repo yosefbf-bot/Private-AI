@@ -161,10 +161,10 @@ Assistant-first source guide, updated October 11, 2026. Use with matching deskto
 1. Open Scheduled tasks and create or edit a report with its prompt, selected files, and output format.
 2. Choose one-time, daily, weekdays, weekly, monthly, custom interval, or a work-folder file-change watcher. Enter the fields for your chosen recurrence. Times use this PC's local time.
 3. Weekly days use 0 for Sunday through 6 for Saturday. Monthly dates beyond the end of a shorter month use its last day. Interval and watcher polling use minutes.
-4. The first watcher poll records a baseline; a later file metadata change triggers a report. The watcher path is relative to the approved work folder.
+4. The first watcher poll records a baseline. A later metadata change must stay unchanged across two polls, separated by at least the configured stability wait (30 seconds by default). Missing/deleted files do not trigger. The watcher path is relative to the approved work folder; its observation persists after restart. Editing the schedule or changing work folders starts a new baseline.
 5. Duplicate creates a paused copy. Review it before enabling. Keep the PC, app, and Worker running; paused background work cannot run scheduled jobs.
 
-**Keep in mind:** One-time jobs disable after their run. A file watcher detects file metadata changes, not arbitrary conditions in emails or websites. Scheduled reports use your existing processing and privacy settings.
+**Keep in mind:** One-time jobs disable after their run. A file watcher detects metadata changes, not arbitrary conditions in emails or websites. It triggers a report using the schedule's selected Library attachments; it does not automatically read or import new contents from the watched path. Scheduled reports use your existing processing and privacy settings.
 
 ## Pause background work and understand job states
 

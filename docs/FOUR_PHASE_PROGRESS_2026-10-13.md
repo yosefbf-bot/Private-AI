@@ -44,7 +44,7 @@ No new release or installation is authorized by this progress checkpoint.
 | Phase | Work | Status |
 |---|---|---|
 | 1 | Architecture/security/lifecycle audit, confirmed reliability fixes, resource/cancellation and truthful capability review | Source checkpoint validated locally; hosted/device/release acceptance pending |
-| 2 | Ten-row adoption/function evidence matrix; validate four integrations and improve existing reference-inspired paths | Pending |
+| 2 | Ten-row adoption/function evidence matrix; validate four integrations and improve existing reference-inspired paths | Local source checkpoint passed; new exact-head native build/CI pending |
 | 3 | Permissioned correspondence triage, scoped search, freshness, shared notification/recovery workflows | Pending |
 | 4 | Companion auto-unlock, session/privacy/battery controls, QR bootstrap, interoperability and release acceptance | Auto-prompt/privacy/polling prerequisites implemented; QR and longer sessions pending |
 
@@ -166,3 +166,32 @@ One-time automation `resume-private-ai-four-phases-once` resumes this thread
 October 14, 2026 at 3:25 a.m. America/New_York. Stop after the 1% summary.
 On resume fetch both mains, inspect branches/status and this tracker, reconcile
 upstream changes, finish Phase 1 review publication/acceptance, then continue 2–4.
+
+
+## October 14 Phase 2 source checkpoint
+
+Read `FOUR_PHASE_LIBRARY_AUDIT_2026-10-14.md` for the grouped 4+6 matrix.
+Existing single-file watchers now require two stable nonmissing observations;
+slow writes reset the wait, deletion never runs, encrypted state survives restart,
+and editing/workspace changes baseline safely. UI/help explicitly says selected
+attachments are the analysis input; this is not folder auto-import.
+Replacement comparisons preserve unknown inputs and require explicit reviewed
+compensation rules; $310 mixed regular/OT example is checked through desktop IPC
+and real authenticated HTTP. Voice HUD no longer claims barge-in while speaking.
+Native Outlook helper now returns allDay, avoiding all-day false conflict warnings.
+
+595 full tests, zero failures/skips; 25 targeted watcher/Worker, 56 focused
+matcher/production, 14 actual transport and independent 49/58 boundary batches
+passed (overlap full suite). Edge general/hardening UI passed. Current/history
+Gitleaks zero. No dependency/schema/phone production changes. Native .NET SDK is
+unavailable locally; exact-new-head CI helper build and release acceptance pending.
+Both older desktopPhase1 CI runs passed every job. Android's old cancellation test
+failure was IME Back handling, not a second prompt; corrected test/source guide
+published as13694876 onPR3, fresh hosted device acceptance pending.
+
+Next phase uses existing records/permissions for unified search, source freshness,
+administrative notices and correspondence review. Keep canonical tasks/clinical
+closure, one Dashboard, source links, no global plaintext index or cloud dependency.
+Do not grant unattended Outlook focus-affecting access merely to enable triage;
+classify authorized cached messages and offer reviewed foreground checks first.
+Full four-phase completion/release/production installation is not claimed.

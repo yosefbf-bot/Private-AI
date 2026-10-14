@@ -1415,7 +1415,7 @@ function updateVoiceUIState(vState) {
       user_speaking: "HEARING SPEECH…",
       turn_evaluation: "PAUSE DETECTED…",
       thinking: "ROUTING TO AI…",
-      speaking: "SPEAKING (BARGE-IN ACTIVE)",
+      speaking: "SPEAKING",
       interrupted: "INTERRUPTED",
       tool_running: "EXECUTING TOOL…",
       muted: "MUTED",
@@ -1739,6 +1739,8 @@ async function editTask(type, id) {
           field("Monthly day (short months use their last day)", "monthDay", a.monthDay||1, "number") +
           field("Custom interval / watcher poll minutes", "intervalMinutes", a.intervalMinutes||60, "number") +
           field("Watcher file relative to Work folder", "watchPath", a.watchPath||"") +
+          field("Watcher stability wait (seconds, 30–3600)", "settleSeconds", a.settleSeconds??30, "number") +
+          '<p class="help">A watcher triggers only after a file change stays stable across two polls. Missing files do not run reports. It watches metadata; analysis uses the selected attachments above, not newly read contents of the watched file.</p>' +
           '<p class="help">Scheduled runs follow AI Processing settings. Local Only blocks OpenAI calls. Worker must be enabled on this PC.</p>'
         : ""),
   );

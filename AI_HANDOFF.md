@@ -1,3 +1,15 @@
+## October 14 Phase 2 source checkpoint
+
+Read [the grouped evidence matrix](docs/FOUR_PHASE_LIBRARY_AUDIT_2026-10-14.md)
+and [the phase tracker](docs/FOUR_PHASE_PROGRESS_2026-10-13.md). Watcher stability,
+nullable reviewed staffing comparisons, all-day calendar contract and voice labels
+are corrected. All595 desktop tests and bothEdge UI checks pass; Gitleaks zero.
+No new dependency/schema/installed app/data change. Native helper compilation is
+pending exact-new-head CI because local dotnet has no SDK. Android13694876 fixes
+system-cancellation test action only; fresh hosted device acceptance pending.
+Continue Phase3 onexistingrecords/permissions; Phase4 QR/session/release work follows.
+Owner merges main. The prior one-time resume fired October14 at3:25 Eastern.
+
 ## October 13 four-phase source checkpoint
 
 Read [the four-phase tracker](docs/FOUR_PHASE_PROGRESS_2026-10-13.md) first.
