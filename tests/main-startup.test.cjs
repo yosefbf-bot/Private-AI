@@ -13,13 +13,13 @@ async function boot(t,{background=false,existing=false,browserWorker}={}){
  const root=path.join(folder,'PrivateAI2'),cipher=new Cipher(require('node:crypto').randomBytes(32));
  fs.mkdirSync(root);
  if(existing){const s=new Store(path.join(root,'privateai.db'),cipher);s.put('settings','main',{workerPaused:true,processingMode:'local-only',allowCloud:false,retentionDays:90});s.put('chat','kept',{id:'kept',title:'Saved chat',messages:[],updated:Date.now()});s.close();}
- const errors=[],dialogs=[],windows=[],handlers=new Map();let core,ready;
+ const errors=[],dialogs=[],windows=[],trays=[],handlers=new Map();let core,ready;
  const app=new EventEmitter();Object.assign(app,{isPackaged:true,setName(){},setPath(){},requestSingleInstanceLock:()=>true,getLoginItemSettings:()=>({openAtLogin:false}),whenReady:()=>({then(fn){const p=Promise.resolve().then(fn);return {catch(fn){ready=p.catch(fn);return ready;}};}}),exit:code=>errors.push({exit:code}),quit:()=>app.emit('before-quit')});
  class Window extends EventEmitter{
   constructor(options){super();this.options=options;this.visible=true;this.focused=true;this.webContents=new EventEmitter();Object.assign(this.webContents,{send(){},setWindowOpenHandler(){}});windows.push(this);}
   setMenuBarVisibility(){} loadURL(url){this.url=url;} isDestroyed(){return false;} isVisible(){return this.visible;} isFocused(){return this.focused;} show(){this.visible=true;} hide(){this.visible=false;} focus(){this.focused=true;}
  }
- class Tray extends EventEmitter{setToolTip(){}setContextMenu(){}}
+ class Tray extends EventEmitter{constructor(){super();trays.push(this);}setToolTip(){}setContextMenu(menu){this.menu=menu;}}
  const partitions=new Map();
  const electron={app,BrowserWindow:Window,Tray,Menu:{buildFromTemplate:x=>x},nativeImage:{createFromPath:()=>({})},powerMonitor:new EventEmitter(),safeStorage:{},shell:{},clipboard:{},
   ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{showErrorBox:(title,message)=>errors.push({title,message}),showMessageBox:async(_win,detail)=>{dialogs.push(detail);return {response:1};}},
@@ -38,7 +38,7 @@ async function boot(t,{background=false,existing=false,browserWorker}={}){
  },process:fakeProcess,__dirname:path.dirname(sourcePath),Buffer,URL,console,setInterval:()=>timer,clearInterval(){},setTimeout,clearTimeout};
  t.after(()=>{app.emit('before-quit');fs.rmSync(folder,{recursive:true,force:true});});
  vm.runInNewContext(fs.readFileSync(sourcePath,'utf8'),context,{filename:sourcePath});await ready;
- return {core,errors,dialogs,windows,handlers,app};
+ return {core,errors,dialogs,windows,trays,handlers,app};
 }
 test('entry point reaches chat startup and wires approval only after real Core initialization',async t=>{
  const b=await boot(t);assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.ok(b.core);assert.equal(b.windows.length,1);assert.match(b.windows[0].url,/ui\/index.html$/);assert.ok(b.handlers.has('privateai:call'));assert.equal(b.core.router.local.state,'unloaded');
@@ -137,6 +137,14 @@ test('window closure and repeated quit after shutdown do not access the closed d
  assert.doesNotThrow(()=>b.app.emit('window-all-closed'));
  assert.doesNotThrow(()=>b.app.emit('before-quit'));
  assert.deepEqual(b.errors,[]);
+});
+
+test('tray Quit cancels pending requests and closes the real Core database',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);
+ const pending=new AbortController();b.core.requests.set('synthetic-tray-quit',pending);
+ b.trays[0].menu.find(item=>item.label==='Quit Private AI').click();
+ assert.equal(pending.signal.aborted,true);assert.equal(b.core.store.db,null);
+ assert.equal(b.core.router.local.state,'unloaded');assert.doesNotThrow(()=>b.app.emit('before-quit'));
 });
 
 test('desktop capture IPC saves and reloads source notes, evidence, reviewed follow-ups and internal drafts',async t=>{

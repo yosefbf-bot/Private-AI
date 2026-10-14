@@ -811,5 +811,54 @@
     },
     "sourceInferenceCheckpoint": "2cf3f397fd2128060c82d95c28ed6d1b616687fc",
     "status": "final-windows-upgrade-installed-small-inference-portable-and-release-gate-passed"
+  },
+  "offlineDocumentTools20261013": {
+    "version": "3.0.3-dev",
+    "base": "421370ecf0570989417ce17ee747c81debcdbc27",
+    "branch": "chatgpt/offline-knowledge-tools-2026-10-13",
+    "report": "docs/OFFLINE_DOCUMENT_TOOLS_2026-10-13.md",
+    "selectedProjects": [
+      1,
+      2,
+      8,
+      10
+    ],
+    "focusedTestsPassed": 42,
+    "realSourceImageOCR": true,
+    "realSourceScannedPDFOCR": true,
+    "realSourceBGEEmbedding": true,
+    "realSourceSqliteVecRanking": true,
+    "edgeChecksPassed": 5,
+    "cloudInferenceCalls": 0,
+    "currentSourceSecrets": 0,
+    "historySecrets": 0,
+    "installerForThisSourceExecuted": true,
+    "remaining": "Owner merges PR #17. Android unchanged. Physical/account/clinical/reboot limits are in the dated report; supplemental-documentation exact-head CI still needs checking.",
+    "fullSuite": {
+      "passed": 552,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    "syntaxFiles": 208,
+    "cleanLockedInstall": true,
+    "productionAdvisories": 0,
+    "developerScannerFreshSetupPassed": true,
+    "generalUI": true,
+    "hardeningUI": true,
+    "explicitHardeningPassed": 25,
+    "packagedFirstAttempt": "Preserved failed receipt: scanned PDF required a local canvas factory in Electron utility process. Verified correction in a fused synthetic utility diagnostic; fresh candidate pending.",
+    "status": "windows-accepted",
+    "windowsReport": "docs/OFFLINE_TOOLS_WINDOWS_VALIDATION_2026-10-13.md",
+    "frozenBinaryCode": "0eb431398e785d9ae4fb36a2c78e9cf51eafe8e4",
+    "actualInstalledSmallInference": true,
+    "existingOwnerDataFilesUnchanged": 25,
+    "publicAssetsProvisionedOnOwnerPC": true,
+    "portablePassed": true,
+    "exactCodeCIPassed": true,
+    "exactCodeCIRuns": [
+      38485688240,
+      38485692566
+    ]
   }
 }

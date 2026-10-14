@@ -16,6 +16,7 @@ export async function buildQuestion(
   }
   let result;
   try {
+    if(selectionOnly!==true)await browser.scripting.executeScript({target:{tabId:tab.id},files:['vendor/readability.js']});
     result = await browser.scripting.executeScript({
       target: { tabId: tab.id },
       func: extractVisible,
@@ -43,6 +44,7 @@ export function extractVisible(selectionOnly = false) {
   if(selectionOnly&&(!selection||selection.isCollapsed||!selection.rangeCount))return {text:""};
   const ranges=selectionOnly?Array.from({length:selection.rangeCount},(_,i)=>selection.getRangeAt(i)):null;
   const parts = [];
+  const visibleDocument=selectionOnly?null:document.implementation.createHTMLDocument(document.title);
   let length = 0,
     visited = 0;
   const skip = new Set([
@@ -62,7 +64,7 @@ export function extractVisible(selectionOnly = false) {
   const root =
     (selectionOnly?document.body:document.querySelector('main,article,[role="main"]')) || document.body;
   if (!root || root.getClientRects().length === 0) return { text: "" };
-  function walk(node) {
+  function walk(node,parent=null) {
     if (length >= 60000 || ++visited > 50000) return;
     if (node.nodeType === Node.ELEMENT_NODE) {
       if (
@@ -76,6 +78,7 @@ export function extractVisible(selectionOnly = false) {
         return;
       const style = getComputedStyle(node);
       if (style.display === "none" || style.visibility === "hidden") return;
+      if(parent){const clone=visibleDocument.createElement(node.tagName);for(const name of ['id','class','role'])if(node.hasAttribute(name))clone.setAttribute(name,node.getAttribute(name));parent.appendChild(clone);parent=clone;}
     }
     if (node.nodeType === Node.TEXT_NODE) {
       let raw=node.textContent;
@@ -84,12 +87,23 @@ export function extractVisible(selectionOnly = false) {
       if (text) {
         const piece = text.slice(0, 60000 - length);
         parts.push(piece);
+        parent?.appendChild(visibleDocument.createTextNode(piece+' '));
         length += piece.length + 1;
       }
       return;
     }
-    for (const child of node.childNodes) walk(child);
+    for (const child of node.childNodes) walk(child,parent);
   }
-  walk(root);
-  return { text: parts.join("\n").slice(0, 60000) };
+  walk(root,visibleDocument?.body);
+  let text=parts.join('\n').slice(0,60000),extraction='visible';
+  // Parse only the already-filtered visible clone. Never resurrect hidden text,
+  // password-manager overlays or form values, and keep portal/table capture intact.
+  if(!selectionOnly&&typeof globalThis.Readability==='function'&&(root.matches('article,.mw-parser-output,[itemtype*="Article"]')||root.querySelector('article,.mw-parser-output,[itemtype*="Article"]'))&&!visibleDocument.querySelector('table,[role="grid"],form')){
+    try{const article=new globalThis.Readability(visibleDocument,{charThreshold:200,maxElemsToParse:50000}).parse();if(article?.textContent?.trim()){text=article.textContent.trim().slice(0,60000);extraction='article';}}catch{}
+  }
+  if(!selectionOnly&&text){
+    let source='';try{const url=new URL(location.href);if(['http:','https:'].includes(url.protocol)){url.search='';url.hash='';url.username='';url.password='';source='Source page (query and fragment omitted): '+url.href+'\n';}}catch{}
+    text=(source+'Page title: '+String(document.title||'').replace(/\s+/g,' ').slice(0,300)+'\n'+text).slice(0,60000);
+  }
+  return { text,extraction };
 }

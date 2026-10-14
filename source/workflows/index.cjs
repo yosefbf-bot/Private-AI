@@ -86,7 +86,12 @@ async function dispatch(core, op, data = {}) {
     case "workflowMetricImport":
       return imports.metricImport(snf, data);
     case "workflowDocumentSearch":
-      return docs.search(core, data);
+      if(data.mode!==undefined&&!['words','semantic'].includes(data.mode))throw fail('INVALID');
+      return data.mode==='semantic'?require('./semantic-search.cjs').search(core,data):docs.search(core, data);
+    case "workflowDocumentToolsStatus":
+      return require('../document-tools-assets.cjs').status(core);
+    case "workflowDocumentToolsSetup":
+      return require('../document-tools-assets.cjs').setup(core,data.kind||'all');
     case "workflowProjectFiles":
       return docs.link(core, data);
     case "workflowPlaybookSave":

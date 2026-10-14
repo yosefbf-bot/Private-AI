@@ -419,6 +419,7 @@ function autoResizePrompt() {
   p.style.height = `${h}px`;
 }
 function renderChat() {
+  workflowUI.stop();
   meetingsUI.stop();dashboardUI.stop();
   voiceManager?.enforcePolicy();
   view = "chat";
@@ -1059,6 +1060,7 @@ function settingsHTML() {
   )}${field("Maximum output tokens", "maxOutput", s.maxOutput, "number")}${field("OpenAI organization (optional)", "org", s.org)}${field("OpenAI project (optional)", "projectId", s.projectId)}${field("App lock after minutes", "lockMinutes", s.lockMinutes, "number")}</div><p>Reasoning controls depend on the selected model. Automatic locking inside Private AI requires an app passphrase; your organization’s Windows lock remains separate.</p><div class="button-row"><button class="secondary" data-act="passphrase">Set app passphrase</button><button class="secondary" data-act="lock">Lock app</button><button class="secondary" data-act="backup">Create local encrypted backup</button><button class="secondary" data-act="self-check">Run local checks</button><button class="secondary" data-act="diagnostics">Create diagnostic report</button></div><p>Diagnostics contain technical metadata only. Local backups require this Windows profile and its original encryption key. A portable app does not make encrypted history portable.</p></details></div>`;
 }
 function showLocked() {
+  workflowUI.stop();
   meetingsUI.stop({discard:true});dashboardUI.stop();operationsCopilotUI.stopListening();
   closeVoiceSession();
   if ($("modal").open) $("modal-cancel").click();
@@ -1484,6 +1486,7 @@ async function init() {
   }
 }
 function renderPage(name, options = {}) {
+  workflowUI.stop();
   dashboardUI.stop();
   if (name === "schedules") name = "automation";
   if (["today", "actions", "execdesk", "opanalytics", "playbooks"].includes(name)) name = "dashboard";

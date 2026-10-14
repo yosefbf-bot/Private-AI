@@ -24,23 +24,29 @@ function sections(file) {
   } else add(0, text.length, null);
   return rows;
 }
-function search(core, data = {}) {
+function* selectedFiles(core, data = {}) {
   const project = data.projectId
     ? core.store.get("project", data.projectId)
     : null;
   if (data.projectId && !project) throw fail("INVALID");
   const ids = data.fileId ? [data.fileId] : project?.fileIds;
-  const files = core.store
-    .list("file")
-    .filter((f) => !ids || ids.includes(f.id));
+  // Select encrypted metadata before decrypting content. Large collections must
+  // not hold every original attachment/base64 payload in memory simultaneously.
+  if(core.store.summaries){for(const meta of core.store.summaries('file'))if(!ids||ids.includes(meta.id)){const f=core.store.get('file',meta.id);if(f)yield f;}}
+  else for(const f of core.store.list('file'))if(!ids||ids.includes(f.id))yield f;
+}
+function search(core, data = {}) {
   const terms = clean(data.query, 200)
       .toLowerCase()
       .split(/\s+/)
       .filter(Boolean),
     results = [],
     coverage = [];
-  for (const f of files) {
+  let totalMatches=0;
+  const order=(a,b)=>b.score-a.score||a.name.localeCompare(b.name)||a.id-b.id;
+  for (const f of selectedFiles(core,data)) {
     const parts = sections(f);
+    const revision=signature(f.text||'');
     coverage.push({
       id: f.id,
       name: f.name,
@@ -53,27 +59,29 @@ function search(core, data = {}) {
     for (const part of parts) {
       const lower = part.text.toLowerCase(),
         score = terms.reduce((n, t) => n + (lower.includes(t) ? 1 : 0), 0);
-      if (terms.length && score === terms.length)
+      if (terms.length && score === terms.length){
+        totalMatches++;
         results.push({
           fileId: f.id,
           name: f.name,
           updated: f.updated,
-          revision: signature(f.text || ""),
+          revision,
           ...part,
           score,
           citation: `${f.name} — ${part.page ? "page " + part.page + ", " : ""}section ${part.id}, characters ${part.start + 1}–${part.end}`,
         });
+        // Retain only the displayed best sections while counting all matches.
+        results.sort(order);if(results.length>50)results.pop();
+      }
     }
   }
-  results.sort(
-    (a, b) => b.score - a.score || a.name.localeCompare(b.name) || a.id - b.id,
-  );
+  results.sort(order);
   return {
     coverage,
     results: results.slice(0, 50),
-    totalMatches: results.length,
+    totalMatches,
     notice:
-      "Search covers extracted text only. Scanned images require OCR outside this workflow. Matching sections are not whole-document analysis.",
+      "Search covers extracted text only. Set up local OCR for image-only pages; verify machine text against originals. Matching sections are not whole-document analysis.",
   };
 }
 function link(core, data) {
@@ -90,4 +98,4 @@ function link(core, data) {
   core.store.put("project", p.id, p);
   return p;
 }
-module.exports = { sections, search, link };
+module.exports = { sections, selectedFiles, search, link };

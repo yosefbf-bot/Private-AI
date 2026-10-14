@@ -1,3 +1,31 @@
+## October 13 offline tools accepted on Windows
+
+Read [the actual Windows acceptance report](docs/OFFLINE_TOOLS_WINDOWS_VALIDATION_2026-10-13.md).
+Frozen binary code 0eb4313 passed genuine 3.0.2→3.0.3 installer upgrade, installed
+app, real English image/scanned-PDF OCR, BGE/sqlite-vec search and Automatic Small
+inference at min(actual RAM, 3 GiB), using 2048 while preserving saved 4096.
+All 25 owner data files stayed byte-identical; private recovery remains outside Git.
+Both exact-code CI runs passed all four jobs. All 552 tests/25 hardening/208 syntax,
+clean install, production audit zero and real Edge UI passed. Portable CRC/all
+767 file hashes/actual relocated execution passed; unchanged release gate passed.
+Public OCR/search assets are provisioned on the owner PC. Android is unchanged.
+This is a supplemental report commit, not a new binary. Preserve the failed first
+receipts and current native inputs. Current instructions reserve main to the owner.
+
+## October 13 offline document tools
+
+Read [the offline tools checkpoint](docs/OFFLINE_DOCUMENT_TOOLS_2026-10-13.md).
+Based on fetched main 421370e, branch chatgpt/offline-knowledge-tools-2026-10-13
+adds optional local semantic Library search, offline English image/scanned-PDF OCR,
+filtered Readability article capture and a redacted Gitleaks current-source/history
+CI gate. Version 3.0.3-dev. Existing workflows and Android production code remain.
+Source real BGE/sqlite-vec/image/PDF execution and five Edge acceptance checks passed;
+42 focused regressions and all 552 automated tests passed, along with 25 explicit
+hardening, 208 syntax, repository policy, clean locked installation and general/
+hardening Edge UI checks. Production audit is zero. Fresh packaging/installer/
+exact-head CI are pending. Do not transfer 3.0.2 acceptance to this changed source.
+Current workspace instructions reserve main merging to the owner.
+
 ## October 13 local RAM and assistant response contrast
 
 Read [the current repair checkpoint](docs/LOCAL_RAM_CHAT_CONTRAST_2026-10-13.md).

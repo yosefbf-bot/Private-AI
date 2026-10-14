@@ -1,5 +1,5 @@
 {
-  "version": "3.0.2-dev",
+  "version": "3.0.3-dev",
   "title": "Private AI user guide",
   "topics": [
     {
@@ -686,6 +686,25 @@
         "The Android companion has its own Appearance selection in Settings. Theme choices do not change privacy, connection or model settings."
       ],
       "note": "Only this non-sensitive appearance preference is stored outside the encrypted workspace so the locked screen can use the same theme."
+    },
+    {
+      "id": "localdocumenttools",
+      "title": "Local meaning search and scanned document OCR",
+      "location": "Library → Set up local search & English OCR",
+      "aliases": [
+        "semantic search",
+        "meaning search",
+        "ocr",
+        "scanned pdf",
+        "search policies",
+        "tesseract"
+      ],
+      "steps": [
+        "Set up the optional local tools once in Library. Approximately 68 MiB of public model/language files are downloaded; documents and queries stay on the PC.",
+        "Choose a collection and Meaning · local, then ask a question. Word search remains available without setup. Results cite original passages; ranking is not clinical confidence or proof of source currency. Stop cancels the search.",
+        "After setup, import English photos or scanned PDFs through the existing file importer. Local Only chat can use recognized photo text. Original images remain stored; check unverified machine text, names, doses and dates against the original."
+      ],
+      "note": "OCR and meaning search work offline after setup. English print is the initial language; handwriting and poor scans may be inaccurate. Search covers at most 2,048 passages and discloses incomplete coverage. No cloud inference or API key is required."
     }
   ]
 }

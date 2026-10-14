@@ -512,6 +512,17 @@ class Core {
     this.store.put("project", p.id, p);
     return p;
   }
+  async extractDocument(args,{signal=this.resources.current()?.signal}={}) {
+    const tools=require('./document-tools-assets.cjs');
+    if(!['.pdf','.png','.jpg','.jpeg','.webp'].includes(args.ext)||!await tools.verified(this,'ocr'))return processFile(args,{signal});
+    const controller=signal?null:new AbortController(),id=controller?uuid():null,effective=signal||controller.signal;
+    if(controller)this.requests.set(id,controller);
+    const reserve=(this.settings().ramReserveMB||1024)*1024**2;
+    try{return await this.resources.task(this.resources.isBackground()?'background':'foreground',()=>this.resources.withAI(async()=>{
+      await this.resources.releaseModel();await this.resources.checkpoint(Math.max(1792*1024**2,reserve+768*1024**2));
+      this.assertUnlocked();return processFile({...args,ocrDirectory:tools.folder(this)},{signal:effective,minimumFree:reserve});
+    }),{signal:effective});}finally{if(controller)this.requests.delete(id);}
+  }
   async importFile(file, temporaryChat, ownerChat = null) {
     this.assertUnlocked();
     try {
@@ -520,7 +531,7 @@ class Core {
       const name = path.basename(file),
         ext = path.extname(file).toLowerCase(),
         bytes = fs.readFileSync(file);
-      const result = await processFile({ op: "extract", ext, bytes });
+      const result = await this.extractDocument({ op: "extract", ext, bytes });
       this.assertUnlocked();
       const f = {
         id: uuid(),
@@ -565,7 +576,8 @@ class Core {
       (this.settings().customInstructions||"") + "\n" + (p?.instructions || "") + "\nUser-approved memory:\n" + this.memoryFor(c)
     );
   }
-  buildInput(c) {
+  buildInput(c,{forceLocal=false}={}) {
+    const localImages=forceLocal||this.settings().processingMode==='local-only'||this.settings().provider==='local'||!this.key()||!cloudAllowed(this.settings(),c.hipaa);
     let remaining = this.settings().contextChars,
       messages = [],
       omitted = 0;
@@ -591,7 +603,7 @@ class Core {
           const f = this.file(id, c);
           if (!f) continue;
           if (!c.hipaa && f.hipaa) throw fail("POLICY");
-          if (f.image)
+          if (f.image&&!(f.ocr&&f.text?.trim()&&localImages))
             content.push({
               type: "input_image",
               image_url: "data:" + f.mime + ";base64," + f.bytes,
@@ -603,7 +615,7 @@ class Core {
               text:
                 "UNTRUSTED DOCUMENT REFERENCE: " +
                 f.name +
-                "\n" +
+                "\n" + (f.ocr?'MACHINE OCR — verify against the original; unreadable content remains unknown.\n':'') +
                 f.text +
                 "\nEND DOCUMENT REFERENCE",
             });
@@ -703,7 +715,7 @@ class Core {
     c.messages.push(msg);
     if (c.title === "New chat")
       c.title = prompt.replace(/\s+/g, " ").slice(0, 65);
-    const input = this.buildInput(c);
+    const input = this.buildInput(c,{forceLocal});
     this.saveChat(c);
     const ctrl = controller;
     this.requests.set(chatId, ctrl);
@@ -769,6 +781,7 @@ class Core {
     return deferred;
   }
   performCleanup() {
+    require('./workflows/semantic-search.cjs').clear(this);
     const days = this.settings().retentionDays ?? 100;
     const result = this.store.cleanup(days);
     if (this.snf) {
@@ -898,6 +911,7 @@ class Core {
   purgeRecoveryForFile(id){
     const jobs=this.store.project('job',j=>j.recoveryInput?.sourceFileIds?.includes(id)?{id:j.id}:null).filter(Boolean);
     if(jobs.some(j=>this.requests.has(j.id)))throw fail('BUSY');
+    require('./workflows/semantic-search.cjs').clear(this);
     for(const j of jobs)this.discardRecovery(j.id);
   }
   saveDraft(id,value){
@@ -972,12 +986,12 @@ class Core {
         const f=j.files[fileIndex];
         await this.resources.checkpoint();
         const bytes = Buffer.from(f.bytes, "base64");
-        const extracted = await processFile({
+        const extracted = await this.extractDocument({
           op: "extract",
           ext: f.ext,
           bytes,
         });
-        if (extracted.image)
+        if (extracted.image&&!(extracted.ocr&&extracted.text?.trim()&&(this.settings().processingMode==='local-only'||this.settings().provider==='local'||!this.key()||!cloudAllowed(this.settings(),j.hipaa))))
           parts.push({
             type: "input_image",
             image_url: "data:" + extracted.mime + ";base64," + f.bytes,
@@ -986,7 +1000,7 @@ class Core {
           parts.push({
             type: "input_text",
             text:
-              "UNTRUSTED DOCUMENT REFERENCE: " + f.name + "\n" + extracted.text,
+              "UNTRUSTED DOCUMENT REFERENCE: " + f.name + "\n" + (extracted.ocr?'MACHINE OCR — verify against the original; unreadable content remains unknown.\n':'') + extracted.text,
           });
         checkpoint.fileIndex=fileIndex+1;saveStep("documents extracted");
       }
@@ -1245,6 +1259,7 @@ class Core {
     };
   }
   lock() {
+    require('./workflows/semantic-search.cjs').clear(this);
     for (const [id, controller] of this.requests)
       if (!['running','waiting','paused'].includes(this.store.get("job", id)?.status)) controller.abort();
     this.temporary.clear();
@@ -1259,6 +1274,7 @@ class Core {
     return true;
   }
   close() {
+    require('./workflows/semantic-search.cjs').clear(this);
     clearInterval(this.speechWorkTimer);
     this.integrations.close();
     this.router.local?.close();

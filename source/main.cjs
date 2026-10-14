@@ -205,7 +205,6 @@ function createTray() {
       {
         label: "Quit Private AI",
         click: () => {
-          quitting = true;
           app.quit();
         },
       },

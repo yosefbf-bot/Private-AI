@@ -489,7 +489,8 @@ let browser;
         },
       },
       scripting: {
-        executeScript: async () => {
+        executeScript: async (options) => {
+          if(options.files){window.__parserLoads=(window.__parserLoads||0)+1;return [];}
           window.__captureCalls++;
           return [{ result: { text: "Synthetic page reference" } }];
         },
@@ -517,8 +518,9 @@ let browser;
   await panel.locator("#send").click();
   await panel.waitForFunction(() => !document.querySelector("#send").disabled);
   assert.equal(await panel.evaluate(() => window.__captureCalls), 1);
+  assert.equal(await panel.evaluate(() => window.__parserLoads), 1);
   assert.equal(await panel.locator("#include").isChecked(), false);
-  checks.push("Include Page extracts once on Send and resets afterward");
+  checks.push("Include Page loads the local parser and extracts once on Send, then resets");
   await panel.evaluate(() => {
     window.chrome.scripting.executeScript = async () => {
       throw Error("Synthetic restricted page");

@@ -26,7 +26,7 @@ const {BrowserReports}=require('../source/browser-reports.cjs');
    uiBrowser=await engine.launch({headless:true,...(selected==='edge'?{channel:'msedge'}:selected==='chrome'?{channel:'chrome'}:{})});
    const page=await uiBrowser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.setContent('<main><p id="safe">Public report text</p><input type="password" value="SYNTHETIC_PASSWORD"><textarea>SYNTHETIC_TEXTAREA_SECRET</textarea><div contenteditable="true">SYNTHETIC_EDITABLE_SECRET</div><bitwarden-overlay>SYNTHETIC_MANAGER_SECRET</bitwarden-overlay><div autocomplete="current-password">SYNTHETIC_AUTOCOMPLETE_SECRET</div><p hidden>SYNTHETIC_HIDDEN_SECRET</p></main>');
-   const full=await page.evaluate(extractVisible,false);assert.equal(full.text,'Public report text');
+   const full=await page.evaluate(extractVisible,false);assert.equal(full.text,'Page title: \nPublic report text');
    await page.evaluate(()=>{const range=document.createRange();range.selectNodeContents(document.body);const s=window.getSelection();s.removeAllRanges();s.addRange(range);});
    const selection=await page.evaluate(extractVisible,true);assert.equal(selection.text,'Public report text');
    await page.evaluate(()=>{const r=document.createRange(),n=document.querySelector('#safe').firstChild;r.setStart(n,7);r.setEnd(n,13);window.getSelection().removeAllRanges();window.getSelection().addRange(r);});assert.equal((await page.evaluate(extractVisible,true)).text,'report');

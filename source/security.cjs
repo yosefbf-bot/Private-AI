@@ -3,6 +3,9 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const CODES = Object.freeze({
+  DOCUMENT_SETUP: "Set up local document tools in Library, or retry the verified asset download. Documents and searches are not sent online.",
+  DOCUMENT_SEARCH: "Local semantic search could not finish. Retry with a smaller collection or use word search. No cloud search was made.",
+  OCR_FAILED: "Offline OCR could not finish. Retry a smaller or clearer file, or import a text version. No cloud OCR was made.",
   COMPANION_TLS: "The companion certificate could not be created or is expired. Enable the gateway again on Windows, then pair your phone with the new certificate. Certificate validation must remain enabled.",
   COMPANION_BIND: "The companion gateway could not listen on the selected address and port. Select a current private network address, check for a port conflict, and save again.",
   COMPANION_AUTH: "Pair this phone in the desktop app or replace its revoked pairing key.",

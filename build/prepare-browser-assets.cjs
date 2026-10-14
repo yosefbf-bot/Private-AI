@@ -3,6 +3,8 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const root=path.resolve(__dirname,'..');
 function prepare(){
  const dir=path.join(root,'chrome_extension'),target=path.join(dir,'firefox');fs.mkdirSync(target,{recursive:true});
+ fs.copyFileSync(require.resolve('@mozilla/readability/Readability.js'),path.join(dir,'vendor/readability.js'));
+ fs.copyFileSync(path.join(path.dirname(require.resolve('@mozilla/readability/package.json')),'LICENSE.md'),path.join(dir,'vendor/readability-LICENSE.md'));
  for(const name of ['panel.html','panel.css','panel.mjs','capture.mjs','background.mjs','icon16.png','icon48.png','icon128.png','vendor'])fs.cpSync(path.join(dir,name),path.join(target,name),{recursive:true});
  const manifest=JSON.parse(fs.readFileSync(path.join(dir,'manifest.json'),'utf8'));
  const version=require('../package.json').version;manifest.version=version.split('-')[0];
