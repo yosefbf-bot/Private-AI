@@ -1,3 +1,15 @@
+## October 13 four-phase source checkpoint
+
+Read [the four-phase tracker](docs/FOUR_PHASE_PROGRESS_2026-10-13.md) first.
+New review branch contains calendar, shutdown, worker recovery, staffing and
+browser authorization fixes plus companion authentication/privacy/polling changes.
+Desktop 577/577 tests, 25 hardening checks and both actual Edge UI checks pass.
+Android combined 65 local cases pass; device tests compiled but are not executed.
+Hosted checks and fresh changed-binary acceptance remain pending. Installed 3.0.3
+and owner data/keys/signer remain untouched. The owner merges main.
+Pause at 1% after saving a status summary; one-time thread resume is scheduled
+for October 14 at 3:25 a.m. America/New_York. Fetch both mains on resumption.
+
 ## October 13 offline tools accepted on Windows
 
 Read [the actual Windows acceptance report](docs/OFFLINE_TOOLS_WINDOWS_VALIDATION_2026-10-13.md).

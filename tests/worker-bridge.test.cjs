@@ -14,6 +14,88 @@ const {
 } = require("../source/worker.cjs");
 const { Cipher, uuid } = require("../source/security.cjs");
 const { startBridge, connectBridge } = require("../source/bridge.cjs");
+const { Core } = require("../source/core.cjs");
+const { Store } = require("../source/database.cjs");
+
+function pairedWorker(t) {
+  const sender = fixture(t), receiver = fixture(t);
+  const shared = sender.core.settings().workspace;
+  receiver.core.saveSettings({ workspace: shared, role: "worker", workerEnabled: true });
+  sender.core.store.put("peer", receiver.core.identity().id, publicIdentity(receiver.core.identity()));
+  receiver.core.store.put("peer", sender.core.identity().id, publicIdentity(sender.core.identity()));
+  const job = sender.core.jobPayload({ prompt: "Synthetic Worker intake recovery", format: "txt" });
+  sender.core.worker.queue(job, receiver.core.identity().id);
+  const file = path.join(shared, "Tasks/Queued", job.id + ".json");
+  return { sender, receiver, shared, job, file, bytes: fs.readFileSync(file) };
+}
+
+test("an initial Worker status-write failure still executes once and a replay cannot repeat it", async t => {
+  const { sender, receiver, job, file, bytes } = pairedWorker(t);
+  const status = receiver.core.worker.status.bind(receiver.core.worker);
+  receiver.core.worker.status = (id, state, extra) => {
+    if (state === "running") throw Error("Synthetic initial status write unavailable");
+    return status(id, state, extra);
+  };
+  await receiver.core.worker.tick();
+  assert.equal(receiver.calls.length, 1);
+  assert.equal(receiver.core.store.get("job", job.id).status, "completed");
+  sender.core.worker.syncStatuses();
+  assert.equal(sender.core.store.get("job", job.id).status, "completed");
+  fs.writeFileSync(file, bytes);
+  await receiver.core.worker.tick();
+  assert.equal(receiver.calls.length, 1);
+  assert.equal(fs.existsSync(file), false);
+});
+
+test("Worker intake saves recovery state atomically with its claim before execution and restart cannot repeat it", async t => {
+  const { sender, receiver, job, file } = pairedWorker(t);
+  receiver.core.runJob = async () => {
+    const saved = receiver.core.store.get("job", job.id);
+    assert.equal(saved.status, "waiting");
+    assert.equal(saved.remote, true);
+    assert.equal(saved.recoveryInput.prompt, job.prompt);
+    assert.equal(saved.checkpoint.phase, "queued");
+    throw Error("Synthetic interruption before execution");
+  };
+  await receiver.core.worker.tick();
+  assert.equal(receiver.calls.length, 0);
+  assert.equal(receiver.core.store.get("job", job.id).status, "waiting");
+  assert.equal(fs.existsSync(file), true);
+  receiver.core.close();
+  let calls = 0;
+  const reopened = new Core({ root: receiver.root,
+    store: new Store(path.join(receiver.root, "privateai.db"), receiver.cipher),
+    machine: "synthetic-machine", client: { generate: async () => { calls++; throw Error("Must not repeat"); } } });
+  try {
+    assert.equal(reopened.store.get("job", job.id).status, "failed");
+    assert.equal(reopened.store.get("job", job.id).error, "INTERRUPTED");
+    reopened.saveSettings({ workerPaused: false });
+    await reopened.worker.tick();
+    sender.core.worker.syncStatuses();
+    assert.equal(sender.core.store.get("job", job.id).status, "failed");
+    assert.equal(sender.core.store.get("job", job.id).error, "INTERRUPTED");
+    assert.equal(calls, 0);
+    assert.equal(fs.existsSync(file), false);
+  } finally { reopened.close(); }
+});
+
+test("a failed Worker recovery-record commit rolls back its claim and leaves the queued job retryable", async t => {
+  const { receiver, job, file } = pairedWorker(t);
+  const put = receiver.core.store.put.bind(receiver.core.store);
+  let reject = true;
+  t.mock.method(receiver.core.store, "put", (kind, id, ...args) => {
+    if (kind === "job" && id === job.id && reject) { reject = false; throw Error("Synthetic storage interruption"); }
+    return put(kind, id, ...args);
+  });
+  await assert.rejects(receiver.core.worker.tick(), /Synthetic storage interruption/);
+  assert.equal(receiver.calls.length, 0);
+  assert.equal(receiver.core.store.get("job", job.id), null);
+  assert.equal(receiver.core.store.db.prepare("SELECT id FROM claims WHERE id=?").get(job.id), undefined);
+  assert.equal(fs.existsSync(file), true);
+  await receiver.core.worker.tick();
+  assert.equal(receiver.calls.length, 1);
+  assert.equal(receiver.core.store.get("job", job.id).status, "completed");
+});
 test("Each PC receives a distinct identity and keys", () => {
   const a = newIdentity(),
     b = newIdentity();

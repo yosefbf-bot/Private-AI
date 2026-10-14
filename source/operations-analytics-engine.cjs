@@ -243,256 +243,206 @@ class OperationsAnalyticsEngine {
   // 2. Staffing & Overtime Analytics (OnShift + Universal Engine)
   // -------------------------------------------------------------
   parseStaffingCsv(csvText, filename = 'staffing.csv') {
-    if (!csvText || typeof csvText !== 'string') throw fail('INVALID');
-
-    const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
-    if (lines.length < 2) return { success: false, error: 'File is empty or contains no data rows.' };
-
-    const headerLine = lines[0];
-    const headers = headerLine.split(',').map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
-
-    // Detect format: OnShift vs Universal
-    const isOnShift = headers.some(h => h.includes('onshift') || h.includes('punch') || h.includes('variance') || h.includes('sched vs actual'));
-
-    // Map headers
-    const findIdx = (patterns) => headers.findIndex(h => patterns.some(p => h.includes(p)));
-
-    const nameIdx = findIdx(['employee', 'name', 'staff', 'worker']);
-    const empIdIdx = findIdx(['id', 'emp #', 'badge', 'ee id']);
-    const roleIdx = findIdx(['role', 'position', 'job', 'title', 'discipline']);
-    const unitIdx = findIdx(['unit', 'department', 'floor', 'wing', 'location']);
-    const shiftIdx = findIdx(['shift', 'schedule', 'shift name']);
-    const dateIdx = findIdx(['date', 'work date', 'shift date']);
-    const schedHoursIdx = findIdx(['sched', 'scheduled', 'planned']);
-    const actualHoursIdx = findIdx(['actual', 'worked', 'total hours', 'paid']);
-    const regHoursIdx = findIdx(['reg', 'regular']);
-    const otHoursIdx = findIdx(['ot', 'overtime', 'premium']);
-    const punchInIdx = findIdx(['in', 'clock in', 'punch in', 'start']);
-    const punchOutIdx = findIdx(['out', 'clock out', 'punch out', 'end']);
-    const agencyIdx = findIdx(['agency', 'contract', 'vendor', 'pool']);
-    const payRateIdx = findIdx(['rate', 'pay rate', 'hourly']);
-
-    const records = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      // Basic CSV field parser handling quotes
-      const values = [];
-      let inQuote = false;
-      let cur = '';
-      for (let c = 0; c < line.length; c++) {
-        const char = line[c];
-        if (char === '"' || char === "'") inQuote = !inQuote;
-        else if (char === ',' && !inQuote) {
-          values.push(cur.trim().replace(/^["']|["']$/g, ''));
-          cur = '';
-        } else {
-          cur += char;
-        }
+    this.core.assertUnlocked();
+    const rejected = error => ({ success: false, error, records: [] });
+    if (typeof csvText !== 'string' || !csvText.trim()) return rejected('Paste a staffing CSV with a header and data rows.');
+    if (csvText.length > 350000) return rejected('Staffing CSV exceeds the 350,000-character import limit.');
+    try {
+      const { headers, rows } = require('./ui/csv.mjs').parseCSV(csvText);
+      if (headers.length > 200 || rows.length > 10000) return rejected('Staffing CSV exceeds the 200-column or 10,000-row import limit.');
+      if (!rows.length) return rejected('File contains no staffing data rows.');
+      const normalize = value => value.toLowerCase().replace(/#/g, 'number').replace(/[\s_().\/-]+/g, '');
+      const normalized = headers.map(normalize);
+      if (normalized.some(h => !h) || new Set(normalized).size !== headers.length)
+        return rejected('Staffing CSV requires unique, nonempty column headers, ignoring case and spacing.');
+      const aliases = {
+        employeeName: ['employee name', 'staff name', 'worker name', 'full name', 'name', 'employee', 'staff', 'worker'],
+        employeeId: ['employee id', 'employee #', 'employee number', 'emp id', 'emp #', 'emp number', 'badge', 'badge id', 'ee id', 'id'],
+        role: ['role', 'position', 'job', 'job title', 'title', 'discipline'],
+        unit: ['unit', 'department', 'dept', 'floor', 'wing', 'location'],
+        shift: ['shift', 'shift name', 'schedule', 'scheduled shift'],
+        date: ['date', 'work date', 'shift date'],
+        scheduledHours: ['scheduled hours', 'sched hours', 'planned hours', 'schedule hours', 'hours scheduled'],
+        actualHours: ['actual hours', 'worked hours', 'hours worked', 'total hours', 'actual worked hours', 'actual', 'worked', 'hours'],
+        regularHours: ['regular hours', 'reg hours', 'straight time hours', 'regular', 'reg'],
+        overtimeHours: ['overtime hours', 'ot hours', 'overtime', 'ot'],
+        punchIn: ['clock in', 'clock in time', 'punch in', 'in time', 'time in', 'start time', 'in'],
+        punchOut: ['clock out', 'clock out time', 'punch out', 'out time', 'time out', 'end time', 'out'],
+        isAgency: ['agency', 'is agency', 'agency staff', 'agency employee'],
+        hourlyRate: ['hourly rate', 'pay rate', 'rate', 'hourly pay']
+      };
+      const mapping = {};
+      for (const [field, choices] of Object.entries(aliases)) {
+        const accepted = new Set(choices.map(normalize));
+        const matches = headers.filter((h, i) => accepted.has(normalized[i]));
+        if (matches.length > 1) return rejected('Multiple columns map to ' + field + '. Keep one reviewed source column for each field.');
+        mapping[field] = matches[0] ?? null;
       }
-      values.push(cur.trim().replace(/^["']|["']$/g, ''));
-
-      const name = nameIdx >= 0 ? values[nameIdx] : `Staff Member ${i}`;
-      if (!name || name.toLowerCase().includes('total') || name.toLowerCase().includes('summary')) continue;
-
-      const sched = schedHoursIdx >= 0 ? parseFloat(values[schedHoursIdx]) || 0 : 8.0;
-      const actual = actualHoursIdx >= 0 ? parseFloat(values[actualHoursIdx]) || 0 : sched;
-      let reg = regHoursIdx >= 0 ? parseFloat(values[regHoursIdx]) || 0 : Math.min(actual, 8.0);
-      let ot = otHoursIdx >= 0 ? parseFloat(values[otHoursIdx]) || 0 : Math.max(0, actual - 8.0);
-
-      // In case actual is provided without breakdown
-      if (otHoursIdx < 0 && actual > sched && (actual - sched) > 0.1) {
-        ot = actual - sched;
-      }
-
-      const role = roleIdx >= 0 && values[roleIdx] ? values[roleIdx] : 'CNA';
-      const isAgency = agencyIdx >= 0 ? /true|yes|1|agency/i.test(values[agencyIdx]) : /agency|contract|reliance|intely|shiftkey/i.test(name + ' ' + (values[unitIdx] || ''));
-
-      records.push({
-        id: uuid(),
-        employeeId: empIdIdx >= 0 ? values[empIdIdx] : `EMP-${1000 + i}`,
-        employeeName: name,
-        role: role.toUpperCase(),
-        unit: unitIdx >= 0 && values[unitIdx] ? values[unitIdx] : 'West Wing',
-        shift: shiftIdx >= 0 && values[shiftIdx] ? values[shiftIdx] : '3-11 Evening',
-        date: dateIdx >= 0 && values[dateIdx] ? values[dateIdx] : new Date().toISOString().slice(0, 10),
-        scheduledHours: sched,
-        actualHours: actual,
-        regularHours: reg,
-        overtimeHours: ot,
-        punchIn: punchInIdx >= 0 ? values[punchInIdx] : null,
-        punchOut: punchOutIdx >= 0 ? values[punchOutIdx] : null,
-        isAgency,
-        hourlyRate: payRateIdx >= 0 ? parseFloat(values[payRateIdx]) || (isAgency ? 52.0 : 26.0) : (isAgency ? 52.0 : 26.0)
+      if (!mapping.employeeName || !mapping.actualHours)
+        return rejected('Staffing CSV requires an employee name column and an actual/worked hours column.');
+      const optional = (row, field) => mapping[field] ? text(row[mapping[field]].trim(), 1000) || null : null;
+      const numeric = (row, field, rowNumber) => {
+        const value = optional(row, field);
+        if (value === null) return null;
+        if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) || !Number.isFinite(Number(value)))
+          throw Error('Row ' + rowNumber + ': ' + field + ' must be a finite, nonnegative decimal number.');
+        return Number(value);
+      };
+      const records = rows.map((row, i) => {
+        const rowNumber = i + 2, employeeName = optional(row, 'employeeName');
+        if (!employeeName) throw Error('Row ' + rowNumber + ': employee name is required.');
+        if (/^(?:grand total|subtotal|total|summary)$/i.test(employeeName))
+          throw Error('Row ' + rowNumber + ': remove aggregate total/summary rows before importing employee records.');
+        const actualHours = numeric(row, 'actualHours', rowNumber);
+        if (actualHours === null) throw Error('Row ' + rowNumber + ': actual/worked hours are required.');
+        const regularHours = numeric(row, 'regularHours', rowNumber);
+        const overtimeHours = numeric(row, 'overtimeHours', rowNumber);
+        if ((regularHours !== null && regularHours > actualHours + 1e-8) ||
+            (overtimeHours !== null && overtimeHours > actualHours + 1e-8) ||
+            (regularHours !== null && overtimeHours !== null && Math.abs(regularHours + overtimeHours - actualHours) > 1e-8))
+          throw Error('Row ' + rowNumber + ': regular and overtime hours must agree with actual/worked hours.');
+        const agency = optional(row, 'isAgency');
+        const isAgency = agency === null ? null : /^(?:true|yes|1|agency)$/i.test(agency) ? true :
+          /^(?:false|no|0|core|employee)$/i.test(agency) ? false : null;
+        return {
+          id: uuid(), employeeId: optional(row, 'employeeId'), employeeName,
+          role: optional(row, 'role')?.toUpperCase() ?? null, unit: optional(row, 'unit'),
+          shift: optional(row, 'shift'), date: optional(row, 'date'),
+          scheduledHours: numeric(row, 'scheduledHours', rowNumber), actualHours, regularHours, overtimeHours,
+          punchIn: optional(row, 'punchIn'), punchOut: optional(row, 'punchOut'),
+          isAgency, agencySource: agency, hourlyRate: numeric(row, 'hourlyRate', rowNumber)
+        };
       });
+      return { success: true, filename: text(filename || 'staffing.csv', 255),
+        detectedFormat: normalized.some(h => h.includes('onshift') || h === 'punchin' || h === 'punchout') ?
+          'OnShift-compatible Staffing CSV' : 'Universal Staffing CSV', totalRows: records.length, records };
+    } catch (error) {
+      // Only fixed parser/validation messages reach the UI; never echo source cells.
+      const message = error?.message || '';
+      return rejected(/^(?:CSV has |CSV requires |Row \d+(?: has |: ))/.test(message) ? message : 'Staffing CSV could not be validated. Review the headers and numeric fields.');
     }
-
-    return {
-      success: true,
-      filename,
-      detectedFormat: isOnShift ? 'OnShift (Direct Mapping)' : 'Universal Staffing CSV',
-      totalRows: records.length,
-      records
-    };
   }
 
-  // Pre-Shift "Approaching OT" Warning Radar & Incidental Punch Audit
   analyzeStaffingRecords(records) {
-    if (!Array.isArray(records) || !records.length) {
+    this.core.assertUnlocked();
+    if (records == null || Array.isArray(records) && !records.length)
       records = this.core.executiveDemo ? this.getSampleStaffingRecords() : [];
-    }
-
-    const totalActual = records.reduce((s, r) => s + r.actualHours, 0);
-    const totalOT = records.reduce((s, r) => s + r.overtimeHours, 0);
-    const totalAgencyHours = records.filter(r => r.isAgency).reduce((s, r) => s + r.actualHours, 0);
-
-    // 1. Pre-Shift "Approaching Overtime" Radar
-    // Aggregate weekly hours by employee to flag staff at 32-36 hours who are scheduled for upcoming shifts
-    const employeeHours = new Map();
-    records.forEach(r => {
-      const name = r.employeeName;
-      if (!employeeHours.has(name)) {
-        employeeHours.set(name, {
-          name,
-          role: r.role,
-          unit: r.unit,
-          totalHours: 0,
-          scheduledUpcoming: 0,
-          isAgency: r.isAgency
-        });
+    if (!Array.isArray(records) || records.length > 10000) throw fail('INVALID');
+    const numericFields = ['actualHours', 'scheduledHours', 'regularHours', 'overtimeHours', 'hourlyRate'];
+    records = records.map(source => {
+      if (!source || typeof source !== 'object' || Array.isArray(source)) throw fail('INVALID');
+      const row = { ...source };
+      for (const field of numericFields) {
+        row[field] = source[field] ?? null;
+        if (row[field] !== null && (typeof row[field] !== 'number' || !Number.isFinite(row[field]) || row[field] < 0))
+          throw fail('INVALID');
       }
-      employeeHours.get(name).totalHours += r.actualHours;
+      for (const field of ['employeeName', 'employeeId', 'role', 'unit', 'shift', 'date', 'punchIn', 'punchOut']) {
+        row[field] = source[field] == null || source[field] === '' ? null : text(source[field], 1000);
+      }
+      if (row.role) row.role = row.role.toUpperCase();
+      row.isAgency = typeof source.isAgency === 'boolean' ? source.isAgency : null;
+      if (row.actualHours !== null && ((row.regularHours !== null && row.regularHours > row.actualHours + 1e-8) ||
+          (row.overtimeHours !== null && row.overtimeHours > row.actualHours + 1e-8) ||
+          (row.regularHours !== null && row.overtimeHours !== null && Math.abs(row.regularHours + row.overtimeHours - row.actualHours) > 1e-8)))
+        throw fail('INVALID');
+      return row;
     });
-
-    const approachingOT = [];
-    for (const [name, emp] of employeeHours.entries()) {
-      if (emp.isAgency) continue;
-      // If employee has 30 to 39.5 hours, they are at risk of crossing into OT on next shift
-      if (emp.totalHours >= 32.0 && emp.totalHours < 40.0) {
-        approachingOT.push({
-          employeeName: name,
-          role: emp.role,
-          unit: emp.unit,
-          currentHours: Math.round(emp.totalHours * 10) / 10,
-          hoursUntilOT: Math.round((40.0 - emp.totalHours) * 10) / 10,
-          projectedOTRisk: 'High (Next 8hr shift will incur ' + (Math.round((emp.totalHours + 8 - 40) * 10) / 10) + ' hrs OT)'
-        });
-      } else if (emp.totalHours >= 40.0) {
-        approachingOT.push({
-          employeeName: name,
-          role: emp.role,
-          unit: emp.unit,
-          currentHours: Math.round(emp.totalHours * 10) / 10,
-          hoursUntilOT: 0,
-          projectedOTRisk: 'Already in OT (' + Math.round((emp.totalHours - 40) * 10) / 10 + ' hrs over 40)'
-        });
+    const round = (value, places = 1) => {
+      if (value === null) return null;
+      if (!Number.isFinite(value)) throw fail('INVALID');
+      return Number(value.toFixed(places));
+    };
+    const sum = (rows, field) => {
+      const value = rows.reduce((total, row) => total + row[field], 0);
+      if (!Number.isFinite(value)) throw fail('INVALID');
+      return value;
+    };
+    const completeSum = (rows, field) => rows.length && rows.every(row => row[field] !== null) ? sum(rows, field) : null;
+    const knownSum = (rows, field) => { const known = rows.filter(row => row[field] !== null); return known.length ? sum(known, field) : null; };
+    const actual = completeSum(records, 'actualHours'), overtime = completeSum(records, 'overtimeHours');
+    const agencyKnown = records.length > 0 && records.every(row => row.isAgency !== null);
+    const agencyRows = records.filter(row => row.isAgency === true);
+    const agencyHours = agencyKnown && actual !== null ? sum(agencyRows, 'actualHours') : null;
+    const knownAgencyHours = agencyRows.length ? knownSum(agencyRows, 'actualHours') : agencyKnown ? 0 : null;
+    const dateKnown = row => /^\d{4}-\d{2}-\d{2}$/.test(row.date || '') && Number.isFinite(Date.parse(row.date)) &&
+      new Date(row.date).toISOString().slice(0, 10) === row.date;
+    const dates = [...new Set(records.filter(dateKnown).map(row => row.date))].sort();
+    const coverage = {
+      totalRows: records.length, actualHoursRows: records.filter(r => r.actualHours !== null).length,
+      overtimeHoursRows: records.filter(r => r.overtimeHours !== null).length,
+      agencyRows: records.filter(r => r.isAgency !== null).length,
+      scheduledHoursRows: records.filter(r => r.scheduledHours !== null && r.actualHours !== null).length,
+      hourlyRateRows: records.filter(r => r.hourlyRate !== null).length,
+      datedRows: records.filter(dateKnown).length, weeklyPeriodConfirmed: false, completeShiftCoverageConfirmed: false
+    };
+    const clusters = field => {
+      const groups = new Map();
+      for (const row of records) {
+        const key = row[field] ?? 'Unknown';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(row);
       }
-    }
-
-    // 2. Incidental Punch Leakage Audit (Early punches, late clock-outs, missing meal deductions)
-    const incidentalPunchLeakage = [];
-    records.forEach(r => {
-      if (r.isAgency) return;
-      let leakMinutes = 0;
-      let reason = [];
-
-      // Check punch in: if scheduled at :00 and punched in earlier than :53 (more than 7 mins)
-      if (r.punchIn) {
-        const match = r.punchIn.match(/(\d+):(\d+)/);
-        if (match) {
-          const min = parseInt(match[2], 10);
-          if (min > 30 && min < 53) {
-            leakMinutes += (60 - min);
-            reason.push(`Early punch-in (${r.punchIn})`);
-          }
-        }
-      }
-
-      // Check shift variance: actual > scheduled by 15-45 mins (unapproved creeping OT)
-      const varianceHours = r.actualHours - r.scheduledHours;
-      if (varianceHours > 0.25 && varianceHours < 1.0) {
-        leakMinutes += Math.round(varianceHours * 60);
-        reason.push(`Creeping late clock-out (+${Math.round(varianceHours * 60)}m)`);
-      }
-
-      if (leakMinutes > 15) {
-        incidentalPunchLeakage.push({
-          employeeName: r.employeeName,
-          role: r.role,
-          date: r.date,
-          shift: r.shift,
-          leakMinutes,
-          estimatedCost: Math.round((leakMinutes / 60) * (r.hourlyRate * 1.5) * 100) / 100,
-          reasons: reason.join('; ')
-        });
-      }
+      return Object.fromEntries([...groups].map(([key, rows]) => [key, round(completeSum(rows, 'overtimeHours'))]));
+    };
+    const excessHours = rows => {
+      if (!rows.length) return records.length ? 0 : null;
+      if (rows.some(r => r.isAgency === null || (r.isAgency ? r.actualHours : r.overtimeHours) === null)) return null;
+      // Agency overtime is already part of agency worked hours; do not count it twice.
+      const value = rows.reduce((n, r) => n + (r.isAgency ? r.actualHours : r.overtimeHours), 0);
+      if (!Number.isFinite(value)) throw fail('INVALID');
+      return value;
+    };
+    const totalExcess = excessHours(records);
+    const roleFte = role => {
+      if (records.some(r => r.role === null)) return null;
+      const hours = excessHours(records.filter(r => r.role === role));
+      return hours === null ? null : round(hours / 40);
+    };
+    const varianceRows = records.filter(r => r.actualHours !== null && r.scheduledHours !== null);
+    const flaggedOccurrences = varianceRows.filter(r => r.actualHours - r.scheduledHours > 0.25).map(r => {
+      const delta = r.actualHours - r.scheduledHours, minutes = round(delta * 60, 0);
+      return { employeeName: r.employeeName, role: r.role, date: r.date, shift: r.shift,
+        leakMinutes: minutes, estimatedCost: r.hourlyRate === null ? null : round(delta * r.hourlyRate, 2),
+        reasons: 'Actual hours exceed scheduled hours by ' + minutes + ' minutes; review the source and approval. This does not establish unapproved pay.' };
     });
-
-    // 3. Overtime Clusters by Role and Shift
-    const clustersByRole = {};
-    const clustersByShift = {};
-    records.forEach(r => {
-      clustersByRole[r.role] = (clustersByRole[r.role] || 0) + r.overtimeHours;
-      clustersByShift[r.shift] = (clustersByShift[r.shift] || 0) + r.overtimeHours;
-    });
-
-    // 4. Net FTE Deficit & Hiring Gap Calculator
-    // In a 2-week period (80 hours = 1 FTE). Here assuming a 1-week or 2-week sample:
-    const weeklyOTHours = totalOT;
-    const weeklyAgencyHours = totalAgencyHours;
-    const totalWeeklyExcessHours = weeklyOTHours + weeklyAgencyHours;
-
-    // Standard Full-Time is 37.5 - 40 hours/week
-    const fteGapTotal = Math.round((totalWeeklyExcessHours / 37.5) * 10) / 10;
-    const cnaExcessHours = (clustersByRole['CNA'] || 0) + records.filter(r => r.isAgency && r.role === 'CNA').reduce((s, r) => s + r.actualHours, 0);
-    const cnaFteDeficit = Math.round((cnaExcessHours / 37.5) * 10) / 10;
-
-    const lpnExcessHours = (clustersByRole['LPN'] || 0) + records.filter(r => r.isAgency && r.role === 'LPN').reduce((s, r) => s + r.actualHours, 0);
-    const lpnFteDeficit = Math.round((lpnExcessHours / 37.5) * 10) / 10;
-
-    const rnExcessHours = (clustersByRole['RN'] || 0) + records.filter(r => r.isAgency && r.role === 'RN').reduce((s, r) => s + r.actualHours, 0);
-    const rnFteDeficit = Math.round((rnExcessHours / 37.5) * 10) / 10;
-
-    // Projected Monthly Savings from hiring Core FTEs vs paying Agency/OT
-    // Average Agency CNA: $52/hr vs Core CNA: $24/hr (savings: $28/hr)
-    // Average Core OT: $36/hr vs Core Regular: $24/hr (savings: $12/hr)
-    const monthlyAgencySpend = weeklyAgencyHours * 52 * 4.33;
-    const monthlyAgencyReplacedWithCoreSpend = weeklyAgencyHours * 24 * 4.33;
-    const monthlyNetSavingsFromHiring = Math.round((monthlyAgencySpend - monthlyAgencyReplacedWithCoreSpend) + (weeklyOTHours * 12 * 4.33));
-
+    const varianceComplete = records.length > 0 && varianceRows.length === records.length;
+    const varianceCostKnown = varianceComplete && flaggedOccurrences.every(r => r.estimatedCost !== null);
+    const agencySpendKnown = agencyKnown && agencyRows.every(r => r.actualHours !== null && r.hourlyRate !== null);
+    const agencySpend = agencySpendKnown ? agencyRows.reduce((n, r) => n + r.actualHours * r.hourlyRate, 0) : null;
+    if (agencySpend !== null && !Number.isFinite(agencySpend)) throw fail('INVALID');
     return {
-      hasData: records.length > 0,
-      demo: !!this.core.executiveDemo,
+      hasData: records.length > 0, demo: !!this.core.executiveDemo, coverage,
       periodSummary: {
-        totalHoursWorked: Math.round(totalActual * 10) / 10,
-        totalOvertimeHours: Math.round(totalOT * 10) / 10,
-        overtimePercentage: totalActual ? Math.round((totalOT / totalActual) * 1000) / 10 : 0,
-        totalAgencyHours: Math.round(totalAgencyHours * 10) / 10,
-        totalAgencyShifts: records.filter(r => r.isAgency).length,
-        estimatedTotalOTSpend: Math.round(totalOT * 38.0),
-        estimatedTotalAgencySpend: Math.round(totalAgencyHours * 52.0)
+        periodLabel: 'Imported period (workweek and complete coverage unconfirmed)',
+        totalHoursWorked: round(actual), knownHoursWorked: round(knownSum(records, 'actualHours')),
+        totalOvertimeHours: round(overtime), knownOvertimeHours: round(knownSum(records, 'overtimeHours')),
+        overtimePercentage: actual !== null && actual > 0 && overtime !== null ? round(overtime / actual * 100) : null,
+        totalAgencyHours: round(agencyHours), knownAgencyHours: round(knownAgencyHours),
+        totalAgencyShifts: agencyKnown ? agencyRows.length : null,
+        estimatedTotalOTSpend: null, estimatedTotalAgencySpend: round(agencySpend, 2)
       },
-      approachingOTRadar: approachingOT.sort((a, b) => b.currentHours - a.currentHours),
+      approachingOTRadar: [], approachingOTAvailable: false,
+      approachingOTNotice: 'Weekly overtime risk is unavailable: a reviewed workweek, complete hours and upcoming shifts are not confirmed.',
       incidentalPunchAudit: {
-        totalLeakMinutes: incidentalPunchLeakage.reduce((s, l) => s + l.leakMinutes, 0),
-        estimatedLeakCost: Math.round(incidentalPunchLeakage.reduce((s, l) => s + l.estimatedCost, 0)),
-        flaggedOccurrences: incidentalPunchLeakage
+        totalLeakMinutes: varianceComplete ? flaggedOccurrences.reduce((n, r) => n + r.leakMinutes, 0) : null,
+        estimatedLeakCost: varianceCostKnown ? round(flaggedOccurrences.reduce((n, r) => n + r.estimatedCost, 0), 2) : null,
+        comparisonRows: varianceRows.length, coverageComplete: varianceComplete, flaggedOccurrences,
+        notice: 'Schedule variance is a review flag. Punch times alone do not establish early arrival, unapproved overtime or payroll loss. Cost uses only an imported hourly rate.'
       },
-      clustersByRole,
-      clustersByShift,
+      clustersByRole: clusters('role'), clustersByShift: clusters('shift'),
       assumptions: {
-        formula: "Weekly Excess Hours / 40.0 hours per standard FTE = Net FTE Deficit",
-        standardFteHours: 40.0,
-        sourceCoverage: `${records.length} shifts analyzed across ${new Set(records.map(r => r.date)).size} dates`,
-        datesCovered: [...new Set(records.map(r => r.date))].sort(),
-        notice: "Staffing planning estimate based on imported schedule; assumes 40h standard threshold and complete shift coverage. Not an automated hiring directive or employee disciplinary evaluation."
+        formula: 'Imported-period core overtime plus agency worked hours / 40.0 hours = Net FTE Deficit planning equivalents',
+        standardFteHours: 40.0, sourceCoverage: records.length + ' imported records; ' + coverage.datedRows + ' have valid source dates.',
+        datesCovered: dates, weeklyPeriodConfirmed: false,
+        notice: 'Staffing planning estimate in 40-hour equivalents for the imported period. Workweek and complete shift coverage are unconfirmed. Not an automated hiring directive or employee disciplinary evaluation. Monthly savings and overtime pay require a reviewed period, compensation rules and replacement costs.'
       },
       fteHiringGaps: {
-        totalFteDeficit: fteGapTotal,
-        cnaFteDeficit,
-        lpnFteDeficit,
-        rnFteDeficit,
-        projectedMonthlySavings: monthlyNetSavingsFromHiring,
-        recommendation: `Hiring ${cnaFteDeficit} Full-Time CNAs and ${lpnFteDeficit} LPNs will eliminate ~${Math.round(totalWeeklyExcessHours)} weekly overtime & agency hours, generating an estimated $${monthlyNetSavingsFromHiring.toLocaleString()}/month in direct bottom-line savings.`
+        totalFteDeficit: totalExcess === null ? null : round(totalExcess / 40),
+        cnaFteDeficit: roleFte('CNA'), lpnFteDeficit: roleFte('LPN'), rnFteDeficit: roleFte('RN'),
+        projectedMonthlySavings: null,
+        recommendation: totalExcess === null ? 'Staffing planning equivalents are unavailable because overtime or agency coverage is incomplete. Monthly savings are unknown.' :
+          round(totalExcess) + ' imported-period core overtime and agency hours equal ' + round(totalExcess / 40) + ' units of 40 hours. Review source coverage, the workweek and staffing needs before hiring decisions. Monthly savings are unknown.'
       }
     };
   }

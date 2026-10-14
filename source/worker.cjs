@@ -460,14 +460,28 @@ class WorkerManager {
           } catch {}
           continue;
         }
-        if (!c.store.claim(env.id)) {
+        // Claim and recovery state must commit together. A crash or failed shared
+        // status write must never leave a consumed job with no local record.
+        const claimed = c.store.transaction(() => {
+          if (!c.store.claim(env.id)) return false;
+          c.store.put("job", env.id, {
+            id: env.id,
+            title: payload.title || payload.name,
+            status: "waiting",
+            remote: true,
+            recoveryInput: payload,
+            checkpoint: { phase: "queued", parts: [], fileIndex: 0 },
+          });
+          return true;
+        });
+        if (!claimed) {
           try {
             fs.unlinkSync(f);
           } catch {}
           continue;
         }
         try {
-          this.status(env.id, "running", { started: Date.now() });
+          this.publishStatus(env.id, "running", { started: Date.now() });
           await c.runJob(payload, true, true);
           try {
             fs.unlinkSync(f);

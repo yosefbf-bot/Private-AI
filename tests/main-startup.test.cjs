@@ -102,7 +102,7 @@ test('desktop workflow IPC executes saved assignments, imports, document search 
 });
 
 test('desktop browser IPC saves and reloads browser choice, opens selected engine and runs saved recipe',async t=>{
- const opened=[],runs=[],worker={open:async(...args)=>opened.push(args),run:async r=>{runs.push(r);return {complete:true};},close:async()=>{}};
+ let closes=0;const opened=[],runs=[],worker={open:async(...args)=>opened.push(args),run:async r=>{runs.push(r);return {complete:true};},close:async()=>{closes++;}};
  const b=await boot(t,{browserWorker:worker});assert.deepEqual(b.errors,[]);
  const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
  const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
@@ -111,6 +111,7 @@ test('desktop browser IPC saves and reloads browser choice, opens selected engin
  assert.equal((await call('browserOpen',{url:row.url,browser:row.browser})).ok,true);assert.equal(opened[0][3],'firefox');
  assert.equal((await call('browserRun',{id:row.id})).ok,true);assert.equal(runs[0].steps[0].op,'login');assert.equal(runs[0].browser,'firefox');
  b.core.locked=true;assert.equal((await call('browserOpen',row)).ok,false);assert.equal(opened.length,1);
+ b.core.locked=false;b.core.lock();assert.equal(closes,1,'The real desktop lock event closes the report browser.');
 });
 
 

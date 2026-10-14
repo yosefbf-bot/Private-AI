@@ -390,7 +390,11 @@ ShiftKey Agency Aide,CNA,West Wing,11-7 Night,8.0,8.0,0.0,22:55,07:05,Yes`;
     const analysis = opsDispatch(core, 'staffingAnalyze', { records: parsed.records });
     assert.ok(analysis.periodSummary.totalOvertimeHours > 0);
     assert.ok(analysis.periodSummary.totalAgencyHours > 0);
-    assert.ok(analysis.fteHiringGaps.projectedMonthlySavings > 0);
+    assert.equal(analysis.fteHiringGaps.projectedMonthlySavings, null, 'Missing rates and an unconfirmed period cannot establish monthly savings');
+    assert.equal(analysis.periodSummary.estimatedTotalOTSpend, null);
+    assert.equal(analysis.periodSummary.estimatedTotalAgencySpend, null);
+    assert.equal(analysis.incidentalPunchAudit.estimatedLeakCost, null);
+    assert.equal(analysis.assumptions.weeklyPeriodConfirmed, false);
     assert.ok(analysis.incidentalPunchAudit.flaggedOccurrences.length >= 1);
   });
 

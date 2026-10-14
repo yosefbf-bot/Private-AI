@@ -1276,6 +1276,7 @@ class Core {
   close() {
     require('./workflows/semantic-search.cjs').clear(this);
     clearInterval(this.speechWorkTimer);
+    clearInterval(this.reminderTimer);
     this.integrations.close();
     this.router.local?.close();
     for (const controller of this.requests.values()) controller.abort();

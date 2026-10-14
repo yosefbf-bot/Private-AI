@@ -22,6 +22,8 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
   let selectedShiftHours = 8.0;
   let contractText = '';
   let contractScanResult = null;
+  const numberLabel = (value, suffix = '') => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString() + suffix : 'Unknown';
+  const moneyLabel = value => typeof value === 'number' && Number.isFinite(value) ? '$' + value.toLocaleString() : 'Unavailable';
 
   function formatDate(ts) {
     if (!ts) return '—';
@@ -73,9 +75,9 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
 
   function renderMain(container) {
     const regCritical = regulatoryItems.filter(i => ['expired', 'critical', 'action_required'].includes(i.status)).length;
-    const approachingOTCount = staffingAnalysis?.approachingOTRadar?.length || 0;
-    const fteGap = staffingAnalysis?.fteHiringGaps?.totalFteDeficit || 0;
-    const monthlySavings = staffingAnalysis?.fteHiringGaps?.projectedMonthlySavings || 0;
+    const approachingOTCount = staffingAnalysis?.approachingOTAvailable ? staffingAnalysis.approachingOTRadar?.length ?? null : null;
+    const fteGap = staffingAnalysis?.fteHiringGaps?.totalFteDeficit ?? null;
+    const monthlySavings = staffingAnalysis?.fteHiringGaps?.projectedMonthlySavings ?? null;
 
     container.innerHTML = `
       <div class="ops-page ops-analytics-page">
@@ -101,18 +103,18 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
         <div class="ops-command-strip">
           <div class="ops-command-card ${approachingOTCount > 0 ? 'card-attention' : ''}">
             <div class="ops-card-badge">APPROACHING OVERTIME</div>
-            <div class="ops-card-metric">${staffingAnalysis?.hasData ? approachingOTCount : 'Unknown'} Staff</div>
-            <div class="ops-card-sub">At 32–36 hrs scheduled mid-week</div>
+            <div class="ops-card-metric">${numberLabel(approachingOTCount)} Staff</div>
+            <div class="ops-card-sub">Requires reviewed workweek and upcoming shifts</div>
           </div>
           <div class="ops-command-card ${fteGap > 0 ? 'card-followup' : ''}">
-            <div class="ops-card-badge">NET FTE DEFICIT</div>
-            <div class="ops-card-metric">${staffingAnalysis?.hasData ? fteGap : 'Unknown'} FTEs</div>
-            <div class="ops-card-sub">Core positions needed to end agency spend</div>
+            <div class="ops-card-badge">40-HOUR PLANNING EQUIVALENTS</div>
+            <div class="ops-card-metric">${numberLabel(fteGap)} Units</div>
+            <div class="ops-card-sub">Imported period; weekly hiring need unconfirmed</div>
           </div>
           <div class="ops-command-card card-commitments">
             <div class="ops-card-badge">PROJECTED MONTHLY SAVINGS</div>
-            <div class="ops-card-metric" style="color: #10b981;">${staffingAnalysis?.hasData ? '$'+monthlySavings.toLocaleString() : 'Unavailable'}</div>
-            <div class="ops-card-sub">By replacing agency &amp; OT with core hires</div>
+            <div class="ops-card-metric" style="color: #10b981;">${moneyLabel(monthlySavings)}</div>
+            <div class="ops-card-sub">Requires reviewed period, pay rules and replacement costs</div>
           </div>
           <div class="ops-command-card ${regCritical > 0 ? 'card-attention' : ''}">
             <div class="ops-card-badge">REGULATORY ACTIONS DUE</div>
@@ -176,14 +178,18 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
       <div class="staffing-analytics-view">
         <!-- Overtime Reduction Banner -->
         <div class="exec-card" style="border-left: 4px solid #10b981; margin-bottom: 20px;">
-          <h4>Staffing ROI &amp; Hiring Gap Recommendation</h4>
-          <p style="font-size: 15px; margin-top: 5px; color: #1f2937;">${esc(gaps.recommendation || 'Analyze your staffing data to calculate bottom-line savings.')}</p>
+          <h4>Imported Staffing Period &amp; Planning Review</h4>
+          <p>${esc(sum.periodLabel || 'Imported period — coverage unconfirmed')}</p>
+          <p>${esc(staffingAnalysis.assumptions?.sourceCoverage || 'Source coverage unknown')}</p>
+          <p>Worked hours: ${numberLabel(sum.totalHoursWorked)} · Overtime hours: ${numberLabel(sum.totalOvertimeHours)} · Agency hours: ${numberLabel(sum.totalAgencyHours)}</p>
+          <p class="exec-text-muted">Known source fields: ${numberLabel(sum.knownHoursWorked)} worked hours; ${numberLabel(sum.knownOvertimeHours)} overtime hours; ${numberLabel(sum.knownAgencyHours)} agency hours. Missing fields remain unknown.</p>
+          <p style="font-size: 15px; margin-top: 5px; color: #1f2937;">${esc(gaps.recommendation || 'Review imported hours and missing source fields before planning.')}</p>
           <div style="display: flex; gap: 20px; margin-top: 12px; font-size: 13px;">
-            <div><strong>CNA Deficit:</strong> ${gaps.cnaFteDeficit || 0} FTEs</div>
-            <div><strong>LPN Deficit:</strong> ${gaps.lpnFteDeficit || 0} FTEs</div>
-            <div><strong>RN Deficit:</strong> ${gaps.rnFteDeficit || 0} FTEs</div>
-            <div><strong>Total Agency Spend:</strong> $${(sum.estimatedTotalAgencySpend || 0).toLocaleString()}</div>
-            <div><strong>Total Overtime Spend:</strong> $${(sum.estimatedTotalOTSpend || 0).toLocaleString()}</div>
+            <div><strong>CNA 40-hour units:</strong> ${numberLabel(gaps.cnaFteDeficit)}</div>
+            <div><strong>LPN 40-hour units:</strong> ${numberLabel(gaps.lpnFteDeficit)}</div>
+            <div><strong>RN 40-hour units:</strong> ${numberLabel(gaps.rnFteDeficit)}</div>
+            <div><strong>Agency hours × imported rate:</strong> ${moneyLabel(sum.estimatedTotalAgencySpend)}</div>
+            <div><strong>Overtime spend:</strong> ${moneyLabel(sum.estimatedTotalOTSpend)}</div>
           </div>
         </div>
 
@@ -193,21 +199,21 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
             <div class="exec-card-header">
               <div>
                 <h4>Pre-Shift "Approaching Overtime" Warning Radar</h4>
-                <p class="exec-text-muted">Staff scheduled at 32–36 hours mid-week before working upcoming shifts.</p>
+                <p class="exec-text-muted">${esc(staffingAnalysis.approachingOTNotice || 'Requires a reviewed workweek, complete employee hours and upcoming shifts.')}</p>
               </div>
             </div>
             <div class="approaching-ot-list" style="margin-top: 10px;">
               ${(staffingAnalysis.approachingOTRadar || []).map(emp => `
                 <div class="approaching-ot-row">
                   <div class="ot-emp-info">
-                    <strong>${esc(emp.employeeName)}</strong> (${esc(emp.role)} — ${esc(emp.unit)})
+                    <strong>${esc(emp.employeeName || 'Unknown employee')}</strong> (${esc(emp.role || 'Unknown role')} — ${esc(emp.unit || 'Unknown unit')})
                     <div class="exec-text-sm" style="color: #b45309;">${esc(emp.projectedOTRisk)}</div>
                   </div>
                   <div class="ot-hours-pill">
                     <span class="exec-pill pill-amber">${emp.currentHours} / 40.0 hrs</span>
                   </div>
                 </div>
-              `).join('') || '<div class="empty-state-sm">No employees at imminent risk of overtime.</div>'}
+              `).join('') || '<div class="empty-state-sm">Weekly overtime risk is unavailable until source coverage is reviewed.</div>'}
             </div>
           </div>
 
@@ -215,24 +221,25 @@ export function createOperationsAnalyticsUI({ api, esc, toast, refresh, renderPa
           <div class="exec-card">
             <div class="exec-card-header">
               <div>
-                <h4>Incidental Punch Leakage Audit</h4>
-                <p class="exec-text-muted">Early clock-ins (>7m) and creeping late clock-outs causing unapproved overtime.</p>
+                <h4>Schedule Variance Review</h4>
+                <p class="exec-text-muted">${esc(leaks.notice || 'Actual versus scheduled hours are review flags; they do not establish unapproved pay.')}</p>
+                <p class="exec-text-muted">${numberLabel(leaks.comparisonRows)} records have comparable scheduled and actual hours; coverage ${leaks.coverageComplete ? 'complete for imported rows' : 'incomplete'}.</p>
               </div>
-              <span class="exec-pill pill-red">-$${leaks.estimatedLeakCost || 0} Lost</span>
+              <span class="exec-pill pill-gray">Source-rate estimate: ${moneyLabel(leaks.estimatedLeakCost)}</span>
             </div>
             <div class="punch-leakage-list" style="margin-top: 10px;">
               ${(leaks.flaggedOccurrences || []).map(leak => `
                 <div class="leakage-row">
                   <div>
-                    <strong>${esc(leak.employeeName)}</strong> (${esc(leak.role)} — ${esc(leak.shift)})
+                    <strong>${esc(leak.employeeName || 'Unknown employee')}</strong> (${esc(leak.role || 'Unknown role')} — ${esc(leak.shift || 'Unknown shift')})
                     <div class="exec-text-sm">${esc(leak.reasons)}</div>
                   </div>
                   <div style="text-align: right;">
                     <span class="exec-pill pill-red">+${leak.leakMinutes}m extra</span>
-                    <div class="exec-text-sm" style="color: #6b7280;">~$${leak.estimatedCost} cost</div>
+                    <div class="exec-text-sm" style="color: #6b7280;">Source-rate estimate: ${moneyLabel(leak.estimatedCost)}</div>
                   </div>
                 </div>
-              `).join('') || '<div class="empty-state-sm">No significant incidental punch leakage detected.</div>'}
+              `).join('') || '<div class="empty-state-sm">No variance review flags in comparable rows. Missing schedule, start-time and approval data are not an all-clear.</div>'}
             </div>
           </div>
         </div>
@@ -502,14 +509,16 @@ Elena Rostova,LPN,Subacute Rehab,7-3 Day,8.0,8.8,0.8,06:48,15:35,No`;
       btnSubmitCsv.addEventListener('click', async () => {
         const text = container.querySelector('#input-csv-text')?.value.trim();
         if (!text) return toast('Please paste CSV data', 'warn');
-        const parsed = await api('staffingParseCsv', { csvText: text, filename: 'onshift_upload.csv' });
-        if (parsed.success) {
-          staffingAnalysis = await api('staffingAnalyze', { records: parsed.records });
+        try {
+          const parsed = await api('staffingParseCsv', { csvText: text, filename: 'onshift_upload.csv' });
+          if (!parsed.success) return toast(parsed.error || 'Staffing CSV could not be validated.', 'error');
+          const analysis = await api('staffingAnalyze', { records: parsed.records });
+          staffingAnalysis = analysis;
           toast(`Parsed ${parsed.records.length} staffing records from ${parsed.detectedFormat}!`, 'success');
           showCsvImportModal = false;
           renderMain(container);
-        } else {
-          toast(parsed.error || 'Failed to parse CSV', 'error');
+        } catch {
+          toast('Staffing CSV could not be analyzed. Review the source fields and retry.', 'error');
         }
       });
     }

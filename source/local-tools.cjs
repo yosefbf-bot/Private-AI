@@ -1,15 +1,18 @@
 'use strict';
 const {fail}=require('./security.cjs');
 function range(which){const a=new Date();a.setHours(0,0,0,0);if(which==='tomorrow')a.setDate(a.getDate()+1);const b=new Date(a);b.setDate(b.getDate()+1);const day=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");return {start:day(a),end:day(a)};}
-function formatCalendar(rows){
- if(!rows.length)return 'No appointments were returned for this date.';
+function formatCalendar(result){
+ const rows=Array.isArray(result)?result:result?.events;
+ if(!Array.isArray(rows)||rows.some(row=>!row||typeof row!=='object'||Array.isArray(row)))throw fail('INVALID');
+ const coverage=!Array.isArray(result)&&result.truncated?'\n\nPartial calendar results — additional appointments may not be shown.':'';
+ if(!rows.length)return 'No appointments were returned for this date.'+coverage;
  const sorted=[...rows].sort((a,b)=>Date.parse(a.start)-Date.parse(b.start));
  const lines=sorted.map(x=>`- ${x.subject||'(No subject)'} — ${x.start||''} to ${x.end||''}`),conflicts=[];
  for(let i=0;i<sorted.length;i++)for(let j=i+1;j<sorted.length;j++){
   const a=sorted[i],b=sorted[j];if(a.allDay||b.allDay)continue;
   if(Date.parse(a.start)<Date.parse(b.end)&&Date.parse(b.start)<Date.parse(a.end))conflicts.push(`- ${a.subject||'(No subject)'} overlaps ${b.subject||'(No subject)'}`);
  }
- return lines.join('\n')+'\n\n'+(conflicts.length?'Potential time conflicts:\n'+conflicts.join('\n'):'No timed overlaps detected in the returned appointments.');
+ return lines.join('\n')+'\n\n'+(conflicts.length?'Potential time conflicts:\n'+conflicts.join('\n'):'No timed overlaps detected in the returned appointments.')+coverage;
 }
 function createTools(core,access,browser){return async prompt=>{
  const p=prompt.trim().toLowerCase();
