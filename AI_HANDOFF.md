@@ -1,3 +1,22 @@
+## October 14 real Windows candidate gate correction
+
+Both e9550ce hosted Windows source suites passed705/705 with0failure/cancel/skip,
+and both genuine NSIS installers built. Candidate freezing rejected checkout
+changes before any installer/application/inference execution. Exact recovered
+payload passes416 PE checks; packaged build-info equals committed metadata.
+Isolated clean Git checkouts reproduced six generated browser assets becoming
+modified during preparation despite identical LF blob bytes and canonical hash.
+Explicit LF checkout attributes for ONLY those six generated manifest/Readability
+files proved clean before/after/twice with both autocrlf settings. Strict source
+cleanliness and unchanged release evidence gates remain enforced. Safe freeze
+phase/code diagnostics now retain a non-sensitive failure receipt if needed.
+Fresh exact-head complete gates are required before PR21 can merge or ship.
+
+Android test-only347a128 retains production APK/signing/crypto and all security
+assertions, replacing only unbounded test scroll actions. Fresh six-case actual
+checks pending. Earlier e67 app/rawOS expiry passed twice on softwareKeyInfo0;
+physical TEE/phone acceptance is unperformed. No owner app/data/key changes.
+
 ## October 14 Windows candidate acceptance in progress
 
 Desktop Phase4 PR20 is merged after all8 exact661b6e8 checks passed; main is

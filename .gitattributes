@@ -11,3 +11,11 @@
 # Preserve exact hashes of the pinned upstream QR sources.
 source/ui/vendor/qrcodegen.mjs text eol=lf
 source/ui/vendor/qrcodegen.ts text eol=lf
+
+# Generated browser files must be stable after beforePack on Windows checkouts.
+chrome_extension/manifest.json text eol=lf
+chrome_extension/firefox/manifest.json text eol=lf
+chrome_extension/vendor/readability.js text eol=lf
+chrome_extension/vendor/readability-LICENSE.md text eol=lf
+chrome_extension/firefox/vendor/readability.js text eol=lf
+chrome_extension/firefox/vendor/readability-LICENSE.md text eol=lf

@@ -17,7 +17,7 @@
     "currentHistorySecretFindings": 0,
     "installedAppsChanged": false,
     "androidBase": "7e817069468a5106f35a6908e916dad92e72e1ef",
-    "androidSource": "e67b323e104eeafa899170e2a3443c0485954767",
+    "androidSource": "347a128122345807b8fe2f74383a9a2b24f0134e",
     "sourceAndInstalledBuildDistinct": true,
     "priorDesktopMain": "1c1389d8116e6c18991aaef14b9231fda6023e75",
     "priorAndroidMain": "7e817069468a5106f35a6908e916dad92e72e1ef",
@@ -57,7 +57,22 @@
     "currentProductionAdvisories": 0,
     "actualCandidateWindowsInstallerExecuted": false,
     "actualCandidateWindowsApplicationPassed": false,
-    "actualCandidateModelInferenceExecuted": false
+    "actualCandidateModelInferenceExecuted": false,
+    "windowsSourceCheckpoint": {
+      "commit": "e9550ce5d7bd01fe25159a10cd0184eaeb8c6c7a",
+      "passed": 705,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "runs": [
+        38634509025,
+        38634587426
+      ],
+      "installerBuilt": true,
+      "installerExecuted": false,
+      "freezerFailure": "reproduced-six-generated-browser-asset-checkout-line-endings",
+      "narrowFix": "six-explicit-LF-attributes; strict-clean-source-gate-preserved; both-autocrlf-configurations-proved-clean"
+    }
   },
   "assistantFirstRedesign": {
     "status": "windows-accepted-android-device-passed-artifact-retention-blocked",

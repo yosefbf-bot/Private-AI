@@ -34,3 +34,21 @@ remain pending and must be recorded before shipping. Hosted Windows execution
 qualifies its recorded Windows runner environment; it does not establish physical
 phone/account/network/OEM acceptance or every upgrade from a prior installation.
 No installer is run on the owner's existing account by this assignment.
+
+
+## First exact-head hosted result and correction
+
+On e9550ce, both actual Windows source suites passed705/705 (0fail/cancel/skip)
+and the genuine installer built. Freezing failed before candidate/baseline
+receipts, model setup or installation. The recovered push installer SHA-256 is
+157cb6633ca995ba4f905d9c1249137832beea88b30aa7e909f20ce7b5c5fe4a;
+its inert extracted payload passes416 PE checks and packaged metadata matches
+committed source exactly. It is not an accepted release artifact.
+
+Clean isolated checkouts proved that preparing six generated browser manifests/
+Readability files caused checkout-line-ending status changes despite final bytes
+matching Git's LF blobs. Explicit LF attributes on those six paths kept both
+Git autocrlf configurations clean before/after repeated preparation. No file
+content, permissions, source hash or security gate was relaxed. New safe build
+failure receipts report phase/code and bounded relative tracked paths only.
+Fresh exact-head actual Windows acceptance remains required.

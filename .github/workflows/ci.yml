@@ -146,6 +146,7 @@ jobs:
           path: |
             dist/PrivateAI-Setup-*.exe
             Validation/*/candidate.json
+            Validation/*/candidate-freeze-failure.json
             Validation/*/packaging-baseline.json
             ${{ runner.temp }}/privateai-acceptance/*.json
             ${{ runner.temp }}/privateai-acceptance/clean/*.json
