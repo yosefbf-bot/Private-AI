@@ -83,3 +83,22 @@ skips (69.715s); syntax237 and repository390 passed. The corrected exact-head
 hosted source suite, installer/application,
 real inference and immutable release-gate results remain pending. No installer
 or permission operation was performed on the owner's application/data.
+
+
+## Subsequent236bd23 execution
+
+Both hosted Windows suites passed708/708 and three genuine ACL cases. The PR
+candidate passed real installation, packaged app17checks/12diagnostics/20views,
+same-store restart and Small inference at3GiB with effective2048/saved4096.
+Uninstall acceptance then failed because the wrapper assumed a display-name
+filename. The pinned builder derives productFilename from executableName:
+Uninstall PrivateAI.exe. The correction derives that contract and rejects
+missing, ambiguous, escaping or linked uninstallers; it does not rename the app.
+
+The push candidate passed initial installation/application, but its restart's
+shared-chat successful-HTTP assertion failed without retained status/cause.
+A real Core/SQLite/HTTPS probe did not reproduce it across three clean restarts.
+Safe validation-only diagnostics and persisted pause/resume coverage are added;
+production gateway/pause/resource behavior remains unchanged. This failure is
+unexplained until actual diagnostic evidence establishes the condition. Fresh
+complete exact-head acceptance, retention and portable gates remain mandatory.

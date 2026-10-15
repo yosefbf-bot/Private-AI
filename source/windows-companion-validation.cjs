@@ -4,6 +4,23 @@
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),https=require('node:https'),net=require('node:net'),path=require('node:path'),tls=require('node:tls');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
+const HTTP_OPERATIONS=new Map([
+ ['/status','status'],['/pair/exchange','pair_exchange'],['/tasks','tasks'],['/alerts','alerts'],
+ ['/actions','actions'],['/actions/update','action_update'],['/captures/create','capture_create'],
+ ['/evidence/write','evidence_write'],['/evidence/read','evidence_read'],['/drafts/save','draft_save'],
+ ['/notifications','notifications'],['/notifications/ack','notification_ack'],
+ ['/conversations','conversation_list'],['/conversations/history','conversation_history'],['/chat/send','chat_send']
+]);
+class AcceptanceHTTPError extends Error { constructor(message){super(message);this.code='VALIDATION_HTTP';} }
+function assertHTTP(endpoint,response,expected){
+ if(Number.isInteger(expected)&&expected>=100&&expected<=599&&response?.status===expected)return;
+ const status=value=>Number.isInteger(value)&&value>=100&&value<=599?value:'unknown';
+ const code=response?.body?.error?.code;
+ const safeCode=typeof code==='string'&&Object.hasOwn(require('./security.cjs').CODES,code)?code:'UNKNOWN';
+ // Operation names are fixed enums. Never serialize the response or request data.
+ throw new AcceptanceHTTPError('HTTP '+(HTTP_OPERATIONS.get(endpoint)||'unknown')+' status '+status(response?.status)+'; code '+safeCode+'; expected '+status(expected));
+}
+
 async function bounded(work,ms=15000){
  let timer;
  try{return await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Acceptance timeout')),ms);})]);}
@@ -53,8 +70,8 @@ async function run({core,win,reportPath}){
  const rawCall=(op,data={})=>{const ms=remaining();return bounded(win.webContents.executeJavaScript('window.privateAI.call('+JSON.stringify(op)+','+JSON.stringify(data)+')'),ms);};
  const call=async(op,data={})=>{const response=await rawCall(op,data);assert.equal(response.ok,true,'IPC '+op);return response.result;};
  const ipcDenied=async(op,data,code)=>{const response=await rawCall(op,data);assert.equal(response.ok,false);assert.equal(response.error.code,code);};
- const ok=async(pairing,endpoint,body,options)=>{remaining();const response=await request(pairing,endpoint,body,options);assert.equal(response.status,200,'HTTPS '+endpoint);return response.body;};
- const denied=async(pairing,endpoint,body,status,options)=>{remaining();assert.equal((await request(pairing,endpoint,body,options)).status,status,'HTTPS denied '+endpoint);};
+ const ok=async(pairing,endpoint,body,options)=>{remaining();const response=await request(pairing,endpoint,body,options);assertHTTP(endpoint,response,200);return response.body;};
+ const denied=async(pairing,endpoint,body,status,options)=>{remaining();assertHTTP(endpoint,await request(pairing,endpoint,body,options),status);};
  let phase='isolated preconditions',initialGateway,originalLock,initialReminders,ownedLock=false,error=null;
  try{
   const summary=await call('summary');
@@ -216,7 +233,7 @@ async function run({core,win,reportPath}){
   // Emit only a bounded code and source line, never exception values or pairing data.
   const code=/^[A-Z][A-Z0-9_]{1,60}$/.test(cause?.code||'')?cause.code:'UNKNOWN';
   const line=/windows-companion-validation\.cjs:(\d+):/.exec(cause?.stack||'')?.[1]||'unknown';
-  error=Object.assign(Error('Packaged companion acceptance failed at '+phase+' ('+code+', check line '+line+')'),{code:'VALIDATION_COMPANION'});
+  error=Object.assign(Error('Packaged companion acceptance failed at '+phase+' ('+code+', check line '+line+')'+(cause instanceof AcceptanceHTTPError?'; '+cause.message:'')),{code:'VALIDATION_COMPANION'});
  }
  finally{
   // Only this isolated acceptance's pairings and lock are changed. Never use a test unlock.
@@ -232,4 +249,4 @@ async function run({core,win,reportPath}){
  if(error)throw error;
  return result;
 }
-module.exports={run};
+module.exports={run,assertHTTP};

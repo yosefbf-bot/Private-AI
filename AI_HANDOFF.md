@@ -1,3 +1,18 @@
+## October 15 Windows retention and shared-chat acceptance follow-up
+
+Both236bd23 Windows suites passed708/708 and all3 actual ACL cases. The PR
+candidate genuinely passed installation, app17checks/12diagnostics/20views,
+restart and Small inference at3GiB (effective2048/saved4096) before the wrapper
+looked for the display-name uninstaller rather than pinned NSIS productFilename.
+The wrapper now derives/validates its exact single direct nonlinked uninstaller;
+five focused tests and real PowerShell5.1 name lookup passed. No build rename.
+The push candidate passed initial install/app, but restart rejected one shared
+chat HTTPS request. Its precise status/cause was not retained; safe validation
+operation/status/error diagnostics and targeted restart/pause checks are being
+added. Do not call that unexplained rejection fixed or merge pending checks.
+Android PR4 merged exact-green to mainffa762a after6/6 real cases in both runs;
+local95/95 includes both real HTTPS fixtures. Owner installation/data untouched.
+
 ## October 15 Windows ACL startup correction
 
 Read [the current Windows gate](docs/WINDOWS_CANDIDATE_GATE_2026-10-14.md).

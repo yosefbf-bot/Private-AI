@@ -49,6 +49,16 @@ function Assert-Tree($Expected,[string]$Root) {
 function PrivateAI-Registration {
   @(Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object {$_.DisplayName -match 'Private\s*AI'})
 }
+function Resolve-CandidateUninstaller([string]$Root,[string]$Name) {
+  $directory=[IO.Path]::GetFullPath($Root)
+  if($Name -notmatch '^Uninstall [^\x00-\x1f<>:"/\\|?*]+\.exe$' -or [IO.Path]::GetFileName($Name) -ne $Name){throw 'Invalid candidate uninstaller name.'}
+  $candidate=[IO.Path]::GetFullPath((Join-Path $directory $Name))
+  if(-not (Test-Under $directory $candidate) -or [IO.Path]::GetDirectoryName($candidate) -ne $directory){throw 'Candidate uninstaller escapes its installation directory.'}
+  Assert-NoLinks $candidate
+  $uninstallerRows=@(Get-ChildItem -LiteralPath $directory -Filter 'Uninstall*.exe' -File)
+  if($uninstallerRows.Count -ne 1 -or $uninstallerRows[0].FullName -ne $candidate -or -not (Test-Path -LiteralPath $candidate -PathType Leaf)){throw 'The exact single candidate uninstaller is missing or ambiguous.'}
+  return $candidate
+}
 function Invoke-ActualProcess([string]$File,[string]$Arguments,[int]$Timeout,[string]$LogDirectory) {
   $options=@{FilePath=$File;ArgumentList=$Arguments;WindowStyle='Hidden';PassThru=$true}
   if($LogDirectory){$options.RedirectStandardOutput=Join-Path $LogDirectory 'process.stdout.log';$options.RedirectStandardError=Join-Path $LogDirectory 'process.stderr.log'}
@@ -96,6 +106,11 @@ if([IO.Path]::GetExtension($installerPath) -ne '.exe' -or (Get-FileHash -Literal
 if((Get-FileHash -LiteralPath (Join-Path $stagePath 'PrivateAI.exe') -Algorithm SHA256).Hash -ne $ExpectedExecutableSHA256 -or (Get-FileHash -LiteralPath (Join-Path $stagePath 'resources\app.asar') -Algorithm SHA256).Hash -ne $ExpectedArchiveSHA256){throw 'Staged candidate hashes mismatch.'}
 $repositoryRoot=Split-Path $PSScriptRoot -Parent
 $node=(Get-Command node -ErrorAction Stop).Source
+# Resolve the same product filename used by this pinned NSIS builder. In this
+# application executableName=PrivateAI, so the display name's space is not used.
+$uninstallerNameOutput=& $node -e 'const path=require("node:path");const root=process.argv[1];const p=require(path.join(root,"package.json"));const {AppInfo}=require(path.join(root,"node_modules/app-builder-lib/out/appInfo.js"));process.stdout.write(JSON.stringify("Uninstall "+new AppInfo({metadata:p,config:p.build},undefined,p.build.win).productFilename+".exe"));' $repositoryRoot
+if($LASTEXITCODE -ne 0){throw 'The pinned builder uninstaller contract could not be resolved.'}
+$uninstallerName=$uninstallerNameOutput | ConvertFrom-Json
 if($env:ELECTRON_BUILDER_7ZIP_PATH){throw 'Custom ZIP-tool overrides are not permitted for candidate acceptance.'}
 $zipToolOutput=& $node -e 'require(process.argv[1]).getPath7za().then(p=>process.stdout.write(JSON.stringify(p))).catch(()=>process.exit(1))' (Join-Path $repositoryRoot 'node_modules\app-builder-lib\out\toolsets\7zip.js')
 if($LASTEXITCODE -ne 0){throw 'The checksum-pinned builder ZIP tool could not be resolved.'}
@@ -135,8 +150,8 @@ try {
   # and actual packaged synthetic checks passed. It never replaces existing data.
   $receipt.phase='retention';Copy-SyntheticData $dataPath $defaultData
   $retainedRows=@(Get-Tree $defaultData)
-  $uninstaller=Join-Path $installPath 'Uninstall Private AI.exe'
-  Assert-NoLinks $uninstaller
+  $uninstaller=Resolve-CandidateUninstaller $installPath $uninstallerName
+  $receipt.uninstallerName=$uninstallerName;$receipt.uninstallerSHA256=(Get-FileHash -LiteralPath $uninstaller -Algorithm SHA256).Hash.ToLower()
   $uninstallExit=Invoke-ActualProcess $uninstaller '/S' 300000 $null
   $end=[DateTime]::UtcNow.AddSeconds(60)
   while(([DateTime]::UtcNow -lt $end) -and ((Test-Path -LiteralPath $installedExe) -or @(PrivateAI-Registration).Count)){Start-Sleep -Milliseconds 200}

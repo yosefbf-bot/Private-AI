@@ -53,7 +53,22 @@
       "errors": 0,
       "skipped": 0
     },
-    "androidHostedDeviceAcceptance": "fresh-e51ea55-six-case-runs-pending; original-failures-retained",
+    "androidHostedDeviceAcceptance": {
+      "source": "e51ea55020c23725b3d862df2e912ab1183bcabd",
+      "runs": [
+        38699491850,
+        38699482820
+      ],
+      "passedPerRun": 6,
+      "failedPerRun": 0,
+      "skippedPerRun": 0,
+      "hostedUnitPassedPerRun": 93,
+      "hostedUnitExternalFixtureSkipsPerRun": 2,
+      "bothFixtureCasesExecutedLocally": true,
+      "hostedLintErrors": 0,
+      "hostedLintWarnings": 76,
+      "physicalPhoneAcceptance": false
+    },
     "currentProductionAdvisories": 0,
     "actualCandidateWindowsInstallerExecuted": false,
     "actualCandidateWindowsApplicationPassed": false,
@@ -109,6 +124,28 @@
       "installerExecuted": false,
       "freezerFailure": "reproduced-six-generated-browser-asset-checkout-line-endings",
       "narrowFix": "six-explicit-LF-attributes; strict-clean-source-gate-preserved; both-autocrlf-configurations-proved-clean"
+    },
+    "androidMain": "ffa762a1495051449bd995d165dd8f7f7f50ac6f",
+    "windowsHosted236Checkpoint": {
+      "source": "236bd233691db7b144989790ba7b9e366fb12790",
+      "runs": [
+        38700270145,
+        38700266072
+      ],
+      "sourcePassedPerRun": 708,
+      "sourceFailedPerRun": 0,
+      "nativeAclPassedPerRun": 3,
+      "prInstallerApplicationRestartAndSmallInferencePassed": true,
+      "prApplicationChecks": 17,
+      "prDiagnostics": 12,
+      "prViews": 20,
+      "prInferenceCapBytes": 3221225472,
+      "prEffectiveContext": 2048,
+      "prSavedContext": 4096,
+      "prFailure": "retention-wrapper-wrong-uninstaller-name",
+      "pushInitialInstallerApplicationPassed": true,
+      "pushRestartFailure": "shared-chat-HTTP-success-assertion-endpoint-status-unknown",
+      "acceptedRelease": false
     }
   },
   "assistantFirstRedesign": {
