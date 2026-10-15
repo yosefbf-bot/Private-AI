@@ -1,6 +1,6 @@
 {
   "fourPhaseReliability20261014": {
-    "phase": "phase4-desktop-source-merged-native-acl-correction-acceptance-pending",
+    "phase": "phase4-android-merged-windows-pause-cause-validation-pending",
     "report": "docs/FOUR_PHASE_PROGRESS_2026-10-13.md",
     "phase4Report": "docs/COMPANION_PAIRING_2026-10-14.md",
     "base": "1c1389d8116e6c18991aaef14b9231fda6023e75",
@@ -146,6 +146,29 @@
       "pushInitialInstallerApplicationPassed": true,
       "pushRestartFailure": "shared-chat-HTTP-success-assertion-endpoint-status-unknown",
       "acceptedRelease": false
+    },
+    "windowsHosted56Checkpoint": {
+      "source": "56bb69d62b5114430dd039394cd5b3f84ce12c97",
+      "pushRun": 38704280107,
+      "sourcePassed": 712,
+      "sourceFailed": 0,
+      "actualInstallerApplicationRestartAndSmallInferencePassed": true,
+      "actualUninstallerExecuted": true,
+      "reinstallationProgressed": true,
+      "failurePhase": "reinstall-shared-chat",
+      "failureHttpStatus": 409,
+      "failureCode": "COMPANION_PAUSED",
+      "pauseCauseEstablished": false,
+      "acceptedRelease": false
+    },
+    "windowsPauseDiagnostics": {
+      "focusedPassed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "currentEventsAllowlistedAndBounded": true,
+      "automaticResumeIntroduced": false,
+      "productionGatewayModified": false,
+      "newExactHeadAcceptance": "pending"
     }
   },
   "assistantFirstRedesign": {

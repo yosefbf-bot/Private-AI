@@ -102,3 +102,16 @@ Safe validation-only diagnostics and persisted pause/resume coverage are added;
 production gateway/pause/resource behavior remains unchanged. This failure is
 unexplained until actual diagnostic evidence establishes the condition. Fresh
 complete exact-head acceptance, retention and portable gates remain mandatory.
+
+
+##56bb69d retained safety pause
+
+The push passed712/712 source tests, real installation/application/restart and
+Small inference; corrected uninstaller resolution executed successfully. During
+reinstalled-app acceptance the shared-chat route returned409 COMPANION_PAUSED.
+The cause of the persisted pause is not established. Safe read-only diagnostics
+now retain paused/safeStartup flags and at most20 allowlisted event names since
+startup time.26 focused tests passed, including redaction, zero writes, actual
+Core/SQLite/HTTPS pause/resume/replay/revocation across restart. No test-only
+automatic resume or production gateway change masks the failure. Fresh complete
+actual Windows acceptance remains mandatory before merge or distribution.

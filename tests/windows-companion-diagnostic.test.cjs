@@ -1,6 +1,6 @@
 "use strict";
 const {test}=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
-const {assertHTTP}=require('../source/windows-companion-validation.cjs');
+const {assertHTTP,pauseDiagnostic}=require('../source/windows-companion-validation.cjs');
 const {fixture}=require('./helpers.cjs'),{Core}=require('../source/core.cjs'),{Store}=require('../source/database.cjs');
 const {CompanionGateway}=require('../source/companion-gateway.cjs');
 const {testCertificate,freePort,request}=require('./companion-fixture.cjs');
@@ -19,6 +19,15 @@ test('acceptance HTTP failure identifies only a fixed operation, status and appr
   assert.equal(error.message,'HTTP conversation_history status 200; code UNKNOWN; expected 403');return true;
  });
  assert.doesNotThrow(()=>assertHTTP('/status',{status:200,body:{sensitive:privateData}},200));
+});
+
+test('pause diagnostics report only bounded current-process technical events without resuming',()=>{
+ const privateData='SYNTHETIC secret filename, prompt, resident and pairing key';let writes=0;
+ const core={settings:()=>({workerPaused:true}),saveSettings:()=>{writes++;},stability:{safe:true,started:100,incidents:[{event:'unclean-start',time:99},{event:'renderer-hung',time:101},{event:privateData,time:102},{event:'promise-failed',time:'secret timestamp'}]}};
+ assert.equal(pauseDiagnostic(core),'background paused=true; safeStartup=true; currentEvents=renderer-hung');
+ assert.equal(writes,0);assert.equal(core.settings().workerPaused,true);
+ assert.equal(pauseDiagnostic({settings:()=>{throw Error(privateData);}}),'background state=unavailable');
+ assert.equal(pauseDiagnostic({settings:()=>({workerPaused:false}),stability:{safe:false,started:100,incidents:[]}}),'background paused=false; safeStartup=false; currentEvents=none');
 });
 
 test('selected PC chat and intentional pause retain their policy across clean Core SQLite restarts',async t=>{
@@ -53,6 +62,7 @@ test('selected PC chat and intentional pause retain their policy across clean Co
  assert.equal(core.chat(selected.id).messages.length,4);
  core.saveSettings({workerPaused:true});await restart();
  assert.equal(core.settings().workerPaused,true,'Restart must not silently resume a persisted pause');
+ assert.equal(pauseDiagnostic(core),'background paused=true; safeStartup=false; currentEvents=none');
  const paused=await request(gateway,phone,'/chat/send',data);assertHTTP('/chat/send',paused,409);assert.equal(paused.body.error.code,'COMPANION_PAUSED');
  assert.equal(core.chat(selected.id).messages.length,4);
  assertHTTP('/conversations/history',await request(gateway,phone,'/conversations/history',{sessionId:data.sessionId}),200);

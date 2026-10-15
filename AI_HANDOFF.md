@@ -1,3 +1,18 @@
+## October 15 current retained pause — NOT a completed release
+
+Android mainffa762a passes its merged-main GitHub job and both reviewed source
+runs passed6/6 real device cases. Desktop56bb69d push passed712 Windows tests,
+real installation/application/restart/Small inference and actual uninstallation.
+Reinstalled-app shared chat returned409 COMPANION_PAUSED. The uninstaller fix
+works; the event that persisted the pause remains unproved. Read-only bounded
+health diagnostics now include paused/safeStartup flags and allowlisted event
+names since startup time. Targeted26/26 passed. NO automatic resume, permission
+change or production gateway change was introduced to make acceptance pass.
+Success uses normal app.quit/before-quit/Core.close; a dirty-marker/renderer/
+model/sleep cause must be established from actual evidence, never guessed.
+Fresh exact-head complete Windows gates are pending; keep PR21 draft/unmerged.
+Owner installation/data remain intact. At1% remaining save/report/pause.
+
 ## October 15 Windows retention and shared-chat acceptance follow-up
 
 Both236bd23 Windows suites passed708/708 and all3 actual ACL cases. The PR

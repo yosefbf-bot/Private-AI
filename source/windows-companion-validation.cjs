@@ -21,6 +21,16 @@ function assertHTTP(endpoint,response,expected){
  throw new AcceptanceHTTPError('HTTP '+(HTTP_OPERATIONS.get(endpoint)||'unknown')+' status '+status(response?.status)+'; code '+safeCode+'; expected '+status(expected));
 }
 
+const PAUSE_EVENTS=new Set(['unclean-start','renderer-gone','renderer-hung','promise-failed','model-failed','model-timeout','sleep','wake','service-failed','job-interrupted']);
+function pauseDiagnostic(core){
+ try{
+  const paused=core.settings().workerPaused,stability=core.stability;
+  const flag=value=>typeof value==='boolean'?String(value):'unknown';
+  const events=Array.isArray(stability?.incidents)&&Number.isSafeInteger(stability.started)?stability.incidents
+   .filter(row=>PAUSE_EVENTS.has(row?.event)&&Number.isSafeInteger(row.time)&&row.time>=stability.started).slice(-20).map(row=>row.event):[];
+  return 'background paused='+flag(paused)+'; safeStartup='+flag(stability?.safe)+'; currentEvents='+(events.join(',')||'none');
+ }catch{return 'background state=unavailable';}
+}
 async function bounded(work,ms=15000){
  let timer;
  try{return await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Acceptance timeout')),ms);})]);}
@@ -233,7 +243,7 @@ async function run({core,win,reportPath}){
   // Emit only a bounded code and source line, never exception values or pairing data.
   const code=/^[A-Z][A-Z0-9_]{1,60}$/.test(cause?.code||'')?cause.code:'UNKNOWN';
   const line=/windows-companion-validation\.cjs:(\d+):/.exec(cause?.stack||'')?.[1]||'unknown';
-  error=Object.assign(Error('Packaged companion acceptance failed at '+phase+' ('+code+', check line '+line+')'+(cause instanceof AcceptanceHTTPError?'; '+cause.message:'')),{code:'VALIDATION_COMPANION'});
+  error=Object.assign(Error('Packaged companion acceptance failed at '+phase+' ('+code+', check line '+line+')'+(cause instanceof AcceptanceHTTPError?'; '+cause.message:'')+'; '+pauseDiagnostic(core)),{code:'VALIDATION_COMPANION'});
  }
  finally{
   // Only this isolated acceptance's pairings and lock are changed. Never use a test unlock.
@@ -249,4 +259,4 @@ async function run({core,win,reportPath}){
  if(error)throw error;
  return result;
 }
-module.exports={run,assertHTTP};
+module.exports={run,assertHTTP,pauseDiagnostic};
