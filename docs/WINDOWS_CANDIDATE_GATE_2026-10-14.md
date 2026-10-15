@@ -115,3 +115,25 @@ startup time.26 focused tests passed, including redaction, zero writes, actual
 Core/SQLite/HTTPS pause/resume/replay/revocation across restart. No test-only
 automatic resume or production gateway change masks the failure. Fresh complete
 actual Windows acceptance remains mandatory before merge or distribution.
+
+
+## Controlled lifecycle isolation after ae0
+
+The ae0 PR passed713/713 source cases and genuine installation, startup,
+restart and Small inference. Reinstall then reported409 COMPANION_PAUSED,
+safeStartup=true and unclean-start. RealCore/SQLite reproduction confirms an
+active optional assistant draft can retain the interrupted-work marker at
+synchronous close. That conservative production behavior remains intact; ae0's
+particular active request was not recorded and is not claimed proven.
+
+Only opt-in controlled acceptance now quiesces its timed speech/draft enrichment
+before creating synthetic captures or configuring its inference model. It must
+reach zero active requests before recording success. Evidence explicitly states
+that concurrent enrichment shutdown is not verified. A real interrupted-draft
+regression still requires the unclean marker and recovery pause. No map entries,
+clean markers, pause flags or production timers are rewritten.28 focused cases
+passed; fresh actual full Windows/installer/retention/portable acceptance is pending.
+
+The ae0 push exposed two native PowerShell15s test timeouts under hosted load.
+Those two process bounds are now30s; outer60s limits and every actual process,
+exit-code, PS5/UTF8/BOM and release-gate assertion remain. Focused3/3 passed.

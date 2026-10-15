@@ -1,3 +1,19 @@
+## October 15 controlled Windows acceptance lifecycle
+
+Ae0 PR passed713 source tests and real install/app/restart/Small inference,
+then reinstall returned409 COMPANION_PAUSED with safeStartup=true and
+unclean-start. A deterministic realCore/SQLite case reproduces how an active
+optional assistant draft at synchronous close retains the dirty marker; the
+production recovery pause is correct. The specific ae0 request kind is unproved.
+The opt-in validation fixture now holds its optional speech/draft timer at entry
+and requires zero tracked requests before success. No automatic resume, requests
+map deletion, clean-marker override or normal production timer change. Targeted
+28/28 passed; new actual hash-bound installer/retention/portable gates are pending.
+Two native PowerShell tests now allow30s rather than15s after measured hosted
+ETIMEDOUT; all assertions and outer60s bound remain. Actual focused3/3 passed.
+Owner installation/data/keys/models/pairings remain untouched. Android mainffa762a
+and its reviewed95-local/6-device results are accepted; do not repeat those tests.
+
 ## October 15 current retained pause — NOT a completed release
 
 Android mainffa762a passes its merged-main GitHub job and both reviewed source

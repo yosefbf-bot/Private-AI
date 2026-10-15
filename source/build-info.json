@@ -1,8 +1,8 @@
 {
   "version": "3.0.4-dev",
-  "updatedAt": "2026-10-15T08:38:18.329Z",
+  "updatedAt": "2026-10-15T15:40:35.756Z",
   "baselineCommit": "5f81cb5a0cf4aa055d06b719c24234a19bd2dfaf",
   "releaseStatus": "validation-pending",
   "note": "Four-phase candidate; consult its actual hash-bound Windows and Android acceptance before release.",
-  "sourceSHA256": "baf1d36c78d31eced7ac4b51e2410083ff3985bd703abd54dfe3629ea8f39252"
+  "sourceSHA256": "ca52dc6e8ad781c2b6118445ca87146e345ea99c52623f7eb278176daff67d11"
 }

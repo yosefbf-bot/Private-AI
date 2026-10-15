@@ -169,6 +169,48 @@
       "automaticResumeIntroduced": false,
       "productionGatewayModified": false,
       "newExactHeadAcceptance": "pending"
+    },
+    "windowsHostedAe0Checkpoint": {
+      "source": "ae0c4fafe9404042f240f4d77ec99643dfd83036",
+      "prRun": 38707135537,
+      "pushRun": 38707129687,
+      "prSourcePassed": 713,
+      "prSourceFailed": 0,
+      "prActualInstallerApplicationRestartAndSmallInferencePassed": true,
+      "prFailurePhase": "reinstalled-app-shared-chat",
+      "prHttpStatus": 409,
+      "prFailureCode": "COMPANION_PAUSED",
+      "prSafeStartup": true,
+      "prCurrentEvents": [
+        "unclean-start"
+      ],
+      "pushSourcePassed": 711,
+      "pushSourceFailed": 2,
+      "pushFailureCause": "two-native-PowerShell-child-15-second-test-timeouts",
+      "acceptedRelease": false
+    },
+    "windowsValidationLifecycleCorrection": {
+      "scope": "isolated-opt-in-controlled-foreground-retention-acceptance-only",
+      "reproduced": "active-optional-local-draft-at-Core.close-retains-unclean-marker-and-correctly-pauses-next-start",
+      "actualAe0ActiveRequestKindEstablished": false,
+      "change": "quiesce-optional-speech-and-draft-timer-at-fixture-entry; require-zero-active-requests-before-success",
+      "targetedPassed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "automaticResume": false,
+      "productionSchedulingChanged": false,
+      "cleanMarkerOrRequestsRewritten": false,
+      "concurrentEnrichmentShutdownVerified": false,
+      "newExactHeadAcceptance": "pending"
+    },
+    "nativePowerShellTestBounds": {
+      "previousMs": 15000,
+      "currentMs": 30000,
+      "outerTestBoundMs": 60000,
+      "changedCases": 2,
+      "focusedPassed": 3,
+      "failed": 0,
+      "productionTimeoutsChanged": false
     }
   },
   "assistantFirstRedesign": {

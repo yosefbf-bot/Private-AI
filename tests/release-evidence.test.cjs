@@ -24,7 +24,7 @@ foreach($code in @(0,7)){
  if($rejected -ne ($code -ne 0)){throw 'Exit-code gate did not enforce success'}
 }
 [Console]::Write('verified')`;
- const stdout=require('node:child_process').execFileSync(powershell,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(command,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:15000});
+ const stdout=require('node:child_process').execFileSync(powershell,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(command,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:30000});
  assert.equal(stdout.trim(),'verified');
 });
 function gateFixture(t){
@@ -67,7 +67,7 @@ $blockText=$tryAst.Finally.Extent.Text
 . ([ScriptBlock]::Create($blockText.Substring(1,$blockText.Length-2)))
 [Console]::Write($PSVersionTable.PSVersion.Major)`;
  const powershell=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
- const stdout=require('node:child_process').execFileSync(powershell,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(command,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:15000});
+ const stdout=require('node:child_process').execFileSync(powershell,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(command,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:30000});
  assert.equal(stdout.trim(),'5','Interoperability must be exercised in Windows PowerShell 5.1');
  const bytes=fs.readFileSync(config.installerEvidence);
  assert.notDeepEqual(bytes.subarray(0,3),Buffer.from([0xef,0xbb,0xbf]),'Evidence must not contain a UTF-8 BOM');

@@ -6,6 +6,11 @@ async function run({core,win,reportPath,exe,asar}){
  if(process.platform!=='win32')throw Error('Windows validation must execute on Windows');
  assert.equal(path.resolve(core.root),path.join(path.dirname(reportPath),'app-data'),'Acceptance must use isolated app-data');
  const evidence={version:require('../package.json').version,platform:process.platform,windowsApplicationExecuted:true,actualModelInferenceExecuted:false,passed:false,started:new Date().toISOString(),executableSHA256:sha(exe),applicationArchiveSHA256:sha(asar),checks:[]};
+ // Hold only optional timed enrichment in this synthetic foreground/retention
+ // fixture. Otherwise newly configured inference can start a separate note
+ // draft just before exit; real interrupted work must retain its recovery gate.
+ const lifecycle=require('./windows-validation-lifecycle.cjs');
+ evidence.validationIsolation=lifecycle.quiesceAutomaticEnrichment(core);
  try{
   core.saveSettings({processingMode:'local-only',allowCloud:false,workspace:path.join(path.dirname(reportPath),'reports'),approved:true});
   const deadline=Date.now()+45000;let ready=false;
@@ -168,6 +173,8 @@ async function run({core,win,reportPath,exe,asar}){
    evidence.checks.push('real local inference through renderer IPC/Core/router with no key and PCC disabled; synthetic missing information stays unknown');
    core.router.local.stop('validation-complete');await core.router.local.waitStopped();
   }
+  evidence.shutdown=lifecycle.assertNoActiveRequests(core);
+  evidence.checks.push('controlled foreground acceptance held optional timed enrichment and reached zero active requests; concurrent enrichment shutdown is not established');
   evidence.passed=true;
  }catch(e){evidence.error={message:e.message,code:e.code||null};throw e;}finally{if(process.env.PRIVATE_AI_VALIDATION_MODEL){core.router.local?.stop('validation-finished');await core.router.local?.waitStopped();}evidence.completed=new Date().toISOString();fs.writeFileSync(reportPath,JSON.stringify(evidence,null,2));}
  return evidence;
