@@ -1,3 +1,98 @@
+## October 15 controlled Windows acceptance lifecycle
+
+Ae0 PR passed713 source tests and real install/app/restart/Small inference,
+then reinstall returned409 COMPANION_PAUSED with safeStartup=true and
+unclean-start. A deterministic realCore/SQLite case reproduces how an active
+optional assistant draft at synchronous close retains the dirty marker; the
+production recovery pause is correct. The specific ae0 request kind is unproved.
+The opt-in validation fixture now holds its optional speech/draft timer at entry
+and requires zero tracked requests before success. No automatic resume, requests
+map deletion, clean-marker override or normal production timer change. Targeted
+28/28 passed; new actual hash-bound installer/retention/portable gates are pending.
+Two native PowerShell tests now allow30s rather than15s after measured hosted
+ETIMEDOUT; all assertions and outer60s bound remain. Actual focused3/3 passed.
+Owner installation/data/keys/models/pairings remain untouched. Android mainffa762a
+and its reviewed95-local/6-device results are accepted; do not repeat those tests.
+
+## October 15 current retained pause — NOT a completed release
+
+Android mainffa762a passes its merged-main GitHub job and both reviewed source
+runs passed6/6 real device cases. Desktop56bb69d push passed712 Windows tests,
+real installation/application/restart/Small inference and actual uninstallation.
+Reinstalled-app shared chat returned409 COMPANION_PAUSED. The uninstaller fix
+works; the event that persisted the pause remains unproved. Read-only bounded
+health diagnostics now include paused/safeStartup flags and allowlisted event
+names since startup time. Targeted26/26 passed. NO automatic resume, permission
+change or production gateway change was introduced to make acceptance pass.
+Success uses normal app.quit/before-quit/Core.close; a dirty-marker/renderer/
+model/sleep cause must be established from actual evidence, never guessed.
+Fresh exact-head complete Windows gates are pending; keep PR21 draft/unmerged.
+Owner installation/data remain intact. At1% remaining save/report/pause.
+
+## October 15 Windows retention and shared-chat acceptance follow-up
+
+Both236bd23 Windows suites passed708/708 and all3 actual ACL cases. The PR
+candidate genuinely passed installation, app17checks/12diagnostics/20views,
+restart and Small inference at3GiB (effective2048/saved4096) before the wrapper
+looked for the display-name uninstaller rather than pinned NSIS productFilename.
+The wrapper now derives/validates its exact single direct nonlinked uninstaller;
+five focused tests and real PowerShell5.1 name lookup passed. No build rename.
+The push candidate passed initial install/app, but restart rejected one shared
+chat HTTPS request. Its precise status/cause was not retained; safe validation
+operation/status/error diagnostics and targeted restart/pause checks are being
+added. Do not call that unexplained rejection fixed or merge pending checks.
+Android PR4 merged exact-green to mainffa762a after6/6 real cases in both runs;
+local95/95 includes both real HTTPS fixtures. Owner installation/data untouched.
+
+## October 15 Windows ACL startup correction
+
+Read [the current Windows gate](docs/WINDOWS_CANDIDATE_GATE_2026-10-14.md).
+Both e8bd52c hosted suites passed705 tests and actual NSIS installation exit0;
+installed executable/ASAR hashes matched. Actual app startup failed closed at
+permission_check/STORAGE before vault/inference/restart/retention/portable.
+01cc6a7 native diagnostics proved a retained explicit Administrators grant and
+the local-owner LA display alias. Both original run logs/receipts are retained.
+
+Root protection now applies one protected .NET DACL with only exact numeric
+current-user/SYSTEM grants. Independent numeric/raw/typed checks reject extra,
+inherited, deny or unsupported effective grant entries; no BA whitelist, RID
+alias guessing or permissive reset. Owner/group/audit/file data stay unchanged.
+Native synthetic regressions cover seeded broad grants, retention/idempotence,
+inheritance and redirected paths. Final local Windows full suite708/708 passed
+with0failure/cancel/skip; syntax237 and repository390 passed. Fresh exact-head
+hosted Windows and actual changed binary acceptance remain mandatory/pending. Installed owner3.0.3 is untouched.
+
+## October 14 real Windows candidate gate correction
+
+Both e9550ce hosted Windows source suites passed705/705 with0failure/cancel/skip,
+and both genuine NSIS installers built. Candidate freezing rejected checkout
+changes before any installer/application/inference execution. Exact recovered
+payload passes416 PE checks; packaged build-info equals committed metadata.
+Isolated clean Git checkouts reproduced six generated browser assets becoming
+modified during preparation despite identical LF blob bytes and canonical hash.
+Explicit LF checkout attributes for ONLY those six generated manifest/Readability
+files proved clean before/after/twice with both autocrlf settings. Strict source
+cleanliness and unchanged release evidence gates remain enforced. Safe freeze
+phase/code diagnostics now retain a non-sensitive failure receipt if needed.
+Fresh exact-head complete gates are required before PR21 can merge or ship.
+
+Android test-only347a128 retains production APK/signing/crypto and all security
+assertions, replacing only unbounded test scroll actions. Fresh six-case actual
+checks pending. Earlier e67 app/rawOS expiry passed twice on softwareKeyInfo0;
+physical TEE/phone acceptance is unperformed. No owner app/data/key changes.
+
+## October 14 Windows candidate acceptance in progress
+
+Desktop Phase4 PR20 is merged after all8 exact661b6e8 checks passed; main is
+5f81cb5a0cf4aa055d06b719c24234a19bd2dfaf. Read
+[the current Windows gate](docs/WINDOWS_CANDIDATE_GATE_2026-10-14.md).
+The new release-validation branch runs actual clean hosted Windows installation,
+packaged app, genuine Small inference, restart/reinstall/portable and unchanged
+release gates. Original local low-RAM failure remains retained. Exact-head hosted
+results and release acceptance are pending; no installed owner app/data changed.
+Android corrected e67b323 source passed93 full local tests plus14 focused tests;
+PR4 remains unmerged until fresh six-case actual device checks pass.
+
 ## October 14 current Phase 4 source checkpoint
 
 Read [Local companion pairing](docs/COMPANION_PAIRING_2026-10-14.md) and

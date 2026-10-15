@@ -70,3 +70,100 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm audit --omit=dev --audit-level=high
+
+  windows-acl:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify actual native private-folder permissions
+        run: node --test --test-reporter=tap tests/windows-acl-native.test.cjs
+
+  windows-acceptance:
+    needs: [release-files, windows-acl]
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Receive same-run genuine Windows native inputs
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-inputs-${{ github.sha }}
+          path: build
+      - name: Verify every native input before execution
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $manifest=Get-Content -LiteralPath build/windows-input-sha256.txt
+          $approved=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+          foreach ($line in $manifest) {
+            if ($line -notmatch '^([a-f0-9]{64})  (build/(desktop-helper|local-runtime)/[^\r\n]+)$') { throw 'Invalid native manifest row.' }
+            $expected=$Matches[1]; $relative=$Matches[2]
+            if (-not $approved.Add($relative.Replace('/',[IO.Path]::DirectorySeparatorChar))) { throw 'Duplicate native input.' }
+            $absolute=[IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE $relative))
+            $parent=[IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE 'build'))+[IO.Path]::DirectorySeparatorChar
+            if (-not $absolute.StartsWith($parent,[StringComparison]::OrdinalIgnoreCase)) { throw 'Native input path escapes build.' }
+            if ((Get-FileHash -LiteralPath $absolute -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw 'Native input hash mismatch.' }
+          }
+          $actual=Get-ChildItem -LiteralPath build/desktop-helper,build/local-runtime -Recurse -File
+          foreach ($file in $actual) {
+            if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Native input link rejected.' }
+            $relative=[IO.Path]::GetRelativePath($env:GITHUB_WORKSPACE,$file.FullName)
+            if (-not $approved.Remove($relative)) { throw 'Unmanifested native input.' }
+          }
+          if ($approved.Count -ne 0) { throw 'Missing native inputs.' }
+      - run: npm ci --ignore-scripts
+      - name: Run the complete Windows source suite and preserve actual TAP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          node --test --test-reporter=tap --test-concurrency=2 --test-timeout=60000 tests/*.test.cjs 2>&1 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'privateai-windows-tests.log')
+          if ($LASTEXITCODE -ne 0) { throw 'Windows source tests failed.' }
+      - name: Build the real installer and freeze candidate hashes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          node build/windows-build.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Windows installer build failed.' }
+          node build/record-windows-candidate.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate freeze failed.' }
+      - name: Download the checksum-pinned public Small model
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          node -e "new (require('./source/model-manager.cjs').ModelManager)({directory:require('node:path').join(process.env.LOCALAPPDATA,'PrivateAIModels')}).download('qwen3-1.7b').catch(()=>process.exit(1))"
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned public model setup failed.' }
+      - name: Execute actual clean installer, installed app and local inference
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $version=(Get-Content package.json -Raw | ConvertFrom-Json).version
+          $candidate=Get-Content -LiteralPath ('Validation/'+$version+'/candidate.json') -Raw | ConvertFrom-Json
+          ./build/Test-WindowsCandidate.ps1 -Installer $candidate.installer -ExpectedVersion $version -ExpectedInstallerSHA256 $candidate.installerSHA256 -ExpectedExecutableSHA256 $candidate.executableSHA256 -ExpectedArchiveSHA256 $candidate.applicationArchiveSHA256 -CandidateStage (Join-Path $env:GITHUB_WORKSPACE 'dist/win-unpacked') -EvidenceDirectory (Join-Path $env:RUNNER_TEMP 'privateai-acceptance') -InstallationDirectory (Join-Path $env:RUNNER_TEMP 'Private AI clean install') -ModelPath (Join-Path $env:LOCALAPPDATA 'PrivateAIModels/Qwen_Qwen3-1.7B-Q4_K_M.gguf') -TestResults (Join-Path $env:RUNNER_TEMP 'privateai-windows-tests.log')
+      - name: Retain only hash-bound candidate and sanitized synthetic receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-acceptance-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            dist/PrivateAI-Setup-*.exe
+            Validation/*/candidate.json
+            Validation/*/candidate-freeze-failure.json
+            Validation/*/packaging-baseline.json
+            ${{ runner.temp }}/privateai-acceptance/*.json
+            ${{ runner.temp }}/privateai-acceptance/clean/*.json
+            ${{ runner.temp }}/privateai-acceptance/restart/*.json
+            ${{ runner.temp }}/privateai-acceptance/inference/*.json
+            ${{ runner.temp }}/privateai-acceptance/reinstall/*.json
+            ${{ runner.temp }}/privateai-acceptance/portable/*.json
+            ${{ runner.temp }}/privateai-acceptance/*.zip
+            ${{ runner.temp }}/privateai-windows-tests.log

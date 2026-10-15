@@ -1,6 +1,6 @@
 {
   "fourPhaseReliability20261014": {
-    "phase": "phase4-desktop-source-validated-android-and-publication-pending",
+    "phase": "phase4-android-merged-windows-pause-cause-validation-pending",
     "report": "docs/FOUR_PHASE_PROGRESS_2026-10-13.md",
     "phase4Report": "docs/COMPANION_PAIRING_2026-10-14.md",
     "base": "1c1389d8116e6c18991aaef14b9231fda6023e75",
@@ -17,13 +17,13 @@
     "currentHistorySecretFindings": 0,
     "installedAppsChanged": false,
     "androidBase": "7e817069468a5106f35a6908e916dad92e72e1ef",
-    "androidSource": "phase4-bootstrap-scanner-session-in-validation",
+    "androidSource": "e51ea55020c23725b3d862df2e912ab1183bcabd",
     "sourceAndInstalledBuildDistinct": true,
     "priorDesktopMain": "1c1389d8116e6c18991aaef14b9231fda6023e75",
     "priorAndroidMain": "7e817069468a5106f35a6908e916dad92e72e1ef",
     "priorMainChecks": "all-passed",
-    "overallPlanningEstimatePercent": 75,
-    "resumeAutomation": "previous-one-time-fired-no-new-schedule",
+    "overallPlanningEstimatePercent": 85,
+    "resumeAutomation": "prior-once-only-fired-twice; existing-automation-confirmed-PAUSED-2026-10-15",
     "resourceContendedFocusedRun": {
       "passed": 24,
       "failed": 3,
@@ -36,6 +36,181 @@
       "cancelled": 0,
       "skipped": 0,
       "scope": "guide/version/native/UI lifecycle with explicit deterministic fixture RAM input"
+    },
+    "desktopMain": "5f81cb5a0cf4aa055d06b719c24234a19bd2dfaf",
+    "releaseValidationBranch": "chatgpt/release-validation-2026-10-14",
+    "releaseValidationReport": "docs/WINDOWS_CANDIDATE_GATE_2026-10-14.md",
+    "androidLocalTests": {
+      "passed": 95,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "actualHttpsInteropCases": 2
+    },
+    "androidCorrectedFocusedTests": {
+      "passed": 14,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "androidHostedDeviceAcceptance": {
+      "source": "e51ea55020c23725b3d862df2e912ab1183bcabd",
+      "runs": [
+        38699491850,
+        38699482820
+      ],
+      "passedPerRun": 6,
+      "failedPerRun": 0,
+      "skippedPerRun": 0,
+      "hostedUnitPassedPerRun": 93,
+      "hostedUnitExternalFixtureSkipsPerRun": 2,
+      "bothFixtureCasesExecutedLocally": true,
+      "hostedLintErrors": 0,
+      "hostedLintWarnings": 76,
+      "physicalPhoneAcceptance": false
+    },
+    "currentProductionAdvisories": 0,
+    "actualCandidateWindowsInstallerExecuted": false,
+    "actualCandidateWindowsApplicationPassed": false,
+    "actualCandidateModelInferenceExecuted": false,
+    "windowsHostedE8Checkpoint": {
+      "commit": "e8bd52c0465087807d0fa77a2df282dd07723e5b",
+      "runs": [
+        38664176798,
+        38664171361
+      ],
+      "sourcePassed": 705,
+      "sourceFailed": 0,
+      "installerExecuted": true,
+      "installerExitCode": 0,
+      "installedHashesMatched": true,
+      "applicationExecuted": true,
+      "applicationPassed": false,
+      "applicationStage": "permission_check",
+      "applicationError": "STORAGE",
+      "inferenceExecuted": false,
+      "laterAcceptanceExecuted": false,
+      "acceptedRelease": false
+    },
+    "windowsNativeAclCorrection": {
+      "diagnosticCommit": "01cc6a729c44c946621702cfab777231716ddf8c",
+      "cause": "retained-explicit-Administrators-grant-and-SDDL-local-owner-alias",
+      "fix": "single-protected-root-DACL-write-exact-numeric-user-and-SYSTEM; independent-effective-raw-and-typed-grant-verification",
+      "permissionsWeakened": false,
+      "ownerDataChanged": false,
+      "correctedExactHeadAcceptance": "pending",
+      "localFullTests": {
+        "passed": 708,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 69714.985,
+        "actualNativeAclCases": 3
+      },
+      "localSyntaxFiles": 237,
+      "localRepositoryTrackedFiles": 390
+    },
+    "windowsSourceCheckpoint": {
+      "commit": "e9550ce5d7bd01fe25159a10cd0184eaeb8c6c7a",
+      "passed": 705,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "runs": [
+        38634509025,
+        38634587426
+      ],
+      "installerBuilt": true,
+      "installerExecuted": false,
+      "freezerFailure": "reproduced-six-generated-browser-asset-checkout-line-endings",
+      "narrowFix": "six-explicit-LF-attributes; strict-clean-source-gate-preserved; both-autocrlf-configurations-proved-clean"
+    },
+    "androidMain": "ffa762a1495051449bd995d165dd8f7f7f50ac6f",
+    "windowsHosted236Checkpoint": {
+      "source": "236bd233691db7b144989790ba7b9e366fb12790",
+      "runs": [
+        38700270145,
+        38700266072
+      ],
+      "sourcePassedPerRun": 708,
+      "sourceFailedPerRun": 0,
+      "nativeAclPassedPerRun": 3,
+      "prInstallerApplicationRestartAndSmallInferencePassed": true,
+      "prApplicationChecks": 17,
+      "prDiagnostics": 12,
+      "prViews": 20,
+      "prInferenceCapBytes": 3221225472,
+      "prEffectiveContext": 2048,
+      "prSavedContext": 4096,
+      "prFailure": "retention-wrapper-wrong-uninstaller-name",
+      "pushInitialInstallerApplicationPassed": true,
+      "pushRestartFailure": "shared-chat-HTTP-success-assertion-endpoint-status-unknown",
+      "acceptedRelease": false
+    },
+    "windowsHosted56Checkpoint": {
+      "source": "56bb69d62b5114430dd039394cd5b3f84ce12c97",
+      "pushRun": 38704280107,
+      "sourcePassed": 712,
+      "sourceFailed": 0,
+      "actualInstallerApplicationRestartAndSmallInferencePassed": true,
+      "actualUninstallerExecuted": true,
+      "reinstallationProgressed": true,
+      "failurePhase": "reinstall-shared-chat",
+      "failureHttpStatus": 409,
+      "failureCode": "COMPANION_PAUSED",
+      "pauseCauseEstablished": false,
+      "acceptedRelease": false
+    },
+    "windowsPauseDiagnostics": {
+      "focusedPassed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "currentEventsAllowlistedAndBounded": true,
+      "automaticResumeIntroduced": false,
+      "productionGatewayModified": false,
+      "newExactHeadAcceptance": "pending"
+    },
+    "windowsHostedAe0Checkpoint": {
+      "source": "ae0c4fafe9404042f240f4d77ec99643dfd83036",
+      "prRun": 38707135537,
+      "pushRun": 38707129687,
+      "prSourcePassed": 713,
+      "prSourceFailed": 0,
+      "prActualInstallerApplicationRestartAndSmallInferencePassed": true,
+      "prFailurePhase": "reinstalled-app-shared-chat",
+      "prHttpStatus": 409,
+      "prFailureCode": "COMPANION_PAUSED",
+      "prSafeStartup": true,
+      "prCurrentEvents": [
+        "unclean-start"
+      ],
+      "pushSourcePassed": 711,
+      "pushSourceFailed": 2,
+      "pushFailureCause": "two-native-PowerShell-child-15-second-test-timeouts",
+      "acceptedRelease": false
+    },
+    "windowsValidationLifecycleCorrection": {
+      "scope": "isolated-opt-in-controlled-foreground-retention-acceptance-only",
+      "reproduced": "active-optional-local-draft-at-Core.close-retains-unclean-marker-and-correctly-pauses-next-start",
+      "actualAe0ActiveRequestKindEstablished": false,
+      "change": "quiesce-optional-speech-and-draft-timer-at-fixture-entry; require-zero-active-requests-before-success",
+      "targetedPassed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "automaticResume": false,
+      "productionSchedulingChanged": false,
+      "cleanMarkerOrRequestsRewritten": false,
+      "concurrentEnrichmentShutdownVerified": false,
+      "newExactHeadAcceptance": "pending"
+    },
+    "nativePowerShellTestBounds": {
+      "previousMs": 15000,
+      "currentMs": 30000,
+      "outerTestBoundMs": 60000,
+      "changedCases": 2,
+      "focusedPassed": 3,
+      "failed": 0,
+      "productionTimeoutsChanged": false
     }
   },
   "assistantFirstRedesign": {

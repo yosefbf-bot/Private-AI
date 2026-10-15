@@ -33,7 +33,7 @@ const { Core } = require("./core.cjs");
 const { startBridge, connectBridge } = require("./bridge.cjs");
 const extension = require("./extension-id.json");
 const { localChecks } = require("./self-check.cjs");
-const { verifyPrivateAcl } = require("./windows-acl.cjs");
+const { protectPrivateFolder, verifyPrivateAcl } = require("./windows-acl.cjs");
 const {LocalBrain}=require("./local-brain.cjs");
 const {ModelManager,MODELS,TIERS}=require("./model-manager.cjs");
 const {cloudAllowed}=require("./hybrid-settings.cjs");
@@ -101,17 +101,7 @@ function protectFolder() {
     const sid = out.match(/S-1-5-(?:\d+-)*\d+/)?.[0];
     if (!sid) throw Error();
     startupStage = "permissions";
-    execFileSync(
-      systemExe("icacls.exe"),
-      [
-        localRoot,
-        "/inheritance:r",
-        "/grant:r",
-        "*" + sid + ":(OI)(CI)F",
-        "*S-1-5-18:(OI)(CI)F",
-      ],
-      { windowsHide: true, stdio: "ignore" },
-    );
+    protectPrivateFolder(localRoot,sid);
     return sid;
   } catch (e) {
     throw Object.assign(fail("STORAGE"), { cause: e });

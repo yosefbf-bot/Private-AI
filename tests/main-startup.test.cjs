@@ -29,7 +29,7 @@ async function boot(t,{background=false,existing=false,browserWorker}={}){
  const context={require(name){
   if(name==='electron')return electron;
   if(name==='node:child_process')return {spawn:()=>assert.fail('Startup must not spawn a browser or local model'),execFileSync:exe=>exe.endsWith('whoami.exe')?'"test","S-1-5-21-123"':''};
-  if(name==='./windows-acl.cjs')return {verifyPrivateAcl(){}};
+  if(name==='./windows-acl.cjs')return {protectPrivateFolder(){},verifyPrivateAcl(){}};
   if(name==='./startup-storage.cjs')return {...realRequire(name),loadVault:()=>cipher};
   if(name==='./bridge.cjs')return {startBridge:()=>({server:new EventEmitter(),broadcast(){},close(){}})};
   if(name==='./browser-worker.cjs'&&browserWorker)return {...realRequire(name),BrowserWorker:class{constructor(){return browserWorker;}}};

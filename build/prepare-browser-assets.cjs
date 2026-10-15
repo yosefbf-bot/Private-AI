@@ -1,6 +1,20 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..');
+const textTypes=new Set(['.cjs','.mjs','.js','.ts','.css','.html','.json','.md','.txt','.svg','.xml','.yml','.yaml','.py','.ps1','.sh','.toml','.ini','.csv']);
+function canonicalBytes(file){
+ const bytes=fs.readFileSync(file);if(!textTypes.has(path.extname(file).toLowerCase()))return bytes;
+ const text=bytes.toString('utf8');
+ // Do not turn non-UTF-8 binary input into replacement characters.
+ if(!Buffer.from(text,'utf8').equals(bytes))return bytes;
+ return Buffer.from(text.replace(/\r\n/g,'\n'),'utf8');
+}
+function sourceDigest(directoryRoot){
+ const hash=crypto.createHash('sha256');
+ function walk(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true}).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0)){const file=path.join(dir,item.name);if(item.isDirectory())walk(file);else if(item.name!=='build-info.json'){hash.update(path.relative(directoryRoot,file).split(path.sep).join('/'));hash.update(canonicalBytes(file));}}}
+ walk(path.join(directoryRoot,'source'));walk(path.join(directoryRoot,'chrome_extension'));hash.update(canonicalBytes(path.join(directoryRoot,'package.json')));
+ return hash.digest('hex');
+}
 function prepare(){
  const dir=path.join(root,'chrome_extension'),target=path.join(dir,'firefox');fs.mkdirSync(target,{recursive:true});
  fs.copyFileSync(require.resolve('@mozilla/readability/Readability.js'),path.join(dir,'vendor/readability.js'));
@@ -14,10 +28,7 @@ function prepare(){
  manifest.sidebar_action={default_title:'Private AI Companion',default_panel:'panel.html',default_icon:'icon48.png'};
  manifest.browser_specific_settings={gecko:{id:require('../source/browser-hosts.cjs').firefoxId,strict_min_version:'128.0'}};
  fs.writeFileSync(path.join(target,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
- const hash=crypto.createHash('sha256');
- function walk(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))){const file=path.join(dir,item.name);if(item.isDirectory())walk(file);else if(item.name!=='build-info.json'){hash.update(path.relative(root,file));hash.update(fs.readFileSync(file));}}}
- walk(path.join(root,'source'));walk(dir);hash.update(fs.readFileSync(path.join(root,'package.json')));
- const digest=hash.digest('hex'),file=path.join(root,'source/build-info.json');let previous={};try{previous=JSON.parse(fs.readFileSync(file,'utf8'));}catch{}
+ const digest=sourceDigest(root),file=path.join(root,'source/build-info.json');let previous={};try{previous=JSON.parse(fs.readFileSync(file,'utf8'));}catch{}
  if(previous.sourceSHA256!==digest||previous.version!==version)fs.writeFileSync(file,JSON.stringify({...previous,version,updatedAt:new Date().toISOString(),sourceSHA256:digest},null,2)+'\n');
 }
-module.exports=prepare;if(require.main===module)prepare();
+module.exports=prepare;module.exports.sourceDigest=sourceDigest;if(require.main===module)prepare();
