@@ -476,7 +476,8 @@ main {
 }
 .file-chip {
   font-size: 11px;
-  background: #edf2fc;
+  background: var(--theme-surface-raised, #edf2fc);
+  color: var(--theme-text, #17264b);
   padding: 5px 8px;
   border-radius: 6px;
   max-width: 270px;
@@ -577,7 +578,8 @@ textarea.control {
 }
 .path-display {
   font-family: Consolas, monospace;
-  background: #f4f6fc;
+  background: var(--theme-surface-soft, #f4f6fc);
+  color: var(--theme-text, #17264b);
   padding: 11px;
   border-radius: 7px;
   overflow-wrap: anywhere;
@@ -614,7 +616,7 @@ textarea.control {
 }
 .pill {
   font-size: 10px;
-  background: #edf1fa;
+  background: var(--theme-surface-raised, #edf1fa);
   padding: 3px 7px;
   border-radius: 8px;
   display: inline-block;
@@ -756,10 +758,10 @@ summary {
 .message-actions { margin-top:6px; line-height:1.2; }
 .guide-logo { display:block; width:245px; max-width:100%; height:auto; margin-bottom:10px; }
 .guide-topic { border: 1px solid var(--line); border-radius: 12px; margin:12px 0; padding:16px 18px; background: var(--theme-surface, #fff); }
-.guide-topic > summary { font-weight:600; color: #263f83; cursor:pointer; }
+.guide-topic > summary { font-weight:600; color: var(--theme-info, #263f83); cursor:pointer; }
 .guide-topic li { margin:8px 0; line-height:1.5; }
-.guide-location { color: #5368aa; font-size:12px; margin:12px 0 6px; }
-.guide-note { font-size:12px; line-height:1.45; background: #f2f4fb; padding:10px 12px; border-radius: 8px; }
+.guide-location { color: var(--theme-text-muted, #5368aa); font-size:12px; margin:12px 0 6px; }
+.guide-note { font-size:12px; line-height:1.45; background: var(--theme-surface-soft, #f2f4fb); padding:10px 12px; border-radius: 8px; }
 @media(max-width:850px){ .brand .brand-logo {width:150px;} .conversation{padding:20px 18px;} .message.user{margin-left:28px;} }
 
 /* First-Class Voice Subsystem Styles */
@@ -904,7 +906,7 @@ summary {
 /* Mode Tabs */
 .voice-mode-tabs {
   display: inline-flex;
-  background: #f1f4fa;
+  background: var(--theme-surface-raised, #f1f4fa);
   padding: 3px;
   border-radius: 8px;
   gap: 2px;
@@ -913,7 +915,7 @@ summary {
   padding: 5px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #55688a;
+  color: var(--theme-text-muted, #55688a);
   border-radius: 6px;
   border: 0;
   background: transparent;
@@ -924,7 +926,7 @@ summary {
 }
 .voice-tab.active {
   background: var(--theme-surface, #ffffff);
-  color: #26428c;
+  color: var(--theme-info, #26428c);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
@@ -1699,7 +1701,7 @@ summary {
 
 .snf-alert-card.severity-critical {
   border-left-color: #dc2626;
-  background: #fffdfd;
+  background: var(--theme-danger-bg, #fffdfd);
 }
 
 .snf-alert-card.severity-high {
@@ -1945,7 +1947,7 @@ summary {
 
 .resolve-panel {
   border-color: #99f6e4;
-  background: #f0fdfa;
+  background: var(--theme-positive-bg, #f0fdfa);
 }
 
 .inline-action-panel label {
@@ -2049,13 +2051,13 @@ summary {
 
 .psych-stat .lbl {
   font-size: 11px;
-  color: var(--theme-text-muted, #64748b);
+  color: var(--theme-text-muted, #59677d);
   font-weight: 600;
 }
 
 .psych-stat.highlight-stat {
   border-color: #fca5a5;
-  background: #fff5f5;
+  background: var(--theme-danger-bg, #fff5f5);
 }
 
 .psych-stat.highlight-stat .val {
@@ -2596,7 +2598,7 @@ summary {
 
 .clinical-surveillance-card.active {
   border-color: #93c5fd;
-  background: #fbfdff;
+  background: var(--theme-surface-soft, #fbfdff);
 }
 
 .clinical-toggle-header {
@@ -2841,7 +2843,7 @@ summary {
 /* Clinical Surveillance Settings Toggle Card */
 .clinical-surveillance-card {
   border: 1px solid #c7d2fe;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  background: var(--theme-surface-soft, linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%));
   border-radius: 12px;
   padding: 20px 22px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -3266,7 +3268,7 @@ body:has(#development-mode-banner:not([hidden])) { padding-top:42px; }
 }
 .today-tab-btn:hover {
   color: var(--theme-text, #0f172a);
-  background: rgba(255,255,255,0.6);
+  background: var(--theme-surface-raised, rgba(255,255,255,0.6));
 }
 .today-tab-btn.active {
   background: var(--theme-surface, #ffffff);
@@ -3311,11 +3313,11 @@ body:has(#development-mode-banner:not([hidden])) { padding-top:42px; }
   border-bottom: none;
 }
 .today-alert-card:hover {
-  background: #fafbfc;
+  background: var(--theme-surface-raised, #fafbfc);
 }
 .today-alert-card.severity-critical {
   border-left: 4px solid #dc2626;
-  background: #fffdfd;
+  background: var(--theme-danger-bg, #fffdfd);
 }
 .today-alert-card.severity-high {
   border-left: 4px solid #d97706;
@@ -3523,7 +3525,7 @@ body:has(#development-mode-banner:not([hidden])) { padding-top:42px; }
   border-bottom: none;
 }
 .today-table tr:hover td {
-  background: #fafbfc;
+  background: var(--theme-surface-raised, #fafbfc);
 }
 
 /* PRN Antipsychotic Watch Strip */
@@ -4943,7 +4945,7 @@ dialog.today-modal::backdrop {
 }
 
 .ops-launch-card {
-  background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
+  background: var(--theme-surface-soft, linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%));
   border-color: var(--theme-border, #cbd5e1);
 }
 
@@ -5612,13 +5614,13 @@ dialog.today-modal::backdrop {
 .ops-sentinel-item.severity-critical {
   border-color: #fecaca;
   border-left: 3px solid #dc2626;
-  background: #fff5f5;
+  background: var(--theme-danger-bg, #fff5f5);
 }
 
 .ops-sentinel-item.severity-high {
   border-color: #fde68a;
   border-left: 3px solid #d97706;
-  background: #fffdf5;
+  background: var(--theme-warning-bg, #fffdf5);
 }
 
 .ops-sentinel-top {
@@ -6088,7 +6090,7 @@ dialog.today-modal::backdrop {
 }
 
 .card-overhead-page {
-  background: #faf5ff;
+  background: var(--theme-surface-soft, #faf5ff);
   border-left: 3px solid #a855f7;
 }
 
@@ -6133,7 +6135,7 @@ dialog.today-modal::backdrop {
 
 .review-uncertain {
   border-left: 4px solid #f59e0b;
-  background: #fffdf5;
+  background: var(--theme-warning-bg, #fffdf5);
 }
 
 .review-unknown {
@@ -6544,7 +6546,7 @@ dialog.today-modal::backdrop {
 }
 
 .ops-ai-flag-box {
-  background: #fefce8;
+  background: var(--theme-warning-bg, #fefce8);
   border: 1px solid #fef08a;
   border-radius: 6px;
   padding: 10px 12px;
@@ -6560,7 +6562,7 @@ dialog.today-modal::backdrop {
 
 .ops-ai-flag-text {
   font-size: 12px;
-  color: #713f12;
+  color: var(--theme-text, #713f12);
   margin: 0 0 4px 0;
 }
 

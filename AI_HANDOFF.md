@@ -1,3 +1,25 @@
+## October 15 desktop 3.0.5 appearance correction
+
+Read docs/DARK_SURFACE_CONTRAST_2026-10-15.md. Base is accepted desktop main
+bdf73af43453a19abf3c9845cf667554de388fbb; review branch
+chatgpt/dark-surface-contrast-2026-10-15. Paired theme surfaces/text correct the
+report-folder, attachment/help/review/hover and inline transcript/output panels.
+Light fallbacks and status meanings remain; no behavior/storage/security change.
+Android source is unchanged. Full Windows source suite716/716 passed with no
+failures/cancellations/skips. Real Core/SQLite+Edge passed existing25 workflows
+and106 contrast measurements (53 per theme; minimumdark6.8599/light4.5176).
+The UI-only RAM fixture is synthetic; production memory admission is unchanged.
+New-source Windows release evidence must match exact CI/artifact hashes. The
+previous3.0.4 binaries do not contain this change.
+
+Previous four-phase private preview IS ACCEPTED with documented limits:
+desktopmainbdf73af/exactd08412checks/both716Windowsruns/all5actualreleasegates;
+matchingWin11portable774hashes/20views/12diagnostics; merged-main38766739108green.
+Androidmainffa762a/treee51:95local including2actualinterops,6/6emulatorcases in
+bothreviews andmaingreen. Bothpreviews published,11serverassetsverified. Older
+pending paragraphs below are historical, not requests to repeat accepted work.
+Physicalphone/liveaccount/longsession/concurrentenrichment limits remain.
+
 ## October 15 controlled Windows acceptance lifecycle
 
 Ae0 PR passed713 source tests and real install/app/restart/Small inference,

@@ -764,10 +764,10 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
             ${j.output ? `
               <div class="auto-detail-section">
                 <h4 class="auto-detail-heading">Generated Output</h4>
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--theme-surface-soft, #f8fafc);border:1px solid var(--theme-border, #e2e8f0);border-radius:6px;">
                   <div>
                     <strong>📄 ${esc(j.output)}</strong>
-                    <div style="font-size:12px;color:#64748b;margin-top:2px;">Saved securely to your Work folder</div>
+                    <div style="font-size:12px;color:var(--theme-text-muted, #64748b);margin-top:2px;">Saved securely to your Work folder</div>
                   </div>
                   <button class="auto-btn auto-btn-primary" data-act="job-open" data-path="${esc(j.output)}">Open Report</button>
                 </div>

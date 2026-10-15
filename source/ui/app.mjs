@@ -895,8 +895,8 @@ function renderVoiceTranscriptsList() {
   const transcripts = getVoiceTranscripts();
   if (!transcripts.length) {
     return `
-      <div class="voice-transcript-empty" style="padding:24px; background:var(--bg-subtle, rgba(0,0,0,0.02)); border:1px dashed var(--border-color, #cbd5e1); border-radius:8px; text-align:center; color:#64748b; font-size:13px;">
-        <p style="margin:0 0 4px 0; font-weight:600; color:var(--text-color, #334155);">No voice transcripts recorded yet</p>
+      <div class="voice-transcript-empty" style="padding:24px; background:var(--theme-surface-soft, rgba(0,0,0,0.02)); border:1px dashed var(--theme-border, #cbd5e1); border-radius:8px; text-align:center; color:var(--theme-text-muted, #64748b); font-size:13px;">
+        <p style="margin:0 0 4px 0; font-weight:600; color:var(--theme-text, #334155);">No voice transcripts recorded yet</p>
         <span style="font-size:12px;">Transcripts from live Voice Mode (<kbd>Ctrl+Shift+V</kbd>) or speech dictations will automatically appear here for clinical and conversational review.</span>
       </div>
     `;
@@ -904,8 +904,8 @@ function renderVoiceTranscriptsList() {
   return `
     <div class="voice-transcripts-items" style="display:flex; flex-direction:column; gap:10px; max-height:480px; overflow-y:auto; padding-right:4px;">
       ${transcripts.map(t => `
-        <div class="voice-transcript-card" style="border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px 14px; background:var(--card-bg, #fff); box-shadow:0 1px 2px rgba(0,0,0,0.03);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px; color:#64748b;">
+        <div class="voice-transcript-card" style="border:1px solid var(--theme-border, #e2e8f0); border-radius:8px; padding:12px 14px; background:var(--theme-surface, #fff); box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px; color:var(--theme-text-muted, #64748b);">
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:600;">🎙 ${esc(t.mode)}</span>
               <span><strong>${esc(t.dateStr)}</strong></span>
@@ -917,7 +917,7 @@ function renderVoiceTranscriptsList() {
               <button type="button" class="danger" style="padding:3px 8px; font-size:11px;" data-act="delete-transcript" data-id="${esc(t.id)}">✕</button>
             </div>
           </div>
-          <div style="font-size:13.5px; line-height:1.6; color:var(--text-color, #1e293b); word-break:break-word;">
+          <div style="font-size:13.5px; line-height:1.6; color:var(--theme-text, #1e293b); word-break:break-word;">
             ${esc(t.text)}
           </div>
         </div>

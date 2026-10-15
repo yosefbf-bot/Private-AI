@@ -1,4 +1,33 @@
 {
+  "darkSurfaceContrast20261015": {
+    "version": "3.0.5-dev",
+    "base": "bdf73af43453a19abf3c9845cf667554de388fbb",
+    "branch": "chatgpt/dark-surface-contrast-2026-10-15",
+    "report": "docs/DARK_SURFACE_CONTRAST_2026-10-15.md",
+    "scope": "presentation-only; no Android, workflow, security or storage change",
+    "fullWindowsSourceTests": {"passed": 716, "failed": 0, "cancelled": 0, "skipped": 0},
+    "edgeWorkflowChecks": 25,
+    "surfaceContrastChecks": 106,
+    "contrastThreshold": 4.5,
+    "minimumDarkContrast": 6.859954729740248,
+    "minimumLightContrast": 4.517646967594691,
+    "uiFixtureMemory": "synthetic 8GiB; not production memory acceptance",
+    "releaseEvidence": "new exact-head CI and immutable 3.0.5 artifact hashes required",
+    "previousFourPhasePreview": {
+      "state": "published-accepted-with-documented-limits",
+      "desktopMain": "bdf73af43453a19abf3c9845cf667554de388fbb",
+      "androidMain": "ffa762a1495051449bd995d165dd8f7f7f50ac6f",
+      "desktopReviewSource": "d084e25bf0148e7b531dae53622b9c3b30b00860",
+      "desktopSourceTestsPerReview": 716,
+      "desktopExactHeadChecks": 12,
+      "desktopMainRun": 38766739108,
+      "androidLocalTests": 95,
+      "androidActualEmulatorCasesPerReview": 6,
+      "publishedAssetsServerHashVerified": 11,
+      "olderPendingNotesAreHistorical": true
+    }
+  },
+
   "fourPhaseReliability20261014": {
     "phase": "phase4-android-merged-windows-pause-cause-validation-pending",
     "report": "docs/FOUR_PHASE_PROGRESS_2026-10-13.md",

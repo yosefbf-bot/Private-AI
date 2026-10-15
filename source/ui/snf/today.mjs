@@ -996,9 +996,9 @@ export function createTodayUI({ api, esc, toast, refresh, renderPage }) {
               </div>
 
               <div class="today-modal-body">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:16px;">
-                  <strong style="color:#0f172a;display:block;margin-bottom:4px;">${esc(a.title)}</strong>
-                  <p style="margin:0;font-size:12px;color:#475569;">${esc(a.message)}</p>
+                <div style="background:var(--theme-surface-soft, #f8fafc);border:1px solid var(--theme-border, #e2e8f0);border-radius:6px;padding:12px;margin-bottom:16px;">
+                  <strong style="color:var(--theme-text, #0f172a);display:block;margin-bottom:4px;">${esc(a.title)}</strong>
+                  <p style="margin:0;font-size:12px;color:var(--theme-text-muted, #475569);">${esc(a.message)}</p>
                 </div>
 
                 <div class="today-form-row">
