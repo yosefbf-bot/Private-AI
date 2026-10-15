@@ -83,7 +83,7 @@ jobs:
         run: node --test --test-reporter=tap tests/windows-acl-native.test.cjs
 
   windows-acceptance:
-    needs: release-files
+    needs: [release-files, windows-acl]
     runs-on: windows-2025
     timeout-minutes: 45
     steps:

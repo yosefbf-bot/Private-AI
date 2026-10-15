@@ -29,14 +29,20 @@ test('actual Windows protected synthetic folder passes the production private AC
   if(failure){
     const ownerLabel=value=>value===sid?'OWNER':value==='S-1-5-18'||value==='SY'?'SYSTEM':/^[A-Z]{2}$/.test(value)?'SDDL_ALIAS_'+value:'OTHER';
     const saved=path.join(root,'synthetic-acl.txt');
-    let diagnostic={verificationCode:failure.code==='STORAGE'?'STORAGE':'UNEXPECTED',diagnosticAvailable:false};
+    const safeFailure=(error,phase)=>({phase,code:['ENOENT','EACCES','EPERM'].includes(error.code)?error.code:Number.isInteger(error.status)?'PROCESS_EXIT_'+error.status:'UNAVAILABLE'});
+    let diagnostic={verificationCode:failure.code==='STORAGE'?'STORAGE':'UNEXPECTED',sddlAvailable:false,numericAvailable:false,ownerIsBuiltinAdministrator:/^S-1-5-21-(?:\d+-){3}500$/.test(sid)};
+    let phase='save_sddl';
     try{
       execFileSync(path.join(system,'icacls.exe'),[root,'/save',saved,'/q'],{windowsHide:true,stdio:'ignore'});
+      phase='read_sddl';
       const dacl=fs.readFileSync(saved).toString('utf16le').replace(/^\uFEFF/,'').split(/\r?\n/).find(line=>line.startsWith('D:'))||'';
+      diagnostic={...diagnostic,sddlAvailable:true,daclProtected:/^D:[^(]*P/.test(dacl),sddlAces:[...dacl.matchAll(/\(([^)]+)\)/g)].map(match=>{const fields=match[1].split(';');return{type:fields[0],flags:fields[1],rights:fields[2],principal:ownerLabel(fields[5]||'')};})};
+      phase='get_acl_numeric';
       const aclScript="$ErrorActionPreference='Stop';$a=Get-Acl -LiteralPath $env:PRIVATE_AI_SYNTHETIC_ACL_TEST;[pscustomobject]@{protected=$a.AreAccessRulesProtected;entries=@($a.Access|ForEach-Object{[pscustomobject]@{sid=$_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value;inherited=$_.IsInherited;type=$_.AccessControlType.ToString();rights=$_.FileSystemRights.ToString()}})}|ConvertTo-Json -Depth 5 -Compress";
       const native=JSON.parse(execFileSync(path.join(system,'WindowsPowerShell/v1.0/powershell.exe'),['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(aclScript,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,stdio:['ignore','pipe','ignore'],env:{...process.env,PRIVATE_AI_SYNTHETIC_ACL_TEST:root}}).replace(/^\uFEFF/,''));
-      diagnostic={...diagnostic,diagnosticAvailable:true,protected:native.protected,daclProtected:/^D:[^(]*P/.test(dacl),sddlAces:[...dacl.matchAll(/\(([^)]+)\)/g)].map(match=>{const fields=match[1].split(';');return{type:fields[0],flags:fields[1],rights:fields[2],principal:ownerLabel(fields[5]||'')};}),numericAces:(native.entries||[]).map(entry=>({principal:ownerLabel(entry.sid),inherited:entry.inherited,type:entry.type,rights:entry.rights}))};
-    }catch{diagnostic.diagnosticAvailable=false;}
+      phase='normalize_numeric';
+      diagnostic={...diagnostic,numericAvailable:true,protected:native.protected,numericAces:(Array.isArray(native.entries)?native.entries:native.entries?[native.entries]:[]).map(entry=>({principal:ownerLabel(entry.sid),inherited:entry.inherited,type:entry.type,rights:entry.rights}))};
+    }catch(error){diagnostic.diagnosticFailure=safeFailure(error,phase);}
     // No account names, full SIDs, paths, or raw native exception text enter TAP.
     t.diagnostic(JSON.stringify(diagnostic));
   }
