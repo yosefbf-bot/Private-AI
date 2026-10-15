@@ -71,6 +71,17 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm audit --omit=dev --audit-level=high
 
+  windows-acl:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify actual native private-folder permissions
+        run: node --test --test-reporter=tap tests/windows-acl-native.test.cjs
+
   windows-acceptance:
     needs: release-files
     runs-on: windows-2025
