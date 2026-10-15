@@ -1,6 +1,6 @@
 {
   "fourPhaseReliability20261014": {
-    "phase": "phase4-desktop-source-merged-windows-candidate-acceptance-pending",
+    "phase": "phase4-desktop-source-merged-native-acl-correction-acceptance-pending",
     "report": "docs/FOUR_PHASE_PROGRESS_2026-10-13.md",
     "phase4Report": "docs/COMPANION_PAIRING_2026-10-14.md",
     "base": "1c1389d8116e6c18991aaef14b9231fda6023e75",
@@ -17,13 +17,13 @@
     "currentHistorySecretFindings": 0,
     "installedAppsChanged": false,
     "androidBase": "7e817069468a5106f35a6908e916dad92e72e1ef",
-    "androidSource": "347a128122345807b8fe2f74383a9a2b24f0134e",
+    "androidSource": "e51ea55020c23725b3d862df2e912ab1183bcabd",
     "sourceAndInstalledBuildDistinct": true,
     "priorDesktopMain": "1c1389d8116e6c18991aaef14b9231fda6023e75",
     "priorAndroidMain": "7e817069468a5106f35a6908e916dad92e72e1ef",
     "priorMainChecks": "all-passed",
     "overallPlanningEstimatePercent": 85,
-    "resumeAutomation": "previous-one-time-fired-no-new-schedule",
+    "resumeAutomation": "prior-once-only-fired-twice; existing-automation-confirmed-PAUSED-2026-10-15",
     "resourceContendedFocusedRun": {
       "passed": 24,
       "failed": 3,
@@ -41,7 +41,7 @@
     "releaseValidationBranch": "chatgpt/release-validation-2026-10-14",
     "releaseValidationReport": "docs/WINDOWS_CANDIDATE_GATE_2026-10-14.md",
     "androidLocalTests": {
-      "passed": 93,
+      "passed": 95,
       "failed": 0,
       "errors": 0,
       "skipped": 0,
@@ -53,11 +53,48 @@
       "errors": 0,
       "skipped": 0
     },
-    "androidHostedDeviceAcceptance": "fresh-six-case-runs-pending; original-bf4-failures-retained",
+    "androidHostedDeviceAcceptance": "fresh-e51ea55-six-case-runs-pending; original-failures-retained",
     "currentProductionAdvisories": 0,
     "actualCandidateWindowsInstallerExecuted": false,
     "actualCandidateWindowsApplicationPassed": false,
     "actualCandidateModelInferenceExecuted": false,
+    "windowsHostedE8Checkpoint": {
+      "commit": "e8bd52c0465087807d0fa77a2df282dd07723e5b",
+      "runs": [
+        38664176798,
+        38664171361
+      ],
+      "sourcePassed": 705,
+      "sourceFailed": 0,
+      "installerExecuted": true,
+      "installerExitCode": 0,
+      "installedHashesMatched": true,
+      "applicationExecuted": true,
+      "applicationPassed": false,
+      "applicationStage": "permission_check",
+      "applicationError": "STORAGE",
+      "inferenceExecuted": false,
+      "laterAcceptanceExecuted": false,
+      "acceptedRelease": false
+    },
+    "windowsNativeAclCorrection": {
+      "diagnosticCommit": "01cc6a729c44c946621702cfab777231716ddf8c",
+      "cause": "retained-explicit-Administrators-grant-and-SDDL-local-owner-alias",
+      "fix": "single-protected-root-DACL-write-exact-numeric-user-and-SYSTEM; independent-effective-raw-and-typed-grant-verification",
+      "permissionsWeakened": false,
+      "ownerDataChanged": false,
+      "correctedExactHeadAcceptance": "pending",
+      "localFullTests": {
+        "passed": 708,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 69714.985,
+        "actualNativeAclCases": 3
+      },
+      "localSyntaxFiles": 237,
+      "localRepositoryTrackedFiles": 390
+    },
     "windowsSourceCheckpoint": {
       "commit": "e9550ce5d7bd01fe25159a10cd0184eaeb8c6c7a",
       "passed": 705,

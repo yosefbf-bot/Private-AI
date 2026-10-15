@@ -52,3 +52,34 @@ Git autocrlf configurations clean before/after repeated preparation. No file
 content, permissions, source hash or security gate was relaxed. New safe build
 failure receipts report phase/code and bounded relative tracked paths only.
 Fresh exact-head actual Windows acceptance remains required.
+
+## October 15 native ACL correction
+
+Both e8bd52c hosted source suites passed705/705, froze real candidate hashes and
+executed the genuine installer successfully (exit0). The installed executable
+and ASAR matched those hashes. Actual application startup then failed closed at
+`permission_check`/`STORAGE`, before vault access, inference, restart, retention
+or portable acceptance. These failed receipts remain preserved; neither build
+is an accepted release.
+
+The new native regression reproduced the failure in both hosted01cc6a7 jobs.
+The protected DACL retained an explicit Administrators grant after the previous
+`icacls /inheritance:r /grant:r` operation. Windows also rendered the current
+local Administrator trustee as `LA`; matching that alias by account RID alone
+would not establish its identity safely. The strict rejection was retained.
+
+Protection now constructs only the current numeric user SID and SYSTEM grants
+in memory and applies the protected root DACL through one native .NET operation.
+Verification checks numeric trustees, effective raw/typed ACE counts, exact
+Allow/FullControl/inheritance flags and absence of extra grants or deny entries.
+There is no Administrators whitelist, alias guess, inheritance reset or owner/
+group/audit change. Native errors stay suppressed and bounded. This is root ACL
+protection, not a recursive forensic repair of pre-existing protected children.
+
+Actual synthetic Windows tests cover seeded Administrators and Everyone grants,
+owner/group/file-byte preservation, repeated protection, inheritance and junction
+denial. Final local Windows full suite passed708/708 with0failures/cancellations/
+skips (69.715s); syntax237 and repository390 passed. The corrected exact-head
+hosted source suite, installer/application,
+real inference and immutable release-gate results remain pending. No installer
+or permission operation was performed on the owner's application/data.

@@ -1,3 +1,21 @@
+## October 15 Windows ACL startup correction
+
+Read [the current Windows gate](docs/WINDOWS_CANDIDATE_GATE_2026-10-14.md).
+Both e8bd52c hosted suites passed705 tests and actual NSIS installation exit0;
+installed executable/ASAR hashes matched. Actual app startup failed closed at
+permission_check/STORAGE before vault/inference/restart/retention/portable.
+01cc6a7 native diagnostics proved a retained explicit Administrators grant and
+the local-owner LA display alias. Both original run logs/receipts are retained.
+
+Root protection now applies one protected .NET DACL with only exact numeric
+current-user/SYSTEM grants. Independent numeric/raw/typed checks reject extra,
+inherited, deny or unsupported effective grant entries; no BA whitelist, RID
+alias guessing or permissive reset. Owner/group/audit/file data stay unchanged.
+Native synthetic regressions cover seeded broad grants, retention/idempotence,
+inheritance and redirected paths. Final local Windows full suite708/708 passed
+with0failure/cancel/skip; syntax237 and repository390 passed. Fresh exact-head
+hosted Windows and actual changed binary acceptance remain mandatory/pending. Installed owner3.0.3 is untouched.
+
 ## October 14 real Windows candidate gate correction
 
 Both e9550ce hosted Windows source suites passed705/705 with0failure/cancel/skip,
