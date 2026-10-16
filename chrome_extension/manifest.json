@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Private AI Companion",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "Private AI beside your work. Webpages are read only after an explicit request.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAo2ZhG4Gw5uafaQH3w2Y/BTERi2EcdB8eHFy8q1+0IbWm0w1qnigT9lHLkDslPpv7LqRPBYW7sTfgeaLCCqj0b22GrSK0UPTMouT4fuAgG/cx0N9cleyuxJUAAeqhpgzOs0GFjkJBbLgvp3ih3DfERpNdDHGaVSuwjQhuJdnudZw8VpN0mdW7sCa7HT3Rb8QPv3GH28kuzaCugYJ1DynHROzBnBpbVUBCBtWpPLoMNw/ttikFb5GlYI6SjvmE5nnn/nBCkyuZaKl415FxA2bZdTypGKIA11Oxe9s+qaSf9omhRMZimJ6qFimK1qKZ789cg1v3X+QxJWG0BgVlvp61xwIDAQAB",
   "permissions": [

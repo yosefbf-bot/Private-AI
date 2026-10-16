@@ -5,10 +5,13 @@ const {chromium}=require('playwright'),{fixture}=require('./helpers.cjs');
 const cleanup=[],{core}=fixture({after:f=>cleanup.push(f)}),root=path.resolve(__dirname,'..');
 let browser;const errors=[],calls=[];
 core.deleteKey('openai'); // Exercise keyless setup, including its warning in dark mode.
+// This UI fixture checks rendering, not the host's changing memory pressure.
+core.resources.memory=()=>8*1024**3;
 async function dispatch(op,data={}){
   calls.push(op);
   for(const [prefix,module] of [['workflow','workflows/index'],['capture','capture-workflows'],['meeting','operations-copilot'],['speaker','operations-copilot'],['snf','snf/index'],['speech','local-speech']])if(op.startsWith(prefix))return require('../source/'+module+'.cjs').dispatch(core,op,data);
   if(op==='summary')return {...core.summary(),autostart:false};
+  if(op==='userGuide')return require('../source/app-guide.cjs').guide;
   if(op==='activity')return true;
   if(op==='createChat')return core.createChat(data);
   if(op==='chat')return core.chat(data.id);
@@ -62,7 +65,8 @@ const server=http.createServer((req,res)=>{
   core.emit({type:'jobs_changed'});await page.reload();
   await page.locator(`[data-id="${guideChat.id}"]`).click();
   await page.locator('.message.assistant .message-body').waitFor();
-  assert.equal(core.chat(guideChat.id).messages.at(-1).processing.provider,'deterministic');
+  const guideAnswer=core.chat(guideChat.id).messages.at(-1);
+  assert.equal(guideAnswer.processing?.provider,'deterministic',JSON.stringify(guideAnswer.error));
   const replyContrast=()=>page.locator('.message.assistant .message-body').evaluate(el=>{
     const luminance=color=>{const c=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;});return c[0]*0.2126+c[1]*0.7152+c[2]*0.0722;};
     return [el,...el.querySelectorAll('p,li,a,strong')].map(node=>{
@@ -77,6 +81,57 @@ const server=http.createServer((req,res)=>{
     for(const ratio of await replyContrast())assert.ok(ratio>=4.5,`${theme} assistant response contrast: ${ratio}`);
     await page.screenshot({path:path.join(out,`response-${theme}.png`),fullPage:true});
   }
+  // Measure rendered colors, rather than asserting implementation-specific CSS.
+  const surfaceContrast=[];
+  const measureContrast=elements=>{
+    const rgba=color=>color.match(/[\d.]+/g).map(Number);
+    const composite=(foreground,background)=>foreground.slice(0,3).map((v,i)=>v*(foreground[3]??1)+background[i]*(1-(foreground[3]??1)));
+    const luminance=color=>{const c=color.slice(0,3).map(v=>{v/=255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;});return c[0]*0.2126+c[1]*0.7152+c[2]*0.0722;};
+    const backgrounds=el=>{
+      if(!el)return [[255,255,255]];
+      const style=getComputedStyle(el),base=backgrounds(el.parentElement).map(parent=>composite(rgba(style.backgroundColor),parent));
+      const stops=style.backgroundImage.match(/rgba?\([^)]+\)/g);
+      return stops?stops.flatMap(stop=>base.map(color=>composite(rgba(stop),color))):base;
+    };
+    return elements.map(el=>{
+      const colors=backgrounds(el),foreground=rgba(getComputedStyle(el).color);
+      return {target:el.dataset.contrast||el.className||el.tagName,text:el.textContent.slice(0,100),foreground:getComputedStyle(el).color,backgrounds:colors,ratio:Math.min(...colors.map(color=>{const a=luminance(composite(foreground,color)),b=luminance(color);return (Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);}))};
+    });
+  };
+  const audit=async(theme,selector)=>{
+    const rows=await page.locator(selector).evaluateAll(measureContrast);assert.ok(rows.length,'Contrast targets must render');
+    for(const row of rows)surfaceContrast.push({theme,...row});
+  };
+  for(const theme of ['dark','light']){
+    await page.locator('#sidebar [data-view=settings]').click();await page.locator('[name=appearance]').selectOption(theme);
+    assert.equal(await page.locator('.path-display').innerText(),core.settings().workspace);
+    await audit(theme,'.path-display,.section p,.provider-badge.warning');
+    await page.screenshot({path:path.join(out,`settings-${theme}.png`),fullPage:true});
+    await page.locator('.section').filter({has:page.getByRole('heading',{name:'2. Choose where reports are saved',exact:true})}).screenshot({path:path.join(out,`report-folder-${theme}.png`)});
+    if(await page.locator('#sidebar .more-tools').getAttribute('open')===null)await page.locator('#sidebar .more-tools > summary').click();
+    await page.locator('#sidebar [data-view=guide]').click();await page.locator('#guide-search').waitFor();
+    await audit(theme,'.guide-topic[open] > summary,.guide-topic[open] .guide-location,.guide-topic[open] .guide-note');
+    // Supplement actual settings/guide views with their shared card states,
+    // including optional clinical panels without importing any resident data.
+    await page.locator('#content').evaluate(content=>{
+      const surfaces=['file-chip','pill','snf-alert-card severity-critical','inline-action-panel resolve-panel','clinical-surveillance-card','clinical-surveillance-card active','today-alert-card severity-critical','ops-launch-card','ops-sentinel-item severity-critical','ops-sentinel-item severity-high','card-overhead-page','ops-speaker-review-card review-uncertain'];
+      const fixture=document.createElement('div');fixture.id='theme-surface-fixture';
+      fixture.innerHTML=surfaces.map(classes=>`<div class="${classes}"><span data-contrast="${classes}">Synthetic panel text</span></div>`).join('')+
+        '<div class="psych-stat highlight-stat"><span class="val" data-contrast="highlight-value">1</span><span class="lbl" data-contrast="highlight-label">Review required</span></div>'+
+        '<div class="ops-ai-flag-box"><span class="ops-ai-flag-kicker" data-contrast="flag-kicker">Review</span><p class="ops-ai-flag-text" data-contrast="flag-text">Synthetic finding</p><span class="ops-ai-flag-disclaimer" data-contrast="flag-disclaimer">Verify source</span></div>'+
+        '<div class="voice-mode-tabs"><button class="voice-tab" data-contrast="voice-tab">Voice</button><button class="voice-tab active" data-contrast="voice-tab-active">Selected voice</button></div>'+
+        '<button class="today-tab-btn" data-contrast="tab-hover">Tab</button><div class="today-alert-card" data-contrast="alert-hover">Alert</div><table class="today-table"><tr><td data-contrast="row-hover">Synthetic table value</td></tr></table>';
+      content.append(fixture);
+    });
+    await audit(theme,'#theme-surface-fixture [data-contrast]');
+    for(const target of ['.voice-tab:not(.active)','.today-tab-btn','.today-alert-card:not(.severity-critical)','.today-table td']){
+      const el=page.locator('#theme-surface-fixture '+target);await el.hover();await page.waitForTimeout(250);
+      await audit(theme,'#theme-surface-fixture '+target);
+    }
+    await page.locator('#theme-surface-fixture').evaluate(el=>el.remove());
+  }
+  fs.writeFileSync(path.join(out,'surface-contrast.json'),JSON.stringify(surfaceContrast,null,2)+'\n');
+  assert.deepEqual(surfaceContrast.filter(row=>!Number.isFinite(row.ratio)||row.ratio<4.5),[],'Rendered text must reach 4.5:1 contrast in both themes');
   await page.locator('#sidebar [data-view=settings]').click();await page.locator('[name=appearance]').selectOption('dark');
   await page.locator('#sidebar [data-view=dashboard]').click();await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
   await page.screenshot({path:path.join(out,'dashboard-dark.png'),fullPage:true});
@@ -99,5 +154,5 @@ const server=http.createServer((req,res)=>{
   await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
   await page.locator('[name=appearance]').selectOption('light');await page.reload();
   assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({checks:25,scope:'Synthetic Core/SQLite + Edge: chat default, navigation, note, dashboard, meeting, follow-up, library, automation, dark settings contrast and keyless assistant reply contrast in both themes',browser:await browser.version()}));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({checks:25,surfaceContrastChecks:surfaceContrast.length,scope:'Synthetic Core/SQLite + Edge: existing assistant workflows, actual settings/guide and shared card/hover text contrast in both themes',browser:await browser.version()}));
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();for(const fn of cleanup)fn();});

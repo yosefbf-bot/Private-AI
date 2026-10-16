@@ -383,19 +383,19 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
               { id: 'notes', name: '24-Hour Clinical & Shift Report', category: 'Clinical Notes', frequency: 'Daily (each shift)', description: 'Change of condition, physician calls, new symptoms, acute events' },
               { id: 'dx', name: 'Active Resident Diagnosis Listing', category: 'Clinical History', frequency: 'Daily / On-change', description: 'ICD-10 clinical diagnoses cross-referenced against high-risk medications' }
             ]).map(r => `
-              <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+              <div style="background: var(--theme-surface, #ffffff); border: 1px solid var(--theme-border, #e2e8f0); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                   <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
-                    <strong style="font-size: 13px; color: #1e293b;">${esc(r.name)}</strong>
+                    <strong style="font-size: 13px; color: var(--theme-text, #1e293b);">${esc(r.name)}</strong>
                     <span style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #e0f2fe; color: #0369a1; white-space: nowrap;">
                       ${esc(r.frequency || 'Daily')}
                     </span>
                   </div>
-                  <div style="font-size: 11px; font-weight: 600; color: #6366f1; margin-bottom: 6px;">${esc(r.category || 'General')}</div>
-                  <p style="font-size: 12px; color: #475569; margin: 0 0 10px 0; line-height: 1.45;">${esc(r.description)}</p>
+                  <div style="font-size: 11px; font-weight: 600; color: var(--theme-info, #6366f1); margin-bottom: 6px;">${esc(r.category || 'General')}</div>
+                  <p style="font-size: 12px; color: var(--theme-text-muted, #475569); margin: 0 0 10px 0; line-height: 1.45;">${esc(r.description)}</p>
                 </div>
                 ${r.clinicalTriggers?.length ? `
-                  <div style="border-top: 1px dashed #e2e8f0; padding-top: 8px; font-size: 11px; color: #991b1b;">
+                  <div style="border-top: 1px dashed var(--theme-border, #e2e8f0); padding-top: 8px; font-size: 11px; color: var(--theme-danger, #991b1b);">
                     <strong>Surveillance Trigger:</strong> ${esc(r.clinicalTriggers.slice(0, 2).join('; '))}
                   </div>
                 ` : ''}
@@ -635,13 +635,13 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
             </h4>
             <p>Surveillance for psychotropic regimens >180 days with no documented dose reduction attempt or physician contraindication.</p>
             ${gdrs.length ? gdrs.map(g => `
-              <div style="padding:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; margin-bottom:8px; font-size:12px;">
+              <div style="padding:8px; background:var(--theme-surface-soft, #f8fafc); border:1px solid var(--theme-border, #e2e8f0); border-radius:4px; margin-bottom:8px; font-size:12px;">
                 <div style="display:flex; justify-content:space-between;">
                   <strong>${esc(g.residentName)}</strong>
                   <span class="badge-status ${g.isContraindicated ? 'status-resolved' : 'status-new'}">${g.isContraindicated ? 'CONTRAINDICATION ON FILE' : 'GDR DUE'}</span>
                 </div>
                 <div>${esc(g.medication)} · Last GDR: ${g.lastGDRDate ? new Date(g.lastGDRDate).toLocaleDateString() : 'None documented'}</div>
-                <div style="color:#64748b; margin-top:2px;">Rationale: ${esc(g.clinicalRationale || 'No clinical rationale recorded.')}</div>
+                <div style="color:var(--theme-text-muted, #64748b); margin-top:2px;">Rationale: ${esc(g.clinicalRationale || 'No clinical rationale recorded.')}</div>
               </div>
             `).join('') : '<p>No GDR tracking records found in imported data. Review the complete record and data health before drawing conclusions.</p>'}
           </div>
@@ -1089,79 +1089,79 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
         </div>
 
         <!-- 1. REGULATORY SCOPE & NON-EHR NOTICE -->
-        <div class="card" style="border-left:4px solid #0284c7; background:#f0f9ff; padding:18px; margin-bottom:18px; border-radius:8px;">
+        <div class="card" style="border-left:4px solid #0284c7; background:var(--theme-info-bg, #f0f9ff); padding:18px; margin-bottom:18px; border-radius:8px;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
             <span style="font-size:20px;">ℹ️</span>
-            <h3 style="margin:0; font-size:16px; color:#0369a1;">Supplemental Analytics Only · Regulatory Storage Notice</h3>
+            <h3 style="margin:0; font-size:16px; color:var(--theme-info, #0369a1);">Supplemental Analytics Only · Regulatory Storage Notice</h3>
           </div>
-          <p style="margin:0 0 8px 0; font-size:14px; color:#0f172a; line-height:1.5;">
+          <p style="margin:0 0 8px 0; font-size:14px; color:var(--theme-text, #0f172a); line-height:1.5;">
             This application provides <strong>supplemental clinical surveillance and decision support</strong>. Review findings against the source records.
           </p>
-          <p style="margin:0; font-size:13px; color:#334155; line-height:1.5;">
+          <p style="margin:0; font-size:13px; color:var(--theme-text, #334155); line-height:1.5;">
             ${esc(settings.regulatoryNotice || 'Supplemental surveillance. The organization must approve applicable retention and legal holds. No regulatory exemption is asserted.')}
           </p>
         </div>
 
         <!-- 2. READ-ONLY EMR DATA GUARANTEE -->
-        <div class="card" style="border-left:4px solid #059669; background:#ecfdf5; padding:18px; margin-bottom:18px; border-radius:8px;">
+        <div class="card" style="border-left:4px solid #059669; background:var(--theme-positive-bg, #ecfdf5); padding:18px; margin-bottom:18px; border-radius:8px;">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
             <div style="display:flex; align-items:center; gap:10px;">
               <span style="font-size:20px;">🔒</span>
-              <h3 style="margin:0; font-size:16px; color:#047857;">Immutable Read-Only EMR Feeds</h3>
+              <h3 style="margin:0; font-size:16px; color:var(--theme-positive, #047857);">Immutable Read-Only EMR Feeds</h3>
             </div>
             <span class="pill" style="background:#059669; color:#fff; font-weight:600; font-size:12px;">READ-ONLY ENFORCED</span>
           </div>
-          <p style="margin:0 0 8px 0; font-size:14px; color:#0f172a; line-height:1.5;">
+          <p style="margin:0 0 8px 0; font-size:14px; color:var(--theme-text, #0f172a); line-height:1.5;">
             Active EMR Platform Source: <strong>${esc(emrPlatform)}</strong> (Configurable for PointClickCare, MatrixCare, Netsmart, Epic, etc.).
           </p>
-          <p style="margin:0; font-size:13px; color:#334155; line-height:1.5;">
+          <p style="margin:0; font-size:13px; color:var(--theme-text, #334155); line-height:1.5;">
             EMR data is strictly <strong>read-only and immutable</strong>. The surveillance engine performs parse-and-index operations only. No EMR records, physician orders, administration logs, or clinical narratives can ever be edited, altered, or overwritten within this application.
           </p>
         </div>
 
         <!-- 3. TIERED RETENTION SCHEDULE GRID -->
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:20px;">
-          <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#fff;">
-            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:#64748b; margin-bottom:4px;">EMR Feeds &amp; Raw Data</div>
-            <div style="font-size:28px; font-weight:700; color:#0f172a; margin-bottom:6px;">100 Days</div>
-            <p style="font-size:13px; color:#475569; margin:0; line-height:1.5;">
+          <div class="card" style="padding:16px; border-radius:8px; border:1px solid var(--theme-border, #e2e8f0); background:var(--theme-surface, #fff);">
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--theme-text-muted, #64748b); margin-bottom:4px;">EMR Feeds &amp; Raw Data</div>
+            <div style="font-size:28px; font-weight:700; color:var(--theme-text, #0f172a); margin-bottom:6px;">100 Days</div>
+            <p style="font-size:13px; color:var(--theme-text-muted, #475569); margin:0; line-height:1.5;">
               Held for 100 days so facility QAPI committees and clinical teams can perform complete <strong>90-day quarterly audits</strong> (with a 10-day buffer) before automatic purging.
             </p>
           </div>
 
-          <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#fff;">
-            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:#64748b; margin-bottom:4px;">Resulted Reports &amp; Analytics</div>
-            <div style="font-size:28px; font-weight:700; color:#0284c7; margin-bottom:6px;">200 Days</div>
-            <p style="font-size:13px; color:#475569; margin:0; line-height:1.5;">
+          <div class="card" style="padding:16px; border-radius:8px; border:1px solid var(--theme-border, #e2e8f0); background:var(--theme-surface, #fff);">
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--theme-text-muted, #64748b); margin-bottom:4px;">Resulted Reports &amp; Analytics</div>
+            <div style="font-size:28px; font-weight:700; color:var(--theme-info, #0284c7); margin-bottom:6px;">200 Days</div>
+            <p style="font-size:13px; color:var(--theme-text-muted, #475569); margin:0; line-height:1.5;">
               Saved PDF reports and analytics derived from raw feeds receive an <strong>additional 100 days</strong> of retention (total 200 days) to support multi-quarter trend comparisons.
             </p>
           </div>
 
-          <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#fff;">
-            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:#64748b; margin-bottom:4px;">Resolved Alerts &amp; Flags</div>
-            <div style="font-size:28px; font-weight:700; color:#059669; margin-bottom:6px;">100 Days</div>
-            <p style="font-size:13px; color:#475569; margin:0; line-height:1.5;">
+          <div class="card" style="padding:16px; border-radius:8px; border:1px solid var(--theme-border, #e2e8f0); background:var(--theme-surface, #fff);">
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--theme-text-muted, #64748b); margin-bottom:4px;">Resolved Alerts &amp; Flags</div>
+            <div style="font-size:28px; font-weight:700; color:var(--theme-positive, #059669); margin-bottom:6px;">100 Days</div>
+            <p style="font-size:13px; color:var(--theme-text-muted, #475569); margin:0; line-height:1.5;">
               Clinical alerts and issues that have been verified, signed off, or resolved are retained for 100 days post-resolution. <strong>Unresolved alerts remain active indefinitely</strong>.
             </p>
           </div>
 
-          <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#fff;">
-            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:#64748b; margin-bottom:4px;">Discharged Residents</div>
-            <div style="font-size:28px; font-weight:700; color:#475569; margin-bottom:6px;">100 Days</div>
-            <p style="font-size:13px; color:#475569; margin:0; line-height:1.5;">
+          <div class="card" style="padding:16px; border-radius:8px; border:1px solid var(--theme-border, #e2e8f0); background:var(--theme-surface, #fff);">
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--theme-text-muted, #64748b); margin-bottom:4px;">Discharged Residents</div>
+            <div style="font-size:28px; font-weight:700; color:var(--theme-text-muted, #475569); margin-bottom:6px;">100 Days</div>
+            <p style="font-size:13px; color:var(--theme-text-muted, #475569); margin:0; line-height:1.5;">
               Residents who have been discharged follow the standard 100-day rolling cycle from their discharge date, keeping the surveillance roster focused on active census.
             </p>
           </div>
         </div>
 
         <!-- 4. LIVE AUDIT & STATUS METRICS -->
-        <div class="card" style="padding:16px; border-radius:8px; border:1px solid #e2e8f0; background:#f8fafc;">
-          <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:600; color:#334155;">Active Surveillance Census &amp; Retention Diagnostics</h4>
+        <div class="card" style="padding:16px; border-radius:8px; border:1px solid var(--theme-border, #e2e8f0); background:var(--theme-surface-soft, #f8fafc);">
+          <h4 style="margin:0 0 12px 0; font-size:14px; font-weight:600; color:var(--theme-text, #334155);">Active Surveillance Census &amp; Retention Diagnostics</h4>
           <div style="display:flex; flex-wrap:wrap; gap:24px; font-size:13px;">
-            <div><span style="color:#64748b;">Active Census:</span> <strong>${metrics.totalCensus || 0} residents</strong></div>
-            <div><span style="color:#64748b;">Active Alerts Under Surveillance:</span> <strong class="text-crit">${metrics.alertsSummary?.totalUnresolved || 0}</strong></div>
-            <div><span style="color:#64748b;">Resolved Alerts on Hold:</span> <strong class="text-ok">${metrics.alertsSummary?.resolved || 0}</strong></div>
-            <div><span style="color:#64748b;">Export Format:</span> <strong>PDF (Portable Document Format)</strong></div>
+            <div><span style="color:var(--theme-text-muted, #64748b);">Active Census:</span> <strong>${metrics.totalCensus || 0} residents</strong></div>
+            <div><span style="color:var(--theme-text-muted, #64748b);">Active Alerts Under Surveillance:</span> <strong class="text-crit">${metrics.alertsSummary?.totalUnresolved || 0}</strong></div>
+            <div><span style="color:var(--theme-text-muted, #64748b);">Resolved Alerts on Hold:</span> <strong class="text-ok">${metrics.alertsSummary?.resolved || 0}</strong></div>
+            <div><span style="color:var(--theme-text-muted, #64748b);">Export Format:</span> <strong>PDF (Portable Document Format)</strong></div>
           </div>
         </div>
       </div>

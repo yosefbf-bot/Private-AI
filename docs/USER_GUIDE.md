@@ -1,6 +1,6 @@
-# Private AI 3.0.4-dev — User guide
+# Private AI 3.0.5-dev — User guide
 
-Current source guide, updated October 14, 2026. Use with matching builds. Source changes do not update installed applications or establish physical-phone acceptance.
+Current source guide, updated October 15, 2026. Use with matching builds. The 3.0.5 update corrects report-folder, help, attachment and review-panel text/background contrast in light and dark appearance. Source changes do not update installed applications or establish physical-phone acceptance.
 
 ## Start here
 
