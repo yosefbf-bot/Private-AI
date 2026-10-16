@@ -1,4 +1,5 @@
 {
+  "whatsappSetupCopy20261016": {"base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2", "scope": "WhatsApp setup copy only", "tests": "716/716; hardening25/25; syntax/policy passed; zero skips", "release": "Not built/installed; exact-head CI required; Actions budget blocked"},
   "darkSurfaceContrast20261015": {
     "version": "3.0.5-dev",
     "base": "bdf73af43453a19abf3c9845cf667554de388fbb",
