@@ -34,3 +34,18 @@ apps/data or weakening release, privacy, resource or security gates.
 ## Standing feature-addition preference — 2026-10-14
 
 Before implementing a new feature, check GitHub for suitable free open-source components. Evaluate license, maintenance, security, offline/privacy behavior and compatibility. Reuse existing capabilities instead of adding duplicates. Prefer focused integration of trustworthy components when it saves work; use custom code when available projects do not fit. Explain selected components and meaningful feature/function changes. This does not override release or permission gates.
+
+## Standing CI spending preference - 2026-10-18
+
+The owner requests lower GitHub Actions usage. Read `docs/CI_COST_CONTROLS.md`
+before workflow changes. Batch coherent, locally checked work before pushing;
+avoid repeated unchanged builds and duplicate branch-push/PR validation.
+Keep PR/main validation and manual full acceptance. Require the current `ci-gate`
+and its selected checks to succeed. Runtime/build/dependency/test/workflow/contract
+and unknown changes still require full validation, including actual Windows or
+Android emulator acceptance. Only the explicit administrative-document path may
+skip runtime jobs, and those skips must never be described as executions.
+Do not use skip-CI commit directives or weaken checks to conceal a failure.
+Use trusted dependency-only caching; preserve accepted release/current rollback
+payloads and evidence before temporary artifacts expire. Do not raise billing
+budgets, enable paid external services or replace installed apps to save CI cost.
