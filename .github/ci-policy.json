@@ -1,0 +1,21 @@
+{
+  "administrative_docs": [
+    "AI_HANDOFF.md",
+    "AGENTS.md",
+    "README.md",
+    "GEMINI.md",
+    "docs/CI_COST_CONTROLS.md",
+    "PROJECT_STATUS.json",
+    "docs/FOUR_PHASE_PROGRESS_2026-10-13.md"
+  ],
+  "full_jobs": [
+    "regression",
+    "release-files",
+    "dependencies",
+    "windows-acl",
+    "windows-acceptance"
+  ],
+  "always_jobs": [
+    "secrets"
+  ]
+}
