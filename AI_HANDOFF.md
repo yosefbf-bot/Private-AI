@@ -1,3 +1,17 @@
+# Windows packaging validation fix - October 17, 2026
+
+Base/main9cf3b99; same WhatsApp setup PR23 branch. Confirmed64fe hosted build completed NSIS then tried implicit GitHub publishing and failed for missing GH_TOKEN, before actual app acceptance. Explicit publish:"never" makes this packaging-only helper independent of publishing credentials; separately authorized private-release uploads remain unchanged. No token/permission expansion or release gate bypass.
+
+Both normal and prepackaged build wrapper regressions passed2/2, preserving NSIS/x64/staging/PE validation. Local hardening25/25, syntax and policy passed. Full local718 suite:712pass/5fail/1cancel under measured1.35GiB free RAM; failures show LOW_MEMORY/downstream no-provider-call assertions and resource-blocked watcher timeout. This is not a passing full local suite. Preserve firstlogs. Hosted full718 and genuine Windows acceptance are required before merge. No installed app, keys or data changed. Android unlock PR5 separately accepted/merged with7OS cases perrun and verified existing signing identity.
+
+---
+
+# WhatsApp setup wording - October 16, 2026
+
+Base/main9cf3b99, branchchatgpt/whatsapp-setup-copy-2026-10-16. Text-only corrections: Open Web does not enable/save; Step3 controls named; obsolete open-conversation toast removed; Windows app/PID fields unnecessary for Web; bridge state labeled. No permission, privacy, version, protocol, or sending behavior changes. Full716/716, hardening25/25, syntax and repository policy passed with zero skips. No browser/live-account/installer acceptance claimed. No production installation changed. Actions budget remains blocked; exact-head CI must pass before merge or release. AndroidPR5 remains separate.
+
+---
+
 ## October 15 desktop 3.0.5 appearance correction
 
 Read docs/DARK_SURFACE_CONTRAST_2026-10-15.md. Base is accepted desktop main
