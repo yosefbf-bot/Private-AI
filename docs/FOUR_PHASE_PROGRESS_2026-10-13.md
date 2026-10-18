@@ -1,3 +1,20 @@
+# Current acceptance checkpoint - October 18, 2026
+
+The dated four-phase logs below are historical. The tested private previews are
+Desktop 3.0.5-dev build 81e7e5c and Companion 1.2.2-dev/code 5 build 1633980.
+Read the current AI_HANDOFF.md and PROJECT_STATUS.json acceptance checkpoint for
+exact commits/runs, published validation and remaining owner-device/account limits.
+Both release source and merged-main checks passed; Desktop 718/718 and Android
+8/8 actual emulator cases passed. Do not restart historical pending CI or treat
+all six reference projects as required duplicate integrations. Four selected
+direct integrations were accepted; the other six informed existing capabilities.
+Physical device/live-account/clinical acceptance remains separate, not completed
+by hosted checks. Historical phase estimates are not current completion claims.
+This checkpoint adds documentation only and does not change accepted binaries.
+
+---
+Historical phase log follows.
+
 # Four-phase reliability and companion update
 
 ## Verified baseline and scope

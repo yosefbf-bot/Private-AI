@@ -1,3 +1,38 @@
+# Accepted private preview checkpoint - October 18, 2026
+
+This checkpoint supersedes historical pending/budget/failure notes below for the
+specified release. Preserve those notes as history; do not restart completed work.
+
+- Desktop binary/source commit: 81e7e5c9472d181f8fe661c5f7c1fec84d927050,
+  version 3.0.5-dev; accepted merge main: 6e0b46955103d35c905c81e6f0a0f85aa48200af.
+- All 12 exact-source review/push checks and all 6 merged-main checks passed.
+  Accepted push run 39083246093; merged-main run 39106431690.
+- Hosted Windows source tests: 718/718, zero failures, cancellations or skips.
+  Genuine installer, installed application, bounded Small local inference,
+  retained synthetic-data uninstall/reinstall and relocated portable execution
+  passed. All 775 portable baseline files matched. Local focused packaging 2/2,
+  hardening 25/25, syntax/policy passed; RAM-constrained local full run is NOT a pass.
+- Android companion is 1.2.2-dev/code 5, source
+  163398051f72b943fb74242462e5ee5a83ac8be1; merge main
+  2ca8ffc887a3ade5928b793a5ccca6d1277a5c74. Its 8/8 actual emulator cases passed.
+- Immutable private previews and validation/checksum assets:
+  https://github.com/yosefbf-bot/Private-AI-OG-google-version/releases/tag/private-preview-3.0.5-2026.10.18
+  https://github.com/yosefbf-bot/AI-Mobile-companion-app/releases/tag/private-preview-1.2.2-2026.10.18
+- The accepted installer remains unsigned. Current owner-PC/Windows 11 install,
+  physical-phone upgrade/OEM keyboard/Keystore, live account/LAN/mic/notification
+  and representative clinical acceptance remain unperformed unless separately
+  recorded. Earlier Windows 11/106-contrast evidence belongs to the October 15 build.
+  No owner application/data/model/pairing/signing key was replaced in this task.
+
+These are accepted-release results, not claims about a subsequent changed runtime.
+This documentation-only correction changes no package/runtime/protocol/schema,
+provider, security or clinical behavior. It still requires its own GitHub checks.
+The original source archives intentionally retain the exact tested source commit;
+later documentation does not relabel those binaries or rewrite their receipts.
+
+---
+Historical handoff follows.
+
 # Windows packaging validation fix - October 17, 2026
 
 Base/main9cf3b99; same WhatsApp setup PR23 branch. Confirmed64fe hosted build completed NSIS then tried implicit GitHub publishing and failed for missing GH_TOKEN, before actual app acceptance. Explicit publish:"never" makes this packaging-only helper independent of publishing credentials; separately authorized private-release uploads remain unchanged. No token/permission expansion or release gate bypass.

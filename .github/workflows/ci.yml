@@ -1,8 +1,30 @@
 name: Hardening and release gates
-on: [push, pull_request]
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.classify.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify conservative scope and gate boundaries
+        run: python3 -m unittest discover -s .github/scripts -p 'test_ci_scope.py' -v
+      - name: Classify complete change range
+        id: classify
+        run: python3 .github/scripts/ci_scope.py
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -15,6 +37,8 @@ jobs:
           node-version: '24'
       - run: npm run check:secrets
   regression:
+    needs: scope
+    if: ${{ needs.scope.outputs.mode != 'docs' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,6 +53,8 @@ jobs:
       - run: npm test
       - run: npm run test:hardening
   release-files:
+    needs: scope
+    if: ${{ needs.scope.outputs.mode != 'docs' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -54,13 +80,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-inputs-${{ github.sha }}
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: error
           path: |
             build/desktop-helper/
             build/local-runtime/
             build/windows-input-sha256.txt
   dependencies:
+    needs: scope
+    if: ${{ needs.scope.outputs.mode != 'docs' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,6 +100,8 @@ jobs:
       - run: npm audit --omit=dev --audit-level=high
 
   windows-acl:
+    needs: scope
+    if: ${{ needs.scope.outputs.mode != 'docs' }}
     runs-on: windows-2025
     timeout-minutes: 5
     steps:
@@ -83,7 +113,8 @@ jobs:
         run: node --test --test-reporter=tap tests/windows-acl-native.test.cjs
 
   windows-acceptance:
-    needs: [release-files, windows-acl]
+    needs: [scope, release-files, windows-acl]
+    if: ${{ needs.scope.outputs.mode != 'docs' }}
     runs-on: windows-2025
     timeout-minutes: 45
     steps:
@@ -152,7 +183,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-acceptance-${{ github.sha }}
-          retention-days: 14
+          retention-days: ${{ github.event_name == 'workflow_dispatch' && 14 || github.event_name == 'pull_request' && 3 || 7 }}
           if-no-files-found: error
           path: |
             dist/PrivateAI-Setup-*.exe
@@ -167,3 +198,15 @@ jobs:
             ${{ runner.temp }}/privateai-acceptance/portable/*.json
             ${{ runner.temp }}/privateai-acceptance/*.zip
             ${{ runner.temp }}/privateai-windows-tests.log
+
+  ci-gate:
+    if: ${{ always() }}
+    needs: [scope, secrets, regression, release-files, dependencies, windows-acl, windows-acceptance]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the complete selected validation path
+        env:
+          CI_GATE_NEEDS: ${{ toJSON(needs) }}
+        run: python3 .github/scripts/ci_scope.py --gate
