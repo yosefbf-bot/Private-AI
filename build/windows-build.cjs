@@ -25,4 +25,5 @@ if(process.platform === "linux") {
     return {script,isCustomScript:false};
   };
 }
-build({targets:Platform.WINDOWS.createTarget(["nsis"],Arch.x64),...(process.argv.includes("--prepackaged")?{prepackaged:path.resolve(__dirname,"../dist/win-unpacked")}: {})}).catch(e=>{console.error(e);process.exitCode=1;});
+// Release uploads are a separate explicit step; CI packaging must never publish.
+build({publish:"never",targets:Platform.WINDOWS.createTarget(["nsis"],Arch.x64),...(process.argv.includes("--prepackaged")?{prepackaged:path.resolve(__dirname,"../dist/win-unpacked")}: {})}).catch(e=>{console.error(e);process.exitCode=1;});

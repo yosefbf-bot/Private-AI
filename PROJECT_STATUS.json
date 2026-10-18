@@ -1,4 +1,5 @@
 {
+  "windowsPackagingNoPublish20261017": {"base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2", "scope": "Packaging always uses publish:never; WhatsApp setup text retained", "focusedPackagingTests": "2/2 passed", "localHardening": "25/25 passed", "localFullSuite": {"tests": 718, "passed": 712, "failed": 5, "cancelled": 1, "skipped": 0, "limitation": "RAM admission affected unrelated functional fixtures; genuine hosted full suite required"}, "syntax": "passed", "release": "Pending current-head Windows acceptance; no owner installation changed"},
   "whatsappSetupCopy20261016": {"base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2", "scope": "WhatsApp setup copy only", "tests": "716/716; hardening25/25; syntax/policy passed; zero skips", "release": "Not built/installed; exact-head CI required; Actions budget blocked"},
   "darkSurfaceContrast20261015": {
     "version": "3.0.5-dev",
