@@ -1,4 +1,55 @@
 {
+  "releaseAcceptance20261018": {
+    "date": "2026-10-18",
+    "status": "accepted-private-preview-owner-device-acceptance-pending",
+    "supersedes": "Historical pending/budget/failure entries below for these exact release commits only.",
+    "desktop": {
+      "version": "3.0.5-dev",
+      "source": "81e7e5c9472d181f8fe661c5f7c1fec84d927050",
+      "acceptedMain": "6e0b46955103d35c905c81e6f0a0f85aa48200af",
+      "pushRun": 39083246093,
+      "mainRun": 39106431690,
+      "hostedTests": {
+        "pass": 718,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "actualWindows": [
+        "installer",
+        "installed application",
+        "Small inference",
+        "retained-data uninstall/reinstall",
+        "portable"
+      ],
+      "localFullSuite": "RAM-constrained, not claimed passing",
+      "installerSigned": false
+    },
+    "companion": {
+      "version": "1.2.2-dev",
+      "versionCode": 5,
+      "source": "163398051f72b943fb74242462e5ee5a83ac8be1",
+      "acceptedMain": "2ca8ffc887a3ade5928b793a5ccca6d1277a5c74",
+      "hostedUnitsPassed": 96,
+      "namedAbsentFixtureSkips": 2,
+      "actualEmulatorPassed": 8,
+      "actualEmulatorSkipped": 0,
+      "lintErrors": 0,
+      "lintWarnings": 76
+    },
+    "releases": [
+      "https://github.com/yosefbf-bot/Private-AI-OG-google-version/releases/tag/private-preview-3.0.5-2026.10.18",
+      "https://github.com/yosefbf-bot/AI-Mobile-companion-app/releases/tag/private-preview-1.2.2-2026.10.18"
+    ],
+    "remainingAcceptance": [
+      "Current owner-PC/Windows 11 upgrade/reboot",
+      "Physical phone update/OEM keyboard/Keystore",
+      "Real LAN/camera/microphone/notifications",
+      "Live approved Outlook/WhatsApp/PCC",
+      "Representative clinical review"
+    ],
+    "scope": "Documentation only; historical receipts and original accepted binary/source payloads remain unchanged. Subsequent commits require their own relevant checks."
+  },
   "windowsPackagingNoPublish20261017": {"base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2", "scope": "Packaging always uses publish:never; WhatsApp setup text retained", "focusedPackagingTests": "2/2 passed", "localHardening": "25/25 passed", "localFullSuite": {"tests": 718, "passed": 712, "failed": 5, "cancelled": 1, "skipped": 0, "limitation": "RAM admission affected unrelated functional fixtures; genuine hosted full suite required"}, "syntax": "passed", "release": "Pending current-head Windows acceptance; no owner installation changed"},
   "whatsappSetupCopy20261016": {"base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2", "scope": "WhatsApp setup copy only", "tests": "716/716; hardening25/25; syntax/policy passed; zero skips", "release": "Not built/installed; exact-head CI required; Actions budget blocked"},
   "darkSurfaceContrast20261015": {
