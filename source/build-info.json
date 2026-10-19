@@ -1,8 +1,8 @@
 {
-  "version": "3.0.5-dev",
-  "updatedAt": "2026-10-18T00:34:09.506Z",
-  "baselineCommit": "5f81cb5a0cf4aa055d06b719c24234a19bd2dfaf",
+  "version": "3.0.6-dev",
+  "updatedAt": "2026-10-19T03:51:37.036Z",
+  "baselineCommit": "1dec8a34c226f52f93e441c40456207bd6a17153",
   "releaseStatus": "validation-pending",
-  "note": "Four-phase candidate; consult its actual hash-bound Windows and Android acceptance before release.",
-  "sourceSHA256": "5258b18248457cf999dd4dea68755f9cd674d9d3c51bf3c11c90c420ec97e18a"
+  "note": "Usability and Windows dark-visibility candidate; consult actual hash-bound acceptance before release.",
+  "sourceSHA256": "3c79e747faf8be578c713e43e10c680ad7e864836579db673d9e181afdae652f"
 }

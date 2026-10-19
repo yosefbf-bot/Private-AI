@@ -1,4 +1,49 @@
 {
+  "fiveUsabilityFixes20261019": {
+    "status": "locally-validated-independently-reviewed-hosted-pending",
+    "desktopVersion": "3.0.6-dev",
+    "companionVersion": "1.2.3-dev/code6",
+    "scope": [
+      "Android chat feedback",
+      "durable capture acknowledgment",
+      "connection freshness",
+      "safe Ask again",
+      "Desktop unsaved Notes protection",
+      "Windows dark control/text visibility"
+    ],
+    "firstLocalUI": {
+      "existingWorkflows": 25,
+      "initialNotesCases": 9,
+      "themeTextObservations": 106,
+      "result": "passed before independent-review followups"
+    },
+    "finalLocalUI": {
+      "existingWorkflows": 25,
+      "notesCases": 13,
+      "textContrastObservations": 117,
+      "darkControlChecks": 7,
+      "result": "passed",
+      "browser": "155.0.4283.62"
+    },
+    "exactHeadHostedAcceptance": "pending",
+    "ownerInstallChanged": false,
+    "newDependencies": false,
+    "newRPCOrSchema": false,
+    "independentMobileAPI": "cancelled",
+    "details": "docs/FIVE_USABILITY_FIXES_2026-10-19.md",
+    "focusedNode": {
+      "passed": 36,
+      "failed": 0,
+      "skipped": 0
+    },
+    "syntaxFiles": 241,
+    "ciPolicyTests": 16,
+    "gitleaks": {
+      "currentFindings": 0,
+      "historyFindings": 0
+    },
+    "independentReview": "no remaining code blocker; current-source hosted acceptance still required"
+  },
   "releaseAcceptance20261018": {
     "date": "2026-10-18",
     "status": "accepted-private-preview-owner-device-acceptance-pending",

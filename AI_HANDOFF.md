@@ -1,3 +1,16 @@
+# Active usability and dark-mode source update - October 19, 2026 UTC
+
+Desktop 3.0.6-dev: protected unsaved Notes/navigation and save/refresh race; lighter
+Windows dark text, controls, borders and focus. Companion 1.2.3-dev/code 6: active
+chat feedback, durable saved-note receipt, connection badge and safe Ask again.
+See docs/FIVE_USABILITY_FIXES_2026-10-19.md for scope and verification status.
+Local UI25/Notes13/text117/dark7 and focused Node36/36 passed; independent
+code review found no remaining blocker. Final current-source hosted gates pending. Historical
+accepted 3.0.5/1.2.2 receipts below do not validate this changed runtime. No owner
+installation/data/pairing/signer was changed; independent mobile API remains cancelled.
+
+---
+
 # Accepted private preview checkpoint - October 18, 2026
 
 This checkpoint supersedes historical pending/budget/failure notes below for the

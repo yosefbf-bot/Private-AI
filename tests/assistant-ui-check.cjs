@@ -4,11 +4,18 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
 const {chromium}=require('playwright'),{fixture}=require('./helpers.cjs');
 const cleanup=[],{core}=fixture({after:f=>cleanup.push(f)}),root=path.resolve(__dirname,'..');
 let browser;const errors=[],calls=[];
+const captureControl={fail:false,wait:null,started:null,listWait:null,listStarted:null,summaryWait:null,summaryStarted:null};
 core.deleteKey('openai'); // Exercise keyless setup, including its warning in dark mode.
 // This UI fixture checks rendering, not the host's changing memory pressure.
 core.resources.memory=()=>8*1024**3;
 async function dispatch(op,data={}){
   calls.push(op);
+  if(op==='summary'&&captureControl.summaryWait){const wait=captureControl.summaryWait;captureControl.summaryWait=null;captureControl.summaryStarted?.();await wait;}
+  if(op==='captureList'&&captureControl.listWait){const wait=captureControl.listWait;captureControl.listWait=null;captureControl.listStarted?.();await wait;}
+  if(op==='captureCreate'){
+    if(captureControl.fail)throw require('../source/security.cjs').fail('INVALID');
+    const wait=captureControl.wait;if(wait){captureControl.started?.();await wait;}
+  }
   for(const [prefix,module] of [['workflow','workflows/index'],['capture','capture-workflows'],['meeting','operations-copilot'],['speaker','operations-copilot'],['snf','snf/index'],['speech','local-speech']])if(op.startsWith(prefix))return require('../source/'+module+'.cjs').dispatch(core,op,data);
   if(op==='summary')return {...core.summary(),autostart:false};
   if(op==='userGuide')return require('../source/app-guide.cjs').guide;
@@ -130,6 +137,55 @@ const server=http.createServer((req,res)=>{
     }
     await page.locator('#theme-surface-fixture').evaluate(el=>el.remove());
   }
+  // Dark-only regressions: these controls previously retained deep light-theme
+  // colors. Check rendered text, disabled labels, field/composer edges and focus.
+  const darkVisibility=[];
+  await page.locator('#sidebar [data-view=settings]').click();await page.locator('[name=appearance]').selectOption('dark');
+  await page.locator('#content').evaluate(content=>{
+    const fixture=document.createElement('section');fixture.id='dark-visibility-fixture';fixture.className='section';
+    fixture.innerHTML='<button class="danger" data-contrast="danger-action">Delete synthetic item</button>'+
+      '<label class="voice-control-label" data-contrast="voice-label">Microphone options</label>'+
+      '<button class="voice-composer-btn" data-contrast="microphone-control">Microphone</button>'+
+      '<span class="message-duration extended" data-contrast="extended-duration">15s</span>'+
+      '<p class="composer-note" data-contrast="composer-hint">Synthetic privacy reminder</p>'+
+      '<p class="snf-stale-banner" data-contrast="stale-evidence-warning">Synthetic source is stale</p>'+
+      '<p class="text-high" data-contrast="high-priority-text">Synthetic review priority</p>'+
+      '<button class="primary" disabled data-contrast="disabled-action">Waiting for synthetic operation</button>'+
+      '<label>Input boundary <input id="dark-visibility-input" placeholder="Synthetic input hint"></label>'+
+      '<label>Select boundary <select><option>Synthetic option</option></select></label>'+
+      '<label>Text area boundary <textarea placeholder="Synthetic note hint"></textarea></label>';
+    content.append(fixture);
+  });
+  await audit('dark','#dark-visibility-fixture [data-contrast]');
+  await page.locator('#dark-visibility-fixture .voice-composer-btn').hover();
+  await audit('dark','#dark-visibility-fixture .voice-composer-btn');
+  await page.mouse.move(1,1);
+  const visualRows=await page.locator('#dark-visibility-fixture input,#dark-visibility-fixture select,#dark-visibility-fixture textarea').evaluateAll(elements=>elements.map(el=>{
+    const style=getComputedStyle(el),hint=getComputedStyle(el,'::placeholder');let parent=el.parentElement;
+    while(parent&&getComputedStyle(parent).backgroundColor==='rgba(0, 0, 0, 0)')parent=parent.parentElement;
+    return {target:el.tagName,border:style.borderTopColor,width:parseFloat(style.borderTopWidth),background:style.backgroundColor,surrounding:getComputedStyle(parent).backgroundColor,placeholder:hint.color};
+  }));
+  const contrastRatio=(foreground,background)=>{
+    const lum=color=>{const c=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;});return c[0]*0.2126+c[1]*0.7152+c[2]*0.0722;};
+    const a=lum(foreground),b=lum(background);return (Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
+  };
+  for(const row of visualRows){
+    const ratio=Math.min(contrastRatio(row.border,row.background),contrastRatio(row.border,row.surrounding));
+    assert.ok(row.width>=1&&ratio>=3,`${row.target} dark field boundary contrast: ${ratio}`);darkVisibility.push({...row,ratio});
+    if(row.target!=='SELECT'){const hintRatio=contrastRatio(row.placeholder,row.background);assert.ok(hintRatio>=4.5,`Dark placeholder contrast: ${hintRatio}`);darkVisibility.push({target:row.target+' placeholder',ratio:hintRatio});}
+  }
+  assert.equal(await page.locator('#dark-visibility-fixture button:disabled').evaluate(el=>getComputedStyle(el).opacity),'1','Disabled labels must remain readable, with muted styling and native disabled behavior');
+  await page.keyboard.press('Tab');await page.locator('#dark-visibility-input').focus();
+  const focus=await page.locator('#dark-visibility-input').evaluate(el=>({visible:el.matches(':focus-visible'),color:getComputedStyle(el).outlineColor,width:parseFloat(getComputedStyle(el).outlineWidth),background:getComputedStyle(el).backgroundColor}));
+  const focusRatio=contrastRatio(focus.color,focus.background);assert.ok(focus.visible&&focus.width>=2&&focusRatio>=3,'Dark keyboard focus must be visible');darkVisibility.push({target:'keyboard focus',ratio:focusRatio});
+  await page.locator('#dark-visibility-fixture').screenshot({path:path.join(out,'dark-visibility-controls.png')});
+  await page.locator('#dark-visibility-fixture').evaluate(el=>el.remove());
+  await page.locator(`[data-id="${guideChat.id}"]`).click();
+  await audit('dark','#voice-composer-btn,#composer-note');
+  const composer=await page.locator('#compose .composer-box').evaluate(el=>({border:getComputedStyle(el).borderTopColor,background:getComputedStyle(el).backgroundColor}));
+  const composerRatio=contrastRatio(composer.border,composer.background);assert.ok(composerRatio>=3,'Actual dark chat composer boundary must be visible');darkVisibility.push({target:'actual chat composer boundary',ratio:composerRatio});
+  await page.screenshot({path:path.join(out,'response-dark-visibility.png'),fullPage:true});
+  fs.writeFileSync(path.join(out,'dark-visibility.json'),JSON.stringify(darkVisibility,null,2)+'\n');
   fs.writeFileSync(path.join(out,'surface-contrast.json'),JSON.stringify(surfaceContrast,null,2)+'\n');
   assert.deepEqual(surfaceContrast.filter(row=>!Number.isFinite(row.ratio)||row.ratio<4.5),[],'Rendered text must reach 4.5:1 contrast in both themes');
   await page.locator('#sidebar [data-view=settings]').click();await page.locator('[name=appearance]').selectOption('dark');
@@ -154,5 +210,117 @@ const server=http.createServer((req,res)=>{
   await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
   await page.locator('[name=appearance]').selectOption('light');await page.reload();
   assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({checks:25,surfaceContrastChecks:surfaceContrast.length,scope:'Synthetic Core/SQLite + Edge: existing assistant workflows, actual settings/guide and shared card/hover text contrast in both themes',browser:await browser.version()}));
+  // Exercise the actual Notes UI and real encrypted Core while navigation,
+  // review refresh, failed save and delayed successful save compete with typing.
+  const notesDraftChecks=[];
+  await page.locator('#sidebar [data-view=captures]').click();
+  const noteText='SYNTHETIC unsaved rounds observation';
+  await page.locator('#capture-form [name=text]').fill(noteText);
+  await page.locator('#capture-form .manual-details > summary').click();
+  await page.locator('#capture-form [name=owner]').fill('SYNTHETIC reviewer');
+  await page.locator('#capture-file').setInputFiles({name:'SYNTHETIC-evidence.txt',mimeType:'text/plain',buffer:Buffer.from('SYNTHETIC evidence, not a real record')});
+  const cancelledDialog=page.waitForEvent('dialog');
+  const cancelledNavigation=page.locator('#sidebar [data-view=dashboard]').click();
+  const discard=await cancelledDialog;assert.match(discard.message(),/discard the unsaved note/);await discard.dismiss();await cancelledNavigation;
+  assert.equal(await page.locator('#capture-form [name=text]').inputValue(),noteText);
+  notesDraftChecks.push('Cancel navigation keeps the unsaved note');
+  const chatsBeforeCancelledNew=core.store.count('chat');
+  const cancelledNewDialog=page.waitForEvent('dialog');const cancelledNew=page.locator('#sidebar [data-act=new]').click();
+  await (await cancelledNewDialog).dismiss();await cancelledNew;
+  assert.equal(core.store.count('chat'),chatsBeforeCancelledNew);assert.equal(await page.locator('#capture-form [name=text]').inputValue(),noteText);
+  notesDraftChecks.push('Cancel New chat leaves Notes and chat history unchanged');
+  const priorForm=await page.locator('#capture-form').elementHandle();
+  await page.locator('[data-action]').first().click();
+  await page.locator('#modal-content [name=note]').fill('SYNTHETIC administrative review');
+  await page.locator('#modal-submit').click();
+  await page.waitForFunction(el=>!el.isConnected,priorForm);await priorForm.dispose();
+  assert.equal(await page.locator('#capture-form [name=text]').inputValue(),noteText);
+  assert.equal(await page.locator('#capture-form [name=owner]').inputValue(),'SYNTHETIC reviewer');
+  assert.notEqual(await page.locator('#capture-form .manual-details').getAttribute('open'),null);
+  notesDraftChecks.push('Review reload preserves text and optional fields');
+  assert.equal(await page.locator('#capture-file').evaluate(el=>el.files[0]?.name),'SYNTHETIC-evidence.txt');
+  notesDraftChecks.push('Review reload preserves explicitly selected evidence');
+  const beforeFailedSave=core.store.count('capture_note');captureControl.fail=true;
+  await page.locator('#capture-form button[type=submit]').click();
+  const invalidMessage=require('../source/security.cjs').safeError(require('../source/security.cjs').fail('INVALID')).message;
+  await page.getByText(invalidMessage,{exact:true}).waitFor();
+  assert.equal(core.store.count('capture_note'),beforeFailedSave);
+  assert.equal(await page.locator('#capture-form [name=text]').inputValue(),noteText);
+  assert.equal(await page.locator('#capture-file').evaluate(el=>el.files.length),1);
+  captureControl.fail=false;notesDraftChecks.push('Failed save leaves the unsaved form/evidence intact');
+  const acceptedDialog=page.waitForEvent('dialog');
+  const acceptedNavigation=page.locator('#sidebar [data-view=dashboard]').click();
+  await (await acceptedDialog).accept();await acceptedNavigation;
+  await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
+  await page.locator('#sidebar [data-view=captures]').click();
+  assert.equal(await page.locator('#capture-form [name=text]').inputValue(),'');
+  assert.equal(await page.locator('#capture-file').evaluate(el=>el.files.length),0);
+  notesDraftChecks.push('Only explicit discard clears an unsaved form on navigation');
+  await page.locator('#capture-form [name=text]').fill('SYNTHETIC submitted observation');
+  await page.locator('#capture-file').setInputFiles({name:'SYNTHETIC-submitted.txt',mimeType:'text/plain',buffer:Buffer.from('SYNTHETIC submitted evidence')});
+  const savingForm=await page.locator('#capture-form').elementHandle();
+  let started,release;const saveStarted=new Promise(resolve=>{started=resolve;});
+  captureControl.started=started;captureControl.wait=new Promise(resolve=>{release=resolve;});
+  let listStarted,releaseList;const listRequestStarted=new Promise(resolve=>{listStarted=resolve;});
+  captureControl.listStarted=listStarted;captureControl.listWait=new Promise(resolve=>{releaseList=resolve;});
+  await page.locator('[data-action]').first().click();await page.locator('#modal-content [name=note]').fill('SYNTHETIC review begins before save');await page.locator('#modal-submit').click();await listRequestStarted;
+  await page.locator('#capture-form button[type=submit]').click();await saveStarted;
+  captureControl.listStarted=null;releaseList();
+  await page.evaluate(()=>new Promise(requestAnimationFrame));
+  // Wait for the pre-existing captureList RPC to resume; no timer-based save
+  // completion is assumed, and the same form must remain guarded.
+  await page.waitForFunction(()=>!document.querySelector('#modal').open);
+  assert.equal(await savingForm.evaluate(el=>el.isConnected),true);
+  assert.equal(await page.locator('#capture-form button[type=submit]').isDisabled(),true);
+  notesDraftChecks.push('A save starting during list refresh retains its original guarded form');
+  const captureCallsBeforeReview=calls.filter(op=>op==='captureCreate').length;
+  await page.locator('[data-action]').first().click();await page.locator('#modal-content [name=note]').fill('SYNTHETIC review during save');await page.locator('#modal-submit').click();
+  await page.waitForFunction(()=>!document.querySelector('#modal').open);
+  assert.equal(await savingForm.evaluate(el=>el.isConnected),true,'Review refresh must not replace the in-flight form');
+  assert.equal(await page.locator('#capture-form button[type=submit]').isDisabled(),true);
+  await page.locator('#capture-form').evaluate(el=>el.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  assert.equal(calls.filter(op=>op==='captureCreate').length,captureCallsBeforeReview);
+  notesDraftChecks.push('Review refresh and repeated submission cannot duplicate an in-flight note');
+  await page.locator('#capture-form [name=text]').fill('SYNTHETIC newer draft typed during save');
+  await page.locator('#capture-file').setInputFiles({name:'SYNTHETIC-newer.txt',mimeType:'text/plain',buffer:Buffer.from('SYNTHETIC newer evidence')});
+  captureControl.wait=null;captureControl.started=null;release();
+  await page.waitForFunction(el=>!el.isConnected,savingForm);await savingForm.dispose();
+  assert.equal(await page.locator('#capture-form [name=text]').inputValue(),'SYNTHETIC newer draft typed during save');
+  assert.equal(await page.locator('#capture-file').evaluate(el=>el.files[0]?.name),'SYNTHETIC-newer.txt');
+  assert.equal(core.store.count('capture_note'),beforeFailedSave+1);
+  assert.ok(core.store.list('capture_note').some(c=>c.text==='SYNTHETIC submitted observation'));
+  assert.ok(!core.store.list('capture_note').some(c=>c.text==='SYNTHETIC newer draft typed during save'));
+  notesDraftChecks.push('Delayed save preserves newer text and evidence without claiming it saved');
+  const finalForm=await page.locator('#capture-form').elementHandle();
+  let lastListStarted,releaseLastList;const lastListRequest=new Promise(resolve=>{lastListStarted=resolve;});
+  captureControl.listStarted=lastListStarted;captureControl.listWait=new Promise(resolve=>{releaseLastList=resolve;});
+  await page.locator('[data-action]').first().click();await page.locator('#modal-content [name=note]').fill('SYNTHETIC list held across acknowledgment');await page.locator('#modal-submit').click();await lastListRequest;
+  let ackRefreshStarted,releaseAckRefresh;const ackRefreshRequest=new Promise(resolve=>{ackRefreshStarted=resolve;});
+  captureControl.summaryStarted=ackRefreshStarted;captureControl.summaryWait=new Promise(resolve=>{releaseAckRefresh=resolve;});
+  await page.locator('#capture-form button[type=submit]').click();await ackRefreshRequest;
+  captureControl.listStarted=null;releaseLastList();
+  await page.evaluate(()=>new Promise(requestAnimationFrame));
+  assert.equal(await finalForm.evaluate(el=>el.isConnected),true,'A pre-ack list response must not replace the acknowledged form while its refresh awaits');
+  captureControl.summaryStarted=null;releaseAckRefresh();
+  notesDraftChecks.push('A pre-ack list response cannot restore an acknowledged note');
+  await page.waitForFunction(el=>!el.isConnected,finalForm);await finalForm.dispose();
+  assert.equal(await page.locator('#capture-form [name=text]').inputValue(),'');
+  assert.equal(await page.locator('#capture-file').evaluate(el=>el.files.length),0);
+  assert.equal(core.store.count('capture_note'),beforeFailedSave+2);
+  notesDraftChecks.push('Acknowledged unchanged submission clears exactly once');
+  const lockMarker='SYNTHETIC_UNSAVED_LOCK_CLEAR';
+  await page.locator('#capture-form [name=text]').fill(lockMarker);
+  let lockDialogs=0;const onLockDialog=dialog=>{lockDialogs++;dialog.dismiss();};page.on('dialog',onLockDialog);
+  await page.evaluate(()=>window.__deliver({type:'locked'}));
+  await page.getByRole('heading',{name:'Private AI is locked',exact:true}).waitFor();
+  assert.equal(lockDialogs,0);assert.equal(await page.locator('#capture-form').count(),0);
+  assert.ok(!(await page.locator('body').innerText()).includes(lockMarker));
+  page.off('dialog',onLockDialog);notesDraftChecks.push('Forced lock clears Notes without a blocking discard dialog');
+  assert.equal(await page.evaluate(marker=>JSON.stringify({...localStorage,...sessionStorage}).includes(marker),lockMarker),false);
+  await page.reload();await page.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
+  await page.locator('#sidebar [data-view=captures]').click();
+  assert.equal(await page.locator('#capture-form [name=text]').inputValue(),'');
+  notesDraftChecks.push('Unsubmitted content is not persisted into browser storage or restored after lock/reload');
+  fs.writeFileSync(path.join(out,'notes-draft-checks.json'),JSON.stringify(notesDraftChecks,null,2)+'\n');
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({checks:25,notesDraftChecks:notesDraftChecks.length,surfaceContrastChecks:surfaceContrast.length,darkVisibilityChecks:darkVisibility.length,scope:'Synthetic Core/SQLite + Edge: existing assistant workflows, actual settings/guide and shared card/hover text contrast in both themes',browser:await browser.version()}));
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();for(const fn of cleanup)fn();});

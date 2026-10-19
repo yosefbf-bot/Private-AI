@@ -157,6 +157,16 @@ jobs:
           $ErrorActionPreference='Stop'
           node --test --test-reporter=tap --test-concurrency=2 --test-timeout=60000 tests/*.test.cjs 2>&1 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'privateai-windows-tests.log')
           if ($LASTEXITCODE -ne 0) { throw 'Windows source tests failed.' }
+      - name: Exercise actual assistant UI and theme visibility with synthetic Core data
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $edge=Join-Path ${env:ProgramFiles(x86)} 'Microsoft/Edge/Application/msedge.exe'
+          if (-not (Test-Path -LiteralPath $edge -PathType Leaf)) { throw 'Actual Windows Edge is required for UI acceptance.' }
+          $env:PRIVATE_AI_TEST_CHROMIUM=$edge
+          $env:PRIVATE_AI_UI_EVIDENCE=Join-Path $env:RUNNER_TEMP 'privateai-ui-acceptance'
+          node tests/assistant-ui-check.cjs 2>&1 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'privateai-ui-tests.log')
+          if ($LASTEXITCODE -ne 0) { throw 'Actual assistant UI acceptance failed.' }
       - name: Build the real installer and freeze candidate hashes
         shell: pwsh
         run: |
@@ -198,6 +208,9 @@ jobs:
             ${{ runner.temp }}/privateai-acceptance/portable/*.json
             ${{ runner.temp }}/privateai-acceptance/*.zip
             ${{ runner.temp }}/privateai-windows-tests.log
+            ${{ runner.temp }}/privateai-ui-tests.log
+            ${{ runner.temp }}/privateai-ui-acceptance/*.json
+            ${{ runner.temp }}/privateai-ui-acceptance/*.png
 
   ci-gate:
     if: ${{ always() }}
