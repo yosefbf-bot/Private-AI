@@ -1,3 +1,16 @@
+# Notes admission follow-up - October 19, 2026 UTC
+
+Before final acceptance, independent review confirmed a pending-response edge:
+New/Open chat rejected by the sending guard could first deactivate the Notes form.
+The guard now returns before stopping Notes/voice. A real Core/Edge regression
+reproduced the issue before the fix and now passes, including both rejected chat
+switches and exactly-one successful Notes save. Final UI25/Notes14/text117/dark7
+and syntax passed; fresh hosted full acceptance remains required for this commit.
+This continues the unreleased3.0.6-dev candidate, without relabeling any previous
+accepted binary or changing dependencies/schema/provider/privacy/owner installs.
+
+---
+
 # Active usability and dark-mode source update - October 19, 2026 UTC
 
 Desktop 3.0.6-dev: protected unsaved Notes/navigation and save/refresh race; lighter

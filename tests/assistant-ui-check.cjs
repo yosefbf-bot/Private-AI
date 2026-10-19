@@ -4,12 +4,14 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
 const {chromium}=require('playwright'),{fixture}=require('./helpers.cjs');
 const cleanup=[],{core}=fixture({after:f=>cleanup.push(f)}),root=path.resolve(__dirname,'..');
 let browser;const errors=[],calls=[];
+const chatControl={wait:null,started:null,release:null,finished:null};let chatCompletion=null,chatDispatched=false;
 const captureControl={fail:false,wait:null,started:null,listWait:null,listStarted:null,summaryWait:null,summaryStarted:null};
 core.deleteKey('openai'); // Exercise keyless setup, including its warning in dark mode.
 // This UI fixture checks rendering, not the host's changing memory pressure.
 core.resources.memory=()=>8*1024**3;
 async function dispatch(op,data={}){
   calls.push(op);
+  if(op==='send'){try{chatDispatched=true;chatControl.started?.();if(chatControl.wait)await chatControl.wait;return await core.send(data);}finally{chatControl.finished?.();}}
   if(op==='summary'&&captureControl.summaryWait){const wait=captureControl.summaryWait;captureControl.summaryWait=null;captureControl.summaryStarted?.();await wait;}
   if(op==='captureList'&&captureControl.listWait){const wait=captureControl.listWait;captureControl.listWait=null;captureControl.listStarted?.();await wait;}
   if(op==='captureCreate'){
@@ -321,6 +323,27 @@ const server=http.createServer((req,res)=>{
   await page.locator('#sidebar [data-view=captures]').click();
   assert.equal(await page.locator('#capture-form [name=text]').inputValue(),'');
   notesDraftChecks.push('Unsubmitted content is not persisted into browser storage or restored after lock/reload');
+  // Rejected chat navigation must not deactivate the Notes form. Hold the real
+  // API call before deterministic Core calculation, representing a pending reply.
+  await page.locator(`[data-id="${guideChat.id}"]`).click();
+  let chatStarted;const awaitingChat=new Promise(resolve=>{chatStarted=resolve;});chatControl.started=chatStarted;
+  chatControl.wait=new Promise(resolve=>{chatControl.release=resolve;});chatCompletion=new Promise(resolve=>{chatControl.finished=resolve;});
+  await page.locator('#prompt').fill('/calc 2+2');await page.locator('#send').click();await awaitingChat;
+  await page.locator('#sidebar [data-view=captures]').click();
+  const pendingReplyNote='SYNTHETIC note while a reply is pending';await page.locator('#capture-form [name=text]').fill(pendingReplyNote);
+  let blockedDialogs=0;const acceptBlockedDialog=dialog=>{blockedDialogs++;dialog.accept();};page.on('dialog',acceptBlockedDialog);
+  const beforeBlockedNavigation=core.store.count('chat');
+  await page.locator('#sidebar [data-act=new]').click();await page.getByText('Stop the current response first.',{exact:true}).waitFor();
+  await page.locator(`[data-id="${guideChat.id}"]`).click();
+  assert.equal(blockedDialogs,0,'A rejected chat switch must not ask to discard or stop the Notes form');
+  page.off('dialog',acceptBlockedDialog);
+  assert.equal(core.store.count('chat'),beforeBlockedNavigation);assert.equal(await page.locator('#capture-form [name=text]').inputValue(),pendingReplyNote);
+  const blockedForm=await page.locator('#capture-form').elementHandle(),beforePendingSave=core.store.count('capture_note');
+  await page.locator('#capture-form button[type=submit]').click();await page.waitForFunction(el=>!el.isConnected,blockedForm);await blockedForm.dispose();
+  assert.equal(core.store.count('capture_note'),beforePendingSave+1);assert.equal(core.store.list('capture_note').filter(c=>c.text===pendingReplyNote).length,1);
+  assert.equal(await page.locator('#capture-form [name=text]').inputValue(),'');
+  chatControl.release();await chatCompletion;await page.waitForFunction(()=>!document.querySelector('#prompt').disabled);
+  notesDraftChecks.push('Rejected New/Open chat during a response preserves an active Notes form and exactly-one Save');
   fs.writeFileSync(path.join(out,'notes-draft-checks.json'),JSON.stringify(notesDraftChecks,null,2)+'\n');
   assert.deepEqual(errors,[]);console.log(JSON.stringify({checks:25,notesDraftChecks:notesDraftChecks.length,surfaceContrastChecks:surfaceContrast.length,darkVisibilityChecks:darkVisibility.length,scope:'Synthetic Core/SQLite + Edge: existing assistant workflows, actual settings/guide and shared card/hover text contrast in both themes',browser:await browser.version()}));
-})().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();for(const fn of cleanup)fn();});
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{chatControl.release?.();if(chatDispatched)await chatCompletion;await browser?.close();server.close();for(const fn of cleanup)fn();});

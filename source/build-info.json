@@ -1,8 +1,8 @@
 {
   "version": "3.0.6-dev",
-  "updatedAt": "2026-10-19T03:51:37.036Z",
+  "updatedAt": "2026-10-19T11:43:48.910Z",
   "baselineCommit": "1dec8a34c226f52f93e441c40456207bd6a17153",
   "releaseStatus": "validation-pending",
   "note": "Usability and Windows dark-visibility candidate; consult actual hash-bound acceptance before release.",
-  "sourceSHA256": "3c79e747faf8be578c713e43e10c680ad7e864836579db673d9e181afdae652f"
+  "sourceSHA256": "ce7d9378ad3d260d231448cad6a3f891d06f014786099a93d3cdb7668243d0e9"
 }

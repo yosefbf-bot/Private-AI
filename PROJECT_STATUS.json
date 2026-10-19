@@ -1,4 +1,18 @@
 {
+  "notesActiveResponseFollowup20261019": {
+    "status": "locally-reproduced-and-fixed-hosted-pending",
+    "baseMain": "9c8ae38c76587b95fa3dff136bedaca7f2599a15",
+    "finding": "MEDIUM independently confirmed: blocked New/Open chat deactivated Notes before rejection",
+    "fix": "Run existing sending guard before captureUI.stop and voice close",
+    "actualCoreEdge": {
+      "existingWorkflows": 25,
+      "notesCases": 14,
+      "textContrastObservations": 117,
+      "darkControlChecks": 7,
+      "result": "passed; prior source failed expected focused assertion"
+    },
+    "scope": "Same unreleased3.0.6-dev candidate; no workflow/dependency/schema/provider/installed-app change"
+  },
   "fiveUsabilityFixes20261019": {
     "status": "locally-validated-independently-reviewed-hosted-pending",
     "desktopVersion": "3.0.6-dev",
