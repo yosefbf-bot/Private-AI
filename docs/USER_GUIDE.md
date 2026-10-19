@@ -1,6 +1,6 @@
-# Private AI 3.0.5-dev — User guide
+# Private AI 3.0.6-dev — User guide
 
-Current source guide, updated October 15, 2026. Use with matching builds. The 3.0.5 update corrects report-folder, help, attachment and review-panel text/background contrast in light and dark appearance. Source changes do not update installed applications or establish physical-phone acceptance.
+Current source guide, updated October 19, 2026 UTC. Use with matching builds. This update protects unsaved Notes during navigation/review refresh and improves Windows dark-mode text and control visibility. Source changes do not update installed applications or establish physical-phone acceptance.
 
 ## Start here
 
@@ -41,11 +41,12 @@ Current source guide, updated October 15, 2026. Use with matching builds. The 3.
 **Where:** Notes; Dashboard
 
 1. Write a simple note and choose Save note. The PC preserves the source and creates review follow-ups; Details is optional for a confirmed owner, deadline, location or email/WhatsApp draft.
-2. A configured local model can prepare an additional draft summary and suggested plan while the app is unlocked and background work is enabled. This never calls a cloud provider or sends correspondence. Without a local model, source notes and text-based review suggestions still work.
-3. Review assignments and confirm deadlines in Dashboard. Add a completion note before closing a follow-up. Source clinical alerts require their own evidence review.
-4. Use Outlook → Read a message → Track a reply / follow-up to preserve correspondence as a note and prepare an internal draft. In an approved WhatsApp conversation, use note:, rounding:, remind me to, or /note, /round, /remind and /draft.
+2. Save note before locking or closing the app. Leaving an unsaved Notes form asks you to discard it; Cancel keeps editing. Saved-item review refreshes preserve the form, including selected evidence. A save keeps later edits separate from the submitted note.
+3. A configured local model can prepare an additional draft summary and suggested plan while the app is unlocked and background work is enabled. This never calls a cloud provider or sends correspondence. Without a local model, source notes and text-based review suggestions still work.
+4. Review assignments and confirm deadlines in Dashboard. Add a completion note before closing a follow-up. Source clinical alerts require their own evidence review.
+5. Use Outlook → Read a message → Track a reply / follow-up to preserve correspondence as a note and prepare an internal draft. In an approved WhatsApp conversation, use note:, rounding:, remind me to, or /note, /round, /remind and /draft.
 
-**Keep in mind:** Model drafts and text extraction need review. Ambiguous deadlines/owners remain unknown; undated items are follow-ups, not timed notifications. Images remain evidence for review, not an implemented image interpretation.
+**Keep in mind:** Model drafts and text extraction need review. Ambiguous deadlines/owners remain unknown; undated items are follow-ups, not timed notifications. Images remain evidence for review, not an implemented image interpretation. Unsaved Notes are held only in the current unlocked screen; they are not an autosaved draft across locking or restarting.
 
 ## Chat, edit and save a response
 
@@ -54,7 +55,7 @@ Current source guide, updated October 15, 2026. Use with matching builds. The 3.
 1. Choose New chat (Ctrl+K), type a message, and press Enter to send. Shift+Enter adds a new line. Stop cancels an active response.
 2. Use Edit under your message to change it. Sending the edit replaces the later conversation branch. Regenerate retries the last question and may use your configured model or API.
 3. Use Copy or Save as… below the answer. DOCX, PDF, XLSX, CSV, MD and TXT exports go to your chosen work folder.
-4. Assistant answers appear in a light-grey box. Model-routing and verification notices appear below as compact footnotes; they still matter when reviewing the answer.
+4. Assistant answers use a contrasting box in the selected appearance. Model-routing and verification notices appear below as compact footnotes; they still matter when reviewing the answer.
 
 **Keep in mind:** The saved response can include verification notices. A local evidence score is a heuristic, not a measured accuracy percentage.
 
@@ -362,6 +363,7 @@ Current source guide, updated October 15, 2026. Use with matching builds. The 3.
 
 1. Choose Follow system, Light or Dark. The change applies immediately and is saved automatically on this PC.
 2. The Android companion has its own Appearance selection in Settings. Theme choices do not change privacy, connection or model settings.
+3. Dark appearance uses lighter field borders, focus outlines, microphone and warning text. Disabled controls remain muted and readable; their actions stay disabled.
 
 **Keep in mind:** Only this non-sensitive appearance preference is stored outside the encrypted workspace so the locked screen can use the same theme.
 

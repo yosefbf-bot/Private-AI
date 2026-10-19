@@ -423,11 +423,11 @@ function autoResizePrompt() {
   p.style.height = `${h}px`;
 }
 function renderChat() {
+  if(!captureUI.stop())return;
   companionPairingUI.stop();
   workflowUI.stop();
   searchUI.stop();
   snfUI.stop();
-  captureUI.stop();
   meetingsUI.stop();dashboardUI.stop();
   voiceManager?.enforcePolicy();
   view = "chat";
@@ -483,6 +483,7 @@ function renderGuideTopics(query){
   $('guide-topics').innerHTML=topics.length?topics.map(t=>`<details class="guide-topic" ${words.length||t.id==='start'?'open':''}><summary>${esc(t.title)}</summary><p class="guide-location">${esc(t.location)}</p><ol>${t.steps.map(step=>`<li>${esc(step)}</li>`).join('')}</ol><p class="guide-note">${esc(t.note)}</p><button class="secondary" data-act="guide-ask" data-topic="${esc(t.id)}">Ask in chat about this</button></details>`).join(''):'<p>No matching topic. Try fewer words. The guide does not describe every possible task.</p>';
 }
 async function newChat(temporary = false, project = null) {
+  if(!captureUI.stop())return;
   if (chat) closeVoiceSession();
   if (sending) {
     toast("Stop the current response first.");
@@ -506,6 +507,7 @@ async function openSource(route) {
   renderPage(route.view,route);
 }
 async function openChat(id) {
+  if(!captureUI.stop())return;
   closeVoiceSession();
   if (sending) {
     toast("Stop the current response first.");
@@ -1074,11 +1076,11 @@ function settingsHTML() {
   )}${field("Maximum output tokens", "maxOutput", s.maxOutput, "number")}${field("OpenAI organization (optional)", "org", s.org)}${field("OpenAI project (optional)", "projectId", s.projectId)}${field("App lock after minutes", "lockMinutes", s.lockMinutes, "number")}</div><p>Reasoning controls depend on the selected model. Automatic locking inside Private AI requires an app passphrase; your organization’s Windows lock remains separate.</p><div class="button-row"><button class="secondary" data-act="passphrase">Set app passphrase</button><button class="secondary" data-act="lock">Lock app</button><button class="secondary" data-act="backup">Create local encrypted backup</button><button class="secondary" data-act="self-check">Run local checks</button><button class="secondary" data-act="diagnostics">Create diagnostic report</button></div><p>Diagnostics contain technical metadata only. Local backups require this Windows profile and its original encryption key. A portable app does not make encrypted history portable.</p></details></div>`;
 }
 function showLocked() {
+  captureUI.stop({discard:true});
   companionPairingUI.stop();
   workflowUI.stop();
   searchUI.stop();
   snfUI.stop();
-  captureUI.stop();
   meetingsUI.stop({discard:true});dashboardUI.stop();operationsCopilotUI.stopListening();
   closeVoiceSession();
   if ($("modal").open) $("modal-cancel").click();
@@ -1504,11 +1506,11 @@ async function init() {
   }
 }
 function renderPage(name, options = {}) {
+  if(!captureUI.stop())return;
   companionPairingUI.stop();
   workflowUI.stop();
   searchUI.stop();
   snfUI.stop();
-  captureUI.stop();
   dashboardUI.stop();
   if (name === "schedules") name = "automation";
   if (["today", "actions", "execdesk", "opanalytics", "playbooks"].includes(name)) name = "dashboard";
