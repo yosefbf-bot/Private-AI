@@ -483,12 +483,12 @@ function renderGuideTopics(query){
   $('guide-topics').innerHTML=topics.length?topics.map(t=>`<details class="guide-topic" ${words.length||t.id==='start'?'open':''}><summary>${esc(t.title)}</summary><p class="guide-location">${esc(t.location)}</p><ol>${t.steps.map(step=>`<li>${esc(step)}</li>`).join('')}</ol><p class="guide-note">${esc(t.note)}</p><button class="secondary" data-act="guide-ask" data-topic="${esc(t.id)}">Ask in chat about this</button></details>`).join(''):'<p>No matching topic. Try fewer words. The guide does not describe every possible task.</p>';
 }
 async function newChat(temporary = false, project = null) {
-  if(!captureUI.stop())return;
-  if (chat) closeVoiceSession();
   if (sending) {
     toast("Stop the current response first.");
     return;
   }
+  if(!captureUI.stop())return;
+  if (chat) closeVoiceSession();
   if (chat?.temporary) await api("endTemporary", { id: chat.id });
   chat = await api("createChat", { temporary, project });
   pending = [];
@@ -507,12 +507,12 @@ async function openSource(route) {
   renderPage(route.view,route);
 }
 async function openChat(id) {
-  if(!captureUI.stop())return;
-  closeVoiceSession();
   if (sending) {
     toast("Stop the current response first.");
     return;
   }
+  if(!captureUI.stop())return;
+  closeVoiceSession();
   if (chat?.temporary) await api("endTemporary", { id: chat.id });
   chat = await api("chat", { id });
   $("prompt").value=chat.draft||"";

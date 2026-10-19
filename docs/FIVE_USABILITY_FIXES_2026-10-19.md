@@ -39,7 +39,7 @@ pairing, signing identity, model or data is replaced by these source changes.
 ## Verification
 
 Final actual synthetic Core/encrypted-SQLite + Windows Edge 155.0.4283.62 run
-passed 25 existing workflows, 13 Notes scenarios, 117 light/dark text-contrast
+passed 25 existing workflows, 14 Notes scenarios, 117 light/dark text-contrast
 observations and seven dark-control visibility checks. Notes coverage includes
 both save/list-refresh start orderings, pre-ack response after durable save,
 repeat submission, newer input/evidence, failed save, Cancel New chat and forced
@@ -59,3 +59,16 @@ serially before packaging and retains synthetic JSON/screenshots and its log. It
 adds no runner/job/trigger and leaves installer/inference/portable/reinstall gates
 unchanged. Source/browser checks do not establish physical-phone, current owner-PC,
 live account/LAN/microphone/notification or clinical acceptance.
+
+## Pending-response navigation follow-up
+
+Final review found and reproduced a MEDIUM edge while chat was awaiting a reply:
+New/Open chat deactivated Notes before its existing sending guard rejected the
+navigation. The form remained visible but could no longer Save. Both admission
+checks now run before stopping Notes or voice. The real Core/browser regression
+holds a deterministic reply, enters Notes, rejects both New/Open chat without a
+discard dialog, preserves input/history, and saves exactly one note. It failed on
+the preceding source and passed after the narrow guard-order fix. The full UI run
+passes25 workflows/14 Notes/117 text/7 dark-control checks. Fresh exact-head full
+Windows acceptance is still required. Version3.0.6-dev remains an unreleased
+candidate; previous binary hashes/receipts are preserved and are not relabeled.
