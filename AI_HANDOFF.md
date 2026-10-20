@@ -1,3 +1,19 @@
+# Pages documentation encoding repair - October 20, 2026
+
+Application commit `a8011c3f6a3e900bb4c0ffef2ca2d1f22e112be0` passed all eight
+application jobs: 721 Windows and 713 Linux source tests, plus actual isolated
+Windows installer/app, Small inference, restart, retention/reinstall and portable
+acceptance. The separate GitHub Pages run `39368246315` failed on legacy
+non-UTF-8 punctuation in historical documentation.
+
+This repair keeps the same unreleased 3.0.7-dev version. One repaired historical
+document is packaged, so fresh full PR/main application gates, including Windows
+acceptance, and a successful Pages check remain required. These future checks
+have not yet passed for this correction. Owner applications and data are untouched.
+Existing document bytes are preserved apart from the two punctuation repairs.
+
+---
+
 # Correspondence retention correction - October 19, 2026
 
 Candidate **3.0.7-dev**, based on accepted main
@@ -139,7 +155,7 @@ ETIMEDOUT; all assertions and outer60s bound remain. Actual focused3/3 passed.
 Owner installation/data/keys/models/pairings remain untouched. Android mainffa762a
 and its reviewed95-local/6-device results are accepted; do not repeat those tests.
 
-## October 15 current retained pause — NOT a completed release
+## October 15 current retained pause â€” NOT a completed release
 
 Android mainffa762a passes its merged-main GitHub job and both reviewed source
 runs passed6/6 real device cases. Desktop56bb69d push passed712 Windows tests,

@@ -1,4 +1,19 @@
 {
+  "pagesLegacyEncoding20261020": {
+    "status": "repair-candidate-full-validation-pending",
+    "baseMain": "a8011c3f6a3e900bb4c0ffef2ca2d1f22e112be0",
+    "version": "3.0.7-dev",
+    "applicationWorkflowRun": 39368246673,
+    "applicationWorkflowConcludedSuccess": true,
+    "separatePagesRun": 39368246315,
+    "separatePagesConclusion": "failure: legacy invalid UTF-8 in AI_HANDOFF.md; second historical packaged validation document also invalid",
+    "artifactVerification": "Stopped on additional failed check before downloading new-main payload; no final release acceptance claimed",
+    "fix": "Transcode only invalid Windows-1252 punctuation to valid UTF-8, preserve valid Unicode/text/history, keep existing Pages service and all app/security/release gates",
+    "runtimeCodeChanges": false,
+    "packagedDocumentationChanges": true,
+    "freshFullPRMainAndPagesRequired": true,
+    "ownerInstallationChanged": false
+  },
   "correspondenceRetention20261019": {
     "status": "locally-reproduced-fixed-hosted-pending",
     "baseMain": "db6949c111ca8b5a1bbd4d91f51328ad5ea740d4",
