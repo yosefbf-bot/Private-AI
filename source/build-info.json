@@ -1,8 +1,8 @@
 {
-  "version": "3.0.7-dev",
-  "updatedAt": "2026-10-20T03:44:18.648Z",
-  "baselineCommit": "db6949c111ca8b5a1bbd4d91f51328ad5ea740d4",
+  "version": "3.0.8-dev",
+  "updatedAt": "2026-10-20T23:39:38.962Z",
+  "baselineCommit": "43fb45020b861d097ee80a0e2345c40ad9feae07",
   "releaseStatus": "validation-pending",
-  "note": "Correspondence cache retention correction; consult exact-head automated and Windows acceptance before release.",
-  "sourceSHA256": "7ed74cafc3a3263fdc0a955110dd1f30a0d6806d6cd2ab8e954ca785dc7dc44c"
+  "note": "Bundled phone help and synchronized release guides; consult exact-head Windows acceptance before release.",
+  "sourceSHA256": "8fdde68a1af3ab0b675e2946de7ad16da102d6fdc083324c3d1fc98cbc5f09b5"
 }
