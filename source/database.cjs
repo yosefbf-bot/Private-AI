@@ -321,17 +321,18 @@ class Store {
     let committed = false;
     try {
       const captureKinds = ['capture_note','capture_draft','capture_evidence','capture_upload','capture_notification','capture_delivery','capture_whatsapp_route','meeting_upload'];
+      const communicationKinds = ['wf_communication_source','wf_communication_candidate'];
       const activeCaptures = this.list('capture_note').filter(c=>c.actionIds.some(id=>this.get('todo',id)?.status==='pending'));
       const activeCaptureIds = new Set(activeCaptures.map(c=>c.id));
       const activeEvidenceIds = new Set(activeCaptures.flatMap(c=>c.evidenceIds));
       // Older delivery claims had no source fields. Their retained notification
       // still identifies the unresolved source and must prevent an uncertain send retry.
       const activeDeliveryIds = new Set(this.list('capture_notification').filter(n=>activeCaptureIds.has(n.captureId)).map(n=>n.id));
-      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession", "companion_request", "companion_session", "voice_transcript", "meeting", "sbar", "wf_decision", "wf_metric_import", "wf_action_meta", "wf_playbook_run",...captureKinds])
+      for (const kind of ["chat", "file", "memory", "job", "usage", "messageOut", "messageIn", "messagingSession", "companion_request", "companion_session", "voice_transcript", "meeting", "sbar", "wf_decision", "wf_metric_import", "wf_action_meta", "wf_playbook_run",...captureKinds,...communicationKinds])
         for (const r of this.db
           .prepare("SELECT id,updated,expires FROM records WHERE kind=?")
           .all(kind)) {
-          const value = ["job", "file", "meeting", "sbar", "wf_decision",'wf_action_meta',...captureKinds].includes(kind) ? this.get(kind, r.id) : null;
+          const value = ["job", "file", "meeting", "sbar", "wf_decision",'wf_action_meta',...captureKinds,...communicationKinds].includes(kind) ? this.get(kind, r.id) : null;
           if (kind==='capture_note' && activeCaptureIds.has(r.id) || kind==='capture_evidence' && activeEvidenceIds.has(r.id) || kind==='capture_whatsapp_route' && activeCaptureIds.has(r.id) || kind==='capture_delivery' && activeDeliveryIds.has(r.id) || ['capture_draft','wf_action_meta','capture_notification','capture_delivery'].includes(kind) && activeCaptureIds.has(value?.captureId)) continue;
           if (kind === "wf_decision" && value?.status !== "closed") continue;
           if (kind === "meeting" && (value?.status !== "completed" || value?.actionItems?.some(a => !["completed", "cancelled"].includes(a.status)))) continue;
@@ -345,10 +346,14 @@ class Store {
           if (isReportFile || isReportJob) {
             targetCutoff = reportCutoff;
           }
+          // Legacy cached checks renewed updated/expires without new source facts.
+          // Bound those snapshots by their original observation, keeping canonical
+          // pending captures, tasks and their evidence under the existing holds.
+          const updated = communicationKinds.includes(kind) && Number.isSafeInteger(value?.observedAt) && value.observedAt > 0 ? value.observedAt : r.updated;
 
           if (
             (r.expires && r.expires <= now) ||
-            (targetCutoff && kind !== "memory" && r.updated <= targetCutoff)
+            (targetCutoff && kind !== "memory" && updated <= targetCutoff)
           ) {
             if(kind === "meeting")for(const childKind of ["meeting_audio","meeting_upload","companion_meeting"])for(const child of this.summaries(childKind))if(child.meetingId===r.id)this.delete(childKind,child.id);
             this.delete(kind, r.id);
@@ -356,7 +361,7 @@ class Store {
               counts.reports++;
             } else {
               counts[
-                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages", companion_request: "messages", companion_session: "messages", voice_transcript: "voiceTranscripts", meeting: "meetings", sbar: "sbars", wf_decision: "workflows", wf_metric_import: "workflows", wf_action_meta: "workflows", wf_playbook_run: "workflows",...Object.fromEntries(captureKinds.map(k=>[k,'workflows'])) }[
+                { chat: "chats", file: "files", memory: "memory", job: "jobs", usage: "usage", messageOut: "messages", messageIn: "messages", messagingSession: "messages", companion_request: "messages", companion_session: "messages", voice_transcript: "voiceTranscripts", meeting: "meetings", sbar: "sbars", wf_decision: "workflows", wf_metric_import: "workflows", wf_action_meta: "workflows", wf_playbook_run: "workflows",...Object.fromEntries([...captureKinds,...communicationKinds].map(k=>[k,'workflows'])) }[
                   kind
                 ]
               ]++;

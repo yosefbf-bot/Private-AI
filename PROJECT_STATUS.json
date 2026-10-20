@@ -1,4 +1,30 @@
 {
+  "correspondenceRetention20261019": {
+    "status": "locally-reproduced-fixed-hosted-pending",
+    "baseMain": "db6949c111ca8b5a1bbd4d91f51328ad5ea740d4",
+    "version": "3.0.7-dev",
+    "findings": [
+      "MEDIUM: correspondence source/candidate kinds omitted from retention cleanup",
+      "MEDIUM: repeated unchanged cache checks renewed snapshot expiry indefinitely"
+    ],
+    "fix": "Anchor cache expiry to original observation and purge both disposable kinds, including legacy renewed metadata; retain canonical pending work/evidence and explicit indefinite retention",
+    "causalBefore": {
+      "tests": 3,
+      "passed": 1,
+      "failed": 2,
+      "scope": "New synthetic Core/encrypted SQLite regressions against unchanged runtime"
+    },
+    "targetedAfter": {
+      "tests": 48,
+      "passed": 48,
+      "failed": 0,
+      "skipped": 0
+    },
+    "expectedFullSourceTests": 721,
+    "fullCurrentHeadAcceptance": "pending",
+    "ownerInstallationChanged": false,
+    "schemaDependencyProviderApprovalChanges": false
+  },
   "notesActiveResponseFollowup20261019": {
     "status": "locally-reproduced-and-fixed-hosted-pending",
     "baseMain": "9c8ae38c76587b95fa3dff136bedaca7f2599a15",

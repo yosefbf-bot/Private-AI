@@ -281,3 +281,74 @@ test('actual Worker tick reviews cache on primary without model/browser work and
  core.resources.foreground=0;await core.worker.tick();assert.equal(core.store.count('wf_communication_candidate'),1);assert.equal(core.store.count('todo'),0);assert.equal(core.store.count('messageOut'),0);assert.equal(calls.length,0);
  const opts=core.store.get('wf_communication','settings');core.store.put('wf_communication','settings',{...opts,lastCheck:null});core.saveSettings({workerPaused:true});await core.worker.tick();assert.equal(core.store.get('wf_communication','settings').lastCheck,null);
 });
+
+test('rechecking unchanged Outlook and WhatsApp snapshots cannot renew their retention deadline', t => {
+  const {core} = setup(t);
+  let now = Date.now();
+  t.mock.method(Date,'now',()=>now);
+  core.saveSettings({retentionDays:1});
+  save(core,{enabled:true,outlook:true});
+  message(core);
+  triage.observeOutlook(core,{id:'Synthetic expiry message',storeId:'Store'},{text:'Please reply about the synthetic agenda.'});
+  triage.check(core);
+  const rows = () => core.store.db.prepare("SELECT kind,id,expires FROM records WHERE kind IN ('wf_communication_source','wf_communication_candidate') ORDER BY kind,id").all();
+  const original = rows();
+  assert.equal(original.length,4);
+  assert.ok(original.every(r=>r.expires === now+86400000));
+  now += 12*3600000;
+  triage.check(core);
+  assert.deepEqual(rows(),original,'A cached check is not a fresh observation.');
+  now += 12*3600000;
+  assert.equal(triage.list(core).candidates.length,0);
+  core.store.cleanup(1,now);
+  assert.equal(rows().length,0,'Expired encrypted snapshots must be physically removed.');
+});
+
+test('cleanup purges legacy renewed correspondence metadata while preserving pending canonical work and evidence', t => {
+  const {core} = setup(t);
+  core.saveSettings({retentionDays:1});
+  save(core,{enabled:true,outlook:true});
+  const text = 'Please reply about the synthetic retained source evidence.';
+  triage.observeOutlook(core,{id:'Synthetic legacy message',storeId:'Store'},{text});
+  const row = first(core);
+  const created = triage.createFollowup(core,{id:row.id,revision:row.revision,draftChannel:'outlook'});
+  const now = Date.now(), observedAt = now-2*86400000;
+  for (const kind of ['wf_communication_source','wf_communication_candidate'])
+    for (const value of core.store.list(kind))
+      core.store.put(kind,value.id,{...value,observedAt},{updated:now,expires:now+86400000});
+  core.store.put('snf_alert','synthetic-critical',{status:'Open',critical:true});
+  const counts = core.store.cleanup(1,now);
+  assert.equal(core.store.count('wf_communication_source'),0);
+  assert.equal(core.store.count('wf_communication_candidate'),0);
+  assert.ok(counts.workflows >= 2);
+  assert.equal(core.store.get('todo',created.actions[0].id).status,'pending');
+  assert.equal(core.store.get('capture_note',created.capture.id).text,text);
+  assert.equal(core.store.get('capture_draft',created.drafts[0].id).status,'draft');
+  assert.equal(core.store.get('wf_action_meta','todo:'+created.actions[0].id).communication.sourceHash,row.sourceHash);
+  assert.equal(core.store.get('snf_alert','synthetic-critical').status,'Open');
+});
+
+test('new correspondence facts receive a new observation deadline and explicit indefinite retention stays indefinite', t => {
+  const {core} = setup(t);
+  let now = Date.now();
+  t.mock.method(Date,'now',()=>now);
+  core.saveSettings({retentionDays:1});
+  save(core,{enabled:true,outlook:true});
+  const ref = {id:'Synthetic changed message',storeId:'Store'};
+  triage.observeOutlook(core,ref,{text:'Please reply about the synthetic agenda.'});
+  const before = first(core);
+  now += 12*3600000;
+  triage.observeOutlook(core,ref,{text:'Please reply about the changed synthetic agenda.'});
+  const changed = first(core);
+  assert.equal(changed.id,before.id);
+  assert.equal(changed.observedAt,now);
+  assert.ok(changed.revision > before.revision);
+  assert.equal(core.store.db.prepare('SELECT expires FROM records WHERE kind=? AND id=?').get('wf_communication_candidate',changed.id).expires,now+86400000);
+  core.saveSettings({retentionDays:0});
+  triage.observeOutlook(core,{id:'Synthetic indefinite message',storeId:'Store'},{text:'Please reply about indefinite synthetic retention.'});
+  const indefinite = triage.list(core).candidates.find(c=>c.text.includes('indefinite'));
+  assert.equal(core.store.db.prepare('SELECT expires FROM records WHERE kind=? AND id=?').get('wf_communication_candidate',indefinite.id).expires,null);
+  now += 1000*86400000;
+  core.store.cleanup(0,now);
+  assert.ok(triage.list(core).candidates.some(c=>c.id===indefinite.id));
+});

@@ -1,3 +1,31 @@
+# Correspondence retention correction - October 19, 2026
+
+Candidate **3.0.7-dev**, based on accepted main
+`db6949c111ca8b5a1bbd4d91f51328ad5ea740d4`. Focused independent audit confirmed
+that expired correspondence snapshots were absent from the cleanup allowlist and
+unchanged cache reviews renewed their expiry. Both defects affect disposable
+cached review metadata, not permission to delete the original mailbox message.
+
+Cache expiry now follows the original observation; cleanup covers both source and
+candidate records, including legacy rows whose updated/expiry values were renewed.
+Pending saved follow-ups, internal drafts and source evidence retain existing holds.
+Changed source facts receive a new observation; Keep indefinitely remains explicit.
+The offline guide explains this and corrects its default to 100 days, matching Core
+and Settings. No dependency, schema, provider, protocol, permission or send/delete
+approval change. Original data, signers and pairings are untouched.
+
+Three real Core/encrypted SQLite regressions reproduced two failures before the
+fix; all 48 targeted correspondence/capture/privacy/approval cases passed afterward.
+The expected full suite is 721 cases; fresh full exact-head PR/main checks and real
+isolated Windows installation/model/restart/retention/reinstall/portable acceptance
+remain required at this pre-publication checkpoint. Earlier 718-test Windows
+acceptance applies only to the unchanged base. Local full execution was not
+attempted under current low RAM. Owner hands-on acceptance stays deferred; owner
+applications/data are not replaced. Consult PR/run receipts for later results.
+Historical notes below describe older checkpoints; original bytes are preserved.
+
+---
+
 # Notes admission follow-up - October 19, 2026 UTC
 
 Before final acceptance, independent review confirmed a pending-response edge:
