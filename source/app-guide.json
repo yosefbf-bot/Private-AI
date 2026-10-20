@@ -1,5 +1,5 @@
 {
-  "version": "3.0.6-dev",
+  "version": "3.0.7-dev",
   "title": "Private AI user guide",
   "topics": [
     {
@@ -494,7 +494,7 @@
         "data storage"
       ],
       "steps": [
-        "Open Settings to review HIPAA mode, cloud approval and retention. The default retention is 90 days; choose a listed duration, a custom duration or Keep indefinitely if appropriate.",
+        "Open Settings to review HIPAA mode, cloud approval and retention. The default retention is 100 days; choose a listed duration, a custom duration or Keep indefinitely if appropriate.",
         "Use Save settings. Run retention cleanup now applies the configured cleanup to eligible expired local records and working copies.",
         "Original documents and explicitly saved reports are separate from the app’s working copies. Manage those in their approved storage location.",
         "Protected app data remains under %LOCALAPPDATA%\\PrivateAI2; credentials stay local to the Windows user."
@@ -760,7 +760,7 @@
         "Review cached messages now, then inspect the source text before creating a follow-up. Enter an owner or deadline only when known.",
         "Save review suggestions to the existing Notes/follow-up queue. Internal Outlook or WhatsApp drafts are reviewed separately; no message is sent automatically."
       ],
-      "note": "Recurring review is off by default. Outlook snapshots are saved only from messages you explicitly open after granting read access and enabling this option. This does not watch the Inbox or establish whether someone replied. Missing dates, unread status and reply status stay unknown; duplicate source reviews retain the same canonical follow-up.",
+      "note": "Recurring review is off by default. Outlook snapshots are saved only from messages you explicitly open after granting read access and enabling this option. This does not watch the Inbox or establish whether someone replied. Missing dates, unread status and reply status stay unknown; duplicate source reviews retain the same canonical follow-up. Rechecking unchanged cached snapshots does not renew their retention period. Eligible cached review data expires from its original observation; pending saved follow-ups and their source evidence remain protected.",
       "aliases": [
         "correspondence",
         "cached messages",

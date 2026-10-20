@@ -57,9 +57,9 @@ function allowed(core, row, opts = config(core)) {
   return row.channel === 'whatsapp' ? whatsappAllowed(core,row,opts)
     : row.channel === 'outlook' && opts.outlook && core.store.get('access','outlook')?.readMessages === true;
 }
-function expiry(core) {
+function expiry(core, observedAt = Date.now()) {
   const days = core.settings().retentionDays;
-  return days === 0 ? null : Date.now() + (days ?? 100) * 86400000;
+  return days === 0 ? null : observedAt + (days ?? 100) * 86400000;
 }
 function trim(core, kind) {
   // Delete only disposable triage metadata. Canonical captures/tasks remain intact.
@@ -87,8 +87,9 @@ function record(core, input, opts) {
   const sourceHash = hash([input.channel,input.sourceId,input.text,input.subject,input.sourceDate,input.unread,input.partial]);
   const old = core.store.get(SOURCE,id), now = Date.now();
   const source = {...input,id,sourceHash,revision:old?.sourceHash === sourceHash ? old.revision : (old?.revision || 0)+1,
-    observedAt:old?.sourceHash === sourceHash ? old.observedAt : now};
-  core.store.put(SOURCE,id,source,{updated:now,expires:expiry(core)});
+    observedAt:old?.sourceHash === sourceHash && Number.isSafeInteger(old.observedAt) && old.observedAt > 0 ? old.observedAt : now};
+  // Rechecking a cache is not a fresh observation of the original message.
+  core.store.put(SOURCE,id,source,{updated:now,expires:expiry(core,source.observedAt)});
   const found = matches(source,opts), cid = captures.stableId('communication|'+id), prior = core.store.get(CANDIDATE,cid);
   if (!found.matched && !prior) return source;
   const status = !found.matched ? 'not_matched' : !prior || prior.sourceHash !== sourceHash || prior.status === 'not_matched' ? 'review' : prior.status;
@@ -98,7 +99,7 @@ function record(core, input, opts) {
     revision:changed ? (prior?.revision || 0)+1 : prior.revision,status,matchedKeywords:found.keywords,
     unreadMatch:found.unread,reason,owner:null,dueAt:null,observedAt:source.observedAt,
     changedSinceReview:!!prior?.reviewedSourceHash && prior.reviewedSourceHash !== sourceHash};
-  core.store.put(CANDIDATE,cid,row,{updated:now,expires:expiry(core)});
+  core.store.put(CANDIDATE,cid,row,{updated:now,expires:expiry(core,source.observedAt)});
   return source;
 }
 function observeOutlook(core, data, result) {
