@@ -1,4 +1,4 @@
-# Windows assistant-first acceptance — October 12, 2026
+# Windows assistant-first acceptance â€” October 12, 2026
 
 The actual Windows **3.0.1-dev** installer and portable payload passed acceptance on frozen source **6e915aafee2ee8cd94870f1c521e7b1788d77085**, based on main **40566c94acd38577fc03f0456d647f9619ebcb64**. Later documentation commits are supplemental and do not rebuild these hashes. This is an unsigned development candidate, not a blanket production-readiness or HIPAA certification claim.
 
