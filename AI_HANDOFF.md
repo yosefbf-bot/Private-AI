@@ -1,3 +1,34 @@
+# Finished local release preparation - October 20, 2026
+
+Desktop candidate **3.0.8-dev** starts at main
+`43fb45020b861d097ee80a0e2345c40ad9feae07`. Its bundled phone instructions
+incorrectly said longer unlock periods were unavailable, and its exported guide
+still displayed 3.0.6-dev. The actual companion already supports 5/10/20/30-minute
+foreground periods, protected screenshots and encrypted automatic drafts.
+
+Installation instructions also referred to an obsolete 3.0.0 installer and a
+nonexistent portable subfolder; they now use the current installer and actual
+portable executable location.
+
+The canonical guide now documents those implemented controls and distinguishes
+phone auto-drafts from desktop unsaved Notes. Qualified phone help no longer
+routes to WhatsApp. Both shipped guide formats are generated from the same JSON;
+`npm run guide:check` and a real Core help regression reject future drift.
+The new regression reproduced the old incorrect answer, then all seven guide
+cases passed. No model/provider call, permission, storage or clinical change.
+Expected full current source inventory is 722 Windows / 714 Linux; fresh full
+PR/main Windows installer/app/inference/retention/reinstall/portable acceptance
+remains required and is not claimed by this local checkpoint.
+
+The companion's separately reviewed 1.2.6-dev candidate adds required Windows
+actual-client/Core pinned-HTTPS interoperability using the existing two cases.
+Its final desktop commit pin and current-head tests remain pending. Release
+packages will stay local to the requested project workspace, with original signer,
+source archives and clear setup. Existing owner installations/data/models/pairings
+remain untouched. Physical phone/camera/LAN/live-account acceptance remains separate.
+
+---
+
 # Pages documentation encoding repair - October 20, 2026
 
 Application commit `a8011c3f6a3e900bb4c0ffef2ca2d1f22e112be0` passed all eight

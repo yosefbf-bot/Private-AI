@@ -1,6 +1,6 @@
-# Private AI 3.0.6-dev — User guide
+# Private AI 3.0.8-dev — User guide
 
-Current source guide, updated October 19, 2026 UTC. Use with matching builds. This update protects unsaved Notes during navigation/review refresh and improves Windows dark-mode text and control visibility. Source changes do not update installed applications or establish physical-phone acceptance.
+Bundled offline instructions for this source version. Reading this guide does not change settings, grant permissions or update installed applications. See the release evidence for actual test scope and remaining physical-device or live-account acceptance.
 
 ## Start here
 
@@ -32,21 +32,35 @@ Current source guide, updated October 19, 2026 UTC. Use with matching builds. Th
 3. On the unlocked Android app, open Settings → Desktop connection → Scan desktop QR, or paste the private invitation. Camera permission is requested only when you choose Scan. The invitation expires after three minutes and can be used once.
 4. Wait for Connected after the phone verifies the certificate and completes a real authenticated status request. A scanned code alone is not a connection. If a response is lost after a device was created, inspect Paired phones on the PC, revoke the incomplete device, and create a new invitation.
 5. Older companion versions can use the legacy manual link in Older companion app / manual setup on the PC. Its device credential remains reusable until revoked; keep it private.
-6. Physical camera, microphone, background notifications and LAN/VPN behavior require device acceptance. Five-minute phone sessions preserve the existing encryption key. Longer periods and Off while active remain unavailable until a reviewed key migration is authorized.
+6. On the phone, Settings → Privacy & Unlock controls the foreground unlock period, screenshots and encrypted automatic drafts. Use /help phone unlock for the supported controls. Physical camera, microphone, background notifications and LAN/VPN behavior still require device acceptance.
 
 **Keep in mind:** Closing, locking or reconfiguring invalidates unused QR invitations without deleting established pairings. Full phone access is denied while the desktop is locked; separately authorized generic notification-only access keeps its existing boundaries. Never put pairing links in websites, messages, logs or GitHub.
+
+## Phone privacy, unlock periods and automatic drafts
+
+**Where:** Companion Settings → Privacy & Unlock
+
+1. A secure Android PIN, password or pattern is required. Face or fingerprint uses the phone's own authentication; a phone without a secure screen lock cannot open the protected workspace.
+2. Choose a foreground unlock period of 5, 10, 20 or 30 minutes. Five minutes is the default. Changing it requires fresh phone authentication and preserves existing encrypted records, pairings and unfinished drafts.
+3. Backgrounding the app, locking the phone or choosing Lock now still locks the workspace immediately, regardless of the selected foreground period. There is no indefinitely unlocked option.
+4. Allow screenshots starts OFF. You may enable it for the unlocked workspace; locked and background screens stay protected.
+5. Auto-save drafts starts ON for Chats, Notes, Library documents and relevant productive forms on this phone. Drafts stay encrypted locally and do not send or sync automatically.
+6. Turning Auto-save drafts OFF retains existing saved drafts. Delete draft asks for confirmation; it does not delete saved chats, notes or desktop messages.
+7. If an already attempted chat remains unconfirmed for 23 hours, it requires review before retry. Check desktop history before manually resubmitting uncertain work.
+
+**Keep in mind:** These are companion controls, not desktop composer persistence. Save desktop Notes before closing or locking. Notifications remain Android-scheduled best effort and require an awake, reachable PC. Current physical-phone/OEM acceptance is separate from automated test results.
 
 ## Capture notes, rounds, reminders and drafts
 
 **Where:** Notes; Dashboard
 
 1. Write a simple note and choose Save note. The PC preserves the source and creates review follow-ups; Details is optional for a confirmed owner, deadline, location or email/WhatsApp draft.
-2. Save note before locking or closing the app. Leaving an unsaved Notes form asks you to discard it; Cancel keeps editing. Saved-item review refreshes preserve the form, including selected evidence. A save keeps later edits separate from the submitted note.
+2. On the PC, save the note before locking or closing the app. Leaving an unsaved Notes form asks you to discard it; Cancel keeps editing. Saved-item review refreshes preserve the form, including selected evidence. A save keeps later edits separate from the submitted note.
 3. A configured local model can prepare an additional draft summary and suggested plan while the app is unlocked and background work is enabled. This never calls a cloud provider or sends correspondence. Without a local model, source notes and text-based review suggestions still work.
 4. Review assignments and confirm deadlines in Dashboard. Add a completion note before closing a follow-up. Source clinical alerts require their own evidence review.
 5. Use Outlook → Read a message → Track a reply / follow-up to preserve correspondence as a note and prepare an internal draft. In an approved WhatsApp conversation, use note:, rounding:, remind me to, or /note, /round, /remind and /draft.
 
-**Keep in mind:** Model drafts and text extraction need review. Ambiguous deadlines/owners remain unknown; undated items are follow-ups, not timed notifications. Images remain evidence for review, not an implemented image interpretation. Unsaved Notes are held only in the current unlocked screen; they are not an autosaved draft across locking or restarting.
+**Keep in mind:** Model drafts and text extraction need review. Ambiguous deadlines/owners remain unknown; undated items are follow-ups, not timed notifications. Images remain evidence for review, not an implemented image interpretation. On the PC, unsaved Notes are held only in the current unlocked screen and do not survive locking or restarting. The companion has a separate encrypted Auto-save drafts setting.
 
 ## Chat, edit and save a response
 
@@ -250,7 +264,7 @@ Current source guide, updated October 19, 2026 UTC. Use with matching builds. Th
 
 **Where:** Settings
 
-1. Open Settings to review HIPAA mode, cloud approval and retention. The default retention is 90 days; choose a listed duration, a custom duration or Keep indefinitely if appropriate.
+1. Open Settings to review HIPAA mode, cloud approval and retention. The default retention is 100 days; choose a listed duration, a custom duration or Keep indefinitely if appropriate.
 2. Use Save settings. Run retention cleanup now applies the configured cleanup to eligible expired local records and working copies.
 3. Original documents and explicitly saved reports are separate from the app’s working copies. Manage those in their approved storage location.
 4. Protected app data remains under %LOCALAPPDATA%\PrivateAI2; credentials stay local to the Windows user.
@@ -290,11 +304,11 @@ Current source guide, updated October 19, 2026 UTC. Use with matching builds. Th
 
 ## Install, use portable and upgrade safely
 
-**Where:** Installer; Portable folder
+**Where:** Current Windows installer EXE or extracted portable folder
 
-1. For regular setup, extract the installer ZIP and run Installer → PrivateAI-Setup-3.0.0-x64.exe. Quit running copies first; use the existing location when updating.
-2. For portable use, extract the entire portable ZIP to a permanent folder and run Portable\PrivateAI.exe. Keep all supporting files together.
-3. Both use local user data outside the program folder. Models and chats do not need to be redownloaded during this update.
+1. For regular setup, run the current PrivateAI-Setup installer EXE from the release Windows folder. If you received a complete release ZIP, extract it first. Quit running copies; use the existing installation location when updating.
+2. For portable use, extract the entire portable ZIP to a permanent local folder, then run PrivateAI.exe from that extracted folder. Keep its supporting files and resources folder together.
+3. Both use local user data outside the program folder. An upgrade on the same PC preserves existing models and chats; a new PC needs its own local model setup.
 4. The bundled local engine needs no separate Microsoft runtime installation. The installer works per user without administrator rights.
 
 **Keep in mind:** Copying the portable folder to another PC does not automatically transfer protected data or models. Windows execution of a new build must still be checked on the target PC.
@@ -405,4 +419,4 @@ Current source guide, updated October 19, 2026 UTC. Use with matching builds. Th
 2. Review cached messages now, then inspect the source text before creating a follow-up. Enter an owner or deadline only when known.
 3. Save review suggestions to the existing Notes/follow-up queue. Internal Outlook or WhatsApp drafts are reviewed separately; no message is sent automatically.
 
-**Keep in mind:** Recurring review is off by default. Outlook snapshots are saved only from messages you explicitly open after granting read access and enabling this option. This does not watch the Inbox or establish whether someone replied. Missing dates, unread status and reply status stay unknown; duplicate source reviews retain the same canonical follow-up.
+**Keep in mind:** Recurring review is off by default. Outlook snapshots are saved only from messages you explicitly open after granting read access and enabling this option. This does not watch the Inbox or establish whether someone replied. Missing dates, unread status and reply status stay unknown; duplicate source reviews retain the same canonical follow-up. Rechecking unchanged cached snapshots does not renew their retention period. Eligible cached review data expires from its original observation; pending saved follow-ups and their source evidence remain protected.

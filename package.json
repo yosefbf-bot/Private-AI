@@ -1,7 +1,7 @@
 {
   "name": "private-ai-desktop",
   "productName": "Private AI",
-  "version": "3.0.7-dev",
+  "version": "3.0.8-dev",
   "description": "Private Windows chat and an explicitly controlled Chrome companion",
   "author": "Private AI",
   "license": "UNLICENSED",
@@ -26,7 +26,9 @@
     "check:release": "node scripts/check-release-files.cjs",
     "test:hardening": "node --test tests/provider-hardening.test.cjs tests/server-hardening.test.cjs tests/clinical-hardening.test.cjs tests/privacy-hardening.test.cjs",
     "start:desktop": "electron .",
-    "test:hardening-ui": "node tests/hardening-ui-check.cjs"
+    "test:hardening-ui": "node tests/hardening-ui-check.cjs",
+    "guide:generate": "node scripts/generate-user-guide.cjs",
+    "guide:check": "node scripts/generate-user-guide.cjs --check"
   },
   "build": {
     "appId": "org.privateai.desktop",

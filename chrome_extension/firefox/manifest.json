@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Private AI Companion",
-  "version": "3.0.7",
+  "version": "3.0.8",
   "description": "Private AI beside your work. Webpages are read only after an explicit request.",
   "permissions": [
     "nativeMessaging",

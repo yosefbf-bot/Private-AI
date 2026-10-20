@@ -1,5 +1,5 @@
 {
-  "version": "3.0.7-dev",
+  "version": "3.0.8-dev",
   "title": "Private AI user guide",
   "topics": [
     {
@@ -63,7 +63,8 @@
         "phone connection",
         "qr pairing",
         "scan qr",
-        "secure pairing"
+        "secure pairing",
+        "phone"
       ],
       "steps": [
         "On the PC, open Settings → Android Companion Gateway. Enable HTTPS on the actual approved private LAN/VPN interface and save. The PC must be awake and reachable; no firewall, hotspot or VPN changes are made automatically.",
@@ -71,9 +72,34 @@
         "On the unlocked Android app, open Settings → Desktop connection → Scan desktop QR, or paste the private invitation. Camera permission is requested only when you choose Scan. The invitation expires after three minutes and can be used once.",
         "Wait for Connected after the phone verifies the certificate and completes a real authenticated status request. A scanned code alone is not a connection. If a response is lost after a device was created, inspect Paired phones on the PC, revoke the incomplete device, and create a new invitation.",
         "Older companion versions can use the legacy manual link in Older companion app / manual setup on the PC. Its device credential remains reusable until revoked; keep it private.",
-        "Physical camera, microphone, background notifications and LAN/VPN behavior require device acceptance. Five-minute phone sessions preserve the existing encryption key. Longer periods and Off while active remain unavailable until a reviewed key migration is authorized."
+        "On the phone, Settings → Privacy & Unlock controls the foreground unlock period, screenshots and encrypted automatic drafts. Use /help phone unlock for the supported controls. Physical camera, microphone, background notifications and LAN/VPN behavior still require device acceptance."
       ],
       "note": "Closing, locking or reconfiguring invalidates unused QR invitations without deleting established pairings. Full phone access is denied while the desktop is locked; separately authorized generic notification-only access keeps its existing boundaries. Never put pairing links in websites, messages, logs or GitHub."
+    },
+    {
+      "id": "phoneprivacy",
+      "title": "Phone privacy, unlock periods and automatic drafts",
+      "location": "Companion Settings → Privacy & Unlock",
+      "aliases": [
+        "phone unlock",
+        "phone screenshots",
+        "phone auto save",
+        "phone drafts",
+        "companion privacy",
+        "auto-save drafts",
+        "longer phone unlock",
+        "phone lock period"
+      ],
+      "steps": [
+        "A secure Android PIN, password or pattern is required. Face or fingerprint uses the phone's own authentication; a phone without a secure screen lock cannot open the protected workspace.",
+        "Choose a foreground unlock period of 5, 10, 20 or 30 minutes. Five minutes is the default. Changing it requires fresh phone authentication and preserves existing encrypted records, pairings and unfinished drafts.",
+        "Backgrounding the app, locking the phone or choosing Lock now still locks the workspace immediately, regardless of the selected foreground period. There is no indefinitely unlocked option.",
+        "Allow screenshots starts OFF. You may enable it for the unlocked workspace; locked and background screens stay protected.",
+        "Auto-save drafts starts ON for Chats, Notes, Library documents and relevant productive forms on this phone. Drafts stay encrypted locally and do not send or sync automatically.",
+        "Turning Auto-save drafts OFF retains existing saved drafts. Delete draft asks for confirmation; it does not delete saved chats, notes or desktop messages.",
+        "If an already attempted chat remains unconfirmed for 23 hours, it requires review before retry. Check desktop history before manually resubmitting uncertain work."
+      ],
+      "note": "These are companion controls, not desktop composer persistence. Save desktop Notes before closing or locking. Notifications remain Android-scheduled best effort and require an awake, reachable PC. Current physical-phone/OEM acceptance is separate from automated test results."
     },
     {
       "id": "capturenotes",
@@ -89,12 +115,12 @@
       ],
       "steps": [
         "Write a simple note and choose Save note. The PC preserves the source and creates review follow-ups; Details is optional for a confirmed owner, deadline, location or email/WhatsApp draft.",
-        "Save note before locking or closing the app. Leaving an unsaved Notes form asks you to discard it; Cancel keeps editing. Saved-item review refreshes preserve the form, including selected evidence. A save keeps later edits separate from the submitted note.",
+        "On the PC, save the note before locking or closing the app. Leaving an unsaved Notes form asks you to discard it; Cancel keeps editing. Saved-item review refreshes preserve the form, including selected evidence. A save keeps later edits separate from the submitted note.",
         "A configured local model can prepare an additional draft summary and suggested plan while the app is unlocked and background work is enabled. This never calls a cloud provider or sends correspondence. Without a local model, source notes and text-based review suggestions still work.",
         "Review assignments and confirm deadlines in Dashboard. Add a completion note before closing a follow-up. Source clinical alerts require their own evidence review.",
         "Use Outlook → Read a message → Track a reply / follow-up to preserve correspondence as a note and prepare an internal draft. In an approved WhatsApp conversation, use note:, rounding:, remind me to, or /note, /round, /remind and /draft."
       ],
-      "note": "Model drafts and text extraction need review. Ambiguous deadlines/owners remain unknown; undated items are follow-ups, not timed notifications. Images remain evidence for review, not an implemented image interpretation. Unsaved Notes are held only in the current unlocked screen; they are not an autosaved draft across locking or restarting."
+      "note": "Model drafts and text extraction need review. Ambiguous deadlines/owners remain unknown; undated items are follow-ups, not timed notifications. Images remain evidence for review, not an implemented image interpretation. On the PC, unsaved Notes are held only in the current unlocked screen and do not survive locking or restarting. The companion has a separate encrypted Auto-save drafts setting."
     },
     {
       "id": "chat",
@@ -468,7 +494,6 @@
       "aliases": [
         "whatsapp",
         "messaging",
-        "phone",
         "paired group",
         "remote messages"
       ],
@@ -560,7 +585,7 @@
     {
       "id": "install",
       "title": "Install, use portable and upgrade safely",
-      "location": "Installer; Portable folder",
+      "location": "Current Windows installer EXE or extracted portable folder",
       "aliases": [
         "install",
         "installation",
@@ -571,9 +596,9 @@
         "version"
       ],
       "steps": [
-        "For regular setup, extract the installer ZIP and run Installer → PrivateAI-Setup-3.0.0-x64.exe. Quit running copies first; use the existing location when updating.",
-        "For portable use, extract the entire portable ZIP to a permanent folder and run Portable\\PrivateAI.exe. Keep all supporting files together.",
-        "Both use local user data outside the program folder. Models and chats do not need to be redownloaded during this update.",
+        "For regular setup, run the current PrivateAI-Setup installer EXE from the release Windows folder. If you received a complete release ZIP, extract it first. Quit running copies; use the existing installation location when updating.",
+        "For portable use, extract the entire portable ZIP to a permanent local folder, then run PrivateAI.exe from that extracted folder. Keep its supporting files and resources folder together.",
+        "Both use local user data outside the program folder. An upgrade on the same PC preserves existing models and chats; a new PC needs its own local model setup.",
         "The bundled local engine needs no separate Microsoft runtime installation. The installer works per user without administrator rights."
       ],
       "note": "Copying the portable folder to another PC does not automatically transfer protected data or models. Windows execution of a new build must still be checked on the target PC."

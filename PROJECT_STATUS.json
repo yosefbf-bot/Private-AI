@@ -1,4 +1,24 @@
 {
+  "finishedLocalRelease20261020": {
+    "status": "guide-candidate-full-acceptance-pending",
+    "baseMain": "43fb45020b861d097ee80a0e2345c40ad9feae07",
+    "version": "3.0.8-dev",
+    "confirmedFinding": "Built-in phone help denies implemented longer unlock controls; exported guide header stale; install help references obsolete installer/layout",
+    "fix": "Current phone privacy guide, unambiguous phone alias and deterministic generated Markdown/HTML with real Core drift regression",
+    "before": "New phone-help regression failed on actual previous built-in answer",
+    "targetedAfter": {
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    "expectedFullWindowsTests": 722,
+    "expectedFullLinuxTests": 714,
+    "providerPermissionStorageClinicalChanges": false,
+    "fullCurrentHeadWindowsAcceptance": "pending",
+    "ownerInstallationChanged": false,
+    "distribution": "Local finished release candidate, not formal public production release or owner-device acceptance"
+  },
   "pagesLegacyEncoding20261020": {
     "status": "repair-candidate-full-validation-pending",
     "baseMain": "a8011c3f6a3e900bb4c0ffef2ca2d1f22e112be0",
