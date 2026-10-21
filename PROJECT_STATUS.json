@@ -58,7 +58,36 @@
       "cancelled": 0,
       "skipped": 0,
       "scope": "Before final second-handler predicate tightening; same delayed native fixture"
-    }
+    },
+    "hostedSourceAndUI": {
+      "head": "b1ff8847ff99251095ca82c724c307e8d3a20144",
+      "run": 39608848296,
+      "windows": {
+        "passed": 761,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "linux": {
+        "tests": 753,
+        "passed": 751,
+        "failed": 0,
+        "cancelled": 0,
+        "skippedWindowsOnly": 2
+      },
+      "actualAssistantUI": {
+        "workflows": 25,
+        "notes": 14,
+        "contrast": 117,
+        "darkVisibility": 7,
+        "passed": true
+      },
+      "installerBuilt": true,
+      "freezePassed": false,
+      "actualInstallerAppInferenceAcceptanceExecuted": false,
+      "failure": "DIRTY_TRACKED_INPUTS: stale generated extension manifests/build-info3.0.8"
+    },
+    "metadataCorrection": "Regenerated Chromium/Firefox manifests3.0.9 and build-info3.0.9-dev with current normalized source fingerprint/base main; repeated preparation byte-identical; no releasegate/workflow change"
   },
   "finishedLocalRelease20261020": {
     "status": "guide-candidate-full-acceptance-pending",

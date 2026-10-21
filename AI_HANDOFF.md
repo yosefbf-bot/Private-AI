@@ -18,6 +18,13 @@ zero skips, at observed 1.28-1.35 GiB available RAM. Earlier isolated delayed
 redirect native/network17 passed. Final full hosted validation remains required.
 The first PR Windows run failed its native synthetic report check before
 installer execution; do not treat its skipped release steps as passed.
+PR run39608848296 at b1ff884 passed all761 Windows source tests and actual
+assistant UI25/14/117/7. It built the installer, but the freeze gate correctly
+rejected stale generated3.0.8 extension manifests/build-info. Those3 generated
+files are now synchronized to3.0.9, current source fingerprint and base main;
+repeat preparation is byte-identical. Gate and workflows are unchanged. Actual
+installer/inference/reinstall/portable steps were not executed on that run;
+fresh final-head full release acceptance remains required.
 Cancellation now checks the request controller independently of async context;
 redirect settlement waits for in-flight top-frame handlers before advancing.
 Hardening plus real development HTTP: 26/26. Actual Windows Core/Edge assistant
