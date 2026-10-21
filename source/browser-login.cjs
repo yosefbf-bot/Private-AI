@@ -46,7 +46,7 @@ async function signIn(core,page,recipe,ready,check,progress,settle=async()=>{},n
      const action=el.getAttribute('formaction')?el.formAction:form.action;
      const method=el.getAttribute('formmethod')?el.formMethod:form.method;
      if(method.toLowerCase()!=='post'||!actions.includes(clean(action)))return false;
-     if(op==='password')return el.matches('input[type="password"]')&&el.autocomplete!=='new-password';
+     if(op==='password')return el.matches('input[type="password"]')&&!/new-password|one-time-code|otp|passcode/i.test((el.getAttribute('autocomplete')||'')+' '+(el.name||'')+' '+(el.id||''));
      if(op==='username')return el.matches('input[type="text"],input[type="email"],input:not([type])')&&!/password|passwd|passcode|otp/i.test((el.name||'')+' '+el.id+' '+el.autocomplete);
      return el.matches('button:not([type]),button[type="submit"],input[type="submit"]');
     },{op:step.op,actions:recipe.autoLogin.formActions});

@@ -19,7 +19,7 @@ app.whenReady().then(async()=>{
   core.saveSettings({workspace:path.join(root,'Reports workspace'),processingMode:'local-only',allowCloud:false});
   core.resources.approve=async()=>true;
   core.browserCredentials=new BrowserCredentials(core,{safeStorage,verifyProtection:()=>verifyPrivateAcl(root,sid)});
-  let signedIn=false,submissions=0,launches=0,rewrite=false,unsafeRequests=0;
+  let signedIn=false,submissions=0,launches=0,rewrite=false,unsafeRequests=0,otp=false;
   const certificate=await require('selfsigned').generate([{name:'commonName',value:'localhost'}],{days:1,keySize:2048,algorithm:'sha256'});
   server=require('node:https').createServer({key:certificate.private,cert:certificate.cert},(request,response)=>{
    if(request.url.startsWith('/unexpected')){unsafeRequests++;response.writeHead(400);response.end();return;}
@@ -32,7 +32,7 @@ app.whenReady().then(async()=>{
    if(request.url==='/download-start'){response.writeHead(302,{location:'/download'});response.end();return;}
    if(request.url==='/menu'){response.writeHead(302,{location:'/report-ready'});response.end();return;}
    if(request.url==='/report'&&!signedIn){response.writeHead(302,{location:'/login'});response.end();return;}
-   response.writeHead(200,{'content-type':'text/html'});response.end(signedIn?'<button id="ready">Signed in</button><button id="menu" onclick="location.href=\'/menu\'">Reports</button>'+(request.url==='/report-ready'?'<button id="download" onclick="location.href=\'/download-start\'">Download</button>':''):'<form method="post" action="/submit"'+(rewrite?' onsubmit="this.method=\'get\';this.action=\'/unexpected\'"':'')+'><input id="user" name="user" autocomplete="username"><input id="password" name="password" type="password" autocomplete="current-password"><button id="submit" type="submit">Sign in</button></form>');
+   response.writeHead(200,{'content-type':'text/html'});response.end(signedIn?'<button id="ready">Signed in</button><button id="menu" onclick="location.href=\'/menu\'">Reports</button>'+(request.url==='/report-ready'?'<button id="download" onclick="location.href=\'/download-start\'">Download</button>':''):'<form method="post" action="/submit"'+(rewrite?' onsubmit="this.method=\'get\';this.action=\'/unexpected\'"':'')+'><input id="user" name="user" autocomplete="username"><input id="password" name="password" type="password" autocomplete="'+(otp?'one-time-code':'current-password')+'"><button id="submit" type="submit">Sign in</button></form>');
   });
   const portFile=path.join(root,'synthetic-port.json'),requested=mode==='restart'?JSON.parse(fs.readFileSync(portFile)).port:0;
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(requested,'127.0.0.1',resolve);});
@@ -50,6 +50,7 @@ app.whenReady().then(async()=>{
   if(mode==='save'){
    recipe=validateRecipe({name:'Synthetic native report',url:site+'/report',steps:[{op:'login',selector:'#ready'},{op:'click',selector:'#menu'},{op:'wait',selector:'#download'},{op:'download',selector:'#download'}],autoLogin:{formActions:[site+'/submit'],steps:[{op:'username',url:site+'/login',selector:'#user'},{op:'password',url:site+'/login',selector:'#password'},{op:'click',url:site+'/login',selector:'#submit'}]}});
    core.store.put('browserRecipe',recipe.id,recipe);core.browserCredentials.save(recipe,{username:'synthetic-native-owner',password:'synthetic-native-password'});
+   otp=true;await assert.rejects(worker.run(recipe,{testSignin:true}),{code:'BROWSER_LOGIN'});assert.equal(submissions,0);assert.equal(core.store.get('browserLoginVerified',recipe.id),null);otp=false;
    rewrite=true;await assert.rejects(worker.run(recipe,{testSignin:true}),{code:'POLICY'});assert.equal(unsafeRequests,0);assert.equal(submissions,0);assert.equal(core.store.get('browserLoginVerified',recipe.id),null);rewrite=false;
    stage='manual-test';const out=await worker.run(recipe,{testSignin:true});assert.equal(out.complete,true);assert.equal(submissions,1);
    const plan=core.browserReports.plan(recipe.id);core.browserReports.grant(recipe.id,plan.hash,true,true);
