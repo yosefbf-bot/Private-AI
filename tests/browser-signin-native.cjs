@@ -3,7 +3,7 @@
 const {app,safeStorage}=require('electron');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const root=process.argv[2],mode=process.argv[3];
-let stage='startup',issue=null,operationFailure=null;const operations=[],operationFailures=[],started=Date.now();
+let stage='startup',issue=null,operationFailure=null,atSaveFailure=null,beforeCleanup=null;const operations=[],operationFailures=[],started=Date.now();
 function mark(value){operations.push({event:value,elapsedMs:Date.now()-started});if(operations.length>32)operations.shift();}
 function failed(label,error){mark(label+':error');const row={operation:label,kind:['TimeoutError','TargetClosedError','TypeError','Error'].includes(error.name)?error.name:'OTHER',code:['EACCES','EPERM','EBUSY','ENOENT','EEXIST','ENOSPC'].includes(error.code)?error.code:'OTHER',hints:['navigation','detached','not visible','not stable','intercepts pointer','outside of the viewport','waiting for locator','canceled','cancelled','Download is starting','EACCES','EPERM','EBUSY','ENOENT','EEXIST','ENOSPC','Permission denied','no such file','has been closed'].filter(token=>String(error.message).includes(token))};operationFailure??=row;operationFailures.push(row);if(operationFailures.length>4)operationFailures.shift();}
 function observe(label,action,count=false){return async(...args)=>{mark(label+':start');try{const result=await action(...args);mark(label+':'+(count?(result===0?'zero':result===1?'one':'many'):'done'));return result;}catch(error){failed(label,error);throw error;}};}
@@ -19,7 +19,7 @@ app.whenReady().then(async()=>{
  const {BrowserWorker,validateRecipe}=require('../source/browser-worker.cjs'),{BrowserReports,digest}=require('../source/browser-reports.cjs'),{BrowserCredentials}=require('../source/browser-credentials.cjs');
  const dataRoot=path.join(root,'private-data');fs.mkdirSync(dataRoot,{recursive:true});
  const cipher=loadVault(dataRoot,safeStorage,true),core=new Core({store:new Store(path.join(dataRoot,'privateai.db'),cipher),root:dataRoot,machine:'synthetic-native',client:{generate:()=>assert.fail('No cloud expected')}});
- let worker,server;try{
+ let worker,server,livePage,liveContext,liveBrowser;try{
   core.saveSettings({workspace:path.join(root,'Reports workspace'),processingMode:'local-only',allowCloud:false});
   core.resources.approve=async()=>true;
   const deleteValue=core.store.delete.bind(core.store);core.store.delete=(kind,id)=>kind==='browserIssue'?observeSync('store:clearIssue',deleteValue)(kind,id):deleteValue(kind,id);
@@ -51,14 +51,18 @@ app.whenReady().then(async()=>{
    // Only this ephemeral loopback fixture uses a self-signed test certificate.
    // Production launch options continue to require normal trusted website TLS.
    stage='browser-launch';const context=await chromium.launchPersistentContext(profile,{...options,headless:true,ignoreHTTPSErrors:true});
+   liveContext=context;liveBrowser=context.browser();
+   context.on('close',()=>mark('lifecycle:context-closed'));
+   liveBrowser?.on('disconnected',()=>mark('lifecycle:browser-disconnected'));
    const installRoute=context.route.bind(context),instrumented=new WeakSet();
    const instrument=page=>{
-    if(instrumented.has(page))return page;instrumented.add(page);
+    if(instrumented.has(page))return page;instrumented.add(page);livePage=page;
+    page.on('close',()=>mark('lifecycle:page-closed'));page.on('crash',()=>mark('lifecycle:page-crashed'));
     page.on('download',()=>mark('download:event'));page.on('framenavigated',frame=>{if(frame===page.mainFrame())mark('navigation:committed');});
     page.goto=observe('navigation:goto',page.goto.bind(page));
     const waitForEvent=page.waitForEvent.bind(page);page.waitForEvent=(event,...args)=>{
      const waiting=waitForEvent(event,...args);if(event!=='download')return waiting;
-     return observe('download:waitForEvent',async()=>{const download=await waiting;download.saveAs=observe('download:saveAs',download.saveAs.bind(download));download.failure=observe('download:failure',download.failure.bind(download));download.suggestedFilename=observeSync('download:suggestedFilename',download.suggestedFilename.bind(download));return download;})();
+     return observe('download:waitForEvent',async()=>{const download=await waiting,saveAs=download.saveAs.bind(download);download.saveAs=observe('download:saveAs',async(...values)=>{try{return await saveAs(...values);}catch(error){atSaveFailure={pageClosed:page.isClosed(),browserConnected:context.browser()?.isConnected()??null,workerHasContext:!!worker?.context,contextMatches:worker?.context===context};throw error;}});download.failure=observe('download:failure',download.failure.bind(download));download.suggestedFilename=observeSync('download:suggestedFilename',download.suggestedFilename.bind(download));return download;})();
     };
     const locate=page.locator.bind(page);page.locator=selector=>{
      const locator=locate(selector),label=['#ready','#menu','#download','#user','#password','#submit'].includes(selector)?selector.slice(1):'other';
@@ -76,6 +80,7 @@ app.whenReady().then(async()=>{
    return context;
   }};
   worker=new BrowserWorker(core,{chromium:engine});core.browserReports=new BrowserReports(core,worker);
+  worker.close=observe('lifecycle:worker-close',worker.close.bind(worker));
   let recipe;
   if(mode==='save'){
    recipe=validateRecipe({name:'Synthetic native report',url:site+'/report',steps:[{op:'login',selector:'#ready'},{op:'click',selector:'#menu'},{op:'wait',selector:'#download'},{op:'download',selector:'#download'}],autoLogin:{formActions:[site+'/submit'],steps:[{op:'username',url:site+'/login',selector:'#user'},{op:'password',url:site+'/login',selector:'#password'},{op:'click',url:site+'/login',selector:'#submit'}]}});
@@ -92,6 +97,6 @@ app.whenReady().then(async()=>{
   }
   const file=path.join(dataRoot,'report-signins',recipe.id+'.dpapi'),bytes=fs.readFileSync(file);assert.ok(!bytes.includes(Buffer.from('synthetic-native-password')));assert.ok(!bytes.includes(Buffer.from('synthetic-native-owner')));
   process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({mode,passed:true,actualWindowsDPAPI:true,actualEdgeLogin:true,submissions,launches,unsafeRequests,operationFailures,operations,ciphertextSHA256:crypto.createHash('sha256').update(bytes).digest('hex')})+'\n');
- }catch(e){issue=core.store.list('browserIssue').map(({phase,step,code})=>({phase,step,code}));throw e;}finally{await worker?.close();server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));core.close();}
+ }catch(e){beforeCleanup={pageClosed:livePage?livePage.isClosed():null,browserConnected:liveBrowser?liveBrowser.isConnected():null,workerHasContext:!!worker?.context,contextMatches:!!liveContext&&worker?.context===liveContext};mark('lifecycle:fixture-catch');issue=core.store.list('browserIssue').map(({phase,step,code})=>({phase,step,code}));throw e;}finally{mark('lifecycle:fixture-cleanup');await worker?.close();server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));core.close();}
  app.exit(0);
-}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,operationFailure,operationFailures,operations,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});
+}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,atSaveFailure,beforeCleanup,operationFailure,operationFailures,operations,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});

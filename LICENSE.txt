@@ -1,0 +1,40 @@
+Private AI — Authorized Use License
+
+Copyright (c) 2026 YFriedman. All rights reserved in the original,
+copyrightable material owned by YFriedman.
+
+1. Authorized use
+People expressly authorized by YFriedman may install and use Private AI and
+Private AI Companion, including making copies needed for their authorized
+devices and personal backups. This permission does not transfer ownership.
+No activation server, license key or Internet connection is required by
+this license.
+
+2. Other use
+Except as permitted by applicable law or separate permission from YFriedman,
+this license does not authorize redistribution, publication, sale,
+sublicensing or modification of the original project material. Authorized
+testing does not itself grant permission to redistribute the application.
+
+3. Third-party and other material
+Third-party software, models, documents and other materials retain their
+own copyrights and licenses. Those terms control those materials and are
+not restricted or replaced by this license. Retain their applicable notices.
+This license does not claim copyright in public-domain or purely AI-generated
+material, or rights that YFriedman does not own. User data remains subject to
+its existing ownership and privacy obligations.
+
+4. Public repository access
+Any rights to view or fork a public repository under the hosting platform's
+terms remain unaffected. Public availability alone grants no additional
+license to the original project material.
+
+5. Disclaimer
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED "AS IS",
+WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+TO THAT EXTENT, YFRIEDMAN IS NOT LIABLE FOR CLAIMS, DAMAGES OR OTHER LIABILITY
+ARISING FROM THE SOFTWARE OR ITS USE.
+
+This notice is not evidence of copyright registration, security certification
+or clinical validation. Additional rights require permission from YFriedman.

@@ -15,12 +15,12 @@
     "actualSyntheticWindows": "Real DPAPI and Edge login, redirects, download, restart and Core app-lock retrieval passed; native submit-handler GET rewrite blocked before unexpected endpoint. Physical Windows lock screen not exercised.",
     "localWindowsSource": {
       "tests": 761,
-      "passed": 759,
-      "failed": 1,
-      "cancelled": 1,
+      "passed": 761,
+      "failed": 0,
+      "cancelled": 0,
       "skipped": 0,
-      "scope": "Final source full attempt with native LOW_MEMORY before browser launch and watcher timeout; observed host1.28-1.35GiB available; hosted clean full required",
-      "log": "Validation/owner-funded-check-resume/signin-final-761.tap"
+      "log": "Validation/owner-funded-check-resume/signin-license-lifecycle-full.tap",
+      "scope": "Current copyright and final lifecycle snapshot source; actual native threefreshpairs included; not hosted installer acceptance"
     },
     "localHardeningAndHTTP": {
       "passed": 26,
@@ -89,14 +89,14 @@
     },
     "metadataCorrection": "Regenerated Chromium/Firefox manifests3.0.9 and build-info3.0.9-dev with current normalized source fingerprint/base main; repeated preparation byte-identical; no releasegate/workflow change",
     "latestHostedWindows": {
-      "head": "1630351e47c348a1f786f83bdba10b12b5e010bf",
-      "run": 39614118220,
+      "head": "6832a66d7f21dc543b6330de470a3d8090c18c04",
+      "run": 39617068848,
       "tests": 761,
       "passed": 760,
       "failed": 1,
       "cancelled": 0,
       "skipped": 0,
-      "failure": "Native restarted reportstep4ACCESS after attachment event; safe trace disproves clicktimeout (68ms click,2.9s to event)",
+      "failure": "saveAs has been closed after attachment event; closure cause unknown",
       "actualInstallerUIInferenceExecuted": false
     },
     "nativeDiagnosticInstrumentation": {
@@ -123,6 +123,14 @@
       "overallTestSeconds": 180,
       "localGroupedResult": "First real pair passed; nextsave blocked LOW_MEMORY before browserlaunch. Grouped test failed; no pass claimed",
       "rootCause": "unconfirmed after attachment creation; awaiting hosted diagnostic"
+    },
+    "lifecycleDiagnostic": {
+      "scope": "fixture-only fixed close/disconnect/crash events and pre-cleanup state booleans",
+      "localFocusedPassed": 19,
+      "localFreshNativePairsPassed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "actualHostedCauseFixed": false
     }
   },
   "finishedLocalRelease20261020": {
@@ -1426,5 +1434,13 @@
       38485688240,
       38485692566
     ]
+  },
+  "copyrightLicense20261021": {
+    "holder": "YFriedman",
+    "terms": "Authorized use proprietary; original owned copyrightable material only; third-party and hosting rights preserved",
+    "desktop": "sidebar, executable metadata and offline packaged LICENSE.txt",
+    "android": "separate1.2.7-dev/code10 candidate; local Settings license dialog",
+    "status": "awaiting current-head release gates",
+    "ownerInstallChanged": false
   }
 }

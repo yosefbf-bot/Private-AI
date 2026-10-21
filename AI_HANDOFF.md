@@ -1,3 +1,26 @@
+# Copyright and report-download diagnosis — October 21, 2026
+
+Owner confirmed **YFriedman** and authorized the proposed proprietary
+license for authorized users. See LICENSE.txt and docs/COPYRIGHT_LICENSE_2026-10-21.md.
+Desktop metadata/sidebar and packaged offline terms are added; existing third-party
+terms remain. Android has a separate1.2.7-dev/code10 license-only candidate.
+No activation/cloud dependency, data, credential, provider or schema change.
+
+Hosted6832a66/run39617068848 failed760/761. Safe diagnostics establish
+`download.saveAs` rejects with the fixed hint `has been closed`, after the
+attachment event and before stat/rename. The expected `Download is starting`
+navigation exception is separate. One restart pair passed in that same run.
+No application-initiated close cause is proven; do not claim a fix or release.
+Fixture-only close/disconnect/crash markers and pre-cleanup state now distinguish
+browser lifecycle events from later worker/fixture cleanup. No raw exception,
+URL, path, credential, page content, guard or timeout change is introduced.
+Local focused source/native19/19 passed, including three fresh real DPAPI/Edge
+save/restart pairs. After the final diagnostic snapshot correction, the complete
+Windows source suite passed761/761, zero failures/cancellations/skips. Syntax250,
+repository policy and offline guide checks passed. Current hosted full release is
+pending; source passes do not establish installer acceptance.
+Installed3.0.8 and accepted delivery/recovery remain unchanged.
+
 # Protected report sign-in candidate - October 21, 2026
 
 Candidate **3.0.9-dev**, base main `452800210a33e34b1d18a648d1288562d9061d56`.
