@@ -35,6 +35,16 @@ repeats passed after RAM recovered. Separate memory-mocked local timing copies
 are explicitly diagnostic-only and cannot establish admission/release acceptance.
 No timeout, production/resource guard, workflow or gate was loosened. A fresh
 hosted diagnostic run is required before a causal fix or release claim.
+Run39614118220 at1630351 also failed760/761, but its safe trace disproves
+click-timeout suspicion: click completed in68ms; report redirects and attachment
+download event completed by2.9s. The failure is after attachment creation.
+New fixture milestones isolate saveAs/failure/stat/rename/store completion and
+retain later errors separately from the expected attachment-navigation abort.
+Three fresh DPAPI save/restart pairs now share one test: existing per-operation
+and55s child bounds remain; overall test180s covers three scenarios, not a longer
+browser timeout. Local grouped run completed its first pair then stopped on
+LOW_MEMORY before the next browser launch; this is not a passing grouped test.
+Fresh hosted diagnosis is required; no runtime workaround or root-cause claim.
 Cancellation now checks the request controller independently of async context;
 redirect settlement waits for in-flight top-frame handlers before advancing.
 Hardening plus real development HTTP: 26/26. Actual Windows Core/Edge assistant

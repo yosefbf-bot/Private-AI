@@ -3,9 +3,11 @@
 const {app,safeStorage}=require('electron');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const root=process.argv[2],mode=process.argv[3];
-let stage='startup',issue=null,operationFailure=null;const operations=[],started=Date.now();
+let stage='startup',issue=null,operationFailure=null;const operations=[],operationFailures=[],started=Date.now();
 function mark(value){operations.push({event:value,elapsedMs:Date.now()-started});if(operations.length>32)operations.shift();}
-function observe(label,action,count=false){return async(...args)=>{mark(label+':start');try{const result=await action(...args);mark(label+':'+(count?(result===0?'zero':result===1?'one':'many'):'done'));return result;}catch(error){operationFailure??={operation:label,kind:['TimeoutError','TargetClosedError','Error'].includes(error.name)?error.name:'OTHER',hints:['navigation','detached','not visible','not stable','intercepts pointer','outside of the viewport','waiting for locator'].filter(token=>String(error.message).includes(token))};throw error;}};}
+function failed(label,error){mark(label+':error');const row={operation:label,kind:['TimeoutError','TargetClosedError','TypeError','Error'].includes(error.name)?error.name:'OTHER',code:['EACCES','EPERM','EBUSY','ENOENT','EEXIST','ENOSPC'].includes(error.code)?error.code:'OTHER',hints:['navigation','detached','not visible','not stable','intercepts pointer','outside of the viewport','waiting for locator','canceled','cancelled','Download is starting','EACCES','EPERM','EBUSY','ENOENT','EEXIST','ENOSPC','Permission denied','no such file','has been closed'].filter(token=>String(error.message).includes(token))};operationFailure??=row;operationFailures.push(row);if(operationFailures.length>4)operationFailures.shift();}
+function observe(label,action,count=false){return async(...args)=>{mark(label+':start');try{const result=await action(...args);mark(label+':'+(count?(result===0?'zero':result===1?'one':'many'):'done'));return result;}catch(error){failed(label,error);throw error;}};}
+function observeSync(label,action){return(...args)=>{mark(label+':start');try{const result=action(...args);mark(label+':done');return result;}catch(error){failed(label,error);throw error;}};}
 if(!path.isAbsolute(root)||!path.basename(root).startsWith('privateai-signin-native-')||!['save','restart'].includes(mode))throw Error('Invalid synthetic fixture');
 app.setPath('userData',path.join(root,'electron-session'));app.disableHardwareAcceleration();
 app.whenReady().then(async()=>{
@@ -20,6 +22,9 @@ app.whenReady().then(async()=>{
  let worker,server;try{
   core.saveSettings({workspace:path.join(root,'Reports workspace'),processingMode:'local-only',allowCloud:false});
   core.resources.approve=async()=>true;
+  const deleteValue=core.store.delete.bind(core.store);core.store.delete=(kind,id)=>kind==='browserIssue'?observeSync('store:clearIssue',deleteValue)(kind,id):deleteValue(kind,id);
+  const reportPrefix=path.join(root,'Reports workspace','Reports')+path.sep;
+  for(const name of ['statSync','renameSync']){const action=fs[name].bind(fs);fs[name]=(...args)=>typeof args[0]==='string'&&args[0].startsWith(reportPrefix)?observeSync('file:'+name,action)(...args):action(...args);}
   core.browserCredentials=new BrowserCredentials(core,{safeStorage,verifyProtection:()=>verifyPrivateAcl(root,sid)});
   let signedIn=false,submissions=0,launches=0,rewrite=false,unsafeRequests=0,otp=false;
   const certificate=await require('selfsigned').generate([{name:'commonName',value:'localhost'}],{days:1,keySize:2048,algorithm:'sha256'});
@@ -51,6 +56,10 @@ app.whenReady().then(async()=>{
     if(instrumented.has(page))return page;instrumented.add(page);
     page.on('download',()=>mark('download:event'));page.on('framenavigated',frame=>{if(frame===page.mainFrame())mark('navigation:committed');});
     page.goto=observe('navigation:goto',page.goto.bind(page));
+    const waitForEvent=page.waitForEvent.bind(page);page.waitForEvent=(event,...args)=>{
+     const waiting=waitForEvent(event,...args);if(event!=='download')return waiting;
+     return observe('download:waitForEvent',async()=>{const download=await waiting;download.saveAs=observe('download:saveAs',download.saveAs.bind(download));download.failure=observe('download:failure',download.failure.bind(download));download.suggestedFilename=observeSync('download:suggestedFilename',download.suggestedFilename.bind(download));return download;})();
+    };
     const locate=page.locator.bind(page);page.locator=selector=>{
      const locator=locate(selector),label=['#ready','#menu','#download','#user','#password','#submit'].includes(selector)?selector.slice(1):'other';
      for(const method of ['count','click','waitFor','fill','evaluate','isVisible','isEnabled'])locator[method]=observe(label+':'+method,locator[method].bind(locator),method==='count');
@@ -73,7 +82,7 @@ app.whenReady().then(async()=>{
    core.store.put('browserRecipe',recipe.id,recipe);core.browserCredentials.save(recipe,{username:'synthetic-native-owner',password:'synthetic-native-password'});
    otp=true;await assert.rejects(worker.run(recipe,{testSignin:true}),{code:'BROWSER_LOGIN'});assert.equal(submissions,0);assert.equal(core.store.get('browserLoginVerified',recipe.id),null);otp=false;
    rewrite=true;await assert.rejects(worker.run(recipe,{testSignin:true}),{code:'POLICY'});assert.equal(unsafeRequests,0);assert.equal(submissions,0);assert.equal(core.store.get('browserLoginVerified',recipe.id),null);rewrite=false;
-   stage='manual-test';operations.length=0;operationFailure=null;const out=await worker.run(recipe,{testSignin:true});assert.equal(out.complete,true);assert.equal(submissions,1);
+   stage='manual-test';operations.length=0;operationFailure=null;operationFailures.length=0;const out=await worker.run(recipe,{testSignin:true});assert.equal(out.complete,true);assert.equal(submissions,1);
    const plan=core.browserReports.plan(recipe.id);core.browserReports.grant(recipe.id,plan.hash,true,true);
    const schedule=core.browserReports.save({browserRecipeId:recipe.id,frequency:'daily',analysisPrompt:'Summarize synthetic report'});core.store.put('schedule',schedule.id,{...schedule,next:Date.now()-1});
   }else{
@@ -82,7 +91,7 @@ app.whenReady().then(async()=>{
    const job=core.store.list('job')[0];assert.equal(job.status,'completed');assert.equal(job.browserAnalysis.state,'pending');assert.equal(core.store.list('file').length,0);
   }
   const file=path.join(dataRoot,'report-signins',recipe.id+'.dpapi'),bytes=fs.readFileSync(file);assert.ok(!bytes.includes(Buffer.from('synthetic-native-password')));assert.ok(!bytes.includes(Buffer.from('synthetic-native-owner')));
-  process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({mode,passed:true,actualWindowsDPAPI:true,actualEdgeLogin:true,submissions,launches,unsafeRequests,ciphertextSHA256:crypto.createHash('sha256').update(bytes).digest('hex')})+'\n');
+  process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({mode,passed:true,actualWindowsDPAPI:true,actualEdgeLogin:true,submissions,launches,unsafeRequests,operationFailures,operations,ciphertextSHA256:crypto.createHash('sha256').update(bytes).digest('hex')})+'\n');
  }catch(e){issue=core.store.list('browserIssue').map(({phase,step,code})=>({phase,step,code}));throw e;}finally{await worker?.close();server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));core.close();}
  app.exit(0);
-}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,operationFailure,operations,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});
+}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,operationFailure,operationFailures,operations,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});

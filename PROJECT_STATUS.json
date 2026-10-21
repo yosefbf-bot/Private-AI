@@ -89,14 +89,14 @@
     },
     "metadataCorrection": "Regenerated Chromium/Firefox manifests3.0.9 and build-info3.0.9-dev with current normalized source fingerprint/base main; repeated preparation byte-identical; no releasegate/workflow change",
     "latestHostedWindows": {
-      "head": "cee51e1d403755ca930888bdede099464dd3c49c",
-      "run": 39611077018,
+      "head": "1630351e47c348a1f786f83bdba10b12b5e010bf",
+      "run": 39614118220,
       "tests": 761,
       "passed": 760,
       "failed": 1,
       "cancelled": 0,
       "skipped": 0,
-      "failure": "Synthetic native mode restart reportstep4ACCESS; operation not yet proven",
+      "failure": "Native restarted reportstep4ACCESS after attachment event; safe trace disproves clicktimeout (68ms click,2.9s to event)",
       "actualInstallerUIInferenceExecuted": false
     },
     "nativeDiagnosticInstrumentation": {
@@ -106,6 +106,23 @@
       "mockedRunsAreAcceptance": false,
       "timeoutsOrGuardsChanged": false,
       "hostedCause": "unconfirmed; diagnostic required"
+    },
+    "postDownloadDiagnostics": {
+      "safeMilestones": [
+        "saveAs",
+        "failure",
+        "suggestedFilename",
+        "scopedstat",
+        "scopedrename",
+        "clearIssue"
+      ],
+      "laterErrorCategoriesRetained": true,
+      "freshPairsPerTest": 3,
+      "inventoryUnchanged": true,
+      "individualOperationTimeoutsUnchanged": true,
+      "overallTestSeconds": 180,
+      "localGroupedResult": "First real pair passed; nextsave blocked LOW_MEMORY before browserlaunch. Grouped test failed; no pass claimed",
+      "rootCause": "unconfirmed after attachment creation; awaiting hosted diagnostic"
     }
   },
   "finishedLocalRelease20261020": {
