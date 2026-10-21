@@ -68,7 +68,7 @@ for(const mode of ['lock','cancel','close'])test('late browser launch is retired
 
 test('scheduled permission revocation during launch prevents initial navigation',async t=>{
  const {core,worker,launches}=harness(t),launch=worker.engines.chromium.launchPersistentContext;let permitted=true;
- core.browserReports={allowed:()=>{if(!permitted)throw require('../source/security.cjs').fail('POLICY');}};
+ core.browserReports={checkLease:()=>{if(!permitted)throw require('../source/security.cjs').fail('POLICY');}};
  worker.engines.chromium.launchPersistentContext=async(...args)=>{const context=await launch(...args);permitted=false;return context;};
  await assert.rejects(worker.run(base,{scheduled:true}),{code:'POLICY'});
  assert.equal(launches[0].context.page.url(),'about:blank');assert.equal(launches[0].context.closed,true);assert.equal(core.resources.browser,null);

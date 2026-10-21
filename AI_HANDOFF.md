@@ -1,3 +1,27 @@
+# Protected report sign-in candidate - October 21, 2026
+
+Candidate **3.0.9-dev**, base main `452800210a33e34b1d18a648d1288562d9061d56`.
+Read docs/PROTECTED_REPORT_SIGNIN_2026-10-21.md. Adds separate Windows-protected
+per-workflow credentials, bounded automatic sign-in and guided failure recovery.
+Exact tested approval can separately authorize headless retrieval while locked;
+general chat/phone remain locked and analysis waits for unlock. Existing grants
+do not gain this scope. Credential/workflow changes require a real sign-in test
+and approval; cached-session download is insufficient. Linked failed schedules
+stop instead of repeatedly submitting a password.
+
+Local full source suite: 758/758 passed, zero failures/cancellations/skips.
+Hardening plus real development HTTP: 26/26. Actual Windows Core/Edge assistant
+UI: 25 workflows, 14 Notes, 117 contrast and 7 dark-visibility checks passed.
+Protected sign-in component and real DPAPI/Edge native tests also passed,
+including blocked submit-handler GET rewrite, report/download redirects,
+process restart and Core app-lock state. This does not establish actual physical
+Windows lock-screen acceptance. Independent review prompted request/redirect,
+completion and approval fixes, with a second source recheck. Full current-head
+installer/GitHub acceptance is still pending. No owner credentials accessed,
+production install replaced, Android change, new package or schema migration.
+Live PCC/Power BI, MFA and organization policy acceptance remain unestablished.
+Preserve the previous accepted 3.0.8 installer, source and recovery evidence.
+
 # Finished local release preparation - October 20, 2026
 
 Desktop candidate **3.0.8-dev** starts at main

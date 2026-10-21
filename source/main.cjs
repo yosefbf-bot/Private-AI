@@ -111,7 +111,7 @@ function loadCipher(create) {
   return loadVault(localRoot, safeStorage, create);
 }
 function emit(event) {
-  if (event.type === 'locked') { browserWorker?.close(); companion?.invalidateInvites(); }
+  if (event.type === 'locked') { if(!browserWorker?.canContinueLocked?.())browserWorker?.close(); companion?.invalidateInvites(); }
   if(event.type==='job_finished')messaging?.jobFinished(event.jobId).catch(()=>{});
   if (win && !win.isDestroyed()) win.webContents.send("privateai:event", event);
   bridge?.broadcast(event);
@@ -294,13 +294,14 @@ function compactChat(c) {
     historyLimited,
   };
 }
-async function confirmWrite(message, detail) {
+async function confirmWrite(message, detail, maximum=4000) {
   core.assertUnlocked();
+  if(maximum!==4000&&String(detail).length>maximum)throw fail('LIMIT');
   const result = await dialog.showMessageBox(win, {
     type: "warning",
     title: "Review this write",
     message,
-    detail: String(detail).slice(0, 4000),
+    detail: String(detail).slice(0, maximum),
     buttons: ["Cancel", "Confirm write"],
     defaultId: 0,
     cancelId: 0,
@@ -385,15 +386,26 @@ async function dispatch(
       if(data.enabled===false)return core.browserReports.grant(data.id,null,false);
       const plan=core.browserReports.plan(data.id);
       await confirmWrite('Allow this tested report workflow to run unattended?',
-        'Report: '+plan.recipe.name+'\nWebsite: '+plan.recipe.url+'\nBrowser: '+plan.recipe.browser+'\n\n'+JSON.stringify(plan.recipe.steps,null,2)+'\n\nAuthorize only report retrieval steps. Scheduled runs use the dedicated browser session, pause for login/MFA or errors, and retain downloaded reports in your work folder. Changing this workflow invalidates approval. Email and WhatsApp sending remain separately approved.');
-      return core.browserReports.grant(data.id,plan.hash,true);
+        (data.allowLocked===true?'ALLOW LOCKED RETRIEVAL: this exact headless report may run while Windows or Private AI is locked. General chat, phone and AI analysis remain locked.\n':'Runs require Private AI unlocked.\n')+'Only report retrieval is authorized. MFA, verification or errors stop the run. Changed workflows or credentials require a new test and approval. No email/WhatsApp sending permission.\n\nReport: '+plan.recipe.name+'\nWebsite: '+plan.recipe.url+'\nBrowser: '+plan.recipe.browser+'\nWorkflow hash: '+plan.hash+'\n\nProtected automatic sign-in configuration:\n'+JSON.stringify(plan.recipe.autoLogin||null,null,2)+'\n\nReport steps:\n'+JSON.stringify(plan.recipe.steps,null,2),32768);
+      if(core.browserReports.plan(data.id).credentialRevision!==plan.credentialRevision)throw fail('REVIEW_CHANGED');
+      return core.browserReports.grant(data.id,plan.hash,true,data.allowLocked===true);
     }
     case "browserSchedule": return core.browserReports.save(data);
-    case "browserSave": {const r=validateRecipe(data);core.store.put("browserRecipe",r.id,r);return r;}
-    case "browserDelete": core.store.delete("browserRecipe",data.id);return true;
+    case "browserSave": {if(browserWorker.busy||browserWorker.opening)throw fail('BUSY');const r=validateRecipe(data),old=core.store.get('browserRecipe',r.id);if(old&&require('./browser-reports.cjs').digest(old)!==require('./browser-reports.cjs').digest(r))core.browserCredentials.invalidate(r.id);core.store.put("browserRecipe",r.id,r);return r;}
+    case "browserCredentialSave": {
+      if(browserWorker.busy||browserWorker.opening)throw fail('BUSY');
+      const r=core.browserReports.recipe(data.id),hash=require('./browser-reports.cjs').digest(r);
+      if(!r.autoLogin)throw fail('INVALID');
+      await confirmWrite('Save protected sign-in for this report?',r.name+'\n\n'+JSON.stringify(r.autoLogin,null,2)+'\n\nThe username and password will be encrypted for this Windows account in a separate private file. Website code at these approved destinations receives them during sign-in. This does not protect against malware running as you. No routine vault unlock is required. Saving revokes prior tests and unattended approval. Test the actual sign-in, then approve this workflow again.',32768);
+      if(browserWorker.busy||browserWorker.opening)throw fail('BUSY');
+      if(require('./browser-reports.cjs').digest(core.browserReports.recipe(data.id))!==hash)throw fail('REVIEW_CHANGED');
+      return core.browserCredentials.save(r,data);
+    }
+    case "browserCredentialDelete": await browserWorker.close();return core.browserCredentials.remove(data.id);
+    case "browserDelete": await browserWorker.close();if(core.store.get('browserCredential',data.id))core.browserCredentials.remove(data.id);core.browserCredentials.invalidate(data.id);core.store.delete('browserIssue',data.id);core.store.delete("browserRecipe",data.id);return true;
     case "browserOpen": {const r=validateBrowserTarget(data);await browserWorker.open(r.url,r.origins,false,r.browser);return true;}
     case "browserClose": await browserWorker.close();return true;
-    case "browserRun": {const r=core.store.get("browserRecipe",data.id);if(!r)throw fail("INVALID");return browserWorker.run(r);}
+    case "browserRun": {const r=core.store.get("browserRecipe",data.id);if(!r)throw fail("INVALID");if(data.walkthrough===true)await confirmWrite('Walk through this report?', 'The visible report browser can remain open at a failed step so you can help. Close it when finished. Passwords, screenshots, page content and session URLs are not saved in the issue report. This does not authorize unattended access.');return browserWorker.run(r,{walkthrough:data.walkthrough===true,testSignin:data.testSignin===true});}
     case "localStatus": return {brain:core.router.local.status(),download:modelManager.status(),routing:core.router.tierStatus||{phase:'idle',tier:null}};
     case "localUnload": core.router.local.stop(); return true;
     case "localLoad": {
@@ -961,6 +973,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       modelManager=new ModelManager({directory:path.join(process.env.LOCALAPPDATA||os.homedir(),"PrivateAIModels"),fetcher:(url,opts)=>session.fromPartition("privateai-download-memory",{cache:false}).fetch(url,opts),emit});
       core.modelManager=modelManager;
       browserWorker=new BrowserWorker(core);
+      core.browserCredentials=new (require('./browser-credentials.cjs').BrowserCredentials)(core,{safeStorage,verifyProtection:()=>verifyPrivateAcl(localRoot,sid),platform:process.platform});
       core.browserReports=new (require("./browser-reports.cjs").BrowserReports)(core,browserWorker);
       core.localTools=createTools(core,access,browserWorker);
       messaging=new MessagingBridge(core);

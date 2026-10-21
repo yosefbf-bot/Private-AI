@@ -1,4 +1,21 @@
 {
+  "protectedReportSignin20261021": {
+    "status": "candidate-local-full-source-and-native-validated-hosted-release-pending",
+    "baseMain": "452800210a33e34b1d18a648d1288562d9061d56",
+    "version": "3.0.9-dev",
+    "features": ["separate Windows-protected per-workflow credentials", "bounded automatic sign-in", "explicit locked headless report scope", "guided stopped-step recovery", "deferred analysis with honest outcome", "shared failing-workflow retry prevention"],
+    "independentReview": "Three material findings fixed; second source recheck has no remaining material findings at recorded hashes",
+    "actualSyntheticWindows": "Real DPAPI and Edge login, redirects, download, restart and Core app-lock retrieval passed; native submit-handler GET rewrite blocked before unexpected endpoint. Physical Windows lock screen not exercised.",
+    "localWindowsSource": {"passed":758,"failed":0,"cancelled":0,"skipped":0},
+    "localHardeningAndHTTP": {"passed":26,"failed":0,"skipped":0},
+    "assistantUI": {"workflows":25,"notes":14,"contrast":117,"darkVisibility":7,"result":"passed"},
+    "ownerCredentialsAccessed": false,
+    "ownerInstallationChanged": false,
+    "androidChanged": false,
+    "dependencySchemaChanges": false,
+    "fullCurrentHeadInstallerAndGitHubAcceptance": "pending",
+    "livePCCPowerBIAcceptance": "not performed"
+  },
   "finishedLocalRelease20261020": {
     "status": "guide-candidate-full-acceptance-pending",
     "baseMain": "43fb45020b861d097ee80a0e2345c40ad9feae07",
