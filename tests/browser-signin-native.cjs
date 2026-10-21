@@ -3,7 +3,9 @@
 const {app,safeStorage}=require('electron');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const root=process.argv[2],mode=process.argv[3];
-let stage='startup',issue=null;
+let stage='startup',issue=null,operationFailure=null;const operations=[],started=Date.now();
+function mark(value){operations.push({event:value,elapsedMs:Date.now()-started});if(operations.length>32)operations.shift();}
+function observe(label,action,count=false){return async(...args)=>{mark(label+':start');try{const result=await action(...args);mark(label+':'+(count?(result===0?'zero':result===1?'one':'many'):'done'));return result;}catch(error){operationFailure??={operation:label,kind:['TimeoutError','TargetClosedError','Error'].includes(error.name)?error.name:'OTHER',hints:['navigation','detached','not visible','not stable','intercepts pointer','outside of the viewport','waiting for locator'].filter(token=>String(error.message).includes(token))};throw error;}};}
 if(!path.isAbsolute(root)||!path.basename(root).startsWith('privateai-signin-native-')||!['save','restart'].includes(mode))throw Error('Invalid synthetic fixture');
 app.setPath('userData',path.join(root,'electron-session'));app.disableHardwareAcceleration();
 app.whenReady().then(async()=>{
@@ -44,10 +46,24 @@ app.whenReady().then(async()=>{
    // Only this ephemeral loopback fixture uses a self-signed test certificate.
    // Production launch options continue to require normal trusted website TLS.
    stage='browser-launch';const context=await chromium.launchPersistentContext(profile,{...options,headless:true,ignoreHTTPSErrors:true});
-   const installRoute=context.route.bind(context);
+   const installRoute=context.route.bind(context),instrumented=new WeakSet();
+   const instrument=page=>{
+    if(instrumented.has(page))return page;instrumented.add(page);
+    page.on('download',()=>mark('download:event'));page.on('framenavigated',frame=>{if(frame===page.mainFrame())mark('navigation:committed');});
+    page.goto=observe('navigation:goto',page.goto.bind(page));
+    const locate=page.locator.bind(page);page.locator=selector=>{
+     const locator=locate(selector),label=['#ready','#menu','#download','#user','#password','#submit'].includes(selector)?selector.slice(1):'other';
+     for(const method of ['count','click','waitFor','fill','evaluate','isVisible','isEnabled'])locator[method]=observe(label+':'+method,locator[method].bind(locator),method==='count');
+     return locator;
+    };return page;
+   };
+   context.pages().forEach(instrument);context.on('page',instrument);const newPage=context.newPage.bind(context);context.newPage=async(...args)=>instrument(await newPage(...args));
    // Reproduce Chromium finishing a navigation before fulfillment returns.
    // This delay changes only the isolated fixture's callback timing, not policy.
-   context.route=(pattern,handler)=>installRoute(pattern,route=>handler({request:()=>route.request(),fetch:options=>route.fetch(options),abort:()=>route.abort(),fulfill:async options=>{await route.fulfill(options);if(options.body==='<!doctype html><title>Continuing approved sign-in</title>')await new Promise(resolve=>setTimeout(resolve,100));}}));
+   context.route=(pattern,handler)=>installRoute(pattern,route=>{
+    const pathname=new URL(route.request().url()).pathname,label=['/report','/login','/submit','/menu','/report-ready','/download-start','/download'].includes(pathname)?pathname.slice(1):'other';
+    return handler({request:()=>route.request(),fetch:observe(label+':fetch',options=>route.fetch(options)),abort:observe(label+':abort',()=>route.abort()),fulfill:observe(label+':fulfill',async options=>{await route.fulfill(options);if(options.body==='<!doctype html><title>Continuing approved sign-in</title>')await new Promise(resolve=>setTimeout(resolve,100));})});
+   });
    return context;
   }};
   worker=new BrowserWorker(core,{chromium:engine});core.browserReports=new BrowserReports(core,worker);
@@ -57,7 +73,7 @@ app.whenReady().then(async()=>{
    core.store.put('browserRecipe',recipe.id,recipe);core.browserCredentials.save(recipe,{username:'synthetic-native-owner',password:'synthetic-native-password'});
    otp=true;await assert.rejects(worker.run(recipe,{testSignin:true}),{code:'BROWSER_LOGIN'});assert.equal(submissions,0);assert.equal(core.store.get('browserLoginVerified',recipe.id),null);otp=false;
    rewrite=true;await assert.rejects(worker.run(recipe,{testSignin:true}),{code:'POLICY'});assert.equal(unsafeRequests,0);assert.equal(submissions,0);assert.equal(core.store.get('browserLoginVerified',recipe.id),null);rewrite=false;
-   stage='manual-test';const out=await worker.run(recipe,{testSignin:true});assert.equal(out.complete,true);assert.equal(submissions,1);
+   stage='manual-test';operations.length=0;operationFailure=null;const out=await worker.run(recipe,{testSignin:true});assert.equal(out.complete,true);assert.equal(submissions,1);
    const plan=core.browserReports.plan(recipe.id);core.browserReports.grant(recipe.id,plan.hash,true,true);
    const schedule=core.browserReports.save({browserRecipeId:recipe.id,frequency:'daily',analysisPrompt:'Summarize synthetic report'});core.store.put('schedule',schedule.id,{...schedule,next:Date.now()-1});
   }else{
@@ -69,4 +85,4 @@ app.whenReady().then(async()=>{
   process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({mode,passed:true,actualWindowsDPAPI:true,actualEdgeLogin:true,submissions,launches,unsafeRequests,ciphertextSHA256:crypto.createHash('sha256').update(bytes).digest('hex')})+'\n');
  }catch(e){issue=core.store.list('browserIssue').map(({phase,step,code})=>({phase,step,code}));throw e;}finally{await worker?.close();server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));core.close();}
  app.exit(0);
-}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});
+}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,operationFailure,operations,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});

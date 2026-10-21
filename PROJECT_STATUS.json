@@ -1,6 +1,6 @@
 {
   "protectedReportSignin20261021": {
-    "status": "candidate-reviewed-hosted-release-pending",
+    "status": "candidate-hosted-restart-download-diagnosis",
     "baseMain": "452800210a33e34b1d18a648d1288562d9061d56",
     "version": "3.0.9-dev",
     "features": [
@@ -87,7 +87,26 @@
       "actualInstallerAppInferenceAcceptanceExecuted": false,
       "failure": "DIRTY_TRACKED_INPUTS: stale generated extension manifests/build-info3.0.8"
     },
-    "metadataCorrection": "Regenerated Chromium/Firefox manifests3.0.9 and build-info3.0.9-dev with current normalized source fingerprint/base main; repeated preparation byte-identical; no releasegate/workflow change"
+    "metadataCorrection": "Regenerated Chromium/Firefox manifests3.0.9 and build-info3.0.9-dev with current normalized source fingerprint/base main; repeated preparation byte-identical; no releasegate/workflow change",
+    "latestHostedWindows": {
+      "head": "cee51e1d403755ca930888bdede099464dd3c49c",
+      "run": 39611077018,
+      "tests": 761,
+      "passed": 760,
+      "failed": 1,
+      "cancelled": 0,
+      "skipped": 0,
+      "failure": "Synthetic native mode restart reportstep4ACCESS; operation not yet proven",
+      "actualInstallerUIInferenceExecuted": false
+    },
+    "nativeDiagnosticInstrumentation": {
+      "scope": "Fixture only fixed operation/selector/path tokens, elapsed milliseconds, whitelisted errorname/hints; no rawvalues/errors/URLs/pagecontent",
+      "localActualWindowsUnmockedRepeatsPassed": 3,
+      "separateDiagnosticMemoryMockedRepeats": 3,
+      "mockedRunsAreAcceptance": false,
+      "timeoutsOrGuardsChanged": false,
+      "hostedCause": "unconfirmed; diagnostic required"
+    }
   },
   "finishedLocalRelease20261020": {
     "status": "guide-candidate-full-acceptance-pending",

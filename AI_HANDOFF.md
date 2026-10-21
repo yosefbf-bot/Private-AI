@@ -25,6 +25,16 @@ files are now synchronized to3.0.9, current source fingerprint and base main;
 repeat preparation is byte-identical. Gate and workflows are unchanged. Actual
 installer/inference/reinstall/portable steps were not executed on that run;
 fresh final-head full release acceptance remains required.
+After metadata correction, run39611077018 at cee51e1 again failed native
+restart/scheduled download step4ACCESS (760/761 pass;1 fail;0 cancel/skip).
+The underlying operation is not established; do not claim the earlier redirect
+race was its cause. New fixture-only traces record fixed operation/selector/path
+tokens, elapsed time and whitelisted exception categories, never raw errors,
+values, page contents or URLs. Three actual unmocked Windows DPAPI/Edge local
+repeats passed after RAM recovered. Separate memory-mocked local timing copies
+are explicitly diagnostic-only and cannot establish admission/release acceptance.
+No timeout, production/resource guard, workflow or gate was loosened. A fresh
+hosted diagnostic run is required before a causal fix or release claim.
 Cancellation now checks the request controller independently of async context;
 redirect settlement waits for in-flight top-frame handlers before advancing.
 Hardening plus real development HTTP: 26/26. Actual Windows Core/Edge assistant
