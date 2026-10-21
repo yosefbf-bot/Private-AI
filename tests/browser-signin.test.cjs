@@ -85,6 +85,10 @@ test('scheduled calls require an opaque lease, not a caller boolean',async t=>{
  const x=reportHarness(t);x.verified();x.core.browserReports.grant(x.recipe.id,digest(x.recipe),true,true);
  await assert.rejects(x.browser.run(x.recipe,{scheduled:true,lease:{}}),{code:'BROWSER_REVIEW'});assert.equal(x.launches(),0);
 });
+test('scheduled request cancellation is enforced outside the resource async context',t=>{
+ const x=reportHarness(t);x.verified();x.core.browserReports.grant(x.recipe.id,digest(x.recipe),true,true);const s=x.due(),id=crypto.randomUUID(),controller=new AbortController();x.core.requests.set(id,controller);
+ try{const lease=x.core.browserReports.issueLease(x.recipe,x.core.store.get('schedule',s.id),id);controller.abort();assert.throws(()=>x.core.browserReports.checkLease(lease,x.recipe),{code:'CANCELLED'});}finally{x.core.requests.delete(id);}
+});
 test('actual password test plus download permits approved locked report while general Core stays locked',async t=>{
  const x=reportHarness(t);await x.browser.run(x.recipe,{testSignin:true});assert.equal(x.submits(),1);
  const plan=x.core.browserReports.plan(x.recipe.id);x.core.browserReports.grant(x.recipe.id,plan.hash,true,true);const s=x.due({analysisPrompt:'Summarize supplied synthetic data'});

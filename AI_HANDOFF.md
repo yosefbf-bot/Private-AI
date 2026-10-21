@@ -9,7 +9,17 @@ do not gain this scope. Credential/workflow changes require a real sign-in test
 and approval; cached-session download is insufficient. Linked failed schedules
 stop instead of repeatedly submitting a password.
 
-Local full source suite: 758/758 passed, zero failures/cancellations/skips.
+Earlier full source suite: 758/758 passed, zero failures/cancellations/skips.
+After the cancellation correction, the full 759/759 Windows suite also passed.
+A separate causal redirect race now has a regression and main-navigation drain;
+expected current Windows inventory is 761. Latest local full attempt: 759 pass,
+1 fail (native LOW_MEMORY before launch) and 1 cancelled (watcher timeout),
+zero skips, at observed 1.28-1.35 GiB available RAM. Earlier isolated delayed
+redirect native/network17 passed. Final full hosted validation remains required.
+The first PR Windows run failed its native synthetic report check before
+installer execution; do not treat its skipped release steps as passed.
+Cancellation now checks the request controller independently of async context;
+redirect settlement waits for in-flight top-frame handlers before advancing.
 Hardening plus real development HTTP: 26/26. Actual Windows Core/Edge assistant
 UI: 25 workflows, 14 Notes, 117 contrast and 7 dark-visibility checks passed.
 Protected sign-in component and real DPAPI/Edge native tests also passed,

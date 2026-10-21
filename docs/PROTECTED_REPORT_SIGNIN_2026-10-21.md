@@ -75,7 +75,8 @@ minutes by default, unrelated to detection avoidance or defeating site controls.
   use rather than risking value-bearing debug logs.
 - A scheduled worker receives an opaque lease tied to an immutable recipe,
   current grant, dispatch schedule snapshot and live request. It rechecks
-  cancellation/revocation after asynchronous boundaries. A once-only schedule's
+  cancellation/revocation after asynchronous boundaries, including a direct
+  request-controller check outside the resource async context. A once-only schedule's
   own dispatch transition remains valid; subsequent edits revoke the lease.
   Core lock, chat, phone, messaging and provider gates are unchanged.
 - Optional analysis is persisted separately after retrieval and waits for an
@@ -89,6 +90,12 @@ minutes by default, unrelated to detection avoidance or defeating site controls.
 ## Verification and limits
 
 Targeted source/Core/encrypted SQLite and actual desktop IPC checks pass.
+A causal asynchronous redirect test rejects premature settlement while a native
+navigation handler is still completing. The worker drains these main-frame
+handlers before advancing; it does not wait for unrelated background requests.
+The real Windows fixture deliberately delays redirect fulfillment callbacks to
+exercise this ordering, without changing production request/TLS guards.
+
 Independent security review found and prompted fixes to request/redirect
 handling, analysis completion reporting and truncated approval scope. The second
 source review reports no remaining material findings at its recorded hashes.

@@ -43,7 +43,12 @@ app.whenReady().then(async()=>{
    launches++;assert.equal(options.serviceWorkers,'block');assert.ok(options.args.includes('--disable-extensions'));
    // Only this ephemeral loopback fixture uses a self-signed test certificate.
    // Production launch options continue to require normal trusted website TLS.
-   stage='browser-launch';return chromium.launchPersistentContext(profile,{...options,headless:true,ignoreHTTPSErrors:true});
+   stage='browser-launch';const context=await chromium.launchPersistentContext(profile,{...options,headless:true,ignoreHTTPSErrors:true});
+   const installRoute=context.route.bind(context);
+   // Reproduce Chromium finishing a navigation before fulfillment returns.
+   // This delay changes only the isolated fixture's callback timing, not policy.
+   context.route=(pattern,handler)=>installRoute(pattern,route=>handler({request:()=>route.request(),fetch:options=>route.fetch(options),abort:()=>route.abort(),fulfill:async options=>{await route.fulfill(options);if(options.body==='<!doctype html><title>Continuing approved sign-in</title>')await new Promise(resolve=>setTimeout(resolve,100));}}));
+   return context;
   }};
   worker=new BrowserWorker(core,{chromium:engine});core.browserReports=new BrowserReports(core,worker);
   let recipe;
@@ -64,4 +69,4 @@ app.whenReady().then(async()=>{
   process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({mode,passed:true,actualWindowsDPAPI:true,actualEdgeLogin:true,submissions,launches,unsafeRequests,ciphertextSHA256:crypto.createHash('sha256').update(bytes).digest('hex')})+'\n');
  }catch(e){issue=core.store.list('browserIssue').map(({phase,step,code})=>({phase,step,code}));throw e;}finally{await worker?.close();server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));core.close();}
  app.exit(0);
-}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,stage,issue,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});
+}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});

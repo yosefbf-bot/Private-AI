@@ -5,9 +5,9 @@ const {fail}=require('./security.cjs');
 // forward a POST without another route callback. Fetch one hop, inspect it, and
 // turn permitted top-level redirects into a NEW, guarded GET navigation.
 function protectedNetwork({recipe,check,page:currentPage}){
- const queued=[];let failure=null,redirects=0,submission=false,expectedGet=null,secrets=[];
+ const queued=[],pendingNavigations=new Set();let failure=null,redirects=0,submission=false,expectedGet=null,secrets=[];
  const clean=value=>{const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password||!recipe.origins.includes(u.origin))throw fail('POLICY');return u;};
- const handler=async route=>{
+ const handle=async route=>{
   try{
    if(failure)throw failure;
    check();const request=route.request(),url=clean(request.url()),method=request.method();
@@ -31,8 +31,16 @@ function protectedNetwork({recipe,check,page:currentPage}){
    }
   }catch(e){failure=['LOCKED','CANCELLED','BROWSER_REVIEW','REPORT_RATE_LIMIT','LIMIT'].includes(e.code)?fail(e.code):fail('POLICY');try{await route.abort();}catch{}}
  };
+ const handler=route=>{
+  let navigation=false;try{const request=route.request();navigation=request.isNavigationRequest()&&request.frame()===currentPage()?.mainFrame();}catch{}
+  const done=handle(route);
+  if(navigation){pendingNavigations.add(done);const retire=()=>pendingNavigations.delete(done);done.then(retire,retire);}
+  return done;
+ };
  const settle=async download=>{
-  while(queued.length){if(failure)throw failure;check();expectedGet=queued.shift();try{await currentPage().goto(expectedGet,{waitUntil:'domcontentloaded',timeout:45000});}catch{if(failure)throw failure;if(download){await download;queued.length=0;return;}throw fail('BROWSER_LOGIN');}finally{expectedGet=null;}}
+  // Chromium can complete navigation before route.fulfill() returns to its
+  // handler. Drain those handlers before deciding that no redirect is queued.
+  for(;;){await Promise.all([...pendingNavigations]);if(failure)throw failure;check();if(pendingNavigations.size)continue;if(!queued.length)break;expectedGet=queued.shift();try{await currentPage().goto(expectedGet,{waitUntil:'domcontentloaded',timeout:45000});}catch{if(failure)throw failure;if(download){await download;queued.length=0;return;}throw fail('BROWSER_LOGIN');}finally{expectedGet=null;}}
   if(failure)throw failure;check();
  };
  return {handler,settle,protect(secret){secrets=[secret.username,secret.password].filter(Boolean);},expectSubmit(){submission=true;},endSubmit(){submission=false;},clear(){secrets=[];submission=false;expectedGet=null;},assert(){if(failure)throw failure;}};

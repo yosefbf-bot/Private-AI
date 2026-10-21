@@ -1,20 +1,64 @@
 {
   "protectedReportSignin20261021": {
-    "status": "candidate-local-full-source-and-native-validated-hosted-release-pending",
+    "status": "candidate-reviewed-hosted-release-pending",
     "baseMain": "452800210a33e34b1d18a648d1288562d9061d56",
     "version": "3.0.9-dev",
-    "features": ["separate Windows-protected per-workflow credentials", "bounded automatic sign-in", "explicit locked headless report scope", "guided stopped-step recovery", "deferred analysis with honest outcome", "shared failing-workflow retry prevention"],
-    "independentReview": "Three material findings fixed; second source recheck has no remaining material findings at recorded hashes",
+    "features": [
+      "separate Windows-protected per-workflow credentials",
+      "bounded automatic sign-in",
+      "explicit locked headless report scope",
+      "guided stopped-step recovery",
+      "deferred analysis with honest outcome",
+      "shared failing-workflow retry prevention"
+    ],
+    "independentReview": "Initial three findings and OTP field guard fixed and reviewed; cancellation independent recheck clean; redirect review prompted second pending-handler race fix, causal regression and resolution recheck clean at recorded hashes",
     "actualSyntheticWindows": "Real DPAPI and Edge login, redirects, download, restart and Core app-lock retrieval passed; native submit-handler GET rewrite blocked before unexpected endpoint. Physical Windows lock screen not exercised.",
-    "localWindowsSource": {"passed":758,"failed":0,"cancelled":0,"skipped":0},
-    "localHardeningAndHTTP": {"passed":26,"failed":0,"skipped":0},
-    "assistantUI": {"workflows":25,"notes":14,"contrast":117,"darkVisibility":7,"result":"passed"},
+    "localWindowsSource": {
+      "tests": 761,
+      "passed": 759,
+      "failed": 1,
+      "cancelled": 1,
+      "skipped": 0,
+      "scope": "Final source full attempt with native LOW_MEMORY before browser launch and watcher timeout; observed host1.28-1.35GiB available; hosted clean full required",
+      "log": "Validation/owner-funded-check-resume/signin-final-761.tap"
+    },
+    "localHardeningAndHTTP": {
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0
+    },
+    "assistantUI": {
+      "workflows": 25,
+      "notes": 14,
+      "contrast": 117,
+      "darkVisibility": 7,
+      "result": "passed"
+    },
     "ownerCredentialsAccessed": false,
     "ownerInstallationChanged": false,
     "androidChanged": false,
     "dependencySchemaChanges": false,
     "fullCurrentHeadInstallerAndGitHubAcceptance": "pending",
-    "livePCCPowerBIAcceptance": "not performed"
+    "livePCCPowerBIAcceptance": "not performed",
+    "expectedCurrentWindowsSource": 761,
+    "confirmedCorrections": [
+      "Live scheduled AbortController cancellation enforced outside Resources async context; causal before failed, after49 targeted and full759 passed",
+      "Redirect settlement could finish before route.fulfill callback queued its destination; causal regression failed, fixed by draining main-frame handlers; native fixture exercises delayed callback"
+    ],
+    "firstPRWindowsResult": "Failed native synthetic report at step4 ACCESS; current logs do not prove underlying exception. Installer/UI/inference not executed on that run. Independent review confirms redirect synchronization race but cannot alone prove it caused hosted failure.",
+    "priorFullAfterCancellation": {
+      "passed": 759,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "isolatedDelayedNativeAndNetwork": {
+      "passed": 17,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "scope": "Before final second-handler predicate tightening; same delayed native fixture"
+    }
   },
   "finishedLocalRelease20261020": {
     "status": "guide-candidate-full-acceptance-pending",
@@ -187,15 +231,40 @@
     ],
     "scope": "Documentation only; historical receipts and original accepted binary/source payloads remain unchanged. Subsequent commits require their own relevant checks."
   },
-  "windowsPackagingNoPublish20261017": {"base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2", "scope": "Packaging always uses publish:never; WhatsApp setup text retained", "focusedPackagingTests": "2/2 passed", "localHardening": "25/25 passed", "localFullSuite": {"tests": 718, "passed": 712, "failed": 5, "cancelled": 1, "skipped": 0, "limitation": "RAM admission affected unrelated functional fixtures; genuine hosted full suite required"}, "syntax": "passed", "release": "Pending current-head Windows acceptance; no owner installation changed"},
-  "whatsappSetupCopy20261016": {"base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2", "scope": "WhatsApp setup copy only", "tests": "716/716; hardening25/25; syntax/policy passed; zero skips", "release": "Not built/installed; exact-head CI required; Actions budget blocked"},
+  "windowsPackagingNoPublish20261017": {
+    "base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2",
+    "scope": "Packaging always uses publish:never; WhatsApp setup text retained",
+    "focusedPackagingTests": "2/2 passed",
+    "localHardening": "25/25 passed",
+    "localFullSuite": {
+      "tests": 718,
+      "passed": 712,
+      "failed": 5,
+      "cancelled": 1,
+      "skipped": 0,
+      "limitation": "RAM admission affected unrelated functional fixtures; genuine hosted full suite required"
+    },
+    "syntax": "passed",
+    "release": "Pending current-head Windows acceptance; no owner installation changed"
+  },
+  "whatsappSetupCopy20261016": {
+    "base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2",
+    "scope": "WhatsApp setup copy only",
+    "tests": "716/716; hardening25/25; syntax/policy passed; zero skips",
+    "release": "Not built/installed; exact-head CI required; Actions budget blocked"
+  },
   "darkSurfaceContrast20261015": {
     "version": "3.0.5-dev",
     "base": "bdf73af43453a19abf3c9845cf667554de388fbb",
     "branch": "chatgpt/dark-surface-contrast-2026-10-15",
     "report": "docs/DARK_SURFACE_CONTRAST_2026-10-15.md",
     "scope": "presentation-only; no Android, workflow, security or storage change",
-    "fullWindowsSourceTests": {"passed": 716, "failed": 0, "cancelled": 0, "skipped": 0},
+    "fullWindowsSourceTests": {
+      "passed": 716,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
     "edgeWorkflowChecks": 25,
     "surfaceContrastChecks": 106,
     "contrastThreshold": 4.5,
@@ -217,7 +286,6 @@
       "olderPendingNotesAreHistorical": true
     }
   },
-
   "fourPhaseReliability20261014": {
     "phase": "phase4-android-merged-windows-pause-cause-validation-pending",
     "report": "docs/FOUR_PHASE_PROGRESS_2026-10-13.md",

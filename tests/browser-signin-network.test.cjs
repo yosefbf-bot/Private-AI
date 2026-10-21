@@ -44,3 +44,27 @@ test('credentials in any request URL are rejected before dispatch',async()=>{
 test('a latched unsafe request blocks every later request before fetch',async()=>{
  const h=harness({status:429});await h.net.handler(h.route);await h.net.handler(h.route);assert.equal(h.requests.length,1);
 });
+
+test('redirect settlement waits for an in-flight navigation fulfillment before advancing',async()=>{
+ const h=harness({status:302,location:'/report'});let release,entered;
+ const reached=new Promise(resolve=>{entered=resolve;}),blocked=new Promise(resolve=>{release=resolve;});
+ h.route.fulfill=async options=>{h.fulfilled.push(options);entered();await blocked;};
+ const handling=h.net.handler(h.route);await reached;
+ let settled=false;const settling=h.net.settle().then(()=>{settled=true;});
+ try{await new Promise(resolve=>setImmediate(resolve));assert.equal(settled,false,'Cannot finish while the redirect handler is still publishing its destination');}
+ finally{release();await handling;await settling;}
+ assert.deepEqual(h.navigations,['https://login.example.com/report']);
+});
+
+test('settlement also drains a navigation started while an earlier handler is finishing',async()=>{
+ const h=harness();let releaseFirst,releaseSecond,entered,calls=0;
+ const reached=new Promise(resolve=>{entered=resolve;}),firstHeld=new Promise(resolve=>{releaseFirst=resolve;}),secondHeld=new Promise(resolve=>{releaseSecond=resolve;});
+ h.route.fetch=async()=>{if(++calls===1)return {status:()=>200,headers:()=>({})};await secondHeld;return {status:()=>302,headers:()=>({location:'/report'})};};
+ h.route.fulfill=async options=>{if(options.response){entered();await firstHeld;}};
+ const first=h.net.handler(h.route);await reached;
+ let settled=false;const settling=h.net.settle().then(()=>{settled=true;}),second=h.net.handler(h.route);
+ releaseFirst();await first;
+ try{await new Promise(resolve=>setImmediate(resolve));assert.equal(settled,false,'A navigation started during settlement must also finish');}
+ finally{releaseSecond();await second;await settling;}
+ assert.deepEqual(h.navigations,['https://login.example.com/report']);
+});
