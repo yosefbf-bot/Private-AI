@@ -1,3 +1,23 @@
+# Edge process-exit diagnosis — October 21, 2026
+
+Hosted c45197c/run39694326831 again failed760/761. The new safe lifecycle
+trace proves both pages/context close and browser disconnect at4237ms,
+before saveAs rejects and before worker.close starts4238ms. At rejection,
+pageClosed=true/browserConnected=false; worker cleanup is not the cause.
+The underlying process/transport termination cause remains unestablished.
+Do not merge, replace the installed app or claim the regression is fixed.
+
+Fixture-only observation now matches only the exact synthetic Edge/profile
+spawn and records bounded exit codes/allowlisted signals, launch index and
+relative times. A boolean assertion verifies the actual hook was active.
+After unexpected failure only, at most500ms observes a delayed exit callback;
+no browser operation/child/test timeout, retry, resource or policy is relaxed.
+Empty exit telemetry is inconclusive. Independent review remains required at
+exact hashes. Local latest actual native acceptance passed all three fresh
+DPAPI/Edge save/restart pairs; full current-head hosted release remains pending.
+All761 source tests passed locally at c45197c before this fixture-only change.
+No production/browser/provider/credential source changed in this increment.
+
 # Copyright and report-download diagnosis — October 21, 2026
 
 Owner confirmed **YFriedman** and authorized the proposed proprietary

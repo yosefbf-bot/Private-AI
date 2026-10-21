@@ -20,7 +20,7 @@
       "cancelled": 0,
       "skipped": 0,
       "log": "Validation/owner-funded-check-resume/signin-license-lifecycle-full.tap",
-      "scope": "Current copyright and final lifecycle snapshot source; actual native threefreshpairs included; not hosted installer acceptance"
+      "scope": "All761 at c45197c before fixture-only subprocess telemetry; runtime unchanged; latest native3pairs passed separately"
     },
     "localHardeningAndHTTP": {
       "passed": 26,
@@ -89,14 +89,14 @@
     },
     "metadataCorrection": "Regenerated Chromium/Firefox manifests3.0.9 and build-info3.0.9-dev with current normalized source fingerprint/base main; repeated preparation byte-identical; no releasegate/workflow change",
     "latestHostedWindows": {
-      "head": "6832a66d7f21dc543b6330de470a3d8090c18c04",
-      "run": 39617068848,
+      "head": "c45197c4dd0b4c558fde662db927fa9cf0897bef",
+      "run": 39694326831,
       "tests": 761,
       "passed": 760,
       "failed": 1,
       "cancelled": 0,
       "skipped": 0,
-      "failure": "saveAs has been closed after attachment event; closure cause unknown",
+      "failure": "Actual browser/context/page disconnect BEFORE saveAs rejection and worker cleanup; underlying process exit cause unknown",
       "actualInstallerUIInferenceExecuted": false
     },
     "nativeDiagnosticInstrumentation": {
@@ -131,6 +131,15 @@
       "failed": 0,
       "skipped": 0,
       "actualHostedCauseFixed": false
+    },
+    "edgeExitDiagnostic": {
+      "scope": "Fixture-only exact synthetic msedge/profile child observation; codes/signals/relativetime only",
+      "edgeObservedAssertion": true,
+      "postFailureObservationMaximumMs": 500,
+      "browserChildTestOperationBoundsChanged": false,
+      "localActualNativeFreshPairsPassed": 3,
+      "log": "Validation/owner-funded-check-resume/signin-edge-exit-native.tap",
+      "rootCauseFixed": false
     }
   },
   "finishedLocalRelease20261020": {
