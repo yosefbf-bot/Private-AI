@@ -2,13 +2,13 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
 const {fixture}=require('./helpers.cjs');
 const {BrowserWorker,validateRecipe}=require('../source/browser-worker.cjs');
-const {launchOptions,profilePath}=require('../source/browser-options.cjs');
+const {launchOptions,profilePath,checkReportBrowser}=require('../source/browser-options.cjs');
 const base={name:'Synthetic report',url:'https://example.com/report',steps:[{op:'download',selector:'#download'}]};
 function harness(t){
  const {core}=fixture(t),launches=[];core.resources.approve=async()=>true;core.resources.memory=()=>8*1024**3;
  const make=engine=>({launchPersistentContext:async(profile,options)=>{
   let current='about:blank';const handlers={};const page={url:()=>current,goto:async url=>{current=url;}};
-  const context={handlers,page,closed:false,pages:()=>[page],newPage:async()=>page,on:(event,fn)=>handlers[event]=fn,route:async(_,fn)=>{context.guard=fn;},unroute:async()=>{context.guard=null;},close:async()=>{context.closed=true;handlers.close?.();}};
+  const context={browser:()=>({version:()=> '155.0.4283.62'}),handlers,page,closed:false,pages:()=>[page],newPage:async()=>page,on:(event,fn)=>handlers[event]=fn,route:async(_,fn)=>{context.guard=fn;},unroute:async()=>{context.guard=null;},close:async()=>{context.closed=true;handlers.close?.();}};
   launches.push({engine,profile,options,context});return context;
  }});
  const worker=new BrowserWorker(core,{chromium:make('chromium'),firefox:make('firefox')});t.after(()=>worker.close());return {core,worker,launches};
@@ -85,4 +85,27 @@ test('browser network guard blocks previously trusted requests after lock',async
  const {core,worker,launches}=harness(t);await worker.open(base.url,['https://example.com'],true);
  core.lock();let outcome='';await launches[0].context.guard({request:()=>({url:()=>base.url}),continue:()=>{outcome='allowed';},abort:()=>{outcome='blocked';}});
  assert.equal(outcome,'blocked');
+});
+
+test('Windows Chromium report compatibility uses the actual engine and rejects unknown versions',()=>{
+ for(const id of ['edge','chrome','brave','vivaldi','chromium']){
+  for(const version of ['151.0.0.0','152.0.4191.53','154.0.4258.62','155.bad',null,'155.0.0.0 private diagnostic'])assert.throws(()=>checkReportBrowser({browser:()=>({version:()=>version})},id,'win32'),{code:'BROWSER_UPDATE'});
+  for(const version of ['155.0.4283.62','156.0.0.1'])checkReportBrowser({browser:()=>({version:()=>version})},id,'win32');
+ }
+ assert.throws(()=>checkReportBrowser({},'edge','win32'),{code:'BROWSER_UPDATE'});
+ checkReportBrowser({},'firefox','win32');checkReportBrowser({},'edge','linux');
+});
+
+test('Windows outdated report browser stops before workflow navigation and releases its reservation',{skip:process.platform!=='win32'},async t=>{
+ const {core,worker,launches}=harness(t),launch=worker.engines.chromium.launchPersistentContext;
+ worker.engines.chromium.launchPersistentContext=async(...args)=>{const context=await launch(...args);context.browser=()=>({version:()=> '154.0.4258.62'});return context;};
+ await assert.rejects(worker.run(base,{walkthrough:true}),{code:'BROWSER_UPDATE'});
+ assert.equal(launches[0].context.page.url(),'about:blank');assert.equal(launches[0].context.closed,true);assert.equal(worker.context,null);assert.equal(core.resources.browser,null);
+ assert.equal(core.store.list('browserVerified').length,0);assert.equal(core.store.list('browserIssue')[0].code,'BROWSER_UPDATE');
+});
+
+test('Windows report browser rechecks a reused manual setup session before workflow navigation',{skip:process.platform!=='win32'},async t=>{
+ const {core,worker,launches}=harness(t);await worker.open(base.url,['https://example.com']);
+ const context=launches[0].context;context.page.goto=()=>assert.fail('unsupported report navigation');context.browser=()=>({version:()=> '154.0.4258.62'});
+ await assert.rejects(worker.run(base),{code:'BROWSER_UPDATE'});assert.equal(launches.length,1);assert.equal(context.closed,true);assert.equal(core.resources.browser,null);
 });

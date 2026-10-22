@@ -1451,5 +1451,39 @@
     "android": "separate1.2.7-dev/code10 candidate; local Settings license dialog",
     "status": "awaiting current-head release gates",
     "ownerInstallChanged": false
+  },
+  "reportBrowserCompatibility20261021": {
+    "baseMain": "783534b2df6247badff53d7272ddf1e1b2e76fc5",
+    "candidateVersion": "3.0.9-dev",
+    "status": "local source/review passed; exact-head hosted release pending",
+    "failedMainRun": 39702271511,
+    "failedWindowsPass": 760,
+    "failedWindowsFail": 1,
+    "actualNativeExitCode": 3221225477,
+    "failedRunnerImageEdgeVersion": "154.0.4258.62",
+    "failedRuntimeVersionCaptured": false,
+    "upstreamFixMajor": 155,
+    "browserPolicy": "Windows Chromium report execution requires actual engine>=155; Firefox unaffected; no history deletion or transport change",
+    "playwrightVersion": "1.64.0",
+    "ciUpdateScope": "disposable GitHub-hosted Windows x64 only; official stable MSI SHA256 and Microsoft Authenticode",
+    "localFocusedEarlierPassed": 58,
+    "currentFullAcceptance": "pending",
+    "ownerInstallationChanged": false,
+    "ownerVersion": "3.0.8-dev",
+    "localFullWindows": {
+      "tests": 765,
+      "passed": 765,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "localHardeningPassed": 25,
+    "localFocusedNativePassed": 21,
+    "actualNativeRestartVersions": [
+      "155.0.4283.62",
+      "155.0.4283.62",
+      "155.0.4283.62"
+    ],
+    "independentSignificantFindings": 0
   }
 }

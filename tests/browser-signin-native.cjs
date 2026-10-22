@@ -3,7 +3,7 @@
 const {app,safeStorage}=require('electron');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const root=process.argv[2],mode=process.argv[3];
-let stage='startup',issue=null,operationFailure=null,atSaveFailure=null,beforeCleanup=null,edgeObserved=false;const operations=[],operationFailures=[],browserExits=[],started=Date.now();
+let stage='startup',issue=null,operationFailure=null,atSaveFailure=null,beforeCleanup=null,edgeObserved=false;const operations=[],operationFailures=[],browserExits=[],browserVersions=[],started=Date.now();
 function mark(value){operations.push({event:value,elapsedMs:Date.now()-started});if(operations.length>32)operations.shift();}
 function failed(label,error){mark(label+':error');const row={operation:label,kind:['TimeoutError','TargetClosedError','TypeError','Error'].includes(error.name)?error.name:'OTHER',code:['EACCES','EPERM','EBUSY','ENOENT','EEXIST','ENOSPC'].includes(error.code)?error.code:'OTHER',hints:['navigation','detached','not visible','not stable','intercepts pointer','outside of the viewport','waiting for locator','canceled','cancelled','Download is starting','EACCES','EPERM','EBUSY','ENOENT','EEXIST','ENOSPC','Permission denied','no such file','has been closed'].filter(token=>String(error.message).includes(token))};operationFailure??=row;operationFailures.push(row);if(operationFailures.length>4)operationFailures.shift();}
 function observe(label,action,count=false){return async(...args)=>{mark(label+':start');try{const result=await action(...args);mark(label+':'+(count?(result===0?'zero':result===1?'one':'many'):'done'));return result;}catch(error){failed(label,error);throw error;}};}
@@ -61,6 +61,7 @@ app.whenReady().then(async()=>{
    // Production launch options continue to require normal trusted website TLS.
    stage='browser-launch';const context=await chromium.launchPersistentContext(profile,{...options,headless:true,ignoreHTTPSErrors:true});
    liveContext=context;liveBrowser=context.browser();
+   const actualVersion=liveBrowser.version();assert.match(actualVersion,/^\d{1,4}(?:\.\d{1,6}){3}$/);assert.ok(Number(actualVersion.split('.')[0])>=155);browserVersions.push(actualVersion);
    context.on('close',()=>mark('lifecycle:context-closed'));
    liveBrowser?.on('disconnected',()=>mark('lifecycle:browser-disconnected'));
    const installRoute=context.route.bind(context),instrumented=new WeakSet();
@@ -105,7 +106,7 @@ app.whenReady().then(async()=>{
    const job=core.store.list('job')[0];assert.equal(job.status,'completed');assert.equal(job.browserAnalysis.state,'pending');assert.equal(core.store.list('file').length,0);
   }
   const file=path.join(dataRoot,'report-signins',recipe.id+'.dpapi'),bytes=fs.readFileSync(file);assert.ok(!bytes.includes(Buffer.from('synthetic-native-password')));assert.ok(!bytes.includes(Buffer.from('synthetic-native-owner')));
-  process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({mode,passed:true,actualWindowsDPAPI:true,actualEdgeLogin:true,submissions,launches,unsafeRequests,edgeObserved,browserExits,operationFailures,operations,ciphertextSHA256:crypto.createHash('sha256').update(bytes).digest('hex')})+'\n');
+  process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({mode,passed:true,actualWindowsDPAPI:true,actualEdgeLogin:true,submissions,launches,unsafeRequests,edgeObserved,browserVersions,browserExits,operationFailures,operations,ciphertextSHA256:crypto.createHash('sha256').update(bytes).digest('hex')})+'\n');
  }catch(e){beforeCleanup={pageClosed:livePage?livePage.isClosed():null,browserConnected:liveBrowser?liveBrowser.isConnected():null,workerHasContext:!!worker?.context,contextMatches:!!liveContext&&worker?.context===liveContext};mark('lifecycle:fixture-catch');issue=core.store.list('browserIssue').map(({phase,step,code})=>({phase,step,code}));
   // A transport disconnect can precede the owned child's exit callback. Observe
   // it briefly only after failure; do not retry or extend any browser operation.
@@ -113,4 +114,4 @@ app.whenReady().then(async()=>{
   throw e;
  }finally{mark('lifecycle:fixture-cleanup');await worker?.close();server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));core.close();}
  app.exit(0);
-}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,atSaveFailure,beforeCleanup,edgeObserved,browserExits,operationFailure,operationFailures,operations,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});
+}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,atSaveFailure,beforeCleanup,edgeObserved,browserVersions,browserExits,operationFailure,operationFailures,operations,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});

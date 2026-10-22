@@ -121,7 +121,7 @@
     "marked": "18.0.12",
     "pdfjs-dist": "6.3.289",
     "pdfkit": "0.20.2",
-    "playwright-core": "1.63.0",
+    "playwright-core": "1.64.0",
     "selfsigned": "5.5.0",
     "sqlite-vec": "0.1.9",
     "tesseract.js": "7.0.0",
@@ -131,7 +131,7 @@
     "@sparticuz/chromium": "152.0.0",
     "electron": "44.3.0",
     "electron-builder": "26.15.3",
-    "playwright": "1.63.0",
+    "playwright": "1.64.0",
     "prettier": "3.9.6"
   },
   "overrides": {

@@ -11,6 +11,7 @@ test('Windows DPAPI restart retains protected credentials and actual Edge submit
  for(let attempt=1;attempt<=3;attempt++){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'privateai-signin-native-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   const first=run(root,'save'),second=run(root,'restart');assert.equal(first.ciphertextSHA256,second.ciphertextSHA256);assert.equal(second.submissions,1);assert.equal(second.launches,1);
-  t.diagnostic('SIGNIN_NATIVE_SAFE_TRACE='+JSON.stringify({attempt,mode:'restart',browserExits:second.browserExits,operationFailures:second.operationFailures,operations:second.operations}));
+  assert.equal(second.browserVersions.length,second.launches);assert.ok(second.browserVersions.every(v=>Number(v.split('.')[0])>=155));
+  t.diagnostic('SIGNIN_NATIVE_SAFE_TRACE='+JSON.stringify({attempt,mode:'restart',browserVersions:second.browserVersions,browserExits:second.browserExits,operationFailures:second.operationFailures,operations:second.operations}));
  }
 });

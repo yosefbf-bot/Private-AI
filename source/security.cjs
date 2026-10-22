@@ -16,6 +16,7 @@ const CODES = Object.freeze({
   PROVIDER_CHANGED: "The provider settings or credentials changed while this request was waiting. Review the current settings and retry.",
   INTEGRATION_UNAVAILABLE: "This data source or operation is disabled or unavailable. General clinical analysis and saved data remain available.",
   BROWSER_SETUP: "The selected browser could not start. Install Chrome/Edge/Brave/Vivaldi, or have your administrator install the matching managed Firefox/Chromium automation runtime. No other browser was substituted.",
+  BROWSER_UPDATE: "Update the selected browser before downloading reports. Windows Chromium-based report browsers require engine version 155 or newer because older versions can crash when reusing download history. Close the report browser, update through the browser or your administrator, then test the workflow and approve it again. Your saved reports, sessions and credentials have not been deleted.",
   BROWSER_LOGIN: "Sign-in needs attention. Open Browser reports to view the stopped step, complete verification or update saved credentials, then test and approve again. Passwords must not be entered in workflow steps.",
   BROWSER_CREDENTIAL: "Protected sign-in is unavailable or needs setup. In Browser reports, edit the workflow, save its credentials on this Windows PC, then test automatic sign-in. Existing credentials have not been exported or reset.",
   REVIEW_CHANGED: "The saved data changed. Reload and review the current revision before continuing.",

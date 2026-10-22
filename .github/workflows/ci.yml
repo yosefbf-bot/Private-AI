@@ -151,6 +151,9 @@ jobs:
           }
           if ($approved.Count -ne 0) { throw 'Missing native inputs.' }
       - run: npm ci --ignore-scripts
+      - name: Require patched actual Windows Edge before source or UI acceptance
+        shell: pwsh
+        run: ./.github/scripts/ensure-edge.ps1
       - name: Run the complete Windows source suite and preserve actual TAP
         shell: pwsh
         run: |
