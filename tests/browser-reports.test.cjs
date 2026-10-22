@@ -10,7 +10,7 @@ function setup(t){
   launches.push(options);let url='about:blank';
   const page={url:()=>url,goto:async value=>url=value,on:()=>{},locator:()=>({count:async()=>1,click:async()=>{clicks++;},waitFor:async()=>{}}),
    waitForEvent:async()=>({suggestedFilename:()=> 'synthetic.csv',saveAs:async path=>{saveHook();fs.writeFileSync(path,'item,count\nsynthetic,1');},failure:async()=>null})};
-  return {pages:()=>[page],newPage:async()=>page,on:()=>{},route:async()=>{},unroute:async()=>{},close:async()=>{}};
+  return {browser:()=>({version:()=> '155.0.4283.62'}),pages:()=>[page],newPage:async()=>page,on:()=>{},route:async()=>{},unroute:async()=>{},close:async()=>{}};
  }};
  const browser=new BrowserWorker(core,{chromium:engine});t.after(()=>browser.close());core.browserReports=new BrowserReports(core,browser);
  const recipe=validateRecipe({name:'Synthetic report',url:'https://example.com/report',steps:[{op:'download',selector:'#download'}]});core.store.put('browserRecipe',recipe.id,recipe);

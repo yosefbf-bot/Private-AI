@@ -38,4 +38,6 @@ test('Windows Edge sign-in controls clear before RPC, preserve config and show s
  await page.locator('[data-act=browser-walkthrough]').first().click();await page.getByText('Workflow needs attention',{exact:true}).waitFor();assert.match(await page.locator('[aria-current=step]').innerText(),/Stopped here: password/);
  for(const theme of ['light','dark']){await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);assert.equal(await page.locator('[aria-current=step]').isVisible(),true);assert.doesNotMatch(await page.locator('body').innerHTML(),/synthetic-ui-password|synthetic-ui-owner/);}
  assert.deepEqual(await page.locator('[data-browser-credentials] input').evaluateAll(els=>els.map(e=>e.value)),['','']);
+ core.store.put('browserIssue',recipe.id,{id:recipe.id,hash:digest(recipe),phase:'report',step:1,code:'BROWSER_UPDATE'});await page.evaluate(()=>window.render());
+ for(const theme of ['light','dark']){await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);assert.equal(await page.getByText('Browser update required',{exact:true}).isVisible(),true);assert.match(await page.locator('body').innerText(),/Chromium engine 155 or newer/);assert.equal(await page.locator('[aria-current=step]').count(),0);}
 });

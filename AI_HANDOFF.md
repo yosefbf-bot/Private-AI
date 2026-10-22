@@ -1,3 +1,37 @@
+# Windows report browser compatibility - October 21, 2026
+
+Candidate remains unreleased3.0.9-dev, base main783534b2df6247badff53d7272ddf1e1b2e76fc5.
+See docs/REPORT_BROWSER_COMPATIBILITY_2026-10-21.md. Main run39702271511
+failed760/761 with native Edge exit3221225477(0xC0000005); the installer
+steps did not execute. Its immutable runner image lists Edge154, whereas the
+passed PR job's later UI step records actual155. Neither the failed native
+process version nor a symbolized stack was captured; do not overstate causality.
+
+Upstream confirms a Windows Chromium persistent-download history crash fixed155.
+Report execution now checks the actual launched engine before explicit workflow
+navigation/credentials, including reused manual sessions. Old/unknown Windows
+Chromium versions fail closed with update guidance; linked schedules pause.
+Firefox/general chat are unaffected. The guard cannot prevent a browser crash
+during launch before its version is available. No history/session deletion or
+transport/security workaround. Playwright/core1.64 keep managed Chromium usable
+with a patched runtime. CI verifies/provisions official signed and SHA256-bound
+Stable Edge>=155 only on disposable hosted Windows before source tests.
+
+The complete current local Windows source suite passed765/765, zero failures,
+cancellations or skips. All three fresh native DPAPI/Edge save/restart pairs
+recorded actual155.0.4283.62. Focused21/21, hardening25/25, syntax250,
+repository policy, Gitleaks current/history0, guide consistency, production audit0,
+CI-policy16/16, workflow lint and PowerShell syntax/owner-host rejection passed.
+Independent implementation review matched all15 file hashes with0 significant
+findings. Exact-head full GitHub PR/main installer/app/inference/retention/
+reinstall/portable acceptance is still required before merge or installation.
+Owner3.0.8 is stopped and unchanged; no new backup or upgrade has executed.
+Companion1.2.7 main0ebb raw full checks/APK original signer preserved; local
+current3.0.9/1.2.7 Kotlin/Core/SQLite/pinnedHTTPS2/2 passed on the unchanged
+base783534. That is not physical-phone or new-source acceptance.
+
+---
+
 # Edge process-exit diagnosis — October 21, 2026
 
 Hosted c45197c/run39694326831 again failed760/761. The new safe lifecycle

@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const {fail,uuid,safePath,text}=require('./security.cjs');
 const {workspace}=require('./files.cjs');
-const {browsers,browserId,launchOptions,profilePath}=require('./browser-options.cjs');
+const {browsers,browserId,launchOptions,profilePath,checkReportBrowser}=require('./browser-options.cjs');
 const {validateLogin,signIn}=require('./browser-login.cjs');
 function validateBrowserTarget(input){
  const url=new URL(text(input.url,2000));if(url.protocol!=='https:'||url.username||url.password)throw fail('INVALID');
@@ -41,6 +41,7 @@ class BrowserWorker{
     opened.on('close',()=>{if(this.context===opened){this.context=null;this.browser=null;this.core.resources.releaseBrowser(this);}});
    }
    check();
+   if(running)checkReportBrowser(this.context,selected);
    await this.context.unroute('**/*');
    check();
    // Manual setup permits the user to install/unlock their password manager.

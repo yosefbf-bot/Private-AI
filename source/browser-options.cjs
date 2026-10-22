@@ -22,4 +22,11 @@ function launchOptions(id,env=process.env,exists=fs.existsSync){
  return options;
 }
 function profilePath(root,id){browserId(id);return path.join(root,id==='edge'?'browser-profile':'browser-profile-'+id);}
-module.exports={browsers,browserId,launchOptions,profilePath};
+function checkReportBrowser(context,id,platform=process.platform){
+ // Chromium's Windows persistent-download history crash is fixed in 155.
+ // Inspect the actual launched engine, including an already open setup session.
+ if(platform!=='win32'||browsers[browserId(id)].engine!=='chromium')return;
+ let version;try{version=context.browser().version();}catch{throw fail('BROWSER_UPDATE');}
+ if(typeof version!=='string'||!/^\d{1,4}(?:\.\d{1,6}){3}$/.test(version)||Number(version.split('.')[0])<155)throw fail('BROWSER_UPDATE');
+}
+module.exports={browsers,browserId,launchOptions,profilePath,checkReportBrowser};

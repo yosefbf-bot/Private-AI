@@ -67,11 +67,11 @@ for(const mode of ['wrong-site','unsafe-form','sensitive-error','lock'])test('pr
  await assert.rejects(signIn(x.core,h.page,x.recipe,h.ready,()=>x.core.assertUnlocked(),()=>{}),e=>e.code===(mode==='lock'?'LOCKED':'BROWSER_LOGIN')&&!e.message.includes(password)&&!e.message.includes('session=secret'));
  assert.equal(x.core.store.get('browserLoginVerified',x.recipe.id),null);if(['wrong-site','unsafe-form','lock'].includes(mode))assert.deepEqual(h.fills,[]);
 });
-function reportHarness(t,{failure=false,lockDuringLaunch=false}={}){
+function reportHarness(t,{failure=false,lockDuringLaunch=false,browserVersion='155.0.4283.62'}={}){
  const x=setup(t),{core,recipe}=x;let submits=0,launches=0;
  core.resources.memory=()=>8*1024**3;core.resources.approve=async()=>true;
  const engine={launchPersistentContext:async(_profile,options)=>{
-  launches++;if(lockDuringLaunch)core.lock();let current='about:blank';const h=pageHarness({fillError:failure,hook:(op)=>{if(op==='click')submits++;}}),context={closed:false,on(){},route:async()=>{},unroute:async()=>{},routeWebSocket:async()=>{},close:async()=>{context.closed=true;}};
+  launches++;if(lockDuringLaunch)core.lock();let current='about:blank';const h=pageHarness({fillError:failure,hook:(op)=>{if(op==='click')submits++;}}),context={browser:()=>({version:()=>browserVersion}),closed:false,on(){},route:async()=>{},unroute:async()=>{},routeWebSocket:async()=>{},close:async()=>{context.closed=true;}};
   const p={...h.page,url:()=>current,goto:async url=>{current=url.endsWith('/report')?'https://example.com/login':url;},on(){},waitForEvent:async()=>({suggestedFilename:()=> 'synthetic.csv',saveAs:async file=>fs.writeFileSync(file,'synthetic\n'),failure:async()=>null})};
   p.locator=selector=>selector==='#ready'?h.ready:selector==='#download'?{count:async()=>1,click:async()=>{}}:{...h.page.locator(selector),click:async()=>{await h.page.locator(selector).click();current='https://example.com/report';}};
   context.pages=()=>[p];context.newPage=async()=>p;context.options=options;return context;
@@ -102,6 +102,14 @@ test('failed shared credentials disable all linked schedules and cannot auto ret
  const x=reportHarness(t,{failure:true});x.verified();x.core.browserReports.grant(x.recipe.id,digest(x.recipe),true,true);x.due();x.due();await x.core.browserReports.tick();
  assert.equal(x.launches(),1);assert.ok(x.core.store.list('schedule').every(s=>!s.enabled));assert.equal(x.core.store.get('browserGrant',x.recipe.id),null);
  await x.core.browserReports.tick();assert.equal(x.launches(),1);const issue=x.core.store.get('browserIssue',x.recipe.id);assert.equal(issue.phase,'signin');assert.equal(issue.step,1);assert.doesNotMatch(JSON.stringify(issue),/synthetic-only|session=|https:/);
+});
+
+test('Windows unsupported report browser pauses linked schedules before protected credentials are used',{skip:process.platform!=='win32'},async t=>{
+ const x=reportHarness(t,{browserVersion:'154.0.4258.62'});x.verified();x.core.browserReports.grant(x.recipe.id,digest(x.recipe),true,true);x.due();x.due();
+ x.core.browserCredentials.use=()=>assert.fail('unsupported browser decrypted credentials');await x.core.browserReports.tick();
+ assert.equal(x.submits(),0);assert.equal(x.launches(),1);assert.ok(x.core.store.list('schedule').every(s=>!s.enabled));assert.equal(x.core.store.get('browserGrant',x.recipe.id),null);
+ assert.equal(x.core.store.list('job')[0].error,'BROWSER_UPDATE');assert.equal(x.core.store.get('browserIssue',x.recipe.id).code,'BROWSER_UPDATE');
+ await x.core.browserReports.tick();assert.equal(x.launches(),1);assert.equal(x.browser.context,null);assert.equal(x.core.resources.browser,null);
 });
 test('credential metadata cannot substitute cached download proof for a real sign-in test',t=>{
  const x=reportHarness(t);x.core.store.put('browserVerified',x.recipe.id,{id:x.recipe.id,hash:digest(x.recipe)});assert.throws(()=>x.core.browserReports.plan(x.recipe.id),{code:'BROWSER_CREDENTIAL'});
