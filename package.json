@@ -1,10 +1,10 @@
 {
   "name": "private-ai-desktop",
   "productName": "Private AI",
-  "version": "3.0.8-dev",
+  "version": "3.0.9-dev",
   "description": "Private Windows chat and an explicitly controlled Chrome companion",
-  "author": "Private AI",
-  "license": "UNLICENSED",
+  "author": "YFriedman",
+  "license": "SEE LICENSE IN LICENSE.txt",
   "main": "source/main.cjs",
   "scripts": {
     "dev": "node server.cjs",
@@ -33,6 +33,7 @@
   "build": {
     "appId": "org.privateai.desktop",
     "productName": "Private AI",
+    "copyright": "Copyright (c) 2026 YFriedman",
     "executableName": "PrivateAI",
     "asar": true,
     "asarUnpack": [
@@ -64,9 +65,14 @@
     },
     "files": [
       "source/**/*",
+      "LICENSE.txt",
       "package.json"
     ],
     "extraResources": [
+      {
+        "from": "LICENSE.txt",
+        "to": "docs/PRIVATE_AI_LICENSE.txt"
+      },
       {
         "from": "build/desktop-helper",
         "to": "desktop-helper"

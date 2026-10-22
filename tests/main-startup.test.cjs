@@ -8,12 +8,12 @@ const {createRequire}=require('node:module'),{EventEmitter}=require('node:events
 const {Cipher}=require('../source/security.cjs'),{Store}=require('../source/database.cjs');
 const sourcePath=process.env.PRIVATEAI_TEST_MAIN||path.resolve(__dirname,'../source/main.cjs');
 const realRequire=createRequire(sourcePath);
-async function boot(t,{background=false,existing=false,browserWorker}={}){
+async function boot(t,{background=false,existing=false,browserWorker,protectedCredentials=false}={}){
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'privateai-startup-'));
  const root=path.join(folder,'PrivateAI2'),cipher=new Cipher(require('node:crypto').randomBytes(32));
  fs.mkdirSync(root);
  if(existing){const s=new Store(path.join(root,'privateai.db'),cipher);s.put('settings','main',{workerPaused:true,processingMode:'local-only',allowCloud:false,retentionDays:90});s.put('chat','kept',{id:'kept',title:'Saved chat',messages:[],updated:Date.now()});s.close();}
- const errors=[],dialogs=[],windows=[],trays=[],handlers=new Map();let core,ready;
+ const errors=[],dialogs=[],windows=[],trays=[],handlers=new Map();let core,ready,nativeCall;
  const app=new EventEmitter();Object.assign(app,{isPackaged:true,setName(){},setPath(){},requestSingleInstanceLock:()=>true,getLoginItemSettings:()=>({openAtLogin:false}),whenReady:()=>({then(fn){const p=Promise.resolve().then(fn);return {catch(fn){ready=p.catch(fn);return ready;}};}}),exit:code=>errors.push({exit:code}),quit:()=>app.emit('before-quit')});
  class Window extends EventEmitter{
   constructor(options){super();this.options=options;this.visible=true;this.focused=true;this.webContents=new EventEmitter();Object.assign(this.webContents,{send(){},setWindowOpenHandler(){}});windows.push(this);}
@@ -21,7 +21,7 @@ async function boot(t,{background=false,existing=false,browserWorker}={}){
  }
  class Tray extends EventEmitter{constructor(){super();trays.push(this);}setToolTip(){}setContextMenu(menu){this.menu=menu;}}
  const partitions=new Map();
- const electron={app,BrowserWindow:Window,Tray,Menu:{buildFromTemplate:x=>x},nativeImage:{createFromPath:()=>({})},powerMonitor:new EventEmitter(),safeStorage:{},shell:{},clipboard:{},
+ const electron={app,BrowserWindow:Window,Tray,Menu:{buildFromTemplate:x=>x},nativeImage:{createFromPath:()=>({})},powerMonitor:new EventEmitter(),safeStorage:protectedCredentials?{isEncryptionAvailable:()=>true,encryptString:s=>cipher.seal(s,'synthetic-signin'),decryptString:b=>cipher.open(b,'synthetic-signin')}:{},shell:{},clipboard:{},
   ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{showErrorBox:(title,message)=>errors.push({title,message}),showMessageBox:async(_win,detail)=>{dialogs.push(detail);return {response:1};}},
   session:{fromPartition(name){if(!partitions.has(name))partitions.set(name,{setPermissionRequestHandler(){},setPermissionCheckHandler(){},webRequest:{onBeforeRequest(){}},fetch:()=>assert.fail('Startup must not request network access')});return partitions.get(name);}}};
  const fakeProcess=new EventEmitter();Object.assign(fakeProcess,{platform:'win32',env:{LOCALAPPDATA:folder,SystemRoot:'C:\\Windows'},argv:['PrivateAI.exe',...(background?['--background']:[])],execPath:'C:\\PrivateAI\\PrivateAI.exe',resourcesPath:path.resolve(__dirname,'../resources'),stdin:new EventEmitter(),stdout:{write(){}},stderr:{write(){}}});
@@ -31,14 +31,14 @@ async function boot(t,{background=false,existing=false,browserWorker}={}){
   if(name==='node:child_process')return {spawn:()=>assert.fail('Startup must not spawn a browser or local model'),execFileSync:exe=>exe.endsWith('whoami.exe')?'"test","S-1-5-21-123"':''};
   if(name==='./windows-acl.cjs')return {protectPrivateFolder(){},verifyPrivateAcl(){}};
   if(name==='./startup-storage.cjs')return {...realRequire(name),loadVault:()=>cipher};
-  if(name==='./bridge.cjs')return {startBridge:()=>({server:new EventEmitter(),broadcast(){},close(){}})};
+  if(name==='./bridge.cjs')return {startBridge:(_pipe,_cipher,call)=>{nativeCall=call;return {server:new EventEmitter(),broadcast(){},close(){}};}};
   if(name==='./browser-worker.cjs'&&browserWorker)return {...realRequire(name),BrowserWorker:class{constructor(){return browserWorker;}}};
   if(name==='./core.cjs'){const RealCore=realRequire(name).Core;return {Core:class extends RealCore{constructor(options){super(options);core=this;}}};}
   return realRequire(name);
  },process:fakeProcess,__dirname:path.dirname(sourcePath),Buffer,URL,console,setInterval:()=>timer,clearInterval(){},setTimeout,clearTimeout};
  t.after(()=>{app.emit('before-quit');fs.rmSync(folder,{recursive:true,force:true});});
  vm.runInNewContext(fs.readFileSync(sourcePath,'utf8'),context,{filename:sourcePath});await ready;
- return {core,errors,dialogs,windows,trays,handlers,app};
+ return {core,errors,dialogs,windows,trays,handlers,app,nativeCall};
 }
 test('entry point reaches chat startup and wires approval only after real Core initialization',async t=>{
  const b=await boot(t);assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.ok(b.core);assert.equal(b.windows.length,1);assert.match(b.windows[0].url,/ui\/index.html$/);assert.ok(b.handlers.has('privateai:call'));assert.equal(b.core.router.local.state,'unloaded');
@@ -113,6 +113,29 @@ test('desktop browser IPC saves and reloads browser choice, opens selected engin
  assert.equal((await call('browserRun',{id:row.id})).ok,true);assert.equal(runs[0].steps[0].op,'login');assert.equal(runs[0].browser,'firefox');
  b.core.locked=true;assert.equal((await call('browserOpen',row)).ok,false);assert.equal(opened.length,1);
  b.core.locked=false;b.core.lock();assert.equal(closes,1,'The real desktop lock event closes the report browser.');
+});
+
+test('protected sign-in uses desktop-only IPC, never returns credentials, revokes on update and keeps lock boundary',async t=>{
+ const b=await boot(t,{protectedCredentials:true}),contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const event={sender:contents,senderFrame:frame},call=(op,data={})=>b.handlers.get('privateai:call')(event,{op,data});
+ const input={name:'Synthetic protected IPC',url:'https://example.com/report',steps:[{op:'login',selector:'#ready'},{op:'download',selector:'#download'}],autoLogin:{formActions:['https://example.com/submit'],steps:[{op:'username',url:'https://example.com/login',selector:'#user'},{op:'password',url:'https://example.com/login',selector:'#password'},{op:'click',url:'https://example.com/login',selector:'#submit'}]}};
+ const saved=await call('browserSave',input);assert.equal(saved.ok,true);const id=saved.result.id,password='synthetic-IPC-signin-value';
+ const result=await call('browserCredentialSave',{id,username:'synthetic-IPC-owner',password});assert.equal(result.ok,true);assert.equal(result.result.saved,true);
+ const listed=await call('browserRecipes');assert.equal(listed.result[0].credential.saved,true);assert.doesNotMatch(JSON.stringify([result,listed,b.dialogs]),new RegExp(password));
+ for(const op of ['browserCredentialSave','browserCredentialDelete','browserCredentials','browserCredentialRead'])await assert.rejects(b.nativeCall(op,{id,password}),{code:'POLICY'});
+ const blocked=await b.handlers.get('privateai:call')({sender:contents,senderFrame:{url:'https://example.com'}},{op:'browserCredentialSave',data:{id,password}});assert.equal(blocked.error.code,'POLICY');
+ assert.equal((await call('browserCredentialRead',{id})).ok,false);
+ b.core.lock();assert.equal((await call('browserCredentialSave',{id,username:'synthetic',password})).error.code,'LOCKED');
+ b.core.unlock();assert.equal((await call('browserCredentialDelete',{id})).ok,true);assert.equal((await call('browserRecipes')).result[0].credential.saved,false);
+});
+test('long report approvals retain complete locked and sign-in scope instead of silently truncating',async t=>{
+ const b=await boot(t,{protectedCredentials:true}),contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ const {validateRecipe}=require('../source/browser-worker.cjs'),{digest}=require('../source/browser-reports.cjs');
+ const recipe=validateRecipe({name:'Synthetic long approval',url:'https://example.com/report',steps:[{op:'login',selector:'#ready'},...Array.from({length:18},(_,i)=>({op:'fill',selector:'#control'+i+'x'.repeat(280),value:'v'.repeat(490)})),{op:'download',selector:'#last-download'}],autoLogin:{formActions:['https://example.com/submit'],steps:[{op:'username',url:'https://example.com/login',selector:'#user'},{op:'password',url:'https://example.com/login',selector:'#password'},{op:'click',url:'https://example.com/login',selector:'#submit'}]}});
+ b.core.store.put('browserRecipe',recipe.id,recipe);b.core.browserCredentials.save(recipe,{username:'synthetic-owner',password:'synthetic-only-value'});
+ b.core.store.put('browserVerified',recipe.id,{id:recipe.id,hash:digest(recipe)});b.core.store.put('browserLoginVerified',recipe.id,{id:recipe.id,hash:digest(recipe),revision:b.core.browserCredentials.status(recipe).revision});
+ const result=await call('browserGrant',{id:recipe.id,enabled:true,allowLocked:true});assert.equal(result.ok,true);const detail=b.dialogs.at(-1).detail;assert.ok(detail.length>4000);assert.match(detail,/^ALLOW LOCKED RETRIEVAL/);assert.match(detail,/https:\/\/example.com\/submit/);assert.match(detail,/#last-download/);assert.equal(b.core.store.get('browserGrant',recipe.id).allowLocked,true);
 });
 
 

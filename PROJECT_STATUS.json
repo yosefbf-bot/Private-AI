@@ -1,4 +1,147 @@
 {
+  "protectedReportSignin20261021": {
+    "status": "candidate-hosted-restart-download-diagnosis",
+    "baseMain": "452800210a33e34b1d18a648d1288562d9061d56",
+    "version": "3.0.9-dev",
+    "features": [
+      "separate Windows-protected per-workflow credentials",
+      "bounded automatic sign-in",
+      "explicit locked headless report scope",
+      "guided stopped-step recovery",
+      "deferred analysis with honest outcome",
+      "shared failing-workflow retry prevention"
+    ],
+    "independentReview": "Initial three findings and OTP field guard fixed and reviewed; cancellation independent recheck clean; redirect review prompted second pending-handler race fix, causal regression and resolution recheck clean at recorded hashes",
+    "actualSyntheticWindows": "Real DPAPI and Edge login, redirects, download, restart and Core app-lock retrieval passed; native submit-handler GET rewrite blocked before unexpected endpoint. Physical Windows lock screen not exercised.",
+    "localWindowsSource": {
+      "tests": 761,
+      "passed": 761,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "log": "Validation/owner-funded-check-resume/signin-license-lifecycle-full.tap",
+      "scope": "All761 at c45197c before fixture-only subprocess telemetry; runtime unchanged; latest native3pairs passed separately"
+    },
+    "localHardeningAndHTTP": {
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0
+    },
+    "assistantUI": {
+      "workflows": 25,
+      "notes": 14,
+      "contrast": 117,
+      "darkVisibility": 7,
+      "result": "passed"
+    },
+    "ownerCredentialsAccessed": false,
+    "ownerInstallationChanged": false,
+    "androidChanged": false,
+    "dependencySchemaChanges": false,
+    "fullCurrentHeadInstallerAndGitHubAcceptance": "pending",
+    "livePCCPowerBIAcceptance": "not performed",
+    "expectedCurrentWindowsSource": 761,
+    "confirmedCorrections": [
+      "Live scheduled AbortController cancellation enforced outside Resources async context; causal before failed, after49 targeted and full759 passed",
+      "Redirect settlement could finish before route.fulfill callback queued its destination; causal regression failed, fixed by draining main-frame handlers; native fixture exercises delayed callback"
+    ],
+    "firstPRWindowsResult": "Failed native synthetic report at step4 ACCESS; current logs do not prove underlying exception. Installer/UI/inference not executed on that run. Independent review confirms redirect synchronization race but cannot alone prove it caused hosted failure.",
+    "priorFullAfterCancellation": {
+      "passed": 759,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "isolatedDelayedNativeAndNetwork": {
+      "passed": 17,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "scope": "Before final second-handler predicate tightening; same delayed native fixture"
+    },
+    "hostedSourceAndUI": {
+      "head": "b1ff8847ff99251095ca82c724c307e8d3a20144",
+      "run": 39608848296,
+      "windows": {
+        "passed": 761,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "linux": {
+        "tests": 753,
+        "passed": 751,
+        "failed": 0,
+        "cancelled": 0,
+        "skippedWindowsOnly": 2
+      },
+      "actualAssistantUI": {
+        "workflows": 25,
+        "notes": 14,
+        "contrast": 117,
+        "darkVisibility": 7,
+        "passed": true
+      },
+      "installerBuilt": true,
+      "freezePassed": false,
+      "actualInstallerAppInferenceAcceptanceExecuted": false,
+      "failure": "DIRTY_TRACKED_INPUTS: stale generated extension manifests/build-info3.0.8"
+    },
+    "metadataCorrection": "Regenerated Chromium/Firefox manifests3.0.9 and build-info3.0.9-dev with current normalized source fingerprint/base main; repeated preparation byte-identical; no releasegate/workflow change",
+    "latestHostedWindows": {
+      "head": "c45197c4dd0b4c558fde662db927fa9cf0897bef",
+      "run": 39694326831,
+      "tests": 761,
+      "passed": 760,
+      "failed": 1,
+      "cancelled": 0,
+      "skipped": 0,
+      "failure": "Actual browser/context/page disconnect BEFORE saveAs rejection and worker cleanup; underlying process exit cause unknown",
+      "actualInstallerUIInferenceExecuted": false
+    },
+    "nativeDiagnosticInstrumentation": {
+      "scope": "Fixture only fixed operation/selector/path tokens, elapsed milliseconds, whitelisted errorname/hints; no rawvalues/errors/URLs/pagecontent",
+      "localActualWindowsUnmockedRepeatsPassed": 3,
+      "separateDiagnosticMemoryMockedRepeats": 3,
+      "mockedRunsAreAcceptance": false,
+      "timeoutsOrGuardsChanged": false,
+      "hostedCause": "unconfirmed; diagnostic required"
+    },
+    "postDownloadDiagnostics": {
+      "safeMilestones": [
+        "saveAs",
+        "failure",
+        "suggestedFilename",
+        "scopedstat",
+        "scopedrename",
+        "clearIssue"
+      ],
+      "laterErrorCategoriesRetained": true,
+      "freshPairsPerTest": 3,
+      "inventoryUnchanged": true,
+      "individualOperationTimeoutsUnchanged": true,
+      "overallTestSeconds": 180,
+      "localGroupedResult": "First real pair passed; nextsave blocked LOW_MEMORY before browserlaunch. Grouped test failed; no pass claimed",
+      "rootCause": "unconfirmed after attachment creation; awaiting hosted diagnostic"
+    },
+    "lifecycleDiagnostic": {
+      "scope": "fixture-only fixed close/disconnect/crash events and pre-cleanup state booleans",
+      "localFocusedPassed": 19,
+      "localFreshNativePairsPassed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "actualHostedCauseFixed": false
+    },
+    "edgeExitDiagnostic": {
+      "scope": "Fixture-only exact synthetic msedge/profile child observation; codes/signals/relativetime only",
+      "edgeObservedAssertion": true,
+      "postFailureObservationMaximumMs": 500,
+      "browserChildTestOperationBoundsChanged": false,
+      "localActualNativeFreshPairsPassed": 3,
+      "log": "Validation/owner-funded-check-resume/signin-edge-exit-native.tap",
+      "rootCauseFixed": false
+    }
+  },
   "finishedLocalRelease20261020": {
     "status": "guide-candidate-full-acceptance-pending",
     "baseMain": "43fb45020b861d097ee80a0e2345c40ad9feae07",
@@ -170,15 +313,40 @@
     ],
     "scope": "Documentation only; historical receipts and original accepted binary/source payloads remain unchanged. Subsequent commits require their own relevant checks."
   },
-  "windowsPackagingNoPublish20261017": {"base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2", "scope": "Packaging always uses publish:never; WhatsApp setup text retained", "focusedPackagingTests": "2/2 passed", "localHardening": "25/25 passed", "localFullSuite": {"tests": 718, "passed": 712, "failed": 5, "cancelled": 1, "skipped": 0, "limitation": "RAM admission affected unrelated functional fixtures; genuine hosted full suite required"}, "syntax": "passed", "release": "Pending current-head Windows acceptance; no owner installation changed"},
-  "whatsappSetupCopy20261016": {"base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2", "scope": "WhatsApp setup copy only", "tests": "716/716; hardening25/25; syntax/policy passed; zero skips", "release": "Not built/installed; exact-head CI required; Actions budget blocked"},
+  "windowsPackagingNoPublish20261017": {
+    "base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2",
+    "scope": "Packaging always uses publish:never; WhatsApp setup text retained",
+    "focusedPackagingTests": "2/2 passed",
+    "localHardening": "25/25 passed",
+    "localFullSuite": {
+      "tests": 718,
+      "passed": 712,
+      "failed": 5,
+      "cancelled": 1,
+      "skipped": 0,
+      "limitation": "RAM admission affected unrelated functional fixtures; genuine hosted full suite required"
+    },
+    "syntax": "passed",
+    "release": "Pending current-head Windows acceptance; no owner installation changed"
+  },
+  "whatsappSetupCopy20261016": {
+    "base": "9cf3b99bc4cd78e62a97af2d3b49983e68747bf2",
+    "scope": "WhatsApp setup copy only",
+    "tests": "716/716; hardening25/25; syntax/policy passed; zero skips",
+    "release": "Not built/installed; exact-head CI required; Actions budget blocked"
+  },
   "darkSurfaceContrast20261015": {
     "version": "3.0.5-dev",
     "base": "bdf73af43453a19abf3c9845cf667554de388fbb",
     "branch": "chatgpt/dark-surface-contrast-2026-10-15",
     "report": "docs/DARK_SURFACE_CONTRAST_2026-10-15.md",
     "scope": "presentation-only; no Android, workflow, security or storage change",
-    "fullWindowsSourceTests": {"passed": 716, "failed": 0, "cancelled": 0, "skipped": 0},
+    "fullWindowsSourceTests": {
+      "passed": 716,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
     "edgeWorkflowChecks": 25,
     "surfaceContrastChecks": 106,
     "contrastThreshold": 4.5,
@@ -200,7 +368,6 @@
       "olderPendingNotesAreHistorical": true
     }
   },
-
   "fourPhaseReliability20261014": {
     "phase": "phase4-android-merged-windows-pause-cause-validation-pending",
     "report": "docs/FOUR_PHASE_PROGRESS_2026-10-13.md",
@@ -1276,5 +1443,13 @@
       38485688240,
       38485692566
     ]
+  },
+  "copyrightLicense20261021": {
+    "holder": "YFriedman",
+    "terms": "Authorized use proprietary; original owned copyrightable material only; third-party and hosting rights preserved",
+    "desktop": "sidebar, executable metadata and offline packaged LICENSE.txt",
+    "android": "separate1.2.7-dev/code10 candidate; local Settings license dialog",
+    "status": "awaiting current-head release gates",
+    "ownerInstallChanged": false
   }
 }

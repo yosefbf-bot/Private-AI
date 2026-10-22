@@ -1,3 +1,107 @@
+# Edge process-exit diagnosis — October 21, 2026
+
+Hosted c45197c/run39694326831 again failed760/761. The new safe lifecycle
+trace proves both pages/context close and browser disconnect at4237ms,
+before saveAs rejects and before worker.close starts4238ms. At rejection,
+pageClosed=true/browserConnected=false; worker cleanup is not the cause.
+The underlying process/transport termination cause remains unestablished.
+Do not merge, replace the installed app or claim the regression is fixed.
+
+Fixture-only observation now matches only the exact synthetic Edge/profile
+spawn and records bounded exit codes/allowlisted signals, launch index and
+relative times. A boolean assertion verifies the actual hook was active.
+After unexpected failure only, at most500ms observes a delayed exit callback;
+no browser operation/child/test timeout, retry, resource or policy is relaxed.
+Empty exit telemetry is inconclusive. Independent review remains required at
+exact hashes. Local latest actual native acceptance passed all three fresh
+DPAPI/Edge save/restart pairs; full current-head hosted release remains pending.
+All761 source tests passed locally at c45197c before this fixture-only change.
+No production/browser/provider/credential source changed in this increment.
+
+# Copyright and report-download diagnosis — October 21, 2026
+
+Owner confirmed **YFriedman** and authorized the proposed proprietary
+license for authorized users. See LICENSE.txt and docs/COPYRIGHT_LICENSE_2026-10-21.md.
+Desktop metadata/sidebar and packaged offline terms are added; existing third-party
+terms remain. Android has a separate1.2.7-dev/code10 license-only candidate.
+No activation/cloud dependency, data, credential, provider or schema change.
+
+Hosted6832a66/run39617068848 failed760/761. Safe diagnostics establish
+`download.saveAs` rejects with the fixed hint `has been closed`, after the
+attachment event and before stat/rename. The expected `Download is starting`
+navigation exception is separate. One restart pair passed in that same run.
+No application-initiated close cause is proven; do not claim a fix or release.
+Fixture-only close/disconnect/crash markers and pre-cleanup state now distinguish
+browser lifecycle events from later worker/fixture cleanup. No raw exception,
+URL, path, credential, page content, guard or timeout change is introduced.
+Local focused source/native19/19 passed, including three fresh real DPAPI/Edge
+save/restart pairs. After the final diagnostic snapshot correction, the complete
+Windows source suite passed761/761, zero failures/cancellations/skips. Syntax250,
+repository policy and offline guide checks passed. Current hosted full release is
+pending; source passes do not establish installer acceptance.
+Installed3.0.8 and accepted delivery/recovery remain unchanged.
+
+# Protected report sign-in candidate - October 21, 2026
+
+Candidate **3.0.9-dev**, base main `452800210a33e34b1d18a648d1288562d9061d56`.
+Read docs/PROTECTED_REPORT_SIGNIN_2026-10-21.md. Adds separate Windows-protected
+per-workflow credentials, bounded automatic sign-in and guided failure recovery.
+Exact tested approval can separately authorize headless retrieval while locked;
+general chat/phone remain locked and analysis waits for unlock. Existing grants
+do not gain this scope. Credential/workflow changes require a real sign-in test
+and approval; cached-session download is insufficient. Linked failed schedules
+stop instead of repeatedly submitting a password.
+
+Earlier full source suite: 758/758 passed, zero failures/cancellations/skips.
+After the cancellation correction, the full 759/759 Windows suite also passed.
+A separate causal redirect race now has a regression and main-navigation drain;
+expected current Windows inventory is 761. Latest local full attempt: 759 pass,
+1 fail (native LOW_MEMORY before launch) and 1 cancelled (watcher timeout),
+zero skips, at observed 1.28-1.35 GiB available RAM. Earlier isolated delayed
+redirect native/network17 passed. Final full hosted validation remains required.
+The first PR Windows run failed its native synthetic report check before
+installer execution; do not treat its skipped release steps as passed.
+PR run39608848296 at b1ff884 passed all761 Windows source tests and actual
+assistant UI25/14/117/7. It built the installer, but the freeze gate correctly
+rejected stale generated3.0.8 extension manifests/build-info. Those3 generated
+files are now synchronized to3.0.9, current source fingerprint and base main;
+repeat preparation is byte-identical. Gate and workflows are unchanged. Actual
+installer/inference/reinstall/portable steps were not executed on that run;
+fresh final-head full release acceptance remains required.
+After metadata correction, run39611077018 at cee51e1 again failed native
+restart/scheduled download step4ACCESS (760/761 pass;1 fail;0 cancel/skip).
+The underlying operation is not established; do not claim the earlier redirect
+race was its cause. New fixture-only traces record fixed operation/selector/path
+tokens, elapsed time and whitelisted exception categories, never raw errors,
+values, page contents or URLs. Three actual unmocked Windows DPAPI/Edge local
+repeats passed after RAM recovered. Separate memory-mocked local timing copies
+are explicitly diagnostic-only and cannot establish admission/release acceptance.
+No timeout, production/resource guard, workflow or gate was loosened. A fresh
+hosted diagnostic run is required before a causal fix or release claim.
+Run39614118220 at1630351 also failed760/761, but its safe trace disproves
+click-timeout suspicion: click completed in68ms; report redirects and attachment
+download event completed by2.9s. The failure is after attachment creation.
+New fixture milestones isolate saveAs/failure/stat/rename/store completion and
+retain later errors separately from the expected attachment-navigation abort.
+Three fresh DPAPI save/restart pairs now share one test: existing per-operation
+and55s child bounds remain; overall test180s covers three scenarios, not a longer
+browser timeout. Local grouped run completed its first pair then stopped on
+LOW_MEMORY before the next browser launch; this is not a passing grouped test.
+Fresh hosted diagnosis is required; no runtime workaround or root-cause claim.
+Cancellation now checks the request controller independently of async context;
+redirect settlement waits for in-flight top-frame handlers before advancing.
+Hardening plus real development HTTP: 26/26. Actual Windows Core/Edge assistant
+UI: 25 workflows, 14 Notes, 117 contrast and 7 dark-visibility checks passed.
+Protected sign-in component and real DPAPI/Edge native tests also passed,
+including blocked submit-handler GET rewrite, report/download redirects,
+process restart and Core app-lock state. This does not establish actual physical
+Windows lock-screen acceptance. Independent review prompted request/redirect,
+completion and approval fixes, with a second source recheck. Full current-head
+installer/GitHub acceptance is still pending. No owner credentials accessed,
+production install replaced, Android change, new package or schema migration.
+Live PCC/Power BI, MFA and organization policy acceptance remain unestablished.
+Preserve the previous accepted 3.0.8 installer, source and recovery evidence.
+
 # Finished local release preparation - October 20, 2026
 
 Desktop candidate **3.0.8-dev** starts at main

@@ -297,6 +297,8 @@ async function dispatch(op, data = {}) {
     case "messagingSave":
       return messaging.save(data);
     case "browserGrant":
+    case "browserCredentialSave":
+    case "browserCredentialDelete":
     case "browserSchedule": throw fail("POLICY");
     case "browserRecipes":
       return core.store.list("browserRecipe");

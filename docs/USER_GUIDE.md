@@ -1,4 +1,4 @@
-# Private AI 3.0.8-dev — User guide
+# Private AI 3.0.9-dev — User guide
 
 Bundled offline instructions for this source version. Reading this guide does not change settings, grant permissions or update installed applications. See the release evidence for actual test scope and remaining physical-device or live-account acceptance.
 
@@ -210,11 +210,13 @@ Bundled offline instructions for this source version. Reading this guide does no
 **Where:** More → Browser tasks; Automation
 
 1. Create an exact report workflow, choose its allowed website and controls, and test it manually using your authorized account. Choose PointClickCare as the source for PCC reports; enable the optional PCC integration first.
-2. After a successful tested download, explicitly allow that exact workflow to run unattended. Changes invalidate the grant and require a new test and approval.
-3. Add a daily, weekday, weekly, monthly or one-time schedule. Report pulls run one at a time with a default five-minute gap measured from the previous pull’s completion. An optional analysis prompt uses existing provider/privacy settings after download.
-4. Keep the PC awake, the app running and unlocked, and background work enabled. Review login/MFA, rate-limit and changed-page errors manually; the affected schedule pauses instead of retrying indefinitely.
+2. For optional automatic sign-in, configure exact HTTPS login pages, POST actions and selectors in Advanced: automatic sign-in setup. Chromium browsers support this bounded native-form flow; Firefox retains manual sign-in. Save credentials separately on the saved workflow card. They are Windows-encrypted in a private per-workflow file, outside chats, recipes and the database backup. No vault export or clipboard copying is needed; there is no password-read API for chat, extensions or the phone.
+3. Sign out in the report browser once, then choose Test saved sign-in and download. A cached-session download cannot verify a new password. After a successful tested sign-in and download, explicitly allow that exact workflow to run unattended. Changed credentials or workflows require a new test and approval.
+4. Add a daily, weekday, weekly, monthly or one-time schedule. Report pulls run one at a time with a default five-minute gap measured from the previous pull’s completion. An optional analysis prompt uses existing provider/privacy settings after download.
+5. Keep the PC awake, the app running and background work enabled. You can separately approve this exact headless retrieval while Windows or Private AI is locked. General chat and phone access remain locked; optional analysis waits for unlock. Existing workflows require unlock until this permission is explicitly granted.
+6. If a run stops, Workflow needs attention shows the sign-in/report step and expected control. Open page to help starts from the saved report page; Walk through report can leave a failed visible page open. Complete MFA or CAPTCHA yourself, update saved credentials if changed, or correct selectors if the site changed. Test and approve again, then re-enable paused schedules in Automation. All linked schedules stop after a failure, preventing repeated password attempts.
 
-**Keep in mind:** Website retrieval requires network access; local analysis can run offline. This feature does not evade site controls or guarantee acceptance by PCC. Live PCC report retrieval must be tested with your facility’s authorized workflow. Downloads are not automatically mapped into resident records.
+**Keep in mind:** Website retrieval requires network access; local analysis can run offline. There is no MFA/CAPTCHA bypass or guarantee that PCC, Power BI, federation or organization policies permit unattended login. Cross-origin iframe login, arbitrary JavaScript sign-in and POST-preserving redirects need manual assistance. Approved website code receives the credentials; Windows encryption does not isolate them from malware running as your Windows user. Credential files are not included in database-only backups or exports; re-enter them after restoring to another PC. Downloads are not automatically mapped into resident records.
 
 ## Automation warnings and safe deferral
 
