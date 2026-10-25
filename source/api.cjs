@@ -5,6 +5,7 @@ const { PROVIDERS, endpointFor } = require("./providers.cjs");
 const { assertProviderPolicy, protectedMode, remoteModel } = require("./provider-policy.cjs");
 const tokenCount = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
 const ENDPOINT = PROVIDERS.openai.defaultEndpoint;
+const {REQUEST_BYTE_LIMIT}=require('./request-budget.cjs');
 function makeRequest(
   settings,
   messages,
@@ -259,7 +260,7 @@ class OpenAIClient {
       const body = makeRequest(settings, messages, options);
       serialized = JSON.stringify(body);
     }
-    if (Buffer.byteLength(serialized) > 40000000) throw fail("LIMIT");
+    if (Buffer.byteLength(serialized) > REQUEST_BYTE_LIMIT) throw fail("LIMIT");
     const signal = options.signal
       ? AbortSignal.any([options.signal, AbortSignal.timeout(600000)])
       : AbortSignal.timeout(600000);

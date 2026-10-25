@@ -14,6 +14,7 @@ import {createMessagingUI} from "./messaging.mjs";
 import {createBrowserUI} from "./browser-recipes.mjs";
 import {createHybridUI} from "./hybrid.mjs";
 import { marked } from "./vendor/marked.mjs";
+import {createMarkdownCache, streamRenderInterval} from "./markdown-cache.mjs";
 import { createAccessUI } from "./access.mjs";
 import { VoiceManager } from "./voice.mjs";
 import { createSNFUI } from "./snf-ui.mjs";
@@ -238,11 +239,7 @@ function updateTop() {
   $("notice").innerHTML =
     'Choose a local model for AI reasoning, or configure an optional provider. Clinical rules, references, files and projects remain available. <button data-act="view" data-view="processing">AI Processing</button>';
 }
-const _mdCache = new Map();
-const md = (text) => {
-  if (!text) return "";
-  if (_mdCache.has(text)) return _mdCache.get(text);
-  const result = DOMPurify.sanitize(marked.parse(text), {
+const md = createMarkdownCache((text) => DOMPurify.sanitize(marked.parse(text), {
     FORBID_TAGS: [
       "img",
       "iframe",
@@ -258,14 +255,7 @@ const md = (text) => {
     ],
     FORBID_ATTR: ["style", "src", "srcset", "id"],
     ALLOW_DATA_ATTR: false,
-  });
-  if (_mdCache.size > 200) {
-    const firstKey = _mdCache.keys().next().value;
-    _mdCache.delete(firstKey);
-  }
-  _mdCache.set(text, result);
-  return result;
-};
+  }));
 function attachCodeCopyButtons() {
   const content = $("content");
   if (!content) return;
@@ -444,7 +434,7 @@ function renderChat() {
     chat.messages
       .map(
         (m, i) =>
-          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration advanced-only ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body)}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.processing?.policyNotice ? `<div class="error-note">${esc(m.processing.policyNotice)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="response-checks" aria-label="Answer checks">${responseChecks(m.processing).map(label=>`<span class="pill">${esc(label)}</span>`).join(" ")}</div><details class="response-details"><summary>Details</summary><div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div></details>` : ""}${m.usage ? `<details class="response-details"><summary>Token usage</summary><div class="usage">${(m.usage.inputTokens?.toLocaleString() ?? 'unknown')} input · ${(m.usage.outputTokens?.toLocaleString() ?? 'unknown')} output tokens</div></details>` : ""}</article>`,
+          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration advanced-only ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body, {streaming:sending && i === chat.messages.length - 1})}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.processing?.policyNotice ? `<div class="error-note">${esc(m.processing.policyNotice)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="response-checks" aria-label="Answer checks">${responseChecks(m.processing).map(label=>`<span class="pill">${esc(label)}</span>`).join(" ")}</div><details class="response-details"><summary>Details</summary><div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div></details>` : ""}${m.usage ? `<details class="response-details"><summary>Token usage</summary><div class="usage">${(m.usage.inputTokens?.toLocaleString() ?? 'unknown')} input · ${(m.usage.outputTokens?.toLocaleString() ?? 'unknown')} output tokens</div></details>` : ""}</article>`,
       )
       .join("") +
     "</div>";
@@ -489,7 +479,7 @@ async function newChat(temporary = false, project = null) {
   }
   if(!captureUI.stop())return;
   if (chat) closeVoiceSession();
-  if (chat?.temporary) await api("endTemporary", { id: chat.id });
+  if (chat?.temporary) { await api("endTemporary", { id: chat.id }); md.clear(); }
   chat = await api("createChat", { temporary, project });
   pending = [];
   editing = null;
@@ -513,7 +503,7 @@ async function openChat(id) {
   }
   if(!captureUI.stop())return;
   closeVoiceSession();
-  if (chat?.temporary) await api("endTemporary", { id: chat.id });
+  if (chat?.temporary) { await api("endTemporary", { id: chat.id }); md.clear(); }
   chat = await api("chat", { id });
   $("prompt").value=chat.draft||"";
   autoResizePrompt();
@@ -594,6 +584,8 @@ async function send(regenerate = false) {
     } catch {}
   } finally {
     stopResponseTimer();
+    clearTimeout(streamTimer);
+    streamTimer = null;
     const elapsedSec = ((Date.now() - sendStart) / 1000).toFixed(1);
     sending = false;
     editing = null;
@@ -649,12 +641,12 @@ window.privateAI.onEvent((event) => {
               $("content").scrollTop -
               $("content").clientHeight <
             180;
-          el.innerHTML = md(responseLayout(chat.messages.at(-1).text).body);
+          el.innerHTML = md(responseLayout(chat.messages.at(-1).text).body, {streaming:true});
           el.classList.add("streaming");
           attachCodeCopyButtons();
           if (nearBottom) $("content").scrollTop = $("content").scrollHeight;
         }
-      }, 45);
+      }, streamRenderInterval(m?.text?.length || 0));
   } else if (event.type === "locked") showLocked();
   else if (event.type === "unlocked") init();
   else if (event.type === "jobs_changed") {
@@ -1078,6 +1070,9 @@ function settingsHTML() {
   )}${field("Maximum output tokens", "maxOutput", s.maxOutput, "number")}${field("OpenAI organization (optional)", "org", s.org)}${field("OpenAI project (optional)", "projectId", s.projectId)}${field("App lock after minutes", "lockMinutes", s.lockMinutes, "number")}</div><p>Reasoning controls depend on the selected model. Automatic locking inside Private AI requires an app passphrase; your organization’s Windows lock remains separate.</p><div class="button-row"><button class="secondary" data-act="passphrase">Set app passphrase</button><button class="secondary" data-act="lock">Lock app</button><button class="secondary" data-act="backup">Create local encrypted backup</button><button class="secondary" data-act="self-check">Run local checks</button><button class="secondary" data-act="diagnostics">Create diagnostic report</button></div><p>Diagnostics contain technical metadata only. Local backups require this Windows profile and its original encryption key. A portable app does not make encrypted history portable.</p></details></div>`;
 }
 function showLocked() {
+  md.clear();
+  clearTimeout(streamTimer);
+  streamTimer = null;
   captureUI.stop({discard:true});
   companionPairingUI.stop();
   workflowUI.stop();
@@ -2133,6 +2128,7 @@ document.addEventListener("click", async (e) => {
           )
         ) {
           await api("deleteChat", { id: chat.id });
+          md.clear();
           chat = null;
           await refresh();
           renderChat();

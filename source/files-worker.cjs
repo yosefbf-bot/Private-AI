@@ -155,13 +155,13 @@ async function main(workerData) {
       try {
         const doc = await job.promise;
         if (doc.numPages > 300) throw Error("LIMIT");
-        let out = "",ocr=null,ocrPages=0;const emptyPages=[];
+        let out = "",ocr=null,ocrPages=0,usableCharacters=0;const emptyPages=[];
         try{
         for (let p = 1; p <= doc.numPages; p++) {
           const page = await doc.getPage(p);
           const content = await page.getTextContent();
           let pageText=content.items.map((i) => i.str + (i.hasEOL ? "\n" : " ")).join("");
-          if(!pageText.trim()&&workerData.ocrDirectory){
+          if(!pageText.trim()&&workerData.ocrDirectory&&(!workerData.ocrPages||workerData.ocrPages.includes(p))){
             const engine=require('./offline-ocr.cjs');if(++ocrPages>engine.MAX_OCR_PAGES)throw Error('LIMIT');
             const viewport=page.getViewport({scale:2}),width=Math.ceil(viewport.width),height=Math.ceil(viewport.height);engine.pixels(width,height);
             const {createCanvas}=require('@napi-rs/canvas'),canvas=createCanvas(width,height);
@@ -170,12 +170,13 @@ async function main(workerData) {
             }finally{canvas.width=1;canvas.height=1;}
           }
           if(!pageText.trim())emptyPages.push(p);
-          out+='\n[Page '+p+']\n'+pageText+'\n';page.cleanup();
+          usableCharacters+=pageText.trim().length;
+          out+='\n[Page '+p+']\n'+(pageText.trim()?pageText:'[No usable text was extracted from this page. Source incomplete; unreadable content remains unknown.]')+'\n';page.cleanup();
           limit(out);
         }
-        if (out.replace(/\[Page \d+\]/g, "").trim().length < 10)
+        if (usableCharacters < 10 && (!workerData.pdfTextOnly || !emptyPages.length))
           throw Error("FILE");
-        return { text: out,...(ocrPages?{ocr:{engine:'tesseract-local-eng',pages:ocrPages,unreadablePages:emptyPages,verified:false,notice:'Machine OCR text may omit or misread information. Verify against the original pages before clinical or operational decisions.'}}:{}) };
+        return { text: out,unreadablePages:emptyPages,incomplete:emptyPages.length>0,usableCharacters,...(ocrPages?{ocr:{engine:'tesseract-local-eng',pages:ocrPages,unreadablePages:emptyPages,verified:false,notice:'Machine OCR text may omit or misread information. Verify against the original pages before clinical or operational decisions.'}}:{}) };
         }finally{await ocr?.close();}
       } finally {
         await job.destroy();
@@ -274,4 +275,5 @@ function receive(data) {
 }
 if (process.parentPort)
   process.parentPort.once("message", (event) => receive(event.data));
-else process.once("message", receive);
+else if(require.main===module)process.once("message", receive);
+module.exports={main};

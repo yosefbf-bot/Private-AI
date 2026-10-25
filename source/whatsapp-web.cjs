@@ -13,7 +13,7 @@ function readWhatsApp(){
  const groups=[...new Set(messages.map(m=>m.groupId))];return {verified:groups.length===1&&!!groupName,groupId:groups.length===1?groups[0]:'',groupName,messages:messages.slice(-100)};
 }
 class WhatsAppWeb{
- constructor(core,{chromium=require('playwright-core').chromium}={}){this.core=core;this.chromium=chromium;this.context=null;this.page=null;}
+ constructor(core,{chromium}={}){this.core=core;this.chromium=chromium;this.context=null;this.page=null;}
  async open(){
   if(this.opening)throw fail('BUSY');this.opening=true;
   try{if(!this.account)this.account=new (require('./whatsapp-account.cjs').WhatsAppAccount)(this.core);this.account.onRead=shot=>this.onRead?.(shot);await this.account.open();}finally{this.opening=false;}

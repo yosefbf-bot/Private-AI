@@ -12,17 +12,20 @@ const after = [],
   errors = [];
 const report =
   "# Weekly operations report\n\nThe review is complete. Here are the items to follow up.\n\n| Area | Status |\n| --- | --- |\n| Reports | Ready for review |\n| Open items | 3 follow-ups |\n\n## Next steps\n\n- Review the totals with your source documents.\n- Save the approved report in your work folder.\n\n**Synthetic demonstration data.**";
-let generationCalls = 0, sendRequests = 0;
+let generationCalls = 0, sendRequests = 0, longStream = false, finishLongStream;
+const longReport='# Synthetic long stream\n\n**Formatted while streaming** and `code`.\n\n| Item | Value |\n| --- | --- |\n| Synthetic | Unknown |\n\n'+('Synthetic streaming reference. '.repeat(2800))+'\n\n<img src=x onerror="window.__streamInjected=1"><svg onload="window.__streamInjected=1"></svg><script>window.__streamInjected=1</script>STREAM_END';
 const approvalRequests = [];
 const client = {
   models: async () => ["test-model"],
   generate: async (key, settings, messages, opts = {}) => {
     generationCalls++;
-    for (const piece of report.match(/.{1,40}/gs)) {
+    const output=longStream?longReport:report;
+    for (const piece of output.match(longStream?/.{1,2000}/gs:/.{1,40}/gs)) {
       opts.onDelta?.(piece);
       await new Promise((r) => setTimeout(r, 2));
     }
-    return { text: report, usage: { inputTokens: 124, outputTokens: 88 } };
+    if(longStream)await new Promise(resolve=>finishLongStream=resolve);
+    return { text: output, usage: { inputTokens: 124, outputTokens: 88 } };
   },
 };
 const { core } = fixture({ after: (fn) => after.push(fn) }, client);
@@ -360,6 +363,19 @@ let browser;
   await desktop.screenshot({
     path: path.join(root, "build/screenshots/desktop-chat.png"),
   });
+  longStream=true;
+  try{
+    await desktop.locator('#prompt').fill('Describe this synthetic streaming demonstration.');await desktop.locator('#send').click();
+    await desktop.waitForFunction(()=>document.querySelector('.message:last-child .message-body')?.textContent.includes('STREAM_END'));
+    assert.equal(await desktop.locator('#stop').isVisible(),true,'The fixture holds completion while checking the streamed answer');
+    const streamed=desktop.locator('.message:last-child .message-body');
+    assert.equal(await streamed.locator('h1').innerText(),'Synthetic long stream');assert.equal(await streamed.locator('strong').innerText(),'Formatted while streaming');
+    assert.equal(await streamed.locator('table').count(),1);assert.equal(await streamed.locator('code').innerText(),'code');
+    assert.equal(await streamed.locator('img,svg,script').count(),0);assert.equal(await desktop.evaluate(()=>window.__streamInjected||0),0);
+    finishLongStream();await desktop.locator('#stop').waitFor({state:'hidden'});
+    assert.equal(await desktop.locator('.message:last-child .message-body table').count(),1);assert.equal(await desktop.locator('.message:last-child .message-body img, .message:last-child .message-body svg, .message:last-child .message-body script').count(),0);
+    checks.push('Long streamed Markdown retains headings, bold, code and tables before completion with unchanged HTML sanitization');
+  }finally{longStream=false;finishLongStream?.();finishLongStream=undefined;}
   const noted = core.createChat({});
   noted.messages = [{role:"assistant",text:"The recommended larger model was unavailable or did not fit. Review this Small-model draft.\n\nLocal draft — not sufficiently verified. No OpenAI call was made.\n\nYes. Open **User guide** in the sidebar for instructions on models, files, schedules and privacy. You can also ask me how to use a feature."}];
   core.saveChat(noted);

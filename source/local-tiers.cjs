@@ -56,7 +56,7 @@ async function generateTiers(router,s,messages,options,evaluate){
    if(row&&ORDER.indexOf(row.tier)>=desired){route.recommendedTier=ORDER[desired];try{const result=await run(row,messages,fullOptions);route.notice='Reused the loaded brain under your follow-up setting.';return finish(result,row.tier);}catch(e){note(row,e,'answer');}}
   }
   const small=available.find(t=>t.tier==='small');
-  if(small){
+  if(small&&!(desired>0&&desired>=cap)){
    const assessmentOptions={...options,onDelta:undefined,instructions:(options.instructions||'')+'\n'+ASSESS_SCHEMA};
    const smallSettings={...s,localModelPath:small.file};
    const draft=desired===0&&fits(smallSettings,messages,assessmentOptions);
@@ -76,7 +76,7 @@ async function generateTiers(router,s,messages,options,evaluate){
      if(references(messages)&&evaluate(r.text,references(messages),!options.omitted&&!r.incomplete).reliability.score<70)desired=Math.max(desired,2);
     }
    }catch(e){note(small,e,'assessment');desired=Math.max(desired,1);}
-  }else route.notice='Small is not installed; local task rules selected the starting tier.';
+  }else if(!small)route.notice='Small is not installed; local task rules selected the starting tier.';
   route.recommendedTier=ORDER[desired];
   const target=Math.min(desired,cap);
   if(smallResult&&target===0){if(desired>0)route.notice='Your automatic tier cap prevented the recommended larger model. Review this Small-model draft.';return finish(smallResult,'small');}

@@ -20,11 +20,15 @@ class ModelManager{
  async verifyTier(tier,settings,signal){
   const row=this.catalog(settings).find(t=>t.tier===tier);if(!row?.installed)throw fail('LOCAL_FILE_MISSING');
   const model=this.models.find(m=>m.id===row.id),stat=fs.statSync(row.file,{bigint:true}),signature=[stat.size,stat.mtimeNs,stat.ctimeNs,stat.ino].join('|');
-  if(this.verified.get(row.file)===signature)return row;
+  // A file written in the current filesystem timestamp tick can change without
+  // changing its stat signature. Only memoize hashes of settled, older files.
+  const reuseBefore=BigInt(Date.now()-1000)*1000000n,settled=stat.mtimeNs<reuseBefore&&stat.ctimeNs<reuseBefore;
+  if(settled&&this.verified.get(row.file)===signature)return row;
+  this.verified.delete(row.file);
   const hash=crypto.createHash('sha256');let size=0;
   for await(const chunk of fs.createReadStream(row.file)){if(signal?.aborted)throw fail('CANCELLED');size+=chunk.length;if(size>model.bytes)throw fail('LOCAL_MODEL');hash.update(chunk);}
   const after=fs.statSync(row.file,{bigint:true});if(signature!==[after.size,after.mtimeNs,after.ctimeNs,after.ino].join('|')||size!==model.bytes||hash.digest('hex')!==model.sha256)throw fail('LOCAL_MODEL');
-  this.verified.set(row.file,signature);return row;
+  if(settled)this.verified.set(row.file,signature);return row;
  }
  status(){return {...this.progress,model:this.selected.name,modelId:this.selected.id,installed:fs.existsSync(path.join(this.directory,this.selected.file))};}
  cancel(){this.controller?.abort();}
@@ -43,11 +47,21 @@ class ModelManager{
    const space=fs.statfsSync(this.directory);if(space.bavail*space.bsize<MODEL.bytes+512*1024**2)throw fail('STORAGE');
    // This explicit model download contains no user prompts or account secrets.
    const r=await this.fetcher(MODEL.url,{signal:controller.signal,credentials:'omit',redirect:'follow'});if(!r.ok||!r.body)throw fail('NETWORK');
-   fd=fs.openSync(temp,'wx',0o600);const hash=crypto.createHash('sha256');
-   for await(const chunk of r.body){const b=Buffer.from(chunk);this.progress.received+=b.length;if(this.progress.received>MODEL.bytes)throw fail('LOCAL_MODEL');hash.update(b);let offset=0;while(offset<b.length)offset+=fs.writeSync(fd,b,offset,b.length-offset);if(Date.now()-last>500){this.emit({type:'model-download',...this.status()});last=Date.now();}}
-   if(this.progress.received!==MODEL.bytes||hash.digest('hex')!==MODEL.sha256)throw fail('LOCAL_MODEL');fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;fs.renameSync(temp,target);this.progress.state='installed';return target;
+   fd=await fs.promises.open(temp,'wx',0o600);const hash=crypto.createHash('sha256');
+   for await(const chunk of r.body){
+    if(controller.signal.aborted)throw fail('CANCELLED');
+    const b=Buffer.from(chunk);this.progress.received+=b.length;if(this.progress.received>MODEL.bytes)throw fail('LOCAL_MODEL');hash.update(b);
+    let offset=0;while(offset<b.length){if(controller.signal.aborted)throw fail('CANCELLED');const {bytesWritten}=await fd.write(b,offset,b.length-offset);if(!bytesWritten)throw fail('STORAGE');offset+=bytesWritten;}
+    if(Date.now()-last>500){this.emit({type:'model-download',...this.status()});last=Date.now();}
+   }
+   if(controller.signal.aborted)throw fail('CANCELLED');
+   if(this.progress.received!==MODEL.bytes||hash.digest('hex')!==MODEL.sha256)throw fail('LOCAL_MODEL');
+   await fd.sync();await fd.close();fd=undefined;
+   if(controller.signal.aborted)throw fail('CANCELLED');
+   // Publish without an await between the final cancellation check and rename.
+   fs.renameSync(temp,target);this.progress.state='installed';return target;
   }catch(e){this.progress.state=controller.signal.aborted?'cancelled':'failed';if(e.code)throw e;throw fail('NETWORK');}
-  finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(temp);}catch{}this.controller=null;this.emit({type:'model-download',...this.status()});}
+  finally{if(fd!==undefined)try{await fd.close();}catch{}try{await fs.promises.unlink(temp);}catch{}this.controller=null;this.emit({type:'model-download',...this.status()});}
  }
 }
 module.exports={MODEL,LLAMA,SMALL,EXTRA,MODELS,TIERS,ModelManager};

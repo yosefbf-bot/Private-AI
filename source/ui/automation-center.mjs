@@ -429,7 +429,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
   }
 
   // 3. Run History Tab
-  function renderHistoryTab({ jobs, schedules }) {
+  function filterHistoryJobs(jobs) {
     // Filter jobs
     let filtered = [...jobs];
     if (historyFilter.status !== 'all') {
@@ -443,29 +443,11 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
       filtered = filtered.filter(j => (j.title || '').toLowerCase().includes(q) || (j.output || '').toLowerCase().includes(q) || (j.error || '').toLowerCase().includes(q));
     }
 
-    return `
-      <section class="auto-section">
-        <div class="auto-section-header">
-          <div class="auto-section-title-wrap">
-            <h2 class="auto-section-title">
-              <span>Automation Run History</span>
-              <span class="auto-count-pill">${filtered.length}</span>
-            </h2>
-            <p class="auto-section-desc">Audit trail of completed, failed, paused, and expired automation executions.</p>
-          </div>
-          <!-- Filter Controls -->
-          <div class="auto-filter-bar">
-            <select class="auto-select" id="history-filter-status">
-              <option value="all" ${historyFilter.status === 'all' ? 'selected' : ''}>All Statuses</option>
-              <option value="completed" ${historyFilter.status === 'completed' ? 'selected' : ''}>Completed</option>
-              <option value="failed" ${historyFilter.status === 'failed' ? 'selected' : ''}>Failed</option>
-              <option value="running" ${historyFilter.status === 'running' ? 'selected' : ''}>Running</option>
-              <option value="waiting" ${historyFilter.status === 'waiting' ? 'selected' : ''}>Waiting / Paused</option>
-            </select>
-            <input type="search" class="auto-search" id="history-filter-search" placeholder="Search task, output, or error..." value="${esc(historyFilter.search)}" />
-          </div>
-        </div>
+    return filtered;
+  }
 
+  function renderHistoryResults(filtered) {
+    return `
         ${filtered.length > 0 ? `
           <div class="auto-table-wrap">
             <table class="auto-table">
@@ -526,7 +508,35 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
             <strong>No run history matches the current filters.</strong>
             <p>Try resetting the search filter or run a scheduled automation.</p>
           </div>
-        `}
+        `}`;
+  }
+
+  function renderHistoryTab({jobs}) {
+    const filtered=filterHistoryJobs(jobs);
+    return `
+      <section class="auto-section">
+        <div class="auto-section-header">
+          <div class="auto-section-title-wrap">
+            <h2 class="auto-section-title">
+              <span>Automation Run History</span>
+              <span class="auto-count-pill" id="auto-history-count">${filtered.length}</span>
+            </h2>
+            <p class="auto-section-desc">Audit trail of completed, failed, paused, and expired automation executions.</p>
+          </div>
+          <!-- Filter Controls -->
+          <div class="auto-filter-bar">
+            <select class="auto-select" id="history-filter-status">
+              <option value="all" ${historyFilter.status === 'all' ? 'selected' : ''}>All Statuses</option>
+              <option value="completed" ${historyFilter.status === 'completed' ? 'selected' : ''}>Completed</option>
+              <option value="failed" ${historyFilter.status === 'failed' ? 'selected' : ''}>Failed</option>
+              <option value="running" ${historyFilter.status === 'running' ? 'selected' : ''}>Running</option>
+              <option value="waiting" ${historyFilter.status === 'waiting' ? 'selected' : ''}>Waiting / Paused</option>
+            </select>
+            <input type="search" class="auto-search" id="history-filter-search" placeholder="Search task, output, or error..." value="${esc(historyFilter.search)}" />
+          </div>
+        </div>
+
+        <div id="auto-history-results">${renderHistoryResults(filtered)}</div>
       </section>
     `;
   }
@@ -810,6 +820,16 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
     if (container) container.innerHTML = '';
   }
 
+  function bindRunDetails(container,state) {
+    container.querySelectorAll('[data-act="auto-view-run"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const j = (state.jobs || []).find(x => x.id === id);
+        if (j) renderRunDetailsModal(j);
+      });
+    });
+  }
+
   // Bind interaction handlers
   function bindEvents(container, state) {
     // Tab switching
@@ -820,26 +840,16 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
       });
     });
 
-    // History filter change
-    const statusFilter = container.querySelector('#history-filter-status');
-    if (statusFilter) {
-      statusFilter.addEventListener('change', (e) => {
-        historyFilter.status = e.target.value;
-        const panel = container.querySelector('.auto-tab-content');
-        if (panel) panel.innerHTML = renderHistoryTab({ jobs: state.jobs || [], schedules: state.schedules || [] });
-        bindEvents(container, state);
-      });
-    }
-
-    const searchFilter = container.querySelector('#history-filter-search');
-    if (searchFilter) {
-      searchFilter.addEventListener('input', (e) => {
-        historyFilter.search = e.target.value;
-        const panel = container.querySelector('.auto-tab-content');
-        if (panel) panel.innerHTML = renderHistoryTab({ jobs: state.jobs || [], schedules: state.schedules || [] });
-        bindEvents(container, state);
-      });
-    }
+    // Filters stay mounted; only result rows and their fresh detail controls change.
+    const updateHistory=()=>{
+      const filtered=filterHistoryJobs(state.jobs||[]),panel=container.querySelector('#auto-history-results');
+      if(panel){panel.innerHTML=renderHistoryResults(filtered);bindRunDetails(panel,state);}
+      const count=container.querySelector('#auto-history-count');if(count)count.textContent=String(filtered.length);
+    };
+    const statusFilter=container.querySelector('#history-filter-status');
+    if(statusFilter)statusFilter.onchange=e=>{historyFilter.status=e.target.value;updateHistory();};
+    const searchFilter=container.querySelector('#history-filter-search');
+    if(searchFilter)searchFilter.oninput=e=>{historyFilter.search=e.target.value;updateHistory();};
 
     // Schedule details
     container.querySelectorAll('[data-act="auto-view-schedule"]').forEach(btn => {
@@ -853,14 +863,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
       });
     });
 
-    // Run details
-    container.querySelectorAll('[data-act="auto-view-run"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.id;
-        const j = (state.jobs || []).find(x => x.id === id);
-        if (j) renderRunDetailsModal(j);
-      });
-    });
+    bindRunDetails(container,state);
 
     // Immediate run of a schedule
     container.querySelectorAll('[data-act="auto-run-schedule-now"]').forEach(btn => {

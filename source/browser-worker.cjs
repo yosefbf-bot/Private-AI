@@ -21,7 +21,7 @@ function validateRecipe(input){
  return {id:input.id||uuid(),name,...target,sourceProvider:input.sourceProvider||'generic',steps:steps.map(s=>({op:s.op,selector:s.selector,...(s.op==='fill'?{value:s.value}:{})})),...(autoLogin?{autoLogin}:{})};
 }
 class BrowserWorker{
- constructor(core,{chromium=require('playwright-core').chromium,firefox=require('playwright-core').firefox}={}){this.core=core;this.engines={chromium,firefox};this.busy=false;this.context=null;this.browser=null;this.generation=0;}
+ constructor(core,{chromium,firefox}={}){this.core=core;this.engines={chromium,firefox};this.busy=false;this.context=null;this.browser=null;this.generation=0;}
  async open(url,origins,running=false,selected='edge',scheduled=false,guard=()=>{},protectedLogin=false){
   ({url,origins}=validateBrowserTarget({url,origins,browser:selected}));
   if(this.opening||this.busy&&!running)throw fail('BUSY');this.opening=true;
@@ -36,7 +36,7 @@ class BrowserWorker{
     const browser=browsers[selected];await this.core.resources.reserveBrowser(this,'Report browser ('+browser.name+')');check();
     const options={...launchOptions(selected),serviceWorkers:'block',...(scheduled?{headless:true,viewport:{width:1280,height:900}}:{})};
     if(protectedLogin){options.ignoreDefaultArgs=options.ignoreDefaultArgs.filter(a=>a!=='--disable-extensions');options.args=['--disable-extensions'];}
-    try{this.context=await this.engines[browser.engine].launchPersistentContext(profilePath(this.core.root,selected),options);}catch{throw fail('BROWSER_SETUP');}
+    try{if(this.engines[browser.engine]===undefined)this.engines[browser.engine]=require('playwright-core')[browser.engine];this.context=await this.engines[browser.engine].launchPersistentContext(profilePath(this.core.root,selected),options);}catch{throw fail('BROWSER_SETUP');}
     this.browser=selected;const opened=this.context;
     opened.on('close',()=>{if(this.context===opened){this.context=null;this.browser=null;this.core.resources.releaseBrowser(this);}});
    }
