@@ -113,10 +113,10 @@
     "@kenjiuno/msgreader": "1.28.0",
     "@mozilla/readability": "0.6.0",
     "docx": "9.7.1",
-    "dompurify": "3.4.16",
+    "dompurify": "3.4.17",
     "exceljs": "4.4.0",
     "express": "^5.2.1",
-    "mailparser": "3.9.31",
+    "mailparser": "3.12.4",
     "mammoth": "1.12.2",
     "marked": "18.0.12",
     "pdfjs-dist": "6.3.289",
@@ -142,7 +142,7 @@
       "uuid": "11.1.1"
     },
     "whatsapp-web.js": {
-      "puppeteer": "25.0.4"
+      "puppeteer": "25.16.0"
     }
   },
   "optionalDependencies": {
