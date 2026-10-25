@@ -1,3 +1,13 @@
+# Speed/resource/reliability program - October 25, 2026
+
+Coordinator Claude Code with implementer Codex CLI on branch
+`claude/perf-reliability-2026-10` (draft PR; no merge to main without owner).
+Baseline Private-AI main faa367d (3.0.9-dev), companion main 0ebbbd4 (1.2.7-dev).
+Status, goals, toolchain and plan: Private-AI docs/IMPROVEMENT_PROGRAM_2026-10-25.md.
+No source change yet in this increment.
+
+---
+
 # Windows report browser compatibility - October 21, 2026
 
 Candidate remains unreleased3.0.9-dev, base main783534b2df6247badff53d7272ddf1e1b2e76fc5.
