@@ -361,7 +361,7 @@ class CompanionGateway {
       const answer = result.chat.messages.at(-1);
       if (answer?.error) throw fail(answer.error.code);
       if (!answer?.text) throw fail('LOCAL_UNAVAILABLE');
-      const response = {reply:answer.text,sessionId:session,requestId:data.requestId || null,processing:answer.processing ? {provider:answer.processing.provider,model:answer.processing.model,reason:answer.processing.reason} : null,incomplete:!!answer.incomplete};
+      const response = {reply:answer.text,sessionId:session,requestId:data.requestId || null,processing:answer.processing ? {provider:answer.processing.provider,model:answer.processing.model,reason:answer.processing.reason,policyNotice:answer.processing.policyNotice} : null,incomplete:!!answer.incomplete};
       if (requestKey) this.core.store.put('companion_request',requestKey,{inputHash,chatId:saved.chatId,response,expires},{expires});
       return response;
     } finally { clearTimeout(timeout); res.removeListener('close',disconnected); this.active.delete(sessionKey); }

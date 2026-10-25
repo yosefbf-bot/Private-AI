@@ -111,12 +111,18 @@ function tableRows(content) {
 }
 async function exportFile(
   root,
-  { content, format, title = "Report", subfolder = "Reports", jobId, onPrepared },
+  { content, format, title = "Report", subfolder = "Reports", jobId, onPrepared, policyNotice },
 ) {
   if (!["txt", "md", "docx", "pdf", "xlsx", "csv"].includes(format))
     throw fail("FILE");
   const rows = ["xlsx", "csv"].includes(format) ? tableRows(content) : [];
   if (["xlsx", "csv"].includes(format) && !rows.length) throw fail("FILE");
+  if (rows.length && policyNotice) {
+    // Tabular exports omit prose outside tables, so retain the limitation as a labeled row.
+    const noticeRow = Array(rows[0].length).fill('');
+    noticeRow[0] = 'Provider provenance limitation: ' + policyNotice;
+    rows.push(noticeRow);
+  }
   const result = await processFile({
     op: "export",
     ext: "." + format,

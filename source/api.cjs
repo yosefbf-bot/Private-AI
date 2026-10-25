@@ -2,7 +2,8 @@
 const { fail, text } = require("./security.cjs");
 const {cloudAllowed}=require("./hybrid-settings.cjs");
 const { PROVIDERS, endpointFor } = require("./providers.cjs");
-const { assertProviderPolicy } = require("./provider-policy.cjs");
+const { assertProviderPolicy, protectedMode, remoteModel } = require("./provider-policy.cjs");
+const tokenCount = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
 const ENDPOINT = PROVIDERS.openai.defaultEndpoint;
 function makeRequest(
   settings,
@@ -71,6 +72,41 @@ class OpenAIClient {
     const base = endpointFor(provider, s);
     return base + (provider === 'openai' ? '/responses' : provider === 'anthropic' ? '/messages' : provider === 'ollama' ? '/v1/chat/completions' : base.endsWith('/chat/completions') ? '' : '/chat/completions');
   }
+  async ollamaModelPolicy(settings, signal) {
+    if (!protectedMode(settings)) return null;
+    assertProviderPolicy(settings, null); // Cloud-indicated names never reach the daemon.
+    const endpoint = endpointFor('ollama', settings);
+    const name = value => typeof value === 'string' ? value.replace(/:latest$/, '') : '';
+    let tagsRead = false, showRead = false;
+    const read = async (url, options = {}) => {
+      try {
+        const r = await this.fetcher(endpoint + url, {
+          ...options, redirect: 'error',
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(3000)]) : AbortSignal.timeout(3000),
+        });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch {
+        if (signal?.aborted) throw fail('CANCELLED');
+        return null;
+      }
+    };
+    const tags = await read('/api/tags');
+    if (Array.isArray(tags?.models)) {
+      const selected = tags.models.filter(m => [m.name, m.model].some(n => name(n) === name(settings.model)));
+      tagsRead = selected.length > 0;
+      if (selected.some(remoteModel)) throw fail('POLICY');
+    }
+    const shown = await read('/api/show', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: settings.model }),
+    });
+    if (shown && typeof shown === 'object' && !Array.isArray(shown) && !shown.error) {
+      showRead = true;
+      if (remoteModel(shown)) throw fail('POLICY');
+    }
+    return tagsRead && showRead ? null : 'Ollama model metadata could not be fully read. Local provenance is unverified; cloud-indicated model names remain blocked.';
+  }
   async models(key, settings = {}, signal) {
     const provider = settings.provider || 'openai';
     endpointFor(provider, settings);
@@ -83,7 +119,7 @@ class OpenAIClient {
         if (r.ok) {
           const data = await r.json();
           if (Array.isArray(data.models) && data.models.length > 0) {
-            return data.models.map(m => m.name).filter(Boolean).sort();
+            return data.models.filter(m => !protectedMode(settings) || !remoteModel(m)).map(m => m.name).filter(Boolean).sort();
           }
         }
       } catch {}
@@ -167,10 +203,11 @@ class OpenAIClient {
       const prompt = typeof messages.at(-1)?.content === 'string' ? messages.at(-1).content : '';
       return await generateLocalResponse(prompt, messages, options);
     }
-    if (provider !== 'ollama' && !key) throw fail("KEY");
+    if (PROVIDERS[provider].requiresKey && !key) throw fail("KEY");
     assertProviderPolicy(settings, key);
     if (!settings.model) throw fail("MODEL");
     if (settings.hipaa && options.web) throw fail("POLICY");
+    const policyNotice = provider === 'ollama' ? await this.ollamaModelPolicy(settings, options.signal) : null;
     const started = Date.now();
     let result = "",
       usage = {},
@@ -204,6 +241,7 @@ class OpenAIClient {
           }))
         ],
         stream: true,
+        stream_options: { include_usage: true },
         max_tokens: settings.maxOutput || 4096
       };
       if (provider === 'ollama') {
@@ -273,9 +311,13 @@ class OpenAIClient {
           options.onDelta?.(delta);
         }
         if (event.choices?.[0]?.finish_reason) {
+          const reason = event.choices[0].finish_reason;
+          if (!['stop', 'length', 'tool_calls', 'function_call'].includes(reason)) throw fail('API');
           completed = true;
-          if (event.usage) usage = event.usage;
+          incomplete = reason === 'length';
         }
+        // Compatible providers may send usage after the last choice, with choices: [].
+        if (event.usage) usage = { ...usage, ...event.usage };
         if (event.type === "content_block_delta" && event.delta?.text) {
           const delta = text(event.delta.text, 1000000);
           result += delta;
@@ -285,11 +327,13 @@ class OpenAIClient {
         if (event.type === "message_stop") {
           completed = true;
         }
-        if (event.type === "message_delta" && event.usage) {
-          usage = {
-            input_tokens: usage.input_tokens || event.usage.input_tokens || 0,
-            output_tokens: event.usage.output_tokens || 0
-          };
+        if (event.type === 'message_start' && event.message?.usage) {
+          usage = { ...usage, ...event.message.usage };
+        }
+        if (event.type === 'message_delta' && event.delta?.stop_reason) {
+          const reason = event.delta.stop_reason;
+          if (!['end_turn', 'stop_sequence', 'max_tokens', 'tool_use', 'pause_turn'].includes(reason)) throw fail('API');
+          incomplete = reason === 'max_tokens';
         }
         if (event.type === "response.failed" || event.type === "error")
           throw fail("API");
@@ -298,12 +342,13 @@ class OpenAIClient {
       return {
         text: result,
         usage: {
-          inputTokens: usage.input_tokens || usage.prompt_tokens || 0,
-          cachedInputTokens: usage.input_tokens_details?.cached_tokens || 0,
-          outputTokens: usage.output_tokens || usage.completion_tokens || 0,
+          inputTokens: tokenCount(usage.input_tokens ?? usage.prompt_tokens),
+          cachedInputTokens: tokenCount(usage.input_tokens_details?.cached_tokens ?? usage.prompt_tokens_details?.cached_tokens ?? usage.cache_read_input_tokens),
+          outputTokens: tokenCount(usage.output_tokens ?? usage.completion_tokens),
         },
         durationMs: Date.now() - started,
         incomplete,
+        policyNotice,
       };
     } catch (e) {
       if (options.signal?.aborted) throw fail("CANCELLED");

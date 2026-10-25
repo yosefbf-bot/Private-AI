@@ -14,4 +14,13 @@ test('low memory refuses model loading before spawning',async()=>{let spawned=0;
 test('idle model unloads and memory pressure terminates model without stopping Worker',()=>{let killed=0;const settings={localIdleMinutes:5};const b=new LocalBrain({runtime:'unused',settings:()=>settings,memory:()=>10*1024**3});b.child={kill(){killed++;}};b.state='ready';b.lastUsed=Date.now()-301000;b.maintain();assert.equal(killed,1);b.child={kill(){killed++;}};b.busy=true;b.memory=()=>512*1024**2;b.maintain();assert.equal(killed,2);b.close();});
 test('calculation rejects executable text, infinities, and oversized numbers',()=>{for(const bad of ['process.exit()','1/0','1e999','9007199254740992','1..2'])assert.throws(()=>calculate(bad));assert.equal(calculate('1.5 * (2 + 3)'),7.5);});
 test('usage records follow retention',t=>{const {core}=fixture(t);core.store.put('usage','old',{time:0,provider:'local'},{updated:0,expires:1});core.performCleanup();assert.equal(core.store.get('usage','old'),null);});
+
+test('missing provider usage persists as unknown and cannot produce a zero-cost measurement',t=>{
+ const {core}=fixture(t);core.saveSettings({priceModel:'test-model',priceInput:1,priceOutput:2});
+ const row=core.router.meter.record({provider:'openai',usage:{inputTokens:null,outputTokens:5}},core.settings());
+ assert.equal(row.inputTokens,null);assert.equal(row.outputTokens,5);assert.equal(row.cachedInputTokens,null);
+ assert.equal(row.usageUnknown,true);assert.equal(row.estimatedCost,null);
+ assert.deepEqual(core.store.get('usage',row.id),row);
+ const summary=core.router.meter.summary().today;assert.equal(summary.usageUnknown,1);assert.equal(summary.unpriced,1);assert.equal(summary.outputTokens,5);
+});
 test('unavailable ShareSync does not block changing to Local Only or local calculations',async t=>{const {core,calls}=fixture(t);const fs=require('node:fs');fs.rmSync(core.settings().workspace,{recursive:true,force:true});core.saveSettings({processingMode:'local-only'});const c=core.createChat();const r=await core.send({chatId:c.id,prompt:'/calc 3*7'});assert.equal(r.chat.messages.at(-1).text,'3*7 = 21');assert.equal(calls.length,0);assert.doesNotThrow(()=>core.summary());});

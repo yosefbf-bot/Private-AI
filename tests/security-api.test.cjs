@@ -157,3 +157,55 @@ test("Unexpected exceptions are redacted", () => {
   );
 });
 
+const eventStream = events => new Response(events.map(e => 'data: '+JSON.stringify(e)+'\n\n').join(''));
+test('compatible finish reasons preserve partial text and flag length truncation', async () => {
+  for (const reason of ['stop','length']) {
+    const client=new OpenAIClient(async () => eventStream([
+      {choices:[{delta:{content:'Partial answer'}}]},
+      {choices:[{delta:{},finish_reason:reason}]},
+    ]));
+    const deltas=[],r=await client.generate('synthetic',{provider:'deepseek',model:'m'},[],{onDelta:d=>deltas.push(d)});
+    assert.equal(r.text,'Partial answer');assert.equal(deltas.join(''),r.text);assert.equal(r.incomplete,reason==='length');
+  }
+  const filtered=new OpenAIClient(async()=>eventStream([{choices:[{delta:{content:'Partial'},finish_reason:'content_filter'}]}]));
+  await assert.rejects(filtered.generate('synthetic',{provider:'deepseek',model:'m'},[]),{code:'API'});
+});
+
+test('compatible adapters request usage and consume usage-only terminal events', async () => {
+  for (const provider of ['gemini','deepseek','groq','custom','ollama']) {
+    const client=new OpenAIClient(async (_url,options) => {
+      assert.equal(JSON.parse(options.body).stream_options.include_usage,true);
+      return eventStream([
+        {choices:[{delta:{content:'Measured'},finish_reason:'stop'}]},
+        {choices:[],usage:{prompt_tokens:31,completion_tokens:7,prompt_tokens_details:{cached_tokens:4}}},
+      ]);
+    });
+    const r=await client.generate('synthetic',{provider,model:'m'},[]);
+    assert.deepEqual(r.usage,{inputTokens:31,outputTokens:7,cachedInputTokens:4});
+  }
+});
+
+test('Anthropic merges message_start and cumulative message_delta usage and flags max_tokens', async () => {
+  for (const reason of ['end_turn','max_tokens']) {
+    const client=new OpenAIClient(async()=>eventStream([
+      {type:'message_start',message:{usage:{input_tokens:43,output_tokens:1,cache_read_input_tokens:6}}},
+      {type:'content_block_delta',delta:{type:'text_delta',text:'Anthropic partial'}},
+      {type:'message_delta',delta:{stop_reason:reason},usage:{output_tokens:12}},
+      {type:'message_stop'},
+    ]));
+    const r=await client.generate('synthetic',{provider:'anthropic',model:'m'},[]);
+    assert.equal(r.text,'Anthropic partial');assert.equal(r.incomplete,reason==='max_tokens');
+    assert.deepEqual(r.usage,{inputTokens:43,outputTokens:12,cachedInputTokens:6});
+  }
+});
+
+test('unavailable usage remains unknown while explicit measured zeros are retained', async () => {
+  for (const usage of [undefined,{prompt_tokens:0,completion_tokens:0}]) {
+    const client=new OpenAIClient(async()=>eventStream([{choices:[{delta:{content:'Answer'},finish_reason:'stop'}],usage}]));
+    const r=await client.generate('synthetic',{provider:'custom',model:'m'},[]);
+    assert.deepEqual(r.usage,{inputTokens:usage?0:null,outputTokens:usage?0:null,cachedInputTokens:null});
+  }
+  const client=new OpenAIClient(async()=>eventStream([{type:'content_block_delta',delta:{text:'Answer'}},{type:'message_delta',usage:{output_tokens:5}},{type:'message_stop'}]));
+  assert.deepEqual((await client.generate('synthetic',{provider:'anthropic',model:'m'},[])).usage,{inputTokens:null,outputTokens:5,cachedInputTokens:null});
+});
+

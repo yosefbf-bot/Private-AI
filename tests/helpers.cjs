@@ -35,7 +35,7 @@ function fixture(t, client) {
     model: "test-model",
     workspace: path.join(dir, "ShareSync Reports"),
   });
-  core.saveSettings({ approved: true });
+  core.saveSettings({ approved: true, approvalFingerprint: core.summary().providerApprovalFingerprint });
   t.after(() => {
     if (core.store.db) core.close();
     fs.rmSync(dir, { recursive: true, force: true });

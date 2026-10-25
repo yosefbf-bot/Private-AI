@@ -13,8 +13,11 @@ test('real server requires a session and restricts production, privileges and de
   const child = spawn(process.execPath, ['server.cjs'], {
     cwd: path.resolve(__dirname, '..'),
     env: {...process.env, NODE_ENV: 'production', PRIVATE_AI_DEV_TOKEN: token, PRIVATE_AI_DEV_DATA: root, OPENAI_API_KEY: '', GEMINI_API_KEY: ''},
-    stdio: ['ignore', 'pipe', 'ignore'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
+  let output = '';
+  child.stdout.on('data', data => { output += data; });
+  child.stderr.on('data', data => { output += data; });
   try {
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(Error('Server startup timeout')), 10000);
@@ -23,6 +26,9 @@ test('real server requires a session and restricts production, privileges and de
       child.once('error', reject);
     });
     const base = 'http://127.0.0.1:3000';
+    for (const [route, method] of [['/API/call','POST'], ['/Api/call','POST'], ['/API/events','GET']]) {
+      assert.equal((await fetch(base+route, {method})).status, 404, route+' must be rejected before auth or routing');
+    }
     assert.equal((await fetch(base+'/api/health')).status, 401);
     assert.equal((await fetch(base+'/api/dev-token')).status, 404);
     const html=await (await fetch(base)).text();
@@ -40,6 +46,10 @@ test('real server requires a session and restricts production, privileges and de
     const summary = await call('summary');
     assert.equal(summary.ok, true);
     assert.equal(summary.result.settings.approved, false);
+    assert.equal((await call('settings',{approved:true,approvalFingerprint:summary.result.providerApprovalFingerprint})).error.code,'POLICY');
+    const originalProviders = summary.result.savedProviders;
+    for (const provider of ['applock','constructor','__proto__']) assert.equal((await call('deleteKey',{provider})).error.code,'INVALID');
+    assert.deepEqual((await call('summary')).result.savedProviders, originalProviders);
     assert.match(summary.result.modeLabel, /Not for PHI/);
     const today = await call('snfToday');
     assert.equal(today.result.demo, false);
@@ -73,6 +83,8 @@ test('real server requires a session and restricts production, privileges and de
     assert.equal(live.result.psychWatch.length, 0);
     assert.equal((await call('captureList')).result.captures.length,1);
     assert.equal((await fetch(base+'/api/call',{method:'POST',headers:{cookie,'content-type':'application/json'},body:'{}'})).status,403);
+    assert.match(output, /PRIVATE_AI_DEV_TOKEN.*\.env/);
+    assert.equal(output.includes(token), false, 'stdout and stderr must never disclose the bearer token');
   } finally {
     child.kill();
     if (child.exitCode === null && child.signalCode === null) await new Promise(resolve => {child.once('exit', resolve);setTimeout(resolve, 1000).unref();});

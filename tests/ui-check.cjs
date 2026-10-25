@@ -6,15 +6,18 @@ const fs = require("node:fs"),
   http = require("node:http"),
   assert = require("node:assert/strict");
 const { fixture } = require("./helpers.cjs");
-const { safeError } = require("../source/security.cjs");
+const { safeError, fail } = require("../source/security.cjs");
 const after = [],
   checks = [],
   errors = [];
 const report =
   "# Weekly operations report\n\nThe review is complete. Here are the items to follow up.\n\n| Area | Status |\n| --- | --- |\n| Reports | Ready for review |\n| Open items | 3 follow-ups |\n\n## Next steps\n\n- Review the totals with your source documents.\n- Save the approved report in your work folder.\n\n**Synthetic demonstration data.**";
+let generationCalls = 0, sendRequests = 0;
+const approvalRequests = [];
 const client = {
   models: async () => ["test-model"],
   generate: async (key, settings, messages, opts = {}) => {
+    generationCalls++;
     for (const piece of report.match(/.{1,40}/gs)) {
       opts.onDelta?.(piece);
       await new Promise((r) => setTimeout(r, 2));
@@ -76,6 +79,7 @@ async function dispatch(op, data = {}, native = false) {
     case "chat":
       return core.chat(data.id);
     case "send":
+      sendRequests++;
       return core.send(data, (delta) => {
         const event = { type: "delta", chatId: data.chatId, delta };
         (native ? panel : desktop)
@@ -89,9 +93,10 @@ async function dispatch(op, data = {}, native = false) {
     case "saveTemporary":
       return core.saveTemporary(data.id);
     case "settings":
+      if (data.approved === true) approvalRequests.push(data.approvalFingerprint);
       return core.saveSettings(data);
     case "saveKey":
-      return core.saveKey(data.key);
+      return core.saveKey(data.key, data.provider);
     case "models":
       return core.models();
     case "activity":
@@ -323,10 +328,34 @@ let browser;
   await desktop
     .locator("#prompt")
     .fill("Prepare a weekly operations report from these synthetic notes.");
+  const savedDraft = core.saveDraft.bind(core), sendsBeforeDraftFailure = sendRequests, generationsBeforeDraftFailure = generationCalls;
+  let rejectedDraftClears = 0;
+  core.saveDraft = (id, text) => {
+    if (text === "" && rejectedDraftClears === 0) { rejectedDraftClears++; throw fail('STORAGE'); }
+    return savedDraft(id, text);
+  };
+  try {
+    // Await the shipped onclick promise, including its error recovery and finally block.
+    await desktop.evaluate(() => document.getElementById('send').onclick());
+    assert.equal(rejectedDraftClears, 1);
+    assert.equal(sendRequests, sendsBeforeDraftFailure, 'A failed draft clear must not send a request');
+    assert.equal(generationCalls, generationsBeforeDraftFailure);
+    assert.equal(await desktop.locator('#prompt').inputValue(), 'Prepare a weekly operations report from these synthetic notes.');
+    assert.equal(await desktop.locator('#prompt').isEnabled(), true);
+    assert.equal(await desktop.locator('#attach').isEnabled(), true);
+    assert.equal(await desktop.locator('#send').isVisible(), true);
+    assert.equal(await desktop.locator('#stop').isHidden(), true);
+    assert.equal(await desktop.locator('.message').count(), 0);
+    assert.equal(await desktop.locator('#compose-status').textContent(), '');
+    assert.equal(await desktop.locator('#toast').textContent(), safeError(fail('STORAGE')).message);
+  } finally { core.saveDraft = savedDraft; }
   await desktop.locator("#send").click();
   await desktop.getByText('Token usage',{exact:true}).first().click();
   await desktop.locator('details').filter({has:desktop.locator('summary').getByText('Token usage',{exact:true})}).locator('.usage').waitFor();
   assert.equal(await desktop.locator(".message.assistant table").count(), 1);
+  assert.equal(sendRequests, sendsBeforeDraftFailure + 1, 'The recovered Send action must submit exactly once');
+  assert.equal(generationCalls, generationsBeforeDraftFailure + 1);
+  checks.push('Rejected draft save preserves the prompt and controls, releases Send, and allows exactly one subsequent request');
   checks.push("Streaming answer renders a table and token counts");
   await desktop.screenshot({
     path: path.join(root, "build/screenshots/desktop-chat.png"),
@@ -374,6 +403,45 @@ let browser;
   await desktop.screenshot({
     path: path.join(root, "build/screenshots/desktop-settings.png"),
   });
+  const approvalsBeforeReplacement = approvalRequests.length, generationsBeforeReplacement = generationCalls;
+  const previousFingerprint = core.summary().providerApprovalFingerprint;
+  assert.equal(await desktop.locator('[name="approved"]').isChecked(), true);
+  await desktop.locator('[name="apiKey"]').fill('sk-synthetic-ui-replacement');
+  await desktop.locator('[data-act="save-key"]').click();
+  await desktop.waitForFunction(() => document.querySelector('#toast').textContent === 'API key for openai saved securely.');
+  assert.equal(core.key('openai'), 'sk-synthetic-ui-replacement');
+  assert.equal(await desktop.locator('[name="approved"]').isChecked(), false);
+  await desktop.locator('[data-act="save-settings"]').click();
+  await desktop.waitForFunction(() => document.querySelector('#toast').textContent === 'Settings saved.');
+  await desktop.reload();
+  await desktop.getByRole('heading', {name:'What would you like to work on?'}).waitFor();
+  for (const menu of await desktop.locator('#sidebar details').all()) if (!await menu.evaluate(el => el.open)) await menu.locator(':scope > summary').click();
+  await desktop.locator('#sidebar [data-view="settings"]').click();
+  assert.equal(await desktop.locator('[name="approved"]').isChecked(), false);
+  assert.equal(core.settings().approved, false);
+  assert.equal(core.store.get('settings', 'main').providerApproval, undefined);
+  assert.notEqual(core.summary().providerApprovalFingerprint, previousFingerprint);
+  assert.equal(approvalRequests.length, approvalsBeforeReplacement, 'Key replacement, saving and reload must never submit approval');
+  assert.throws(() => core.canSend(true, true), {code:'SETUP'});
+  await desktop.locator('.new-chat').click();
+  await desktop.getByRole('heading', {name:'What would you like to work on?'}).waitFor();
+  await desktop.locator('#prompt').fill('Discuss these supplied synthetic design tradeoffs after credential replacement.');
+  await desktop.locator('#send').click();
+  await desktop.getByText(safeError(fail('AI_SETUP')).message, {exact:true}).waitFor();
+  assert.equal(generationCalls, generationsBeforeReplacement, 'Unapproved credentials must not reach inference');
+  await desktop.locator('#sidebar [data-view="settings"]').click();
+  const reviewedFingerprint = core.summary().providerApprovalFingerprint;
+  await desktop.locator('[name="approved"]').click();
+  await desktop.getByRole('heading', {name:'Approve the saved provider configuration?'}).waitFor();
+  assert.ok((await desktop.locator('#modal-content').textContent()).includes(reviewedFingerprint));
+  await desktop.locator('#modal-submit').click();
+  await desktop.waitForFunction(() => document.querySelector('[name="approved"]')?.checked === true);
+  assert.equal(core.settings().approved, true);
+  assert.equal(approvalRequests.length, approvalsBeforeReplacement + 1);
+  assert.equal(approvalRequests.at(-1), reviewedFingerprint);
+  assert.equal(core.settings().providerApproval.fingerprint, reviewedFingerprint);
+  assert.doesNotThrow(() => core.canSend(true, true));
+  checks.push('Replacing an approved key, saving and reloading cannot reapprove it; inference stays blocked until explicit saved-fingerprint approval');
   await desktop.locator('#sidebar [data-view="workspace"]').click();await desktop.locator('#content [data-view="projects"]').click();
   await desktop.locator('[data-act="project-new"]').click();
   await desktop.locator('[name="name"]').fill("Operations");

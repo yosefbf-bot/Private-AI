@@ -64,6 +64,7 @@ const config = devPolicy.configuration();
 const PORT = config.port;
 const app = express();
 
+app.enable("case sensitive routing");
 app.disable("x-powered-by");
 app.use(devPolicy.boundary(config));
 app.use(express.json({ limit: "50mb" }));
@@ -95,16 +96,9 @@ const store = new Store(path.join(localRoot, "privateai.db"), cipher);
 const client = new UnifiedClient();
 
 // Real-time Server-Sent Events (SSE)
-const eventClients = new Set();
+const eventClients = new (require('./server/development-events.cjs').DevelopmentEvents)();
 function emit(event) {
-  const data = `data: ${JSON.stringify(event)}\n\n`;
-  for (const clientRes of eventClients) {
-    try {
-      clientRes.write(data);
-    } catch {
-      eventClients.delete(clientRes);
-    }
-  }
+  eventClients.emit(event);
 }
 
 const core = new Core({
@@ -407,16 +401,7 @@ app.get("/api/health", (_req, res) => {
 
 // SSE Events stream
 app.get("/api/events", (req, res) => {
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-  });
-  res.write(": keep-alive\n\n");
-  eventClients.add(res);
-  req.on("close", () => {
-    eventClients.delete(res);
-  });
+  eventClients.add(req, res);
 });
 
 // RPC Call route
@@ -467,6 +452,6 @@ app.use((_req, res) => {
 
 app.listen(PORT, config.host, () => {
   console.log(`${devPolicy.LABEL}: http://127.0.0.1:${PORT}`);
-  console.log(`Development Access Token: ${config.token}`);
+  console.log('Development access: use PRIVATE_AI_DEV_TOKEN from your local .env (or configured environment) in the sign-in form.');
 });
 

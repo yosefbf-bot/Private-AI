@@ -119,6 +119,7 @@ class Core {
     const s = this.settings();
     return {
       settings: s,
+      providerApprovalFingerprint: require('./provider-policy.cjs').fingerprint(s, this.key(s.provider)),
       voiceTranscripts: this.store.list("voice_transcript"),
       resources: this.resources.snapshot(),
       health: this.stability.snapshot(),
@@ -257,7 +258,10 @@ class Core {
     const changed = policy.fingerprint(current, this.key(current.provider)) !== policy.fingerprint(s, key);
     if (changed || input.approved === false) delete s.providerApproval;
     // Material changes always require a subsequent explicit approval action.
-    if (input.approved === true && !changed && s.provider === 'openai' && key) {
+    if (input.approved === true && input.approvalFingerprint !== undefined &&
+        (changed || input.approvalFingerprint !== policy.fingerprint(s, key))) throw fail('PROVIDER_CHANGED');
+    if (input.approved === true && !changed && s.provider === 'openai' && key &&
+        input.approvalFingerprint === policy.fingerprint(s, key)) {
       s.providerApproval = { fingerprint: policy.fingerprint(s, key), policyVersion: policy.POLICY_VERSION,
         organizationConfirmed: true, approvedAt: Date.now() };
     }
@@ -276,6 +280,8 @@ class Core {
     text(key, 500);
     const prov = provider || this.settings().provider || "openai";
     const { validateKeyForProvider } = require("./providers.cjs");
+    if (Object.hasOwn(require('./providers.cjs').PROVIDERS, prov) &&
+        !require('./providers.cjs').PROVIDERS[prov].requiresKey && !key.trim()) return true;
     validateKeyForProvider(key, prov);
     this.store.put("secret", prov, { key });
     const current = this.settings();
@@ -290,8 +296,8 @@ class Core {
   deleteKey(provider) {
     this.assertUnlocked();
     const prov = provider || this.settings().provider || "openai";
-    this.store.delete("secret", prov);
     if (!Object.hasOwn(require("./providers.cjs").PROVIDERS, prov)) throw fail("INVALID");
+    this.store.delete("secret", prov);
     if (prov === this.settings().provider) {
       const current = this.settings(); delete current.providerApproval;
       this.store.put("settings", "main", { ...current, approved: false });
@@ -741,7 +747,7 @@ class Core {
       );
       answer.durationMs = Date.now() - startTime;
       answer.usage = result.usage;
-      answer.processing={provider:result.provider,model:result.model,reason:result.reason,reliability:result.reliability,localReliability:result.localReliability,meter:result.meter,routing:result.routing};
+      answer.processing={provider:result.provider,model:result.model,reason:result.reason,reliability:result.reliability,localReliability:result.localReliability,meter:result.meter,routing:result.routing,policyNotice:result.policyNotice};
       answer.incomplete = result.incomplete;
       this.store.audit("request", {
         ...result.usage,
@@ -1024,7 +1030,8 @@ class Core {
       record.savedAnswer=answer;
       if(j.playbook){record.playbook=j.playbook;record.outputCheck=require('./workflows/playbooks.cjs').checkOutput(j,answer.text);if(!record.outputCheck.passed){saveStep('output sections require review');throw fail('OUTPUT_CHECK');}}
       saveStep("answer saved");
-      record.resultText = answer.text;
+      const reportText = answer.policyNotice ? answer.text + '\n\nProvider provenance limitation:\n' + answer.policyNotice : answer.text;
+      record.resultText = reportText;
       record.status = 'running';
       record.reason = '';
       this.store.put("job", j.id, record);
@@ -1039,7 +1046,8 @@ class Core {
         }
       }
       if(!out)out = await exportFile(root, {
-        content: answer.text,
+        content: reportText,
+        policyNotice: answer.policyNotice,
         format: j.format || "pdf",
         jobId: j.id,
         onPrepared: (intent)=>{checkpoint.exportIntent=intent;saveStep("export prepared");},
@@ -1049,7 +1057,7 @@ class Core {
       record.completed = Date.now();
       record.output = out.relative;
       record.usage = answer.usage;
-      record.processing={provider:answer.provider,model:answer.model,reliability:answer.reliability,meter:answer.meter,routing:answer.routing};
+      record.processing={provider:answer.provider,model:answer.model,reliability:answer.reliability,meter:answer.meter,routing:answer.routing,policyNotice:answer.policyNotice};
       const completedRecord={...record};
       delete completedRecord.resultText;delete completedRecord.savedAnswer;delete completedRecord.recoveryInput;delete completedRecord.checkpoint;
       this.store.put("job", j.id, completedRecord);

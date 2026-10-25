@@ -52,6 +52,29 @@ test('entry point reaches chat startup and wires approval only after real Core i
 test('background entry point starts without opening a window or asking unattended approval',async t=>{
  const b=await boot(t,{background:true});assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.ok(b.core);assert.equal(b.windows.length,0);assert.equal(await b.core.resources.approve('Desktop input'),false);assert.equal(b.dialogs.length,0);assert.equal(b.core.router.local.state,'unloaded');
 });
+
+test('desktop IPC preserves all secrets on invalid deletion and binds explicit approval to the saved credential',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);
+ const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ b.core.store.put('secret','applock',{synthetic:'retained-lock-secret'});
+ assert.equal((await call('saveKey',{provider:'openai',key:'sk-synthetic-first'})).ok,true);
+ assert.equal((await call('settings',{model:'synthetic-ipc-model'})).ok,true);
+ const secrets=b.core.store.list('secret');
+ for(const provider of ['applock','constructor','__proto__']) {
+   assert.equal((await call('deleteKey',{provider})).error.code,'INVALID');assert.deepEqual(b.core.store.list('secret'),secrets);
+ }
+ let fingerprint=(await call('summary')).result.providerApprovalFingerprint;
+ assert.equal((await call('settings',{approved:true,approvalFingerprint:fingerprint})).result.approved,true);
+ assert.equal((await call('saveKey',{provider:'openai',key:'sk-synthetic-replacement'})).ok,true);
+ assert.equal((await call('settings',{approved:true})).result.approved,false);
+ assert.equal((await call('settings',{approved:true,approvalFingerprint:fingerprint})).error.code,'PROVIDER_CHANGED');
+ assert.throws(()=>b.core.canSend(true,true),{code:'SETUP'});
+ fingerprint=(await call('summary')).result.providerApprovalFingerprint;
+ assert.equal((await call('settings',{approved:true,approvalFingerprint:fingerprint})).result.approved,true);
+ assert.equal((await call('summary')).result.settings.approved,true);
+ assert.doesNotThrow(()=>b.core.canSend(true,true));
+});
 test('desktop Load model IPC fits Automatic context and preserves explicit manual context',async t=>{
  const b=await boot(t),loads=[],row={tier:'small',file:'C:\\synthetic\\qwen-small.gguf',bytes:1282439584,installed:true};
  b.core.saveSettings({localTier:'auto',localContext:4096,localMaxOutput:768});b.core.resources.memory=()=>3*1024**3;
