@@ -1,5 +1,38 @@
 # Instructions for ChatGPT / Codex and other coding agents
 
+## ECC development workflow defaults — 2026-10-25
+
+When native `ecc@ecc` is available, select its guidance from ordinary task intent:
+`planner` for substantial/cross-component changes; `tdd-workflow` for meaningful
+behavior/regression changes; `verification-loop` before significant completion;
+`code-reviewer` for substantial/security-sensitive work; `security-review` for
+authentication, pairing, credentials, files, PHI and external connections;
+`e2e-testing` for changed UI flows; `build-error-resolver` for build/type failures.
+Planner/reviewer/resolver are guidance documents under the installed plugin's
+`agents/`, not Claude configurations to copy. Load only relevant guidance. ECC is
+optional development tooling, never an application dependency or release prerequisite.
+
+Main agent implements/tests; use at most one additional read-only helper for a
+focused investigation or independent review. No helper edits or nested delegation.
+Use concise handoffs and avoid duplicate work/repeated review without a real issue.
+Preserve model/effort and ChatGPT sign-in; no API billing, memory services, learning
+jobs, extra integrations or background loops. Project safeguards below take precedence
+over generic ECC examples; no blanket coverage target or timed full-suite repeats.
+
+Use actual package scripts: focused `node --test --test-concurrency=1
+--test-timeout=60000 tests/<relevant>.test.cjs`, then required `npm test`,
+`npm run test:hardening`, `npm run check:repository`, `npm run lint`,
+`npm run guide:check`, `npm audit --omit=dev --audit-level=high`, and release gates
+as applicable. `build`/`lint` check syntax; neither proves a working installer.
+UI/browser changes need applicable `test:hardening-ui`/`test:browsers` and visual
+checks, including dark mode. Release/startup changes need genuine Windows
+installer/app start-stop, retained-data upgrade/reinstall, portable and real model
+checks tied to the artifact. Pairing/reconnect changes need real synthetic HTTPS
+Core/SQLite interoperability with the companion. Preserve DPAPI, Local Only/HIPAA,
+optional PCC, unknown-data distinctions and explicit Outlook/WhatsApp send/delete
+approvals. Use synthetic data; report unavailable PC/device/account checks as untested.
+Keep all existing CI requirements and the administrative-document scope policy.
+
 User standing instruction: before each new implementation task, fetch GitHub and verify the latest `origin/main` SHA, active branch, worktree status and application version. A local folder, uploaded archive or version label is not proof of currency. Preserve local changes, then integrate them into the current GitHub architecture. If the remote cannot be checked, disclose that limitation. Recheck main before publication and reconcile new upstream changes without discarding work.
 
 High-priority persistent project policy: read `docs/GOOGLE_AI_STUDIO_GUARDRAILS.md` before every change. It records the user's required safeguards after the 2026-09-29 Google update removed release assets and reintroduced production sample data.
