@@ -36,14 +36,20 @@ Scope split: mostly the desktop app; the companion app gets a smaller share.
 
 - [x] Verify latest GitHub state for both repositories.
 - [x] Set up Codex delegation with a read-only smoke test and same-session follow-up.
-- [ ] Codex read-only reviews (findings go below):
-  - R1 desktop speed and RAM: startup, main-process blocking, renderer weight, SQLite, local model/RAM admission
-  - R2 desktop browser automation: launch and memory, leaks, download/save races, sign-in flow reliability, tests
-  - R3 desktop security, reliability and simplicity: IPC, dev server, companion gateway, providers, confusing UX
-  - R4 companion app and desktop interoperability: Android perf/memory/security, gateway contract compatibility
-- [ ] Triage into small sequential implementation batches. Each batch: Codex implements in workspace-write; the coordinator reviews the diff and reruns tests.
-- [ ] Verification: `npm run lint`, `npm test`, `npm run test:hardening`, `npm run check:repository`, browser automation tests (`tests/browser-*.test.cjs`, `npm run test:browsers`, native report sign-in with Edge), companion interop (`.github/scripts/desktop_interop.py`), Android CI.
-- [ ] Update `AI_HANDOFF.md` / `PROJECT_STATUS.json` with actual tested scope. Open draft PRs.
+- [x] Codex read-only reviews R1–R9: desktop speed/RAM, browser automation, security/simplicity, companion and interop, clinical engines, UI simplicity, documents/OCR/speech, extension/helper/packaging, idle CPU/wakeups. Reports are on the owner PC at `%USERPROFILE%\.claude\codex-delegate\runs\*-R<n>-*\last_message.md`.
+- [x] Desktop Batch A, `20147c2`: dev-server `/API` casing auth bypass; deleteKey validation; approval re-binding after a key change; cloud-backed Ollama refused under HIPAA/Local Only; SSE session/backlog limits; send latch; truncation and usage accounting.
+- [x] Desktop Batch B, `74d2e88`: lazy Playwright (startup probe 194→10 ms, 72→2 MiB); bounded streaming Markdown cache; cleanup checks timestamps before decrypting; separate encrypted drafts with no rewrite of whole chats; PDF text extracted before OCR; async model writes; model hash-cache flake.
+- [x] Desktop security deps, `0be755b`: `npm audit --omit=dev` 9 → 0. DOMPurify 3.4.17 (critical) including vendored copies; mailparser 3.12.4; puppeteer override 25.16.0 (zod 4.6.7); body-parser 2.4.0.
+- [x] Companion `a3db738` + `0f21b1b` + `f58fbe1`: metadata-only document lists; SQL-filtered migration; revision-based refresh with 429 backoff; lease-aware sync; BUSY retry; one evidence validator; meeting outbox isolation; honest alert coverage. Also fixed the CI hang (a runBlocking/paused-dispatcher test deadlock), added fail-fast test logging and a 15-minute timeout, and stabilized five racing tests. PR yosefbf-bot/AI-Mobile-companion-app#16.
+- [ ] Remaining desktop batches, in priority order. Briefs were drafted from the review reports:
+  - C, fewer repeated decryptions and less idle work: R1-04 job summaries; R4-05 gateway status/tasks; R1-08 speech/drafts polling; R5-01 clinical evidence (2.37M decryptions / 30.5 s for 200 residents → one snapshot per pass); R9-06/07/08/10/11; R7-01 speech/AI-slot deadlock.
+  - G, clinical/operations safety: R5-02 meeting lost updates; R5-03 SBAR incident codes; R5-04 Demo isolation in slash commands; R6-01 render after lock; R6-02 review filter hides alerts; R6-03 reference protocol marked verified; R6-04 hardcoded "Dr. Robert Smith"/"Nurse Clinician"; R6-05 copy safeguard.
+  - D, browser automation and resources: measured low-RAM browser budget (R1-01/R2-01); R2-04/05/07/08/09/11/12/13; WhatsApp resource tracking/cleanup (R2-02/R2-10, R9-02); R9-01/03/04/05/09; Ollama reservation plus native /api/chat (R3-04/R3-05).
+  - E, features and simplicity: R3-08 microphone permission (local recording is currently blocked); R3-11 provider capabilities; R1-11 lazy UI modules; phase-specific LOW_MEMORY messages; remove dead UI branches; R6 convenience items.
+  - H: the remaining R7 (documents) and R8 (extension/packaging/CI) items.
+- [ ] Known pre-existing issue: `node tests/hardening-ui-check.cjs` fails identically on main `faa367d` (waits for "Document search is available in the production desktop workspace."). CI does not run it.
+- [ ] Strain measurement: a safe isolated harness exists on the owner PC (it launches Electron from source with redirected LOCALAPPDATA/APPDATA/TEMP and verifies that real data and the registry are untouched). Before/after numbers have not been taken yet.
+- [ ] Update `AI_HANDOFF.md` / `PROJECT_STATUS.json` with actual tested scope. Open the desktop PR when the batches are ready (CI runs only on PRs and main).
 
 ## Constraints carried from repository policy
 
@@ -51,4 +57,4 @@ AGENTS.md, GEMINI.md and docs/GOOGLE_AI_STUDIO_GUARDRAILS.md apply. Preserve `pa
 
 ## How to continue
 
-Pick up the first unchecked item above. Review findings and batch results are appended to this file as they land.
+Pick up the first unchecked item above. Verification for each desktop batch: `npm run lint`, `npm run check:repository`, `npm run guide:check`, `npm audit --omit=dev --audit-level=high`, `npm run test:hardening`, the full `npm test` (820/820 at `0be755b`), and `ui-check` / `assistant-ui-check` / `browser-e2e-check` against the installed Edge (`PRIVATE_AI_TEST_CHROMIUM` / `PRIVATE_AI_TEST_BROWSERS=edge,chrome`). Wrap `npm test` in a timeout: a test that leaves a timer open hangs the runner indefinitely.
