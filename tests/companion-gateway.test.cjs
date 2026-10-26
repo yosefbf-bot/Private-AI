@@ -11,6 +11,20 @@ async function setup(t) {
   const pairing=gateway.pair({name:'Synthetic phone',scopes:{chat:true,tasks:true,alerts:true}});
   return {...f,gateway,pairing};
 }
+
+test('phone task limit is applied before metadata decryption and repeated status uses encrypted totals',async t=>{
+ const {core,cipher,gateway,pairing}=await setup(t);
+ for(let i=0;i<130;i++)core.store.put('job','synthetic-'+i,{status:i<10?'queued':'completed',resultText:'PRIVATE_RESULT',title:'Private title'},{updated:i});
+ const open=cipher.open.bind(cipher),reads=[];cipher.open=(p,a)=>{reads.push(a);return open(p,a);};
+ const result=await request(gateway,pairing,'/tasks');
+ assert.equal(result.status,200);assert.equal(result.body.total,130);assert.equal(result.body.truncated,true);assert.equal(result.body.tasks.length,100);
+ assert.equal(result.body.tasks[0].id,'synthetic-129');assert.equal(result.body.tasks.at(-1).id,'synthetic-30');
+ assert.equal(reads.filter(a=>a.startsWith('meta:job:')).length,100);assert.equal(reads.filter(a=>a.startsWith('job:')).length,0);
+ assert.doesNotMatch(JSON.stringify(result.body),/PRIVATE|Private title|hasResultText/);
+ assert.equal((await request(gateway,pairing,'/status')).body.activeJobs,10);reads.length=0;
+ assert.equal((await request(gateway,pairing,'/status')).body.activeJobs,10);assert.equal(reads.filter(a=>/^(meta:job:|job:)/.test(a)).length,0);
+ core.store.put('job','synthetic-0',{status:'completed'});assert.equal((await request(gateway,pairing,'/status')).body.activeJobs,9);
+});
 test('gateway is off by default, starts without cloud/PCC, and refuses broad/public/absent binds',async t=>{
   const {core,calls}=fixture(t);core.deleteKey();
   const gateway=new CompanionGateway(core,{certificateFactory:()=>assert.fail('Disabled startup must not create a certificate')});

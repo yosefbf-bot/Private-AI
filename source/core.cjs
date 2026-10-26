@@ -1223,7 +1223,7 @@ class Core {
     const s = this.settings();
     if (!s.autoReminders) return [];
     const now = Date.now();
-    const list = this.store.list("todo");
+    const list = this.store.summaries("todo");
     const due = [];
     for (const t of list) {
       if (t.status !== "pending" || t.reminderEnabled === false || t.notified) continue;
@@ -1234,9 +1234,12 @@ class Core {
         if (!isNaN(parsed) && parsed <= now) isDue = true;
       }
       if (isDue) {
-        t.notified = true;
-        this.store.put("todo", t.id, t);
-        due.push(t);
+        const current=this.store.get('todo',t.id);
+        if(!current||current.status!=='pending'||current.reminderEnabled===false||current.notified)continue;
+        if(!(current.dueAt&&current.dueAt<=now)&&!(current.followUpDate&&Date.parse(current.followUpDate)<=now))continue;
+        const notified={...current,id:t.id,notified:true};
+        this.store.put("todo", t.id, notified);
+        due.push(notified);
       }
     }
     if (due.length > 0) {

@@ -16,7 +16,7 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   await page.getByRole('button',{name:'Connect',exact:true}).click();
   await page.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
   assert.match(await page.locator('#development-mode-banner').textContent(),/Not for PHI/);
-  for(const op of ['integrationSave','companionStatus','companionSave','companionPair','companionRevoke','speechSetup','speechDictate','assistantDraftRetry','browserGrant','browserSchedule']){
+  for(const op of ['integrationSave','companionStatus','companionSave','companionPair','companionRevoke','speechSetup','speechDictate','assistantDraftRetry','browserGrant','browserSchedule','workflowJobDraft']){
     const result=await page.evaluate(op=>window.privateAI.call(op,{}),op);assert.equal(result.ok,false);assert.equal(result.error.code,'POLICY');
   }
   await page.locator('#sidebar [data-view=dashboard]').click();await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();

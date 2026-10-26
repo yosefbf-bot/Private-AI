@@ -1830,7 +1830,7 @@ class SNFCommandCenter {
     ];
     let totalRawRecords = 0;
     for (const kind of rawKinds) {
-      totalRawRecords += this.store.list(kind).length;
+      totalRawRecords += this.store.count(kind);
     }
 
     return {

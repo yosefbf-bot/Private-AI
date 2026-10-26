@@ -6,7 +6,7 @@ function list(core,snf,{key}={}){
  core.assertUnlocked();const store=snf.store,restricted=!!snf.demoMode||!!core.developmentMode,sources=[];
  const add=(kind,id,title,detail,source,view)=>sources.push({key:kind+':'+id,kind,id,title,detail,revision:signature(source),route:{view,...(kind==='job'?{jobId:id}:kind==='schedule'?{scheduleId:id}:{})}});
  if(!restricted){
-  core.store.project('job',j=>{if(j.status==='failed')add('job',j.id,j.title||'Report needs review',j.error==='INTERRUPTED'?'Interrupted report requires review; it was not automatically repeated.':'A report failed. Review its saved state before retrying.',{status:j.status,error:j.error,completed:j.completed,checkpoint:j.checkpoint?.phase},'automation');return null;});
+  core.store.summaries('job').forEach(j=>{if(j.status==='failed')add('job',j.id,j.title||'Report needs review',j.error==='INTERRUPTED'?'Interrupted report requires review; it was not automatically repeated.':'A report failed. Review its saved state before retrying.',{status:j.status,error:j.error,completed:j.completed,checkpoint:j.step||undefined},'automation');return null;});
   for(const s of core.store.list('schedule'))if(s.error)add('schedule',s.id,s.name||'Schedule needs review','This schedule could not continue. Review its source and permissions.',{enabled:s.enabled,error:s.error,lastRun:s.lastRun},'automation');
   for(const m of core.store.recent('messageOut',100))if(['pending-approval','delivery-uncertain'].includes(m.status))add('message',m.id,'WhatsApp delivery needs review',m.status==='pending-approval'?'A prepared message awaits your approval. Nothing has been sent.':'Delivery is uncertain. Check WhatsApp before considering another send.',{status:m.status,revision:m.revision,time:m.time},'messaging');
  }

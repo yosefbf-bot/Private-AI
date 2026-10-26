@@ -19,8 +19,9 @@ function attach(snf) {
   });
   // Older releases only exposed PCC imports. Preserve that explicitly used
   // capability, but do not enable PCC because default settings happen to name it.
-  const legacy=snf.store.list('snf_import_report').some(r=>!r.sourceProvider||r.sourceProvider==='pcc');
-  if (!snf.store.get('integration','pcc') && (snf.demoMode||legacy)) {
+  if (snf.store.get('integration','pcc')) return;
+  const legacy=snf.demoMode||snf.store.summaries('snf_import_report').some(r=>!r.sourceProvider||r.sourceProvider==='pcc');
+  if (legacy) {
     snf.store.put('integration','pcc',{enabled:true,mode:'manual',migration:'existing-imports-v1'});
     const previous=snf.store.get('config',snf.feedStatusKey);
     if (previous&&!snf.store.get('config',snf.pccFeedStatusKey)) snf.store.put('config',snf.pccFeedStatusKey,previous);

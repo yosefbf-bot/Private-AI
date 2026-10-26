@@ -773,6 +773,26 @@ let browser;
     await desktop.locator('#sidebar [data-view=settings]').click();assert.equal(await desktop.locator('#voice-hud').isVisible(),false);
   }
   checks.push('Voice setup fails safely before microphone access; online browser recognizer is never started');
+  core.store.put('job','synthetic-lazy-draft',{title:'Synthetic saved draft',status:'failed',playbook:{id:'synthetic',revision:1},savedAnswer:{text:'SYNTHETIC LAZY DRAFT <script>not executable</script>'}});
+  for(const theme of ['light','dark']){
+    await desktop.evaluate(async theme=>{
+      const {createWorkflowUI}=await import('/source/ui/workflows.mjs');
+      const host=document.createElement('div');host.id='lazy-draft-fixture';document.querySelector('#content').replaceChildren(host);
+      document.documentElement.dataset.theme=theme;
+      const esc=s=>{const el=document.createElement('span');el.textContent=String(s??'');return el.innerHTML;};
+      const api=async(op,data)=>{const r=await window.privateAI.call(op,data);if(!r.ok)throw Error(r.error.code);return r.result;};
+      await createWorkflowUI({api,esc,toast:message=>{throw Error(message);}}).render(host,'playbooks');
+    },theme);
+    const host=desktop.locator('#lazy-draft-fixture');
+    assert.doesNotMatch(await host.innerHTML(),/SYNTHETIC LAZY DRAFT/);
+    await host.locator('details').filter({hasText:'Synthetic saved draft'}).locator('summary').click();
+    await host.getByRole('button',{name:'Read saved draft'}).click();
+    await host.getByRole('textbox',{name:'Saved draft'}).waitFor();
+    assert.equal(await host.getByRole('textbox',{name:'Saved draft'}).inputValue(),'SYNTHETIC LAZY DRAFT <script>not executable</script>');
+    assert.equal(await host.locator('script').count(),0);
+    await host.evaluate(el=>el.remove());
+  }
+  checks.push('Light/dark playbook draft loads only on request through real Core; full saved text is preserved and rendered without HTML execution');
   checks.push('Surveillance retention notice makes no regulatory exemption claim');
   assert.deepEqual(errors, []);
   checks.push("No browser JavaScript errors");

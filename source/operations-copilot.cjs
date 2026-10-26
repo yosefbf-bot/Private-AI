@@ -585,7 +585,7 @@ class OperationsCopilotEngine {
     const meeting = this.store.get('meeting', meetingId);
     if (!meeting) throw fail('NOT_FOUND');
 
-    if(this.store.project('meeting_audio',a=>a.meetingId===meetingId&&a.status!=='transcribed').some(Boolean))throw fail('SPEECH_PENDING');
+    if(this.store.summaries('meeting_audio').some(a=>a.meetingId===meetingId&&a.status!=='transcribed'))throw fail('SPEECH_PENDING');
     meeting.status = 'completed';
     meeting.completedAt = meeting.completedAt || Date.now();
 

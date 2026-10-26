@@ -18,6 +18,10 @@ function createMockCore() {
 
   const store = {
     transaction(fn) { return fn(); },
+    summaries(kind) { return this.list(kind); },
+    // Unrelated operations tests use an in-memory store; real encrypted
+    // aggregate invalidation/snapshot behavior is covered by Batch 1 tests.
+    aggregate(kind,build) { return build(this.list(kind).map(({rows,...header})=>({...header,rowCount:rows.length,snapshotKeys:[...new Set(rows.map(r=>JSON.stringify([r.date,r.unit])))]}))); },
     project(kind, fn) { return this.list(kind).map(fn); },
     list(kind) {
       const items = [];

@@ -492,7 +492,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
                         <div class="auto-row-actions">
                           ${j.output ? `<button class="auto-btn auto-btn-sm auto-btn-primary" data-act="job-open" data-path="${esc(j.output)}">Open Report</button>` : ''}
                           ${j.recoverable && j.status === 'failed' ? `<button class="auto-btn auto-btn-sm" data-act="job-resume" data-id="${j.id}">Resume</button>` : ''}
-                          ${j.resultText && !j.recoverable && j.status === 'failed' ? `<button class="auto-btn auto-btn-sm" data-act="retry-export" data-id="${j.id}">Export</button>` : ''}
+                          ${j.hasResultText && !j.recoverable && j.status === 'failed' ? `<button class="auto-btn auto-btn-sm" data-act="retry-export" data-id="${j.id}">Export</button>` : ''}
                           <button class="auto-btn auto-btn-sm" data-act="auto-view-run" data-id="${j.id}">Details</button>
                         </div>
                       </td>
@@ -800,7 +800,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
           <div class="auto-modal-footer">
             ${j.output ? `<button class="auto-btn auto-btn-primary" data-act="job-open" data-path="${esc(j.output)}">Open Report</button>` : ''}
             ${j.recoverable && j.status === 'failed' ? `<button class="auto-btn auto-btn-primary" data-act="job-resume" data-id="${j.id}">Review &amp; Resume</button>` : ''}
-            ${j.resultText && !j.recoverable && j.status === 'failed' ? `<button class="auto-btn auto-btn-primary" data-act="retry-export" data-id="${j.id}">Save PDF</button>` : ''}
+            ${j.hasResultText && !j.recoverable && j.status === 'failed' ? `<button class="auto-btn auto-btn-primary" data-act="retry-export" data-id="${j.id}">Save PDF</button>` : ''}
             ${['running', 'waiting', 'paused'].includes(j.status) ? `<button class="auto-btn auto-btn-danger" data-act="job-stop" data-id="${j.id}">Stop Task</button>` : ''}
             <button class="auto-btn" id="btn-modal-done">Done</button>
           </div>

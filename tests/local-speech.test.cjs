@@ -34,3 +34,21 @@ test('meeting microphone cancellation releases a late grant without capturing',a
   controller.abort();grant({getTracks:()=>[{stop:()=>stops++}]});await assert.rejects(recording,/cancelled/);
   assert.equal(stops,1);assert.equal(calls,0);
 });
+
+test('background speech refreshes metadata after await when new audio arrives before finalization',async t=>{
+ const {core}=fixture(t);core.saveSettings({workerPaused:false});
+ const meeting=ops.dispatch(core,'meetingSave',{type:'general'}),audio=await sample();
+ core.store.put('meeting',meeting.id,{...meeting,companionSourceId:'synthetic-phone',finishRequested:true,expectedChunkCount:1});
+ const first=await speech.dispatch(core,'speechWrite',{meetingId:meeting.id,chunkId:crypto.randomUUID(),audio});
+ let begin,finish;const started=new Promise(r=>begin=r),gate=new Promise(r=>finish=r);
+ const task=core.resources.task;core.resources.task=async()=>{
+  begin();await gate;
+  const row=core.store.get('meeting_audio',first.id);core.store.put('meeting_audio',first.id,{...row,status:'transcribed',text:'Synthetic recording'});
+  return {id:first.id,text:'Synthetic recording'};
+ };t.after(()=>{finish();core.resources.task=task;});
+ const work=speech.processPending(core);await started;
+ const second=await speech.dispatch(core,'speechWrite',{meetingId:meeting.id,chunkId:crypto.randomUUID(),audio});
+ finish();await assert.doesNotReject(work);
+ assert.equal(core.store.get('meeting',meeting.id).status,'live');
+ assert.equal(core.store.get('meeting_audio',second.id).status,'pending');
+});

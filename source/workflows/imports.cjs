@@ -221,58 +221,44 @@ function metricImport(snf, data) {
     rows: p.rows,
     completeDay: p.completeDay,
   });
-  const prior = snf.store
-    .list("wf_metric_import")
-    .find((r) => r.digest === digest);
-  if (prior) return { ...prior, duplicate: true };
-  const row = {
-    ...p,
-    id: uuid(),
-    digest,
-    sequence:
-      snf.store
-        .list("wf_metric_import")
-        .reduce((n, r) => Math.max(n, r.sequence || 0), 0) + 1,
-    importedAt: Date.now(),
-  };
-  delete row.token;
-  delete row.rejected;
-  snf.store.put("wf_metric_import", row.id, row);
-  return row;
+  return snf.store.transaction(()=>{
+    const history=snf.store.summaries('wf_metric_import');
+    const prior=history.find(r=>r.digest===digest);
+    if(prior)return {...snf.store.get('wf_metric_import',prior.id),id:prior.id,duplicate:true};
+    const row={...p,id:uuid(),digest,sequence:history.reduce((n,r)=>Math.max(n,r.sequence||0),0)+1,importedAt:Date.now()};
+    delete row.token;delete row.rejected;
+    snf.store.put('wf_metric_import',row.id,row);
+    return row;
+  });
 }
 function metrics(snf) {
-  const batches = snf.store
-      .list("wf_metric_import")
-      .sort(
-        (a, b) =>
-          (a.sequence || 0) - (b.sequence || 0) || a.importedAt - b.importedAt,
-      ),
-    days = new Map();
-  // Each import replaces only supplied date/unit snapshots, not other units or days.
-  for (const b of batches) {
-    const groups = new Map();
-    for (const row of b.rows) {
-      const key = signature([row.date, row.unit]);
-      if (!groups.has(key)) groups.set(key, []);
+  return snf.store.transaction(()=>{
+  const snapshot=snf.store.aggregate('wf_metric_import',history=>{
+    const batches=history.sort((a,b)=>(a.sequence||0)-(b.sequence||0)||a.importedAt-b.importedAt);
+    const latest=new Map();
+    for(const b of batches)for(const key of b.snapshotKeys)latest.set(JSON.stringify([b.type,key]),b.id);
+    return {batches,latest:[...latest]};
+  });
+  const batches=snapshot.batches, latest=new Map(snapshot.latest), days=new Map();
+  const contributing=new Set(latest.values());
+  for(const meta of batches){
+    if(!contributing.has(meta.id))continue;
+    const b=snf.store.get('wf_metric_import',meta.id);
+    const groups=new Map();
+    for(const row of b.rows){
+      const key=JSON.stringify([row.date,row.unit]);
+      if(latest.get(JSON.stringify([b.type,key]))!==meta.id)continue;
+      if(!groups.has(key))groups.set(key,[]);
       groups.get(key).push(row);
     }
-    for (const [key, rows] of groups) {
-      const d = days.get(key) || { date: rows[0].date, unit: rows[0].unit };
-      d[b.type] = {
-        rows,
-        completeDay: b.completeDay,
-        source: {
-          id: b.id,
-          filename: b.filename,
-          importedAt: b.importedAt,
-          reviewer: b.reviewer,
-        },
-      };
-      days.set(key, d);
+    for(const [key,rows] of groups){
+      const d=days.get(key)||{date:rows[0].date,unit:rows[0].unit};
+      d[b.type]={rows,completeDay:b.completeDay,source:{id:meta.id,filename:b.filename,importedAt:b.importedAt,reviewer:b.reviewer}};
+      days.set(key,d);
     }
   }
   return {
-    batches: batches.map(({ rows, ...b }) => ({ ...b, rowCount: rows.length })),
+    batches: batches.map(({snapshotKeys,...b})=>b),
     days: [...days.values()]
       .map((d) => {
         const census = d.census?.rows[0] || null,
@@ -296,6 +282,7 @@ function metrics(snf) {
         (a, b) => b.date.localeCompare(a.date) || a.unit.localeCompare(b.unit),
       ),
   };
+  });
 }
 module.exports = {
   saveMapping,
