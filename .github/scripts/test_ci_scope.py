@@ -156,5 +156,34 @@ class GitRangeTests(unittest.TestCase):
         self.assertEqual(self.scope(), 'full')
 
 
+class PackageDownloadTests(unittest.TestCase):
+    """CI transport policy; real package installation remains a hosted release gate."""
+    def setUp(self):
+        workflow = (Path(__file__).parents[1] / 'workflows/ci.yml').read_text(encoding='utf-8')
+        self.step = workflow.split('- name: Install Windows runtime cross-compiler', 1)[1].split('\n      - ', 1)[0]
+
+    def test_official_https_mirrors_replace_slow_azure_priority(self):
+        self.assertIn('https://archive.ubuntu.com/ubuntu/', self.step)
+        self.assertIn('https://security.ubuntu.com/ubuntu/', self.step)
+        self.assertIn('sudo tee /etc/apt/apt-mirrors.txt', self.step)
+        self.assertNotIn('http://', self.step)
+
+    def test_unknown_runner_layout_fails_instead_of_silently_missing_override(self):
+        guard = "grep -Fq 'mirror+file:/etc/apt/apt-mirrors.txt' /etc/apt/sources.list.d/ubuntu.sources"
+        self.assertIn(guard, self.step)
+        self.assertLess(self.step.index(guard), self.step.index('sudo tee'))
+        self.assertNotIn('|| true', self.step)
+
+    def test_downloads_are_bounded_without_weakening_package_trust(self):
+        self.assertIn('sudo timeout --kill-after=15s 5m apt-get', self.step)
+        self.assertIn('sudo timeout --kill-after=15s 8m apt-get', self.step)
+        self.assertIn('Acquire::Retries=2', self.step)
+        self.assertIn('Acquire::https::Timeout=30', self.step)
+        self.assertIn('g++-mingw-w64-x86-64-posix cmake ninja-build', self.step)
+        for unsafe in ['allow-unauthenticated', 'AllowInsecure', 'Verify-Peer=false',
+                       'Verify-Host=false', 'trusted=yes', 'apt-key', 'Signed-By:']:
+            self.assertNotIn(unsafe, self.step)
+
+
 if __name__ == '__main__':
     unittest.main()

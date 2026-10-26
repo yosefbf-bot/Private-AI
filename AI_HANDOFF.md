@@ -1,3 +1,26 @@
+# Hosted package-download repair — October 25, 2026
+
+Base main fa517ab contains merged PR35's accepted efficiency changes. PR35 passed
+all eight gates, including 832 Windows source tests and actual installer/app/local
+inference acceptance. Companion PR16 is merged at c5ef833; its main run40252508718
+passed all four gates, 214 unit passes (two fixture skips covered separately by
+two Windows HTTPS passes), and 12 Android emulator cases.
+
+Desktop post-merge run40251297893 hit the 30-minute release-files limit: its Azure
+Ubuntu mirror downloaded 93.4 MB in 27m4s; compilation then progressed without a
+source error until cancellation. A failed-job retry again spent many minutes in
+that package step. The disposable runner now prefers the two official HTTPS
+fallback mirrors already present in GitHub's runner configuration. Its source
+layout is checked first; update/install have 5m/8m limits and bounded APT network
+retries. Package names, signed metadata, dependencies, application/runtime source,
+build scripts and every release gate are unchanged. Unknown layout fails visibly.
+
+Three transport-policy regressions failed before the fix; all 19 CI policy tests
+now pass. YAML parsing, Bash syntax and repository policy passed. Independent
+read-only review found no issue. These checks do not establish download speed;
+exact-head hosted build and Windows acceptance remain required. No owner app or
+data was replaced. Do not repeat the already-passed companion acceptance.
+
 # Codex desktop efficiency increment - October 25, 2026
 
 Owner requested simpler, faster, lower-resource desktop operation, then repair of
