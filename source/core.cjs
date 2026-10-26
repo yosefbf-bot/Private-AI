@@ -92,6 +92,7 @@ class Core {
       store: this.store,
       root: this.root,
     });
+    this.reportHistory = new (require('./report-history.cjs').ReportHistory)(this);
     this.reminderTimer = setInterval(() => {
       try { this.checkReminders(); } catch {}
     }, 30000);
@@ -830,6 +831,7 @@ class Core {
     require('./workflows/semantic-search.cjs').clear(this);
     const days = this.settings().retentionDays ?? 100;
     const result = this.store.cleanup(days);
+    this.reportHistory?.cleanup();
     if (this.snf) {
       try {
         const snfResult = this.snf.cleanup(this.snf.getSettings().retentionDays || 100);
@@ -920,6 +922,8 @@ class Core {
       format: input.format || "pdf",
       hipaa: this.settings().hipaa || input.hipaa === true,
       web: input.web === true,
+      analysisOnly: input.analysisOnly === true,
+      ...(input.analysisOnly===true&&input.analysisWorkspace?{analysisWorkspace:text(input.analysisWorkspace,1000)}:{}),
       files: [],
       created: Date.now(),
       expiresAt: this.settings().retentionDays === 0 ? undefined : Date.now() + (this.settings().retentionDays ?? 100) * 86400000,
@@ -985,14 +989,14 @@ class Core {
     if(previous?.status==="completed")throw fail("RECOVERY");
     const controller=new AbortController();
     this.requests.set(j.id,controller);
-    const update=(status,reason)=>{
+    const update=(status,reason,error)=>{
       const record=this.store.get('job',j.id)||{id:j.id,title:j.title||j.name,remote,recoveryInput:j,checkpoint:{phase:'queued',parts:[],fileIndex:0}};
-      this.store.put('job',j.id,{...record,status,reason});
+      this.store.put('job',j.id,{...record,status,reason,...(error?{error}:{})});
       if(remote)this.worker.publishStatus(j.id,status,{reason});
     };
     update('waiting','Queued for a safe resource boundary.');
     try{return await this.resources.task('background',()=>this.runJobCoordinated(j,remote,background,controller),{signal:controller.signal,update});}
-    catch(e){update('failed',safeError(e).message);}
+    catch(e){const safe=safeError(e);update('failed',safe.message,safe.code);}
     finally{this.requests.delete(j.id);this.emit({type:'jobs_changed'});const finished=this.store.get('job',j.id);if(['completed','failed'].includes(finished?.status))this.emit({type:'job_finished',jobId:j.id});}
   }
   async runJobCoordinated(input, remote = false, background = false, controller) {
@@ -1004,6 +1008,7 @@ class Core {
     if (j.expiresAt && j.expiresAt <= Date.now()) throw fail("EXPIRED");
     this.canSend(j.hipaa !== false || this.settings().hipaa,false);
     const root = this.settings().workspace;
+    if(j.analysisWorkspace&&j.analysisWorkspace!==root)throw fail('CHANGED');
     if (!root) throw fail("WORKSPACE");
     workspace(root, this.root);
     this.jobRunning = true;
@@ -1069,7 +1074,7 @@ class Core {
           hipaa: j.hipaa !== false || this.settings().hipaa,
         },
         [{ role: "user", content: parts }],
-        { web: j.web, signal: controller.signal, taskPrompt:j.prompt },
+        { web: j.web, signal: controller.signal, taskPrompt:j.prompt,allowTools:j.analysisOnly?false:undefined },
       ));
       record.savedAnswer=answer;
       if(j.playbook){record.playbook=j.playbook;record.outputCheck=require('./workflows/playbooks.cjs').checkOutput(j,answer.text);if(!record.outputCheck.passed){saveStep('output sections require review');throw fail('OUTPUT_CHECK');}}
@@ -1236,6 +1241,7 @@ class Core {
   }
   saveSchedule(input) {
     this.assertUnlocked();
+    if(input.reportQuery)return this.reportHistory.saveSchedule(input);
     if(input.browserRecipeId){if(!this.browserReports)throw fail("LOCAL_UNAVAILABLE");return this.browserReports.save(input);}
     this.jobPayload({ ...input, title: input.name });
     const schedule=require('./schedules.cjs').normalize(input);
@@ -1258,7 +1264,7 @@ class Core {
     this.store.put("schedule", j.id, j);
     return j;
   }
-  duplicateSchedule(id){this.assertUnlocked();const old=this.store.get('schedule',id);if(!old)throw fail('INVALID');return this.saveSchedule({...old,id:null,name:(old.name+' (copy)').slice(0,100),enabled:false});}
+  duplicateSchedule(id){this.assertUnlocked();const old=this.store.get('schedule',id);if(!old)throw fail('INVALID');if(old.reportQuery&&old.workspace!==this.settings().workspace)throw fail('WORKSPACE');return this.saveSchedule({...old,id:null,name:(old.name+' (copy)').slice(0,100),enabled:false});}
   async retryExport(id, format) {
     this.assertUnlocked();
     const j = this.store.get("job", id);

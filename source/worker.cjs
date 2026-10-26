@@ -401,6 +401,7 @@ class WorkerManager {
         catch { c.stability?.incident('service-failed'); }
       }
       if(await c.browserReports?.tick())return;
+      if(await c.reportHistory?.tick())return;
       if (
         !s.workerEnabled ||
         s.workerPaused ||
@@ -410,7 +411,7 @@ class WorkerManager {
         return;
       const due = c.store
         .list("schedule")
-        .find((j) => !j.browserRecipeId && j.enabled && j.next!==null && j.next <= Date.now());
+        .find((j) => !j.browserRecipeId && !j.reportQuery && j.enabled && j.next!==null && j.next <= Date.now());
       if (due) {
         let watchState;
         if(due.frequency==='watch'){

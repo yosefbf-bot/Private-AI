@@ -37,6 +37,23 @@ function csvCell(v) {
 async function main(workerData) {
   const { op, ext } = workerData;
   const b = Buffer.from(workerData.bytes || []);
+  if(op==='reportTable'){
+    if(b.length>20000000)throw Error('LIMIT');
+    if(ext==='.csv'){
+      const raw=b.toString('utf8');if(raw.length>350000)throw Error('LIMIT');
+      const table=require('./ui/csv.mjs').parseCSV(raw,{includeRowNumbers:true});
+      if(table.rows.length>10000||table.headers.length>200)throw Error('LIMIT');return table;
+    }
+    if(ext!=='.xlsx')throw Error('FILE');zipGuard(b);
+    const Excel=require('exceljs'),wb=new Excel.Workbook();await wb.xlsx.load(b);
+    const sheet=workerData.sheet?wb.getWorksheet(workerData.sheet):wb.worksheets.length===1?wb.worksheets[0]:null;
+    if(!sheet)throw Error('FILE');if(sheet.rowCount>10001||sheet.columnCount>200)throw Error('LIMIT');
+    const cell=value=>value&&typeof value==='object'?(value instanceof Date?value.toISOString().slice(0,10):value.richText?value.richText.map(x=>x.text).join(''):value.text||''):String(value??'');
+    const headers=sheet.getRow(1).values.slice(1).map(v=>cell(v).trim());
+    if(!headers.length||headers.some(h=>!h)||new Set(headers).size!==headers.length)throw Error('FILE');
+    const rows=[],rowNumbers=[];let size=0;for(let n=2;n<=sheet.rowCount;n++){const row=sheet.getRow(n);if(!row.hasValues)continue;const values=Object.fromEntries(headers.map((h,i)=>[h,cell(row.getCell(i+1).value)]));size+=JSON.stringify(values).length;if(size>350000)throw Error('LIMIT');rows.push(values);rowNumbers.push(n);}
+    return {headers,rows,rowNumbers};
+  }
   if (op === "extract") {
     if (b.length > 20000000) throw Error("LIMIT");
     if ([".txt", ".md", ".csv"].includes(ext))

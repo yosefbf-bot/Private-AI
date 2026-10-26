@@ -1,3 +1,35 @@
+# Idle resources and configurable report history — October 26, 2026
+
+Current branch `chatgpt/report-history-idle-20261026`, base main `77ca24a`.
+853/853 Windows source tests and 30/30 hardening tests passed; syntax268,
+repository436, generated guides, secret scan current/history0 and production
+dependency audit0 passed. General UI, assistant workflows/contrast and authenticated
+hardening passed using installed Edge156. Synthetic report E2E exercised dates,
+selection, checkbox, same-day unique downloads, history/indexing/dedup, analysis
+export and light/dark history/trend/monthly schedule controls.
+
+See docs/REPORT_HISTORY_IDLE_VALIDATION_2026-10-26.md for scope/limits and
+docs/REPORT_HISTORY_IDLE_PLAN_2026-10-26.md for decisions. No new dependencies,
+second dashboard, app/license rewrite, or owner installation/data changes.
+An unloaded brain no longer schedules12maintenance callbacks/minute. Loaded
+idle models retain their configured warm interval unless the RAM reserve needs
+reclaiming. Scheduled work keeps the Primary PC app in the tray; it does not
+wake sleeping PCs. The renderer stays to preserve unfinished forms.
+
+Companion PR17 releases locked Room subscriptions and durable draft caches.
+It preserves unsaved/error/in-flight drafts and restarts collectors after pairing.
+Its local JDK could not establish loopback before compilation; hosted full
+validation is required. Both repositories still require exact-head CI before
+merge. Live PCC/PowerBI setup/account downloads, physical-phone acceptance and
+whole-process performance benchmarks are not established by synthetic tests.
+
+User preference: always give a concise summary after substantial changes, with
+measured results and remaining limitations. Do not turn potential gains into
+claimed percentages. Preserve these additive changes and consult both GitHub
+mains before any follow-up.
+
+---
+
 # Hosted package-download repair — October 25, 2026
 
 Base main fa517ab contains merged PR35's accepted efficiency changes. PR35 passed

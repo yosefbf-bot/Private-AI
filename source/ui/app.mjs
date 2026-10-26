@@ -2377,6 +2377,11 @@ document.addEventListener("click", async (e) => {
         await editTask("schedule");
         break;
       case "schedule-edit":
+        if(state.schedules.find(s=>s.id===id)?.reportQuery){
+          const s=state.schedules.find(s=>s.id===id);
+          const r=await form('Report analysis schedule',field('Name','name',s.name)+select('Repeat','frequency',['daily','weekdays','weekly','monthly'].map(x=>[x,x]),s.frequency)+field('Time','time',s.time,'time')+field('Weekdays (0=Sunday)','weekdays',(s.weekdays||[1]).join(','))+field('Day of month','monthDay',s.monthDay||1,'number')+field(s.reportQuery.folder?'Folder inside work folder':'Download date selection','selection',s.reportQuery.folder||s.reportQuery.date)+textarea('Analysis instructions','prompt',s.prompt));
+          if(r){await api('scheduleSave',{...s,...r,reportQuery:s.reportQuery.folder?{folder:r.selection}:{date:r.selection}});await refresh();renderPage('automation');}break;
+        }
         if(state.schedules.find(s=>s.id===id)?.browserRecipeId){
           const s=state.schedules.find(s=>s.id===id);
           const r=await form('Website report schedule',field('Name','name',s.name)+select('Repeat','frequency',['daily','weekdays','weekly','monthly'].map(x=>[x,x]),s.frequency)+field('Time','time',s.time,'time')+field('Weekdays (0=Sunday)','weekdays',(s.weekdays||[1]).join(','))+field('Day of month','monthDay',s.monthDay||1,'number')+field('Minutes between pulls','gapMinutes',s.gapMinutes||5,'number')+textarea('Analysis instructions (optional)','analysisPrompt',s.analysisPrompt));

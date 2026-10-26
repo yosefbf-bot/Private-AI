@@ -11,8 +11,10 @@ No account selectors, dates, resident/staff identities or successful live pulls
 will be invented. No owner installation/data or existing retention is replaced.
 
 Implementation stages:
-1. Release idle model/watch resources; keep scheduling alive without retaining a
-   hidden renderer. Inspect companion lock/background cleanup and reconnect.
+1. Release idle model maintenance; keep scheduling alive on the Primary PC when
+   closing the window. Preserve the hidden renderer while background work is
+   enabled so unfinished forms/drafts are not discarded. Inspect companion
+   lock/background cleanup and reconnect.
 2. Extend existing Playwright recipes with bounded date/choice parameters,
    dropdown/checkbox actions, resolved-date preview and workspace-contained output
    folders. Preserve old recipe hashes; changes require testing/approval again.

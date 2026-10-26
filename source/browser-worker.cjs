@@ -12,13 +12,14 @@ function validateBrowserTarget(input){
 function validateRecipe(input){
  const name=text(input.name,80).trim(),target=validateBrowserTarget(input);if(!name)throw fail('INVALID');
  const steps=input.steps||[];if(!Array.isArray(steps)||!steps.length||steps.length>20)throw fail('INVALID');
- for(const s of steps){if(!['click','fill','wait','login','download'].includes(s.op)||typeof s.selector!=='string'||!s.selector.trim()||s.selector.length>300)throw fail('INVALID');if(s.op==='fill'){text(s.value,500);if(/password|passwd|current-password|new-password|one-time-code/i.test(s.selector))throw fail('BROWSER_LOGIN');}}
+ for(const s of steps){if(!s||!['click','fill','select','check','wait','login','download'].includes(s.op)||typeof s.selector!=='string'||!s.selector.trim()||s.selector.length>300)throw fail('INVALID');if(['fill','select'].includes(s.op)){text(s.value,500);if(/password|passwd|current-password|new-password|one-time-code/i.test(s.selector))throw fail('BROWSER_LOGIN');}if(s.op==='check'&&typeof s.checked!=='boolean')throw fail('INVALID');}
  if(steps.filter(s=>s.op==='download').length!==1||steps.at(-1).op!=='download')throw fail('INVALID');
  if(!['generic','pcc'].includes(input.sourceProvider||'generic'))throw fail('INVALID');
  if(input.id!==undefined&&!require('./security.cjs').isId(input.id))throw fail('INVALID');
  const autoLogin=validateLogin(input.autoLogin,target.origins);
  if(autoLogin&&(steps[0].op!=='login'||steps.filter(s=>s.op==='login').length!==1||browsers[target.browser].engine!=='chromium'))throw fail('INVALID');
- return {id:input.id||uuid(),name,...target,sourceProvider:input.sourceProvider||'generic',steps:steps.map(s=>({op:s.op,selector:s.selector,...(s.op==='fill'?{value:s.value}:{})})),...(autoLogin?{autoLogin}:{})};
+ const report=require('./report-parameters.cjs').normalize(input.report);require('./report-parameters.cjs').validateTokens(steps,report);
+ return {id:input.id||uuid(),name,...target,sourceProvider:input.sourceProvider||'generic',steps:steps.map(s=>({op:s.op,selector:s.selector,...(['fill','select'].includes(s.op)?{value:s.value}:{}),...(s.op==='check'?{checked:s.checked}:{})})),...(autoLogin?{autoLogin}:{}),...(report?{report}:{})};
 }
 class BrowserWorker{
  constructor(core,{chromium,firefox}={}){this.core=core;this.engines={chromium,firefox};this.busy=false;this.context=null;this.browser=null;this.generation=0;}
@@ -54,18 +55,21 @@ class BrowserWorker{
    const page=selectedPage=this.context.pages().find(p=>{try{return origins.includes(new URL(p.url()).origin);}catch{return false;}})||await this.context.newPage();check();await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000});await this.network?.settle();check();return page;
   }catch(e){try{this.network?.assert();}catch(networkError){e=networkError;}if(!['DEFERRED','INTERFERENCE'].includes(e.code))await this.close();if(e.code)throw e;throw fail('ACCESS');}finally{this.opening=false;}
  }
- async run(input,{scheduled=false,lease,walkthrough=false,testSignin=false}={}){
-  if(this.busy)throw fail('BUSY');const recipe=validateRecipe(input);
+ async run(input,{scheduled=false,lease,walkthrough=false,testSignin=false,parameters={}}={}){
+  if(this.busy)throw fail('BUSY');const recipe=validateRecipe(input),resolved=require('./report-parameters.cjs').resolveRun(recipe,parameters);
+  this.core.reportHistory?.production();
+  if(recipe.sourceProvider==='pcc'&&!this.core.integrations.status('pcc').enabled)throw fail('INTEGRATION_UNAVAILABLE');
+  if(scheduled&&Object.keys(parameters).length)throw fail('BROWSER_REVIEW');
   const scheduledGuard=()=>this.core.browserReports.checkLease(lease,recipe);
-  if(scheduled){if(this.context||!this.core.browserReports)throw fail('BUSY');scheduledGuard();}else await this.core.resources.preflight('browser');
+  if(scheduled){if(this.context||!this.core.browserReports)throw fail('BUSY');scheduledGuard();}else await this.core.resources.preflight('browser',null,null,'Report: '+recipe.name+'\nRequested period (not verified source coverage): '+resolved.period.start+' through '+resolved.period.end+'\nSelections: '+JSON.stringify(resolved.choices)+'\nSave under work folder: '+resolved.folder);
   if(this.busy||this.opening)throw fail('BUSY');this.busy=true;let temp,keep=false,phase='report',stepIndex=0;
   this.scheduledGuard=scheduled?scheduledGuard:null;
   this.activeRecipe=recipe;
   try{const root=workspace(this.core.settings().workspace,this.core.root),page=await this.open(recipe.url,recipe.origins,true,recipe.browser,scheduled,()=>{if(scheduled)scheduledGuard();},!!recipe.autoLogin);
    const generation=this.generation;
    let rateLimited=false;page.on?.('response',response=>{if(response.status()===429)rateLimited=true;});
-   const check=()=>{this.network?.assert();if(!this.context||generation!==this.generation)throw fail('CANCELLED');if(rateLimited)throw fail('REPORT_RATE_LIMIT');if(scheduled)scheduledGuard();else this.core.assertUnlocked();this.core.resources.cancel();if(!recipe.origins.includes(new URL(page.url()).origin))throw fail('POLICY');};
-   for(const [index,step] of recipe.steps.entries()){phase='report';stepIndex=index;await this.core.resources.checkpoint();check();const locator=page.locator(step.selector);
+   const check=()=>{this.core.reportHistory?.production();this.network?.assert();if(!this.context||generation!==this.generation)throw fail('CANCELLED');if(rateLimited)throw fail('REPORT_RATE_LIMIT');if(scheduled)scheduledGuard();else this.core.assertUnlocked();this.core.resources.cancel();if(!recipe.origins.includes(new URL(page.url()).origin))throw fail('POLICY');};
+   for(const [index,step] of resolved.steps.entries()){phase='report';stepIndex=index;await this.core.resources.checkpoint();check();const locator=page.locator(step.selector);
     // Wait for a post-login control; never inspect the password value or manager UI.
     if(step.op==='login'){
      const used=await signIn(this.core,page,recipe,locator,check,i=>{phase='signin';stepIndex=i;},()=>this.network?.settle(),this.network);
@@ -79,10 +83,16 @@ class BrowserWorker{
      if(sensitive)throw fail('BROWSER_LOGIN');check();await locator.fill(step.value,{timeout:20000});
     }
     if(step.op==='wait')await locator.waitFor({state:'visible',timeout:30000});
+    if(step.op==='select')await locator.selectOption({label:step.value},{timeout:20000});
+    if(step.op==='check')await locator.setChecked(step.checked,{timeout:20000});
     if(step.op!=='download'){await this.network?.settle();check();}
     if(step.op==='download'){
      const waiting=page.waitForEvent('download',{timeout:60000});waiting.catch(()=>{});await locator.click({timeout:20000});await this.network?.settle(waiting);const download=await waiting;check();const ext=path.extname(download.suggestedFilename()).toLowerCase();if(!['.pdf','.xlsx','.xls','.csv','.tsv','.docx','.txt'].includes(ext))throw fail('FILE');
-     const name='Report-'+new Date().toISOString().slice(0,10)+'-'+uuid()+ext,relative='Reports/'+name,file=safePath(root,relative);temp=file+'.partial';await download.saveAs(temp);if(await download.failure())throw fail('FILE');check();if(fs.statSync(temp).size>100*1024**2)throw fail('LIMIT');fs.renameSync(temp,file);temp=null;if(!scheduled)this.core.store.put('browserVerified',recipe.id,{id:recipe.id,hash:require('./browser-reports.cjs').digest(recipe),tested:Date.now()});this.core.store.delete('browserIssue',recipe.id);return {relative,complete:true};
+     const name='Report-'+resolved.downloadDate+'-'+uuid()+ext,relative=resolved.folder+'/'+name;
+     fs.mkdirSync(safePath(root,resolved.folder),{recursive:true});const file=safePath(root,relative);temp=file+'.partial';await download.saveAs(temp);if(await download.failure())throw fail('FILE');check();if(fs.statSync(temp).size>100*1024**2)throw fail('LIMIT');if(fs.existsSync(file))throw fail('CHANGED');fs.renameSync(temp,file);temp=null;
+     const out={relative,complete:true,requestedPeriod:resolved.period,downloadDate:resolved.downloadDate,choices:resolved.choices};
+     if(this.core.reportHistory)out.reportId=await this.core.reportHistory.record(recipe,out,{guard:check});
+     if(!scheduled)this.core.store.put('browserVerified',recipe.id,{id:recipe.id,hash:require('./browser-reports.cjs').digest(recipe),tested:Date.now()});this.core.store.delete('browserIssue',recipe.id);return out;
     }
    }
   }catch(e){

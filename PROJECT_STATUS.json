@@ -1,11 +1,44 @@
 {
+  "idleReports20261026": {
+    "status": "locally-verified-awaiting-exact-head-ci",
+    "baseMain": "77ca24aaba080d9d51c6c533176ccdebd187d0d6",
+    "branch": "chatgpt/report-history-idle-20261026",
+    "version": "3.0.9-dev",
+    "tests": {
+      "passed": 853,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hardening": {
+      "passed": 30,
+      "failed": 0
+    },
+    "syntaxFiles": 268,
+    "repositoryFiles": 436,
+    "security": {
+      "currentSecretFindings": 0,
+      "historySecretFindings": 0,
+      "productionDependencyVulnerabilities": 0
+    },
+    "windowsSyntheticBrowser": "passed: date/choice/check/daily-folder download, indexing/dedup, analysis/export and both-theme history/trend/monthly schedule UI",
+    "ui": "passed: general UI, assistant25, note-draft14, contrast117, dark-visibility7, authenticated hardening",
+    "independentReview": "workspace/source/citation/bounds/claim findings fixed with regressions",
+    "idleMeasurement": "Unloaded model maintenance interval removed:12 fewer scheduled callbacks per minute; no whole-app RAM or CPU claim",
+    "companionPR": 17,
+    "installedOwnerAppsChanged": false,
+    "livePCCPowerBIValidated": false,
+    "physicalPhoneValidated": false
+  },
   "hostedPackageDownload20261025": {
     "status": "locally-verified-awaiting-exact-head-ci",
     "baseMain": "fa517abaf767af17fb170630fc3978e0ac164502",
     "affectedRun": 40251297893,
     "cause": "Azure Ubuntu package download used27m4s of30m release-files limit; no compiler error",
     "change": "Prefer existing official HTTPS fallback mirrors; guard runner layout and bound APT update/install",
-    "ciPolicyTests": { "passed": 19, "failed": 0 },
+    "ciPolicyTests": {
+      "passed": 19,
+      "failed": 0
+    },
     "independentReview": "No confirmed issue",
     "ownerInstallationChanged": false
   },
@@ -13,17 +46,50 @@
     "status": "merged-after-full-pr-acceptance",
     "acceptedPRRun": 40250175148,
     "mergedMain": "fa517abaf767af17fb170630fc3978e0ac164502",
-    "windowsHostedTests": { "passed": 832, "failed": 0, "skipped": 0 },
+    "windowsHostedTests": {
+      "passed": 832,
+      "failed": 0,
+      "skipped": 0
+    },
     "windowsHostedInstallerAppPortableAndInferencePassed": true,
     "coordinator": "Codex",
     "baseMain": "587e8dd6d22e235f6cd8373463a97615f1ba528f",
     "preservedPerformanceHead": "48377ddb255fd921fbe4932d9555c989567001aa",
     "version": "3.0.9-dev",
-    "tests": { "total": 831, "passed": 831, "failed": 0, "skipped": 0 },
-    "hardening": { "passed": 30, "failed": 0 },
-    "checks": ["syntax259", "repository-policy", "guide-check", "production-audit-zero", "gitleaks-current-and-history-zero", "assistant-ui-and-contrast", "authenticated-hardening-ui"],
-    "actualSmallInference": { "passed": true, "contextTokens": 3072, "savedContextTokens": 4096, "admissionCapGiB": 3, "elapsedMs": 13060, "peakWorkingSetBytes": 2221301760, "syntheticOnly": true },
-    "limitations": ["Post-merge main packaging delayed by hosted package mirror; separate repair pending", "No owner installation or data change", "No physical-phone acceptance", "Broader historical performance-program items remain outside this increment"],
+    "tests": {
+      "total": 831,
+      "passed": 831,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hardening": {
+      "passed": 30,
+      "failed": 0
+    },
+    "checks": [
+      "syntax259",
+      "repository-policy",
+      "guide-check",
+      "production-audit-zero",
+      "gitleaks-current-and-history-zero",
+      "assistant-ui-and-contrast",
+      "authenticated-hardening-ui"
+    ],
+    "actualSmallInference": {
+      "passed": true,
+      "contextTokens": 3072,
+      "savedContextTokens": 4096,
+      "admissionCapGiB": 3,
+      "elapsedMs": 13060,
+      "peakWorkingSetBytes": 2221301760,
+      "syntheticOnly": true
+    },
+    "limitations": [
+      "Post-merge main packaging delayed by hosted package mirror; separate repair pending",
+      "No owner installation or data change",
+      "No physical-phone acceptance",
+      "Broader historical performance-program items remain outside this increment"
+    ],
     "companionPR": 16,
     "companionFixHead": "9a28b5a9c2e6636daf30d4b5192cd070a75c2da5",
     "companionMergedMain": "c5ef83396c723d722f5894cbc3c7c6c3620ee33c",

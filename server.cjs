@@ -294,6 +294,10 @@ async function dispatch(op, data = {}) {
     case "browserCredentialSave":
     case "browserCredentialDelete":
     case "browserSchedule": throw fail("POLICY");
+    case "reportHistory":
+    case "reportTrends":
+    case "reportAnalyzeSchedule":
+    case "reportAnalyze": throw fail("POLICY");
     case "browserRecipes":
       return core.store.list("browserRecipe");
     case "browserSave": {

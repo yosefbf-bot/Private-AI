@@ -117,7 +117,9 @@ test('credential metadata cannot substitute cached download proof for a real sig
 test('deferred analysis retains failed outcome rather than claiming completed',async t=>{
  const x=reportHarness(t);x.verified();x.core.browserReports.grant(x.recipe.id,digest(x.recipe),true,true);x.due({analysisPrompt:'Synthetic instructions'});x.core.lock();await x.core.browserReports.tick();
  x.core.unlock();x.core.runJob=async input=>{x.core.store.put('job',input.id,{id:input.id,status:'failed',error:'AI_SETUP'});};
- await x.core.browserReports.tick();const parent=x.core.store.list('job').find(j=>j.browserAnalysis);assert.equal(parent.browserAnalysis.state,'needs_review');assert.equal(parent.browserAnalysis.error,'AI_SETUP');assert.equal(parent.status,'completed','Downloaded report remains available independently of failed analysis');
+ await x.core.browserReports.tick();assert.equal(x.core.store.list('job').find(j=>j.browserAnalysis).browserAnalysis.state,'queued');
+ await x.core.reportHistory.tick();await x.core.reportHistory.tick();await x.core.browserReports.tick();
+ const parent=x.core.store.list('job').find(j=>j.browserAnalysis);assert.equal(parent.browserAnalysis.state,'needs_review');assert.equal(parent.browserAnalysis.error,'AI_SETUP');assert.equal(parent.status,'completed','Downloaded report remains available independently of failed analysis');
 });
 test('one-time dispatch may finish but owner schedule edits immediately invalidate its lease',async t=>{
  const x=reportHarness(t);x.verified();x.core.browserReports.grant(x.recipe.id,digest(x.recipe),true,true);const s=x.due({frequency:'once',at:new Date(Date.now()+60000).toISOString()});

@@ -46,7 +46,15 @@ class BrowserReports {
  list(){return this.core.store.list('browserRecipe').map(r=>{const hash=digest(r),grant=this.core.store.get('browserGrant',r.id),credential=this.core.browserCredentials?.status(r);return {...r,tested:this.core.store.get('browserVerified',r.id)?.hash===hash,unattended:grant?.hash===hash,allowLocked:grant?.hash===hash&&grant.allowLocked===true,credential:credential?{available:credential.available,saved:credential.saved,matching:credential.matching,tested:this.core.store.get('browserLoginVerified',r.id)?.revision===credential.revision&&!!credential.revision}:null,issue:this.core.store.get('browserIssue',r.id)||null};});}
  async analyzePending(){
   const c=this.core;if(c.locked)return false;
-  const row=c.store.list('job').find(j=>j.browserAnalysis?.state==='pending');if(!row)return false;
+  const queued=c.store.summaries('job').filter(j=>j.browserAnalysis?.state==='queued');
+  if(queued.length){const states=c.store.summaries('report_analysis');for(const summary of queued){
+   const related=states.filter(a=>a.reportId===summary.reportId&&(!summary.browserAnalysis.ids||summary.browserAnalysis.ids.includes(a.id)));
+   if(!related.length||related.some(a=>['pending','running'].includes(a.state)))continue;
+   const row=c.store.get('job',summary.id),failed=related.find(a=>a.state!=='completed');row.browserAnalysis={...row.browserAnalysis,state:failed?'needs_review':'completed',...(failed?{error:failed.error||'OUTPUT_CHECK'}:{})};c.store.put('job',row.id,row);
+  }}
+  const summary=c.store.summaries('job').find(j=>j.browserAnalysis?.state==='pending'&&(!j.reportId||!c.store.get('report_history',j.reportId)||c.store.get('report_history',j.reportId).workspace===c.settings().workspace));if(!summary)return false;
+  const row=c.store.get('job',summary.id);
+  if(row.reportId&&c.reportHistory){try{const queued=c.reportHistory.queue({ids:[row.reportId]},row.browserAnalysis.prompt);row.browserAnalysis.state='queued';row.browserAnalysis.ids=queued.ids;}catch(e){row.browserAnalysis.state='needs_review';row.browserAnalysis.error=safeError(e).code;}c.store.put('job',row.id,row);return true;}
   row.browserAnalysis.state='running';c.store.put('job',row.id,row);
   try{const file=await c.importFile(safePath(c.settings().workspace,row.output));c.assertUnlocked();row.analysisJobId=uuid();c.store.put('job',row.id,row);await c.runJob({id:row.analysisJobId,title:'Analyze: '+row.title,prompt:row.browserAnalysis.prompt,format:'md',fileIds:[file.id],hipaa:true},false,true);const result=c.store.get('job',row.analysisJobId);row.browserAnalysis.state=result?.status==='completed'?'completed':'needs_review';if(row.browserAnalysis.state!=='completed')row.browserAnalysis.error=result?.error||'OUTPUT_CHECK';}
   catch(e){row.browserAnalysis.state='needs_review';row.browserAnalysis.error=safeError(e).code;}
@@ -78,7 +86,7 @@ class BrowserReports {
     row.status='running';c.store.put('job',id,row);
     const lease=this.issueLease(recipe,c.store.get('schedule',due.id),id);
     const out=await this.browser.run(recipe,{scheduled:true,lease});
-    row.status='completed';row.output=out.relative;row.completed=Date.now();c.store.put('job',id,row);
+    row.status='completed';row.output=out.relative;row.reportId=out.reportId||null;row.completed=Date.now();c.store.put('job',id,row);
     if(due.analysisPrompt){
      row.browserAnalysis={state:'pending',prompt:due.analysisPrompt};c.store.put('job',id,row);
     }
