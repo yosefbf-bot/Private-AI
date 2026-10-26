@@ -41,6 +41,8 @@ async function boot(t,{background=false,existing=false,browserWorker,protectedCr
  return {core,errors,dialogs,windows,trays,handlers,app,nativeCall};
 }
 test('entry point reaches chat startup and wires approval only after real Core initialization',async t=>{
+ const Module=require('node:module'),load=Module._load;
+ t.mock.method(Module,'_load',function(name,...args){assert.notEqual(name,'playwright-core','Startup must defer browser-engine imports');return load.call(this,name,...args);});
  const b=await boot(t);assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.ok(b.core);assert.equal(b.windows.length,1);assert.match(b.windows[0].url,/ui\/index.html$/);assert.ok(b.handlers.has('privateai:call'));assert.equal(b.core.router.local.state,'unloaded');
  b.core.resources.memory=()=>8*1024**3; // Startup/IPC fixture; real resource admission is covered separately.
  const chat=b.core.createChat({temporary:true}),answer=await b.core.send({chatId:chat.id,prompt:'/calc 2+3'});assert.match(answer.chat.messages.at(-1).text,/5/);
@@ -49,8 +51,43 @@ test('entry point reaches chat startup and wires approval only after real Core i
  b.windows[0].focused=true;b.windows[0].visible=false;assert.equal(await b.core.resources.approve('test'),false);
  b.windows[0].visible=true;b.core.locked=true;assert.equal(await b.core.resources.approve('test'),false);assert.equal(b.dialogs.length,1);
 });
+
+test('desktop draft IPC saves independent encrypted records, reloads them and deletes them with the parent chat',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ const chat=(await call('createChat')).result,payload=Buffer.from(b.core.store.db.prepare("SELECT payload FROM records WHERE kind='chat' AND id=?").get(chat.id).payload);
+ assert.equal((await call('saveDraft',{id:chat.id,text:'Synthetic IPC draft'})).result,true);
+ assert.equal((await call('chat',{id:chat.id})).result.draft,'Synthetic IPC draft');
+ assert.deepEqual(Buffer.from(b.core.store.db.prepare("SELECT payload FROM records WHERE kind='chat' AND id=?").get(chat.id).payload),payload);
+ b.core.lock();assert.equal((await call('saveDraft',{id:chat.id,text:'Blocked'})).error.code,'LOCKED');b.core.unlock();
+ assert.equal((await call('chat',{id:chat.id})).result.draft,'Synthetic IPC draft');
+ assert.equal((await call('deleteChat',{id:chat.id})).result,true);assert.equal(b.core.store.get('chatDraft',chat.id),null);
+});
 test('background entry point starts without opening a window or asking unattended approval',async t=>{
  const b=await boot(t,{background:true});assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.ok(b.core);assert.equal(b.windows.length,0);assert.equal(await b.core.resources.approve('Desktop input'),false);assert.equal(b.dialogs.length,0);assert.equal(b.core.router.local.state,'unloaded');
+});
+
+test('desktop IPC preserves all secrets on invalid deletion and binds explicit approval to the saved credential',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);
+ const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ b.core.store.put('secret','applock',{synthetic:'retained-lock-secret'});
+ assert.equal((await call('saveKey',{provider:'openai',key:'sk-synthetic-first'})).ok,true);
+ assert.equal((await call('settings',{model:'synthetic-ipc-model'})).ok,true);
+ const secrets=b.core.store.list('secret');
+ for(const provider of ['applock','constructor','__proto__']) {
+   assert.equal((await call('deleteKey',{provider})).error.code,'INVALID');assert.deepEqual(b.core.store.list('secret'),secrets);
+ }
+ let fingerprint=(await call('summary')).result.providerApprovalFingerprint;
+ assert.equal((await call('settings',{approved:true,approvalFingerprint:fingerprint})).result.approved,true);
+ assert.equal((await call('saveKey',{provider:'openai',key:'sk-synthetic-replacement'})).ok,true);
+ assert.equal((await call('settings',{approved:true})).result.approved,false);
+ assert.equal((await call('settings',{approved:true,approvalFingerprint:fingerprint})).error.code,'PROVIDER_CHANGED');
+ assert.throws(()=>b.core.canSend(true,true),{code:'SETUP'});
+ fingerprint=(await call('summary')).result.providerApprovalFingerprint;
+ assert.equal((await call('settings',{approved:true,approvalFingerprint:fingerprint})).result.approved,true);
+ assert.equal((await call('summary')).result.settings.approved,true);
+ assert.doesNotThrow(()=>b.core.canSend(true,true));
 });
 test('desktop Load model IPC fits Automatic context and preserves explicit manual context',async t=>{
  const b=await boot(t),loads=[],row={tier:'small',file:'C:\\synthetic\\qwen-small.gguf',bytes:1282439584,installed:true};

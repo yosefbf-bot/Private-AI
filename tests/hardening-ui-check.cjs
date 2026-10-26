@@ -45,7 +45,7 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   for(const [view,heading,notice] of [
    ['decisions','Decision log','No decisions recorded.'],
    ['metrics','Set up data sources','Live imports are available in the production desktop workspace.'],
-   ['workspace','Library','Document search is available in the production desktop workspace.']
+   ['workspace','Library','Document search and source review are available in the production desktop workspace.']
   ]){
    await page.locator(`#sidebar [data-view="${view}"]`).click();
    await page.getByRole('heading',{name:heading,exact:true}).waitFor();

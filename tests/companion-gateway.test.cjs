@@ -124,3 +124,33 @@ test('startup bind failure is contained and failed reconfiguration is disabled',
   gateway.stop();core.store.delete('secret','companion_tls');
   await assert.rejects(bad.configure({enabled:true}),{code:'COMPANION_TLS'});assert.equal(bad.settings().enabled,false);
 });
+
+test('gateway propagates compatible and Anthropic truncation from real Core and adapter output',async t=>{
+ const {gateway,pairing,core}=await setup(t),{OpenAIClient}=require('../source/api.cjs');
+ for(const provider of ['deepseek','anthropic']) {
+  core.saveKey(provider==='anthropic'?'sk-ant-synthetic':'sk-synthetic',provider);
+  core.saveSettings({provider,model:'synthetic',processingMode:'cloud-first',allowCloud:true,hipaa:false,publicModeConfirmed:true});
+  core.client=new OpenAIClient(async()=>new Response(provider==='anthropic'?
+    'data: {"type":"content_block_delta","delta":{"text":"Partial companion answer"}}\n\ndata: {"type":"message_delta","delta":{"stop_reason":"max_tokens"}}\n\ndata: {"type":"message_stop"}\n\n':
+    'data: {"choices":[{"delta":{"content":"Partial companion answer"},"finish_reason":"length"}]}\n\n'));
+  const result=await request(gateway,pairing,'/chat/send',{prompt:'Discuss the supplied synthetic design tradeoffs.',sessionId:'truncate-'+provider});
+  assert.equal(result.status,200);assert.equal(result.body.reply,'Partial companion answer');assert.equal(result.body.incomplete,true);
+ }
+});
+
+test('gateway blocks remote-backed Ollama in protected modes and preserves ordinary local inference',async t=>{
+ const {gateway,pairing,core}=await setup(t),{OpenAIClient}=require('../source/api.cjs');let inference=0;
+ core.saveSettings({provider:'ollama',model:'ordinary',hipaa:true});
+ let remote=true,available=true;
+ core.client=new OpenAIClient(async url=>{
+  if(url.endsWith('/api/tags')) return available?Response.json({models:[{name:'ordinary',...(remote?{remote_host:'synthetic-remote'}:{})}]}):new Response('',{status:404});
+  if(url.endsWith('/api/show')) return available?Response.json({details:{family:'synthetic-local'}}):new Response('',{status:404});
+  inference++;return new Response('data: {"choices":[{"delta":{"content":"Synthetic local companion answer"},"finish_reason":"stop"}]}\n\n');
+ });
+ const send=sessionId=>request(gateway,pairing,'/chat/send',{prompt:'Discuss the supplied synthetic design tradeoffs.',sessionId});
+ assert.equal((await send('remote-metadata')).body.error.code,'POLICY');assert.equal(inference,0);
+ core.saveSettings({model:'synthetic-cloud'});assert.equal((await send('cloud-alias')).body.error.code,'AI_SETUP');assert.equal(inference,0);
+ core.saveSettings({model:'ordinary'});remote=false;
+ const local=await send('ordinary-local');assert.equal(local.status,200);assert.equal(local.body.reply,'Synthetic local companion answer');
+ available=false;const limited=await send('unavailable-metadata');assert.equal(limited.status,200);assert.match(limited.body.processing.policyNotice,/provenance is unverified/);
+});

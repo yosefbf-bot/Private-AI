@@ -45,6 +45,14 @@ const server=http.createServer((req,res)=>{
   await page.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
   assert.deepEqual(await page.locator('.primary-nav button').evaluateAll(buttons=>buttons.map(button=>button.dataset.view)),['search','dashboard','captures','meetings','workspace']);
   assert.equal(await page.locator('#sidebar [data-view=operations],#sidebar [data-view=actions],#sidebar [data-view=playbooks],#sidebar [data-view=worker]').count(),0);
+  assert.equal(await page.locator('#resource-status').isVisible(),false,'Routine idle status stays out of the chat');
+  core.saveSettings({workerPaused:true});
+  await page.evaluate(()=>window.__deliver({type:'jobs_changed'}));
+  await page.locator('#resource-status').waitFor({state:'visible'});
+  assert.match(await page.locator('#resource-status').innerText(),/Background work is paused/);
+  core.saveSettings({workerPaused:false});
+  await page.evaluate(()=>window.__deliver({type:'jobs_changed'}));
+  await page.locator('#resource-status').waitFor({state:'hidden'});
   await page.locator('#sidebar [data-view=captures]').click();await page.locator('#capture-form textarea').fill('Please call maintenance about the broken conference room door.');
   assert.equal(await page.locator('.manual-details').getAttribute('open'),null);
   await page.locator('#capture-form button[type=submit]').click();await page.getByText('Note and review items saved.',{exact:true}).waitFor();

@@ -1,6 +1,7 @@
 "use strict";
 const { DatabaseSync } = require("node:sqlite");
 const { fail, uuid } = require("./security.cjs");
+const {fileInputMetadata}=require('./request-budget.cjs');
 const EVENTS = new Set([
   "app_registered",
   "app_opened",
@@ -47,6 +48,7 @@ const META = {
   meeting_audio: ["id", "meetingId", "chunkId", "status", "created", "bytes", "sha256", "retryAt"],
   chat: ["id", "title", "project", "updated", "hipaa", "archived"],
   file: ["id", "name", "size", "updated", "hipaa", "ownerChat"],
+  job: [],
 };
 class Store {
   constructor(file, cipher) {
@@ -142,6 +144,17 @@ class Store {
             );
         this.db.exec("PRAGMA user_version=3");
       }
+      // Schema-3 releases without job summaries may still write this database
+      // after a rollback. Invalidate projections at the SQL boundary too; the
+      // current writer rebuilds metadata in the same transaction as its record.
+      this.db.exec(`
+        CREATE TRIGGER IF NOT EXISTS invalidate_job_meta_insert AFTER INSERT ON records WHEN NEW.kind='job'
+        BEGIN DELETE FROM record_meta WHERE kind='job' AND id=NEW.id; END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_job_meta_update AFTER UPDATE ON records WHEN OLD.kind='job' OR NEW.kind='job'
+        BEGIN DELETE FROM record_meta WHERE kind='job' AND id IN (OLD.id,NEW.id); END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_job_meta_delete AFTER DELETE ON records WHEN OLD.kind='job'
+        BEGIN DELETE FROM record_meta WHERE kind='job' AND id=OLD.id; END;
+      `);
       this.db.exec("COMMIT");
     } catch (e) {
       this.db.exec("ROLLBACK");
@@ -173,6 +186,13 @@ class Store {
     const summary = Object.fromEntries(
       META[kind].map((k) => [k, k === "id" ? id : value[k]]),
     );
+    if(kind==='file')Object.assign(summary,fileInputMetadata(value));
+    if(kind==='job'){
+      // Match the existing overview projection, encrypted separately from large
+      // recovery inputs/answers. Backfill old records once through summaries().
+      const {recoveryInput,checkpoint,savedAnswer,...job}=value;
+      Object.assign(summary,job,{id,recoverable:!!recoveryInput&&!job.remote,step:checkpoint?.phase||null});
+    }
     this._stmt(
       "INSERT INTO record_meta VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET updated=excluded.updated,payload=excluded.payload",
     ).run(
@@ -200,7 +220,22 @@ class Store {
       kind,
       id,
     );
+    // Return the encrypted record exactly as saved. Row activity timestamps are
+    // metadata, not a content edit or a replacement for a legacy payload field.
     return r ? this.cipher.open(r.payload, kind + ":" + id) : null;
+  }
+  summary(kind,id){
+    if(!META[kind])throw fail('INVALID');
+    const row=this._stmt('SELECT updated,payload FROM record_meta WHERE kind=? AND id=?').get(kind,id);
+    return row?{...this.cipher.open(row.payload,'meta:'+kind+':'+id),updated:row.updated}:null;
+  }
+  touchChat(id,updated=Date.now()){
+    return this.transaction(()=>{
+      const meta=this.summary('chat',id);if(!meta)throw fail('INVALID');
+      const result=this._stmt("UPDATE records SET updated=? WHERE kind='chat' AND id=?").run(updated,id);
+      if(!result.changes)throw fail('INVALID');
+      this.putMeta('chat',id,{...meta,updated},updated);
+    });
   }
   project(kind, select) {
     const result = [];
@@ -225,6 +260,7 @@ class Store {
       .map((r) => ({
         ...this.cipher.open(r.payload, kind + ":" + r.id),
         id: r.id,
+        ...(kind==='chat'?{updated:r.updated}:{}),
       }));
   }
   recent(kind, limit = 200) {
@@ -253,6 +289,7 @@ class Store {
           kind,
           id,
         );
+      if(kind==='chat')this._stmt("DELETE FROM records WHERE kind='chatDraft' AND id=?").run(id);
       if (transaction) this.db.exec("COMMIT");
     } catch (e) {
       if (transaction) this.db.exec("ROLLBACK");
@@ -332,6 +369,9 @@ class Store {
         for (const r of this.db
           .prepare("SELECT id,updated,expires FROM records WHERE kind=?")
           .all(kind)) {
+          // Only files/jobs that could expire need their encrypted body opened.
+          // Communications deliberately retain their observation-time rules below.
+          if(['file','job'].includes(kind)&&!(r.expires&&r.expires<=now)&&!(cutoff&&r.updated<=cutoff))continue;
           const value = ["job", "file", "meeting", "sbar", "wf_decision",'wf_action_meta',...captureKinds,...communicationKinds].includes(kind) ? this.get(kind, r.id) : null;
           if (kind==='capture_note' && activeCaptureIds.has(r.id) || kind==='capture_evidence' && activeEvidenceIds.has(r.id) || kind==='capture_whatsapp_route' && activeCaptureIds.has(r.id) || kind==='capture_delivery' && activeDeliveryIds.has(r.id) || ['capture_draft','wf_action_meta','capture_notification','capture_delivery'].includes(kind) && activeCaptureIds.has(value?.captureId)) continue;
           if (kind === "wf_decision" && value?.status !== "closed") continue;

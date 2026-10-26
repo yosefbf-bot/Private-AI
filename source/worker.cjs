@@ -240,7 +240,7 @@ class WorkerManager {
       root = c.settings().workspace;
     if (!root) return;
     for (const job of c.store
-      .project("job",j=>j.target?j:null).filter(Boolean)
+      .summaries("job")
       .filter((j) => j.target && ["queued", "running", "waiting", "paused"].includes(j.status))
       .slice(0, 100)) {
       const peer = c.store.get("peer", job.target);
@@ -261,8 +261,10 @@ class WorkerManager {
             )
           )
             continue;
+          const full=c.store.get('job',job.id);
+          if(!full||full.target!==job.target||!['queued','running','waiting','paused'].includes(full.status))continue;
           c.store.put("job", job.id, {
-            ...job,
+            ...full,
             ...e.record,
             output: e.record.output || null,
           });

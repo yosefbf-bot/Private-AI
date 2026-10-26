@@ -13,6 +13,22 @@ function harness(t){
  }});
  const worker=new BrowserWorker(core,{chromium:make('chromium'),firefox:make('firefox')});t.after(()=>worker.close());return {core,worker,launches};
 }
+
+test('unused browser services defer Playwright; the first permitted operation resolves only the missing engine',async t=>{
+ const Module=require('node:module'),load=Module._load,{WhatsAppWeb}=require('../source/whatsapp-web.cjs');
+ const {core,worker:injected,launches}=harness(t);let loads=0;
+ const engines={...injected.engines};
+ t.mock.method(Module,'_load',function(name,...args){if(name==='playwright-core'){loads++;return engines;}return load.call(this,name,...args);});
+ const worker=new BrowserWorker(core),whatsapp=new WhatsAppWeb(core);t.after(()=>worker.close());
+ assert.equal(loads,0);assert.equal(whatsapp.chromium,undefined);
+ await assert.rejects(worker.open('http://example.com',['http://example.com']),{code:'INVALID'});assert.equal(loads,0);
+ await worker.open(base.url,['https://example.com']);assert.equal(loads,1);assert.equal(launches[0].engine,'chromium');
+ await worker.close();await worker.open(base.url,['https://example.com']);assert.equal(loads,1);
+ await worker.close();const custom=new BrowserWorker(core,{chromium:engines.chromium});t.after(()=>custom.close());
+ await custom.open(base.url,['https://example.com']);assert.equal(loads,1,'Injected engines never cause a Playwright import');
+ await custom.close();const disabled=new BrowserWorker(core,{chromium:null});
+ await assert.rejects(disabled.open(base.url,['https://example.com']),{code:'BROWSER_SETUP'});assert.equal(loads,1,'An explicitly disabled engine must not fall back to a default');assert.equal(core.resources.browser,null);
+});
 test('browser choice persists in encrypted recipes; legacy recipes retain Edge',t=>{
  const {core}=fixture(t);assert.equal(validateRecipe(base).browser,'edge');
  for(const browser of ['chrome','edge','firefox','chromium','brave','vivaldi']){

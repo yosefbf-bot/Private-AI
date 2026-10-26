@@ -14,6 +14,16 @@ function planSections(parts,s,prompt){
   localInput(s,messages,{instructions:ANSWER_SCHEMA});return {messages,document:section.document,index:i+1};
  });
 }
+function totalUsage(sections,field){
+ let total=0;
+ for(const section of sections){
+  const count=section.usage?.[field];
+  if(!Number.isSafeInteger(count)||count<0)return null;
+  total+=count;
+  if(!Number.isSafeInteger(total))return null;
+ }
+ return total;
+}
 async function sectionedReport(core,j,parts,checkpoint,saveStep,signal){
  const s=core.settings(),sections=checkpoint.sectionPlan||planSections(parts,s,j.prompt);
  for(const section of sections)localInput(s,section.messages,{instructions:ANSWER_SCHEMA});
@@ -22,10 +32,11 @@ async function sectionedReport(core,j,parts,checkpoint,saveStep,signal){
   await core.resources.checkpoint();if(signal.aborted)throw fail('CANCELLED');
   saveStep(`section ${i+1} of ${sections.length} requested; completion unconfirmed`);
   const result=await core.router.generate(core.key(),{...core.settings(),hipaa:j.hipaa!==false||core.settings().hipaa},sections[i].messages,{web:j.web,signal,taskPrompt:j.prompt});
-  checkpoint.sections.push({text:result.text,provider:result.provider,model:result.model,reliability:result.reliability,usage:result.usage});
+  checkpoint.sections.push({text:result.text,provider:result.provider,model:result.model,reliability:result.reliability,usage:result.usage,policyNotice:result.policyNotice});
   saveStep(`section ${i+1} of ${sections.length} saved`);
  }
- return {text:'# Section-by-section report\n\n'+(j.files||[]).map((f,i)=>'Document '+(i+1)+': '+f.name.replace(/[\r\n]/g,' ')).join('\n')+'\n\nAll '+sections.length+' sections were processed. These are separate analyses, not an independently verified cross-document synthesis. Check conclusions against the original documents.\n\n'+checkpoint.sections.map((r,i)=>`## Document ${sections[i].document} — section ${i+1}\n\n${r.text}`).join('\n\n'),provider:'sectioned',model:'See individual section processing',usage:{inputTokens:checkpoint.sections.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:checkpoint.sections.reduce((n,r)=>n+(r.usage?.outputTokens||0),0)},reliability:{score:null,label:'Review section findings',reasons:['Every planned section was processed; cross-section conclusions were not independently checked.']}};
+ const policyNotice=[...new Set(checkpoint.sections.map(r=>r.policyNotice).filter(Boolean))].join('\n')||null;
+ return {text:'# Section-by-section report\n\n'+(j.files||[]).map((f,i)=>'Document '+(i+1)+': '+f.name.replace(/[\r\n]/g,' ')).join('\n')+'\n\nAll '+sections.length+' sections were processed. These are separate analyses, not an independently verified cross-document synthesis. Check conclusions against the original documents.\n\n'+checkpoint.sections.map((r,i)=>`## Document ${sections[i].document} — section ${i+1}\n\n${r.text}`).join('\n\n'),provider:'sectioned',model:'See individual section processing',usage:{inputTokens:totalUsage(checkpoint.sections,'inputTokens'),outputTokens:totalUsage(checkpoint.sections,'outputTokens')},policyNotice,reliability:{score:null,label:'Review section findings',reasons:['Every planned section was processed; cross-section conclusions were not independently checked.']}};
 }
 module.exports={splitUTF8,planSections,sectionedReport};
 

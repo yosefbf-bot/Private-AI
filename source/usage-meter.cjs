@@ -3,10 +3,13 @@ const {uuid}=require('./security.cjs');
 class UsageMeter {
  constructor(core){this.core=core;}
  record(result,settings){
-  const input=Number.isSafeInteger(result.usage?.inputTokens)&&result.usage.inputTokens>=0?result.usage.inputTokens:0,output=Number.isSafeInteger(result.usage?.outputTokens)&&result.usage.outputTokens>=0?result.usage.outputTokens:0,cached=Math.min(input,Number.isSafeInteger(result.usage?.cachedInputTokens)&&result.usage.cachedInputTokens>=0?result.usage.cachedInputTokens:0);
-  const cloud=!['local','deterministic','sectioned'].includes(result.provider),priced=result.provider==='openai'&&settings.priceModel===settings.model&&[settings.priceInput,settings.priceOutput].every(Number.isFinite)&&(!cached||Number.isFinite(settings.priceCachedInput));
-  const estimatedCost=cloud?(priced?((input-cached)*settings.priceInput+cached*(settings.priceCachedInput||0)+output*settings.priceOutput)/1e6:null):0;
-  const row={id:uuid(),time:Date.now(),provider:result.provider,model:result.model||'',inputTokens:cloud?input:0,outputTokens:cloud?output:0,cachedInputTokens:cloud?cached:0,localTokens:cloud?0:(result.localTokens||0),estimatedCost:result.failed?null:estimatedCost,reason:result.reason||'user_request',reliability:result.reliability?.score??null,failed:!!result.failed,usageUnknown:!!result.usageUnknown};
+  const count=v=>Number.isSafeInteger(v)&&v>=0?v:null;
+  const input=count(result.usage?.inputTokens),output=count(result.usage?.outputTokens),reportedCached=count(result.usage?.cachedInputTokens);
+  const cached=reportedCached===null?null:Math.min(input??reportedCached,reportedCached);
+  const cloud=!['local','deterministic','sectioned'].includes(result.provider),usageUnknown=!!result.usageUnknown||(cloud&&(input===null||output===null));
+  const priced=!usageUnknown&&result.provider==='openai'&&settings.priceModel===settings.model&&[settings.priceInput,settings.priceOutput].every(Number.isFinite)&&(!cached||Number.isFinite(settings.priceCachedInput));
+  const estimatedCost=cloud?(priced?((input-(cached??0))*settings.priceInput+(cached??0)*(settings.priceCachedInput||0)+output*settings.priceOutput)/1e6:null):0;
+  const row={id:uuid(),time:Date.now(),provider:result.provider,model:result.model||'',inputTokens:cloud?input:0,outputTokens:cloud?output:0,cachedInputTokens:cloud?cached:0,localTokens:cloud?0:(result.localTokens||0),estimatedCost:result.failed?null:estimatedCost,reason:result.reason||'user_request',reliability:result.reliability?.score??null,failed:!!result.failed,usageUnknown};
   this.core.store.put('usage',row.id,row,{expires:settings.retentionDays?row.time+settings.retentionDays*86400000:null});return row;
  }
  summary(now=Date.now()){

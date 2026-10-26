@@ -4,6 +4,12 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const {sourceDigest}=require('../build/prepare-browser-assets.cjs');
 
+test('committed build metadata already matches the packaged source before Windows staging',()=>{
+ const root=path.resolve(__dirname,'..'),info=JSON.parse(fs.readFileSync(path.join(root,'source/build-info.json'),'utf8'));
+ assert.equal(info.version,require('../package.json').version);
+ assert.equal(info.sourceSHA256,sourceDigest(root),'Run npm run prepare:browser after the last source edit and commit its generated metadata before packaging.');
+});
+
 const binary=Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x00,0xff]);
 const texts=[
  ['source/a.cjs','module.exports=1;\n'],

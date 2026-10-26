@@ -48,13 +48,25 @@ function isAllowedOrigin(origin, reqHost, previewOrigin = null) {
   } catch { return false; }
 }
 
-function boundary(config) {
+function boundary(config, { sessionMs = 60 * 60 * 1000 } = {}) {
   const sessions = new Map();
+  function invalidate(id) {
+    const session = sessions.get(id);
+    if (!session) return;
+    sessions.delete(id);
+    clearTimeout(session.timer);
+    for (const close of session.subscribers) close();
+    session.subscribers.clear();
+  }
   return function(req, res, next) {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', "frame-ancestors 'self'" + (config.previewOrigin ? " https://aistudio.google.com " + config.previewOrigin : ""));
     res.setHeader('Referrer-Policy', 'no-referrer');
+    // Express routing and the authentication boundary must agree on API casing.
+    const canonicalPath = req.path.toLowerCase();
+    if ((canonicalPath === '/api' || canonicalPath.startsWith('/api/')) && req.path !== canonicalPath)
+      return res.status(404).json({ ok: false });
     const reqHost = req.headers.host; // Do not trust arbitrary forwarded host headers.
     if (!isAllowedHost(reqHost, config.previewOrigin)) return res.status(403).json({ ok: false });
     if (req.headers.origin && !isAllowedOrigin(req.headers.origin, reqHost, config.previewOrigin)) return res.status(403).json({ ok: false });
@@ -63,17 +75,30 @@ function boundary(config) {
     if (req.path === '/api/session' && req.method === 'POST') {
       if (!equal(req.headers.authorization, `Bearer ${config.token}`) || req.headers['x-private-ai'] !== 'development') return res.status(401).json({ ok: false });
       const session = crypto.randomBytes(32).toString('hex'), csrf = crypto.randomBytes(32).toString('hex');
-      for (const [id,s] of sessions) if (s.expires < Date.now()) sessions.delete(id);
-      if (sessions.size >= 20) sessions.delete(sessions.keys().next().value);
-      sessions.set(session, { csrf, expires: Date.now() + 60 * 60 * 1000 });
+      for (const [id,s] of sessions) if (s.expires <= Date.now()) invalidate(id);
+      if (sessions.size >= 20) invalidate(sessions.keys().next().value);
+      const saved = { csrf, expires: Date.now() + sessionMs, subscribers: new Set() };
+      saved.timer = setTimeout(() => invalidate(session), sessionMs);
+      saved.timer.unref?.();
+      sessions.set(session, saved);
       res.setHeader('Set-Cookie', `privateai_dev=${session}; HttpOnly; ${config.previewOrigin ? 'SameSite=None; Secure' : 'SameSite=Strict'}; Path=/api; Max-Age=3600`);
       return res.json({ ok: true, csrf, session, mode: LABEL });
     }
     if (!req.path.startsWith('/api/')) return next();
     const id = req.headers['x-private-ai-session'] || (req.path === '/api/events' ? req.query?.session : null) || req.headers.cookie?.match(/(?:^|;\s*)privateai_dev=([a-f0-9]{64})(?:;|$)/)?.[1];
     const session = sessions.get(id);
-    if (!session || session.expires < Date.now()) return res.status(401).json({ ok: false });
+    if (!session || session.expires <= Date.now()) {
+      invalidate(id);
+      return res.status(401).json({ ok: false });
+    }
     if (req.method !== 'GET' && !equal(req.headers['x-private-ai-csrf'], session.csrf)) return res.status(403).json({ ok: false });
+    req.developmentSession = {
+      valid: () => sessions.get(id) === session && session.expires > Date.now(),
+      onInvalidated(close) {
+        session.subscribers.add(close);
+        return () => session.subscribers.delete(close);
+      },
+    };
     return next();
   };
 }

@@ -1,3 +1,60 @@
+# Codex desktop efficiency increment - October 25, 2026
+
+Owner requested simpler, faster, lower-resource desktop operation, then repair of
+companion PR errors. Main Codex now coordinates; prior work is preserved.
+Base main587e8dd; this isolated chatgpt/desktop-efficiency-20261025 branch builds
+on existing performance head48377dd (3.0.9-dev). No new dependencies or version.
+
+- Per-run clinical snapshots avoid repeated full-feed decryptions while retaining
+  exact evidence hashes, provenance and fresh data on the next run.
+- Encrypted job summaries avoid loading recovery prompts/answers for status.
+  Additive SQL invalidation triggers keep older schema3 writers compatible.
+- Automatic model admission can choose intermediate context sizes while keeping
+  all input, output space, reserves and observed peaks. Tiny cold classification
+  uses2048 context; compatible loaded models are reused. Manual choices persist.
+- Windows model peak sampling skips unchanged idle periods, samples completed
+  short calls, and retries failed samples. Pause/wait/browser explanations are
+  visible; normal idle status stays hidden.
+
+Current local source verification:831/831 tests,0fail/skip; hardening30/30;
+syntax259files; repository policy; bundled guides; production dependency audit0;
+Gitleaks0current/history findings. Assistant UI, light/dark contrast and actual
+authenticated development hardening flows passed in Edge156. Updated an old
+Library warning assertion to its current wording without weakening the check.
+Independent read-only review found two issues (older-writer summary invalidation
+and retry after a failed peak sample); both are fixed with regressions.
+
+Real Windows Small1.7B inference passed using these source modules and the
+existing trusted bundled runtime, with a3GiB admission cap:3072token context,
+complete synthetic input, saved4096setting unchanged,13.06seconds including
+loading/verification,2,221,301,760byte peak working set. This is one measured
+smoke run, not a general speed guarantee or installer acceptance. Sanitized
+receipt and harness are local in Validation/efficiency-20261025.
+
+Companion PR16 received a test-fixture polling-race fix at3ec416c, with all
+assertions preserved. Local Gradle is blocked before compile by a Windows Java
+loopback error; hosted validation is required. No owner app/data/pairing or
+signer changed. Current-head GitHub gates and any release/device acceptance
+must be checked separately; historical acceptance below does not cover this head.
+
+Packaging follow-up: first hosted run40249139669 passed Windows831tests and UI,
+then correctly rejected stale tracked source/build-info.json after beforePack.
+Ran prepare:browser and committed its current source digest/timestamp. Added a
+regression that catches stale metadata before the expensive Windows build;
+focused build-identity/preparation tests5/5. No cleanliness gate is relaxed.
+After future source edits, run npm run prepare:browser and commit generated
+metadata before packaging. New exact-head acceptance is required.
+
+# Earlier speed/resource/reliability program - October 25, 2026
+
+Coordinator Claude Code with implementer Codex CLI on branch
+`claude/perf-reliability-2026-10` (draft PR; no merge to main without owner).
+Baseline Private-AI main faa367d (3.0.9-dev), companion main 0ebbbd4 (1.2.7-dev).
+Status, goals, toolchain and plan: Private-AI docs/IMPROVEMENT_PROGRAM_2026-10-25.md.
+No source change yet in this increment.
+
+---
+
 # Windows report browser compatibility - October 21, 2026
 
 Candidate remains unreleased3.0.9-dev, base main783534b2df6247badff53d7272ddf1e1b2e76fc5.

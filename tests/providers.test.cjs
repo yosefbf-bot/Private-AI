@@ -94,4 +94,37 @@ test('Ollama provider handles offline daemon gracefully without crashing', async
   await assert.rejects(client.models(null, { provider: 'ollama' }), {code:'LOCAL_UNAVAILABLE'}); // Do not claim unavailable models are installed.
 });
 
+test('keyless custom provider works through real Core and HTTP without Authorization', async t => {
+  const http=require('node:http'),{OpenAIClient}=require('../source/api.cjs');
+  const received=[];
+  const server=http.createServer((req,res)=>{
+    let body='';req.on('data',chunk=>body+=chunk);req.on('end',()=>{
+      received.push({authorization:req.headers.authorization,path:req.url,body:JSON.parse(body)});
+      res.writeHead(200,{'Content-Type':'text/event-stream'});
+      res.end('data: {"choices":[{"delta":{"content":"Synthetic keyless response"},"finish_reason":"stop"}]}\n\ndata: {"choices":[],"usage":{"prompt_tokens":17,"completion_tokens":4}}\n\n');
+    });
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const {core}=fixture(t,new OpenAIClient());core.resources.memory=()=>8*1024**3;
+  core.saveSettings({provider:'custom',customEndpoint:'http://127.0.0.1:'+server.address().port+'/v1',model:'synthetic-local',hipaa:false,publicModeConfirmed:true,processingMode:'cloud-first'});
+  assert.equal(core.saveKey('', 'custom'),true);
+  assert.equal(core.key('custom'),null);
+  const chat=core.createChat(),result=await core.send({chatId:chat.id,prompt:'Discuss the supplied synthetic design tradeoffs.'});
+  assert.equal(result.chat.messages.at(-1).error,undefined);
+  assert.equal(result.chat.messages.at(-1).text,'Synthetic keyless response');
+  assert.equal(received.length,1);assert.equal(received[0].path,'/v1/chat/completions');assert.equal(received[0].authorization,undefined);
+  assert.equal(result.chat.messages.at(-1).usage.inputTokens,17);
+  core.saveKey('synthetic-optional','custom');core.saveKey('   ','custom');assert.equal(core.key('custom'),'synthetic-optional');
+});
+
+test('every provider requiring authentication rejects a missing key before transmission', async () => {
+  const {OpenAIClient}=require('../source/api.cjs');let calls=0;
+  const client=new OpenAIClient(async()=>{calls++;assert.fail('Missing credentials must never reach the network');});
+  for(const provider of Object.values(PROVIDERS).filter(p=>p.requiresKey).map(p=>p.id)) {
+    await assert.rejects(client.generate(null,{provider,model:'synthetic',hipaa:false},[]),{code:'KEY'});
+  }
+  assert.equal(calls,0);
+});
+
 

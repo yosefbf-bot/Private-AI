@@ -14,6 +14,7 @@ import {createMessagingUI} from "./messaging.mjs";
 import {createBrowserUI} from "./browser-recipes.mjs";
 import {createHybridUI} from "./hybrid.mjs";
 import { marked } from "./vendor/marked.mjs";
+import {createMarkdownCache, streamRenderInterval} from "./markdown-cache.mjs";
 import { createAccessUI } from "./access.mjs";
 import { VoiceManager } from "./voice.mjs";
 import { createSNFUI } from "./snf-ui.mjs";
@@ -191,7 +192,7 @@ function updateTop() {
   const ram=state.ramProfile||state.health?.ramProfile;
   const ramPart=ram?`Hardware RAM: ${ram.totalGB} GB (${ram.availableGB} GB Free · ${ram.statusBadge}) · `:``;
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
-  $("resource-status").hidden = !resource || !["blocked","error","low_memory"].includes(resource.background?.state);
+  $("resource-status").hidden = !resource || !(resource.browser || ["paused","blocked","error","low_memory"].includes(resource.background?.state) || (resource.background?.state==='waiting' && resource.background.reason && resource.background.reason!=='No background task running.'));
   const names = {
     search: "Search", dashboard: "Dashboard", meetings: "Meetings", today: "Dashboard",
     execdesk: "👔 Executive Desk",
@@ -238,11 +239,7 @@ function updateTop() {
   $("notice").innerHTML =
     'Choose a local model for AI reasoning, or configure an optional provider. Clinical rules, references, files and projects remain available. <button data-act="view" data-view="processing">AI Processing</button>';
 }
-const _mdCache = new Map();
-const md = (text) => {
-  if (!text) return "";
-  if (_mdCache.has(text)) return _mdCache.get(text);
-  const result = DOMPurify.sanitize(marked.parse(text), {
+const md = createMarkdownCache((text) => DOMPurify.sanitize(marked.parse(text), {
     FORBID_TAGS: [
       "img",
       "iframe",
@@ -258,14 +255,7 @@ const md = (text) => {
     ],
     FORBID_ATTR: ["style", "src", "srcset", "id"],
     ALLOW_DATA_ATTR: false,
-  });
-  if (_mdCache.size > 200) {
-    const firstKey = _mdCache.keys().next().value;
-    _mdCache.delete(firstKey);
-  }
-  _mdCache.set(text, result);
-  return result;
-};
+  }));
 function attachCodeCopyButtons() {
   const content = $("content");
   if (!content) return;
@@ -444,7 +434,7 @@ function renderChat() {
     chat.messages
       .map(
         (m, i) =>
-          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration advanced-only ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body)}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="response-checks" aria-label="Answer checks">${responseChecks(m.processing).map(label=>`<span class="pill">${esc(label)}</span>`).join(" ")}</div><details class="response-details"><summary>Details</summary><div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div></details>` : ""}${m.usage ? `<details class="response-details"><summary>Token usage</summary><div class="usage">${m.usage.inputTokens.toLocaleString()} input · ${m.usage.outputTokens.toLocaleString()} output tokens</div></details>` : ""}</article>`,
+          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration advanced-only ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body, {streaming:sending && i === chat.messages.length - 1})}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.processing?.policyNotice ? `<div class="error-note">${esc(m.processing.policyNotice)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="response-checks" aria-label="Answer checks">${responseChecks(m.processing).map(label=>`<span class="pill">${esc(label)}</span>`).join(" ")}</div><details class="response-details"><summary>Details</summary><div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div></details>` : ""}${m.usage ? `<details class="response-details"><summary>Token usage</summary><div class="usage">${(m.usage.inputTokens?.toLocaleString() ?? 'unknown')} input · ${(m.usage.outputTokens?.toLocaleString() ?? 'unknown')} output tokens</div></details>` : ""}</article>`,
       )
       .join("") +
     "</div>";
@@ -489,7 +479,7 @@ async function newChat(temporary = false, project = null) {
   }
   if(!captureUI.stop())return;
   if (chat) closeVoiceSession();
-  if (chat?.temporary) await api("endTemporary", { id: chat.id });
+  if (chat?.temporary) { await api("endTemporary", { id: chat.id }); md.clear(); }
   chat = await api("createChat", { temporary, project });
   pending = [];
   editing = null;
@@ -513,7 +503,7 @@ async function openChat(id) {
   }
   if(!captureUI.stop())return;
   closeVoiceSession();
-  if (chat?.temporary) await api("endTemporary", { id: chat.id });
+  if (chat?.temporary) { await api("endTemporary", { id: chat.id }); md.clear(); }
   chat = await api("chat", { id });
   $("prompt").value=chat.draft||"";
   autoResizePrompt();
@@ -536,46 +526,48 @@ async function send(regenerate = false) {
   if (sending) return;
   const prompt = $("prompt").value.trim();
   if (!regenerate && !prompt) return;
-  if (!chat) chat = await api("createChat", {});
   sending = true;
   const savedPrompt = prompt;
-  clearTimeout(draftTimer);
-  if(!chat.temporary)await api("saveDraft",{id:chat.id,text:""});
-  $("send").hidden = true;
-  $("stop").hidden = false;
-  $("prompt").disabled = true;
-  $("attach").disabled = true;
-  const args = {
-    chatId: chat.id,
-    forwardMessaging: $("task-forward").value,
-    prompt,
-    fileIds: pending.map((f) => f.id),
-    web: $("web").checked,
-    editIndex: editing,
-    regenerate,
-  };
-  if (!regenerate) {
-    if (editing !== null) chat.messages = chat.messages.slice(0, editing);
-    chat.messages.push({ role: "user", text: prompt, fileIds: args.fileIds });
-  } else {
-    let index = chat.messages.length - 1;
-    while (index >= 0 && chat.messages[index].role !== "user") index--;
-    chat.messages = chat.messages.slice(0, index + 1);
-  }
-  chat.messages.push({ role: "assistant", text: "" });
-  renderChat();
-  $("prompt").value = "";
-  autoResizePrompt();
-  pending = [];
-  renderAttachments();
-  const promptForEst = prompt || (regenerate ? (chat.messages.filter(m => m.role === "user").slice(-1)[0]?.text || "") : "");
-  const est = estimateResponseTime(promptForEst, { web: args.web, filesCount: args.fileIds.length });
   const sendStart = Date.now();
-  startResponseTimer(est);
+  let sent = false;
   try {
+    if (!chat) chat = await api("createChat", {});
+    clearTimeout(draftTimer);
+    if(!chat.temporary)await api("saveDraft",{id:chat.id,text:""});
+    $("send").hidden = true;
+    $("stop").hidden = false;
+    $("prompt").disabled = true;
+    $("attach").disabled = true;
+    const args = {
+      chatId: chat.id,
+      forwardMessaging: $("task-forward").value,
+      prompt,
+      fileIds: pending.map((f) => f.id),
+      web: $("web").checked,
+      editIndex: editing,
+      regenerate,
+    };
+    if (!regenerate) {
+      if (editing !== null) chat.messages = chat.messages.slice(0, editing);
+      chat.messages.push({ role: "user", text: prompt, fileIds: args.fileIds });
+    } else {
+      let index = chat.messages.length - 1;
+      while (index >= 0 && chat.messages[index].role !== "user") index--;
+      chat.messages = chat.messages.slice(0, index + 1);
+    }
+    chat.messages.push({ role: "assistant", text: "" });
+    renderChat();
+    $("prompt").value = "";
+    autoResizePrompt();
+    pending = [];
+    renderAttachments();
+    const promptForEst = prompt || (regenerate ? (chat.messages.filter(m => m.role === "user").slice(-1)[0]?.text || "") : "");
+    const est = estimateResponseTime(promptForEst, { web: args.web, filesCount: args.fileIds.length });
+    startResponseTimer(est);
     $("task-forward").value = "default";
     const result = await api("send", args);
     chat = result.chat;
+    sent = true;
     const lastMsg = chat?.messages?.at(-1);
     if (lastMsg && lastMsg.role === "assistant" && !lastMsg.durationMs) {
       lastMsg.durationMs = Date.now() - sendStart;
@@ -588,10 +580,12 @@ async function send(regenerate = false) {
     toast(e.message);
     $("prompt").value = savedPrompt;
     try {
-      chat = await api("chat", { id: chat.id });
+      if (chat) chat = await api("chat", { id: chat.id });
     } catch {}
   } finally {
     stopResponseTimer();
+    clearTimeout(streamTimer);
+    streamTimer = null;
     const elapsedSec = ((Date.now() - sendStart) / 1000).toFixed(1);
     sending = false;
     editing = null;
@@ -599,7 +593,7 @@ async function send(regenerate = false) {
     $("stop").hidden = true;
     $("prompt").disabled = false;
     $("attach").disabled = false;
-    $("compose-status").textContent = `✓ Response in ${elapsedSec}s`;
+    $("compose-status").textContent = sent ? `✓ Response in ${elapsedSec}s` : "";
     setTimeout(() => {
       if ($("compose-status") && $("compose-status").textContent.startsWith("✓")) {
         $("compose-status").textContent = "";
@@ -647,12 +641,12 @@ window.privateAI.onEvent((event) => {
               $("content").scrollTop -
               $("content").clientHeight <
             180;
-          el.innerHTML = md(responseLayout(chat.messages.at(-1).text).body);
+          el.innerHTML = md(responseLayout(chat.messages.at(-1).text).body, {streaming:true});
           el.classList.add("streaming");
           attachCodeCopyButtons();
           if (nearBottom) $("content").scrollTop = $("content").scrollHeight;
         }
-      }, 45);
+      }, streamRenderInterval(m?.text?.length || 0));
   } else if (event.type === "locked") showLocked();
   else if (event.type === "unlocked") init();
   else if (event.type === "jobs_changed") {
@@ -1076,6 +1070,9 @@ function settingsHTML() {
   )}${field("Maximum output tokens", "maxOutput", s.maxOutput, "number")}${field("OpenAI organization (optional)", "org", s.org)}${field("OpenAI project (optional)", "projectId", s.projectId)}${field("App lock after minutes", "lockMinutes", s.lockMinutes, "number")}</div><p>Reasoning controls depend on the selected model. Automatic locking inside Private AI requires an app passphrase; your organization’s Windows lock remains separate.</p><div class="button-row"><button class="secondary" data-act="passphrase">Set app passphrase</button><button class="secondary" data-act="lock">Lock app</button><button class="secondary" data-act="backup">Create local encrypted backup</button><button class="secondary" data-act="self-check">Run local checks</button><button class="secondary" data-act="diagnostics">Create diagnostic report</button></div><p>Diagnostics contain technical metadata only. Local backups require this Windows profile and its original encryption key. A portable app does not make encrypted history portable.</p></details></div>`;
 }
 function showLocked() {
+  md.clear();
+  clearTimeout(streamTimer);
+  streamTimer = null;
   captureUI.stop({discard:true});
   companionPairingUI.stop();
   workflowUI.stop();
@@ -1909,6 +1906,24 @@ document.addEventListener("keydown", (e) => {
   }
 });
 document.addEventListener("change", async (e) => {
+  if (e.target.name === "approved") {
+    const checkbox = e.target, requested = checkbox.checked;
+    const saved = state.settings, approvalFingerprint = state.providerApprovalFingerprint;
+    checkbox.checked = false;
+    checkbox.disabled = true;
+    try {
+      if (requested && !await confirmAction(
+        "Approve the saved provider configuration?",
+        `Confirm your organization's contractual and retention approval for ${saved.provider}, ${state.providers[saved.provider]?.defaultEndpoint || saved.customEndpoint || saved.ollamaEndpoint || ''}, model ${saved.model}, organization ${saved.org || '(none)'}, project ${saved.projectId || '(none)'}, and the saved credential. Configuration fingerprint: ${approvalFingerprint}. Save pending edits before approving.`,
+        "Approve saved configuration",
+      )) return;
+      await api("settings", { approved: requested, ...(requested ? { approvalFingerprint } : {}) });
+      await refresh();
+      if (view === "settings") renderPage("settings");
+    } catch (x) { toast(x.message); }
+    finally { checkbox.disabled = false; }
+    return;
+  }
   if (e.target.name === "provider") {
     try {
       const selected = e.target.value;
@@ -2113,6 +2128,7 @@ document.addEventListener("click", async (e) => {
           )
         ) {
           await api("deleteChat", { id: chat.id });
+          md.clear();
           chat = null;
           await refresh();
           renderChat();
@@ -2147,16 +2163,20 @@ document.addEventListener("click", async (e) => {
           break;
         }
         const keyVal = input ? input.value.trim() : "";
-        if (!keyVal && provider !== "custom") {
+        if (!keyVal && state.providers[provider]?.requiresKey) {
           toast("Please enter an API key.");
           break;
         }
-        await api("saveKey", { key: keyVal, provider });
+        if (keyVal) {
+          const approval = document.querySelector('[name="approved"]');
+          if (approval) approval.checked = false;
+          await api("saveKey", { key: keyVal, provider });
+        }
         if (input) input.value = "";
         await saveSettings();
         await refresh();
         renderPage("settings");
-        toast(`API key for ${provider} saved securely.`);
+        toast(keyVal ? `API key for ${provider} saved securely.` : `Settings for ${provider} saved.`);
         break;
       }
       case "delete-key": {
@@ -2509,7 +2529,8 @@ async function saveSettings() {
     customEndpoint: val("customEndpoint") ? val("customEndpoint").value.trim() : (state.settings.customEndpoint || ""),
     model: val("model").value.trim(),
     hipaa,
-    approved: val("approved").checked,
+    // Saving settings can revoke approval; granting it requires the explicit action above.
+    ...(val("approved").checked ? {} : { approved: false }),
     uiAdvanced: !!val("uiAdvanced")?.checked,
     publicModeConfirmed,
     retentionDays: Number(

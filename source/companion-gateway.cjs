@@ -275,11 +275,11 @@ class CompanionGateway {
       let response;
       if (req.method === 'GET' && req.url === PREFIX+'/status') {
         const local = this.core.router.local?.status();
-        const jobs = device.scopes.tasks ? this.core.store.list('job') : null;
+        const jobs = device.scopes.tasks ? this.core.store.summaries('job') : null;
         response = {status:'ONLINE', serverName:os.hostname(), loadedModel:local?.state === 'ready' ? local.model : null, localModelState:local?.state || 'unavailable', cpuUsage:null, gpuUsage:null, vramUsedGb:null, vramTotalGb:null, activeJobs:jobs ? jobs.filter(j => ['queued','running','waiting','paused'].includes(j.status)).length : null, uptime:`${Math.floor((Date.now()-this.started)/1000)}s`, processingMode:this.core.settings().processingMode, provider:this.core.settings().provider, scopes:device.scopes, protocolVersion:1,capabilities:CAPABILITIES};
       } else if (req.method === 'GET' && req.url === PREFIX+'/tasks') {
         this.assertSession(device,generation,'tasks');
-        const rows = this.core.store.list('job');
+        const rows = this.core.store.summaries('job');
         response = {tasks:rows.slice(0,100).map(j => ({id:j.id,status:j.status,created:j.created || null,updated:j.updated || null})), total:rows.length, truncated:rows.length>100, details:'Task status only. Review output and approvals on the desktop.'};
       } else if (req.method === 'GET' && req.url === PREFIX+'/alerts') {
         this.assertSession(device,generation,'alerts');
@@ -361,7 +361,7 @@ class CompanionGateway {
       const answer = result.chat.messages.at(-1);
       if (answer?.error) throw fail(answer.error.code);
       if (!answer?.text) throw fail('LOCAL_UNAVAILABLE');
-      const response = {reply:answer.text,sessionId:session,requestId:data.requestId || null,processing:answer.processing ? {provider:answer.processing.provider,model:answer.processing.model,reason:answer.processing.reason} : null,incomplete:!!answer.incomplete};
+      const response = {reply:answer.text,sessionId:session,requestId:data.requestId || null,processing:answer.processing ? {provider:answer.processing.provider,model:answer.processing.model,reason:answer.processing.reason,policyNotice:answer.processing.policyNotice} : null,incomplete:!!answer.incomplete};
       if (requestKey) this.core.store.put('companion_request',requestKey,{inputHash,chatId:saved.chatId,response,expires},{expires});
       return response;
     } finally { clearTimeout(timeout); res.removeListener('close',disconnected); this.active.delete(sessionKey); }

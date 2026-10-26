@@ -74,6 +74,7 @@ const CODES = Object.freeze({
     "The encryption key is missing, but local database files already exist. Restore the original vault.dpapi with its matching database using the same Windows account. Do not delete or reset the data folder.",
   FILE: "This file could not be read. It may be locked, encrypted, damaged, or unsupported.",
   LIMIT: "This item is too large. Use a smaller file or selection.",
+  REQUEST_LIMIT: "The latest message and its attachments exceed the 40 MB request limit. Remove an attachment or use a smaller selection.",
   WORKSPACE:
     "The work folder is unavailable or overlaps private app storage. Select an available folder in Settings.",
   PEER: "This PC is not connected as a trusted Worker. Connect the two PCs in Worker settings first.",

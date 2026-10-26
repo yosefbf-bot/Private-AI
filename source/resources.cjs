@@ -79,8 +79,8 @@ class Resources {
     // Automatic mode may use a smaller KV/context allocation, never less working
     // headroom, a lower learned peak, or a truncated request. Saved settings stay intact.
     if(allowContextReduction&&this.memory()<minimum&&localSettings.localContext>2048){
-     const candidate={...localSettings,localContext:2048};
-     if(fitsContext(candidate)){localSettings=candidate;minimum=memoryNeeded(candidate);}
+     const candidate=require('./local-brain.cjs').contextCandidates(localSettings).find(fitsContext);
+     if(candidate){localSettings=candidate;minimum=memoryNeeded(candidate);}
     }
     // Do not hold the AI lane while a paused background task waits for RAM/chat.
     if(this.memory()<minimum){if(!waitForMemory)throw fail('LOW_MEMORY');this.ai=null;await this.checkpoint(minimum);return this.withAI(fn,{localSettings,waitForMemory,allowContextReduction,contextFits});}

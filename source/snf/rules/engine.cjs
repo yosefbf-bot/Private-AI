@@ -11,6 +11,11 @@ async function runRulesEngine(user = 'System') {
     const gdrs = this.store.list('snf_gdr');
     const admissions = this.store.list('snf_admission');
     const feedStatus = this.getFeedStatus();
+    const evidenceContext = require('./evidence.cjs').createContext(this.store,feedStatus,{
+      snf_resident:residents,snf_med_order:orders,snf_med_change:orderChanges,
+      snf_diagnosis:diagnoses,snf_behavior:behaviors,snf_progress_note:notes,snf_gdr:gdrs
+    });
+    const createAlert = data => this._createAlert(data,evidenceContext);
 
     const now = Date.now();
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
@@ -20,7 +25,7 @@ async function runRulesEngine(user = 'System') {
       // RULE 0: FAIL-SAFE SURVEILLANCE INTEGRITY
       if (feedStatus.monitoringEnabled && !feedStatus.isSurveillanceComplete) {
       if (feedStatus.isStale) {
-        this._createAlert({
+        createAlert({
           code: 'STALE-001',
           severity: 'critical',
           title: 'PCC MONITORING DATA IS STALE',
@@ -36,7 +41,7 @@ async function runRulesEngine(user = 'System') {
         });
       }
       for (const missing of feedStatus.missingCriticalFeeds) {
-        this._createAlert({
+        createAlert({
           code: `SURV-${missing.id.toUpperCase()}`,
           severity: 'critical',
           title: 'SURVEILLANCE INCOMPLETE',
@@ -91,7 +96,7 @@ async function runRulesEngine(user = 'System') {
       const isRecent = dateKnown && orderTime <= now && (now - orderTime) <= (36 * 60 * 60 * 1000);
       if (chg.changeType === 'New Order' && (isRecent || !dateKnown)) {
         const isHighAlert = chg.isHighAlert;
-        this._createAlert({
+        createAlert({
           code: 'MED-NEW',
           severity: isHighAlert ? 'high' : 'review',
           title: isHighAlert ? `HIGH-ALERT NEW-ORDER REVIEW: ${chg.drugName.toUpperCase()}` : `NEW-ORDER REVIEW: ${chg.drugName}`,
@@ -113,14 +118,14 @@ async function runRulesEngine(user = 'System') {
       const changedAt=Date.parse(change.orderDate);
       if (!Number.isFinite(changedAt) || changedAt>now || now-changedAt>7*86400000) continue;
       if(change.changeType==='New Order'&&!change.isPRN)continue;
-      this._createAlert({code:'AP-CHANGE',severity:'high',title:change.isPRN?'ANTIPSYCHOTIC PRN ORDER REVIEW':'ANTIPSYCHOTIC DOSE / ORDER CHANGE',message:`${change.drugName}: ${change.changeType}; previous dose ${change.previousDose||'not imported'}, new dose ${change.newDose||'not imported'}. Review clinical rationale and supporting documentation.`,residentId:change.residentId,residentName:change.residentName,drug:change.drugName,whyFlagged:['Imported antipsychotic order change; human review required.']});
+      createAlert({code:'AP-CHANGE',severity:'high',title:change.isPRN?'ANTIPSYCHOTIC PRN ORDER REVIEW':'ANTIPSYCHOTIC DOSE / ORDER CHANGE',message:`${change.drugName}: ${change.changeType}; previous dose ${change.previousDose||'not imported'}, new dose ${change.newDose||'not imported'}. Review clinical rationale and supporting documentation.`,residentId:change.residentId,residentName:change.residentName,drug:change.drugName,whyFlagged:['Imported antipsychotic order change; human review required.']});
     }
     for(const review of this.store.list('snf_psych_review')) {
       const due=Date.parse(review.nextReviewDate||review.followUpDue||'');
-      if(Number.isFinite(due)&&due<=now&&review.status!=='completed')this._createAlert({code:'PSYCH-DUE',severity:'high',title:'PSYCHIATRY FOLLOW-UP DUE',message:'Imported psychiatry follow-up date is due. Verify whether follow-up occurred in the clinical record.',residentId:review.residentId,residentName:review.residentName,whyFlagged:['Explicit due date in imported report.']});
+      if(Number.isFinite(due)&&due<=now&&review.status!=='completed')createAlert({code:'PSYCH-DUE',severity:'high',title:'PSYCHIATRY FOLLOW-UP DUE',message:'Imported psychiatry follow-up date is due. Verify whether follow-up occurred in the clinical record.',residentId:review.residentId,residentName:review.residentName,whyFlagged:['Explicit due date in imported report.']});
     }
     for(const review of this.store.list('snf_pharmacist_review')) {
-      if(review.recommendation&&!['completed','resolved'].includes(String(review.status||'').toLowerCase()))this._createAlert({code:'PHARM-PENDING',severity:'high',title:'PHARMACIST RECOMMENDATION PENDING REVIEW',message:'Resolution of the imported pharmacist recommendation was not found in imported data.',residentId:review.residentId,residentName:review.residentName,whyFlagged:['Imported recommendation with no documented resolved status.']});
+      if(review.recommendation&&!['completed','resolved'].includes(String(review.status||'').toLowerCase()))createAlert({code:'PHARM-PENDING',severity:'high',title:'PHARMACIST RECOMMENDATION PENDING REVIEW',message:'Resolution of the imported pharmacist recommendation was not found in imported data.',residentId:review.residentId,residentName:review.residentName,whyFlagged:['Imported recommendation with no documented resolved status.']});
     }
 
     // ITERATE THROUGH ALL RESIDENTS TO RUN PSYCH WATCH & CLINICAL SURVEILLANCE
@@ -144,7 +149,7 @@ async function runRulesEngine(user = 'System') {
 
         // RULE AP-001: NEW ANTIPSYCHOTIC (Within last 48 hours)
         if (daysOnDrug !== null && daysOnDrug <= 2) {
-          this._createAlert({
+          createAlert({
             code: 'AP-001',
             severity: 'critical',
             title: 'NEW ANTIPSYCHOTIC STARTED',
@@ -170,7 +175,7 @@ async function runRulesEngine(user = 'System') {
         );
 
         if (!hasSupportingDiag) {
-          this._createAlert({
+          createAlert({
             code: 'AP-002',
             severity: 'critical',
             title: 'ANTIPSYCHOTIC — DIAGNOSIS/INDICATION REVIEW',
@@ -200,7 +205,7 @@ async function runRulesEngine(user = 'System') {
         });
 
         if (recentSchizophrenia) {
-          this._createAlert({
+          createAlert({
             code: 'AP-003',
             severity: 'high',
             title: 'NEW PSYCHIATRIC DIAGNOSIS — DOCUMENTATION REVIEW',
@@ -227,7 +232,7 @@ async function runRulesEngine(user = 'System') {
         const recentTargetBehaviors = residentBehs.filter(b => (now - Date.parse(b.eventDate)) <= lookbackMs);
 
         if (isBehaviorIndication && recentTargetBehaviors.length === 0) {
-          this._createAlert({
+          createAlert({
             code: 'AP-004',
             severity: 'critical',
             title: 'ANTIPSYCHOTIC — TARGET SYMPTOM DOCUMENTATION NOT FOUND',
@@ -257,7 +262,7 @@ async function runRulesEngine(user = 'System') {
           const daysSinceLastBeh = Math.floor((now - lastBehDateMs) / (24 * 60 * 60 * 1000));
 
           if (daysSinceLastBeh > (settings.behaviorLookbackDays || 10)) {
-            this._createAlert({
+            createAlert({
               code: 'AP-005',
               severity: 'high',
               title: 'BEHAVIOR MONITORING GAP',
@@ -283,7 +288,7 @@ async function runRulesEngine(user = 'System') {
           residentNotesList.some(n => NON_PHARM_INTERVENTIONS.some(term => n.text.toLowerCase().includes(term)));
 
         if (!hasInterventions && isBehaviorIndication) {
-          this._createAlert({
+          createAlert({
             code: 'AP-NONPHARM',
             severity: 'high',
             title: 'NON-PHARMACOLOGICAL INTERVENTIONS NOT DOCUMENTED',
@@ -320,7 +325,7 @@ async function runRulesEngine(user = 'System') {
           }
 
           if (prnSeverity) {
-            this._createAlert({
+            createAlert({
               code: 'PRN-014',
               severity: prnSeverity,
               title: prnTitle,
@@ -342,7 +347,7 @@ async function runRulesEngine(user = 'System') {
         // RULE: GDR WATCH
         const residentGDR = residentGDRList.find(g => g.medication && g.medication.toLowerCase().includes(ap.genericName.toLowerCase())) ;
         if ((residentGDR?.nextReviewDate && Date.parse(residentGDR.nextReviewDate) <= now) || (daysOnDrug !== null && daysOnDrug > 180 && !residentGDR)) {
-          this._createAlert({
+          createAlert({
             code: 'GDR-001',
             severity: 'high',
             title: 'GDR REVIEW DUE / DOCUMENTATION NOT FOUND',

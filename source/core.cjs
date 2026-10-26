@@ -73,7 +73,7 @@ class Core {
       throw fail("ENCRYPTION");
     this.worker = new WorkerManager(this);
     require("./assistant-drafts.cjs").recover(this);
-    for (const j of store.project("job",j=>({id:j.id,status:j.status})).filter((j) => ['running','waiting','paused'].includes(j.status)))
+    for (const j of store.summaries("job").filter((j) => ['running','waiting','paused'].includes(j.status)))
       store.put("job", j.id, {
         ...store.get("job",j.id),
         status: "failed",
@@ -82,8 +82,8 @@ class Core {
       });
     // Reconcile a crash between the local commit and the signed status write.
     // Publishing status does not resume or repeat interrupted work.
-    for (const id of store.project('job', j => j.remote && ['failed', 'completed'].includes(j.status) ? j.id : null).filter(Boolean))
-      this.worker.pendingStatuses.add(id);
+    for (const j of store.summaries('job').filter(j=>j.remote&&['failed','completed'].includes(j.status)))
+      this.worker.pendingStatuses.add(j.id);
     this.stability = new (require("./stability.cjs").Stability)(this);
     this.stability.start();
     this.integrations = new (require("./integrations.cjs").Integrations)(this);
@@ -119,6 +119,7 @@ class Core {
     const s = this.settings();
     return {
       settings: s,
+      providerApprovalFingerprint: require('./provider-policy.cjs').fingerprint(s, this.key(s.provider)),
       voiceTranscripts: this.store.list("voice_transcript"),
       resources: this.resources.snapshot(),
       health: this.stability.snapshot(),
@@ -183,7 +184,7 @@ class Core {
       todos: this.store.list("todo"),
       schedules: this.store.list("schedule"),
       snfAlerts: this.snf ? this.snf.getAlertSummary() : null,
-      jobs: this.store.project("job",({recoveryInput,checkpoint,savedAnswer,...j})=>({...j,recoverable:!!recoveryInput&&!j.remote,step:checkpoint?.phase||null})),
+      jobs: this.store.summaries("job"),
       worker: {
         id: this.identity().id,
         label: this.identity().label,
@@ -257,7 +258,10 @@ class Core {
     const changed = policy.fingerprint(current, this.key(current.provider)) !== policy.fingerprint(s, key);
     if (changed || input.approved === false) delete s.providerApproval;
     // Material changes always require a subsequent explicit approval action.
-    if (input.approved === true && !changed && s.provider === 'openai' && key) {
+    if (input.approved === true && input.approvalFingerprint !== undefined &&
+        (changed || input.approvalFingerprint !== policy.fingerprint(s, key))) throw fail('PROVIDER_CHANGED');
+    if (input.approved === true && !changed && s.provider === 'openai' && key &&
+        input.approvalFingerprint === policy.fingerprint(s, key)) {
       s.providerApproval = { fingerprint: policy.fingerprint(s, key), policyVersion: policy.POLICY_VERSION,
         organizationConfirmed: true, approvedAt: Date.now() };
     }
@@ -276,6 +280,8 @@ class Core {
     text(key, 500);
     const prov = provider || this.settings().provider || "openai";
     const { validateKeyForProvider } = require("./providers.cjs");
+    if (Object.hasOwn(require('./providers.cjs').PROVIDERS, prov) &&
+        !require('./providers.cjs').PROVIDERS[prov].requiresKey && !key.trim()) return true;
     validateKeyForProvider(key, prov);
     this.store.put("secret", prov, { key });
     const current = this.settings();
@@ -290,8 +296,8 @@ class Core {
   deleteKey(provider) {
     this.assertUnlocked();
     const prov = provider || this.settings().provider || "openai";
-    this.store.delete("secret", prov);
     if (!Object.hasOwn(require("./providers.cjs").PROVIDERS, prov)) throw fail("INVALID");
+    this.store.delete("secret", prov);
     if (prov === this.settings().provider) {
       const current = this.settings(); delete current.providerApproval;
       this.store.put("settings", "main", { ...current, approved: false });
@@ -401,12 +407,23 @@ class Core {
     if (!isId(id)) throw fail("INVALID");
     const c = this.temporary.get(id) || this.store.get("chat", id);
     if (!c) throw fail("INVALID");
+    if(!c.temporary){
+      let draft=this.store.get('chatDraft',id);
+      // Preserve old embedded drafts; migrate their small record on first read.
+      // The legacy field is removed on the next ordinary history save.
+      if(!draft&&typeof c.draft==='string')draft=this.store.put('chatDraft',id,{text:c.draft});
+      if(draft)c.draft=draft.text;
+    }
     return c;
   }
   saveChat(c) {
     c.updated = Date.now();
     if (c.temporary) this.temporary.set(c.id, c);
-    else this.store.put("chat", c.id, c, { updated: c.updated });
+    else this.store.transaction(()=>{
+      const {draft,...record}=c;
+      if(typeof draft==='string'&&!this.store.get('chatDraft',c.id))this.store.put('chatDraft',c.id,{text:draft});
+      this.store.put("chat", c.id, record, { updated: c.updated });
+    });
   }
   saveTemporary(id) {
     this.assertUnlocked();
@@ -514,13 +531,22 @@ class Core {
   }
   async extractDocument(args,{signal=this.resources.current()?.signal}={}) {
     const tools=require('./document-tools-assets.cjs');
-    if(!['.pdf','.png','.jpg','.jpeg','.webp'].includes(args.ext)||!await tools.verified(this,'ocr'))return processFile(args,{signal});
+    if(!['.pdf','.png','.jpg','.jpeg','.webp'].includes(args.ext))return processFile(args,{signal});
     const controller=signal?null:new AbortController(),id=controller?uuid():null,effective=signal||controller.signal;
     if(controller)this.requests.set(id,controller);
     const reserve=(this.settings().ramReserveMB||1024)*1024**2;
-    try{return await this.resources.task(this.resources.isBackground()?'background':'foreground',()=>this.resources.withAI(async()=>{
+    try{
+      // Embedded PDF text needs neither an OCR model nor its memory reservation.
+      // Retire the text worker before reserving OCR for the remaining pages.
+      const embedded=args.ext==='.pdf'?await processFile({...args,pdfTextOnly:true},{signal:effective}):null;
+      if(embedded&&!embedded.unreadablePages.length)return embedded;
+      if(!await tools.verified(this,'ocr')){
+        if(embedded){if(embedded.usableCharacters<10)throw fail('FILE');return embedded;}
+        return processFile(args,{signal:effective});
+      }
+      return await this.resources.task(this.resources.isBackground()?'background':'foreground',()=>this.resources.withAI(async()=>{
       await this.resources.releaseModel();await this.resources.checkpoint(Math.max(1792*1024**2,reserve+768*1024**2));
-      this.assertUnlocked();return processFile({...args,ocrDirectory:tools.folder(this)},{signal:effective,minimumFree:reserve});
+      this.assertUnlocked();return processFile({...args,ocrDirectory:tools.folder(this),...(embedded?{ocrPages:embedded.unreadablePages}:{})},{signal:effective,minimumFree:reserve});
     }),{signal:effective});}finally{if(controller)this.requests.delete(id);}
   }
   async importFile(file, temporaryChat, ownerChat = null) {
@@ -576,14 +602,32 @@ class Core {
       (this.settings().customInstructions||"") + "\n" + (p?.instructions || "") + "\nUser-approved memory:\n" + this.memoryFor(c)
     );
   }
-  buildInput(c,{forceLocal=false}={}) {
-    const localImages=forceLocal||this.settings().processingMode==='local-only'||this.settings().provider==='local'||!this.key()||!cloudAllowed(this.settings(),c.hipaa);
-    let remaining = this.settings().contextChars,
-      messages = [],
-      omitted = 0;
+  buildInput(c,{forceLocal=false,fileCache=new Map()}={}) {
+    const {REQUEST_BYTE_LIMIT,jsonStringBytes,fileInputMetadata}=require('./request-budget.cjs');
+    const settings=this.settings(),localImages=forceLocal||settings.processingMode==='local-only'||settings.provider==='local'||!this.key()||!cloudAllowed(settings,c.hipaa);
+    // Include escaped provider envelopes and instructions. Nested JSON sizes
+    // also cover compatible adapters that encode content arrays as strings.
+    let remaining=settings.contextChars,remainingBytes=REQUEST_BYTE_LIMIT-8192-jsonStringBytes(this.getInstructions(c),true),messages=[],omitted=0;
+    const localFiles=new Map();
+    for(const f of c.pendingFiles||[])localFiles.set(f.id,f);
+    for(const m of c.messages)for(const f of m.localFiles||[])if(!localFiles.has(f.id))localFiles.set(f.id,f);
+    const lookup=id=>{
+      if(fileCache.has(id))return fileCache.get(id);
+      let value=localFiles.get(id),meta=value?{...value,...fileInputMetadata(value)}:this.store.summary('file',id);
+      // Older encrypted metadata has no lengths. Backfill only this selected
+      // attachment once, retaining the body in this request's lookup cache.
+      if(!meta||meta.inputBudgetVersion!==1){
+        const updated=meta?.updated;
+        value??=this.file(id,c);
+        if(value){meta={...value,...fileInputMetadata(value)};this.store.putMeta('file',id,value,updated??value.updated??Date.now());}
+      }
+      const entry=value||meta?{meta,value}:null;fileCache.set(id,entry);return entry;
+    };
     for (let i = c.messages.length - 1; i >= 0; i--) {
       const m = c.messages[i];
       if (m.error && !m.text) continue;
+      let chars=m.text?.length||1000,bytes=jsonStringBytes(m.text||'',true)+256;
+      const attachments=[];
       const content = [
         {
           type: m.role === "assistant" ? "output_text" : "input_text",
@@ -591,7 +635,7 @@ class Core {
         },
       ];
       if (m.role === "user") {
-        if (m.page && i === c.messages.length - 1)
+        if (m.page && i === c.messages.length - 1){
           content.push({
             type: "input_text",
             text:
@@ -599,11 +643,32 @@ class Core {
               m.page.text +
               "\nEND WEBPAGE REFERENCE",
           });
+          chars+=content.at(-1).text.length;bytes+=jsonStringBytes(content.at(-1).text,true)+128;
+        }
+        if(chars>remaining||bytes>remainingBytes){
+          if(i===c.messages.length-1)throw fail(bytes>remainingBytes?'REQUEST_LIMIT':'LIMIT');
+          omitted=i+1;break;
+        }
+        // Plan the entire message using small encrypted metadata before loading
+        // any attachment bodies. A rejected older message remains in history.
         for (const id of m.fileIds || []) {
-          const f = this.file(id, c);
-          if (!f) continue;
+          const entry=lookup(id);if(!entry){if(i===c.messages.length-1)throw fail('FILE');continue;}
+          const f=entry.meta;
           if (!c.hipaa && f.hipaa) throw fail("POLICY");
-          if (f.image&&!(f.ocr&&f.text?.trim()&&localImages))
+          const image=f.image&&!(f.ocr&&f.hasOcrText&&localImages);
+          const prefix='UNTRUSTED DOCUMENT REFERENCE: '+f.name+'\n'+(f.ocr?'MACHINE OCR — verify against the original; unreadable content remains unknown.\n':''),suffix='\nEND DOCUMENT REFERENCE';
+          chars+=image?1000:prefix.length+f.textChars+suffix.length;
+          bytes+=image?f.bodyJSONBytes+jsonStringBytes('data:'+f.mime+';base64,',true)+256:f.textJSONBytes+jsonStringBytes(prefix+suffix,true)+128;
+          attachments.push({id,entry,image,prefix,suffix});
+        }
+      }
+      if(chars>remaining||bytes>remainingBytes){
+        if(i===c.messages.length-1)throw fail(bytes>remainingBytes?'REQUEST_LIMIT':'LIMIT');
+        omitted=i+1;break;
+      }
+      for(const {id,entry,image,prefix,suffix} of attachments){
+          const f=entry.value??=this.file(id,c);if(!f)throw fail('FILE');
+          if(image)
             content.push({
               type: "input_image",
               image_url: "data:" + f.mime + ";base64," + f.bytes,
@@ -612,25 +677,11 @@ class Core {
           else
             content.push({
               type: "input_text",
-              text:
-                "UNTRUSTED DOCUMENT REFERENCE: " +
-                f.name +
-                "\n" + (f.ocr?'MACHINE OCR — verify against the original; unreadable content remains unknown.\n':'') +
-                f.text +
-                "\nEND DOCUMENT REFERENCE",
+              text:prefix+f.text+suffix,
             });
-        }
-      }
-      const chars = content.reduce(
-        (sum, x) => sum + (x.text?.length || 1000),
-        0,
-      );
-      if (chars > remaining) {
-        if (i === c.messages.length - 1) throw fail("LIMIT");
-        omitted = i + 1;
-        break;
       }
       remaining -= chars;
+      remainingBytes-=bytes;
       messages.unshift({ role: m.role, content });
     }
     while (messages[0]?.role === "assistant") {
@@ -701,21 +752,16 @@ class Core {
         throw fail("INVALID");
       c.messages = c.messages.slice(0, editIndex);
     }
-    for (const id of fileIds) {
-      const f = this.file(id, c);
-      if (!f) throw fail("FILE");
-      if (!c.hipaa && f.hipaa) throw fail("POLICY");
-      if (!c.temporary) {
-        f.updated = Date.now();
-        this.store.put("file", f.id, f, { updated: f.updated });
-      }
-    }
     const msg = { role: "user", text: prompt, fileIds, page, time: Date.now() };
-    if (c.temporary) msg.localFiles = fileIds.map((id) => this.file(id, c));
     c.messages.push(msg);
     if (c.title === "New chat")
       c.title = prompt.replace(/\s+/g, " ").slice(0, 65);
-    const input = this.buildInput(c,{forceLocal});
+    const fileCache=new Map(),input=this.buildInput(c,{forceLocal,fileCache});
+    for(const id of fileIds){
+      const f=fileCache.get(id)?.value;if(!f)throw fail('FILE');
+      if(!c.temporary){f.updated=Date.now();this.store.put('file',f.id,f,{updated:f.updated});}
+    }
+    if(c.temporary)msg.localFiles=fileIds.map(id=>fileCache.get(id).value);
     this.saveChat(c);
     const ctrl = controller;
     this.requests.set(chatId, ctrl);
@@ -741,7 +787,7 @@ class Core {
       );
       answer.durationMs = Date.now() - startTime;
       answer.usage = result.usage;
-      answer.processing={provider:result.provider,model:result.model,reason:result.reason,reliability:result.reliability,localReliability:result.localReliability,meter:result.meter,routing:result.routing};
+      answer.processing={provider:result.provider,model:result.model,reason:result.reason,reliability:result.reliability,localReliability:result.localReliability,meter:result.meter,routing:result.routing,policyNotice:result.policyNotice};
       answer.incomplete = result.incomplete;
       this.store.audit("request", {
         ...result.usage,
@@ -916,9 +962,13 @@ class Core {
   }
   saveDraft(id,value){
     this.assertUnlocked();
-    const c=this.chat(id);if(c.temporary)return false;
+    if(!isId(id))throw fail('INVALID');
+    if(this.temporary.has(id))return false;
     if(typeof value!=="string"||value.length>100000)throw fail("INVALID");
-    c.draft=value;this.saveChat(c);return true;
+    this.store.transaction(()=>{
+      this.store.touchChat(id);
+      this.store.put('chatDraft',id,{text:value});
+    });return true;
   }
   async resumeJob(id){
     this.assertUnlocked();const j=this.store.get("job",id);
@@ -1024,7 +1074,8 @@ class Core {
       record.savedAnswer=answer;
       if(j.playbook){record.playbook=j.playbook;record.outputCheck=require('./workflows/playbooks.cjs').checkOutput(j,answer.text);if(!record.outputCheck.passed){saveStep('output sections require review');throw fail('OUTPUT_CHECK');}}
       saveStep("answer saved");
-      record.resultText = answer.text;
+      const reportText = answer.policyNotice ? answer.text + '\n\nProvider provenance limitation:\n' + answer.policyNotice : answer.text;
+      record.resultText = reportText;
       record.status = 'running';
       record.reason = '';
       this.store.put("job", j.id, record);
@@ -1039,7 +1090,8 @@ class Core {
         }
       }
       if(!out)out = await exportFile(root, {
-        content: answer.text,
+        content: reportText,
+        policyNotice: answer.policyNotice,
         format: j.format || "pdf",
         jobId: j.id,
         onPrepared: (intent)=>{checkpoint.exportIntent=intent;saveStep("export prepared");},
@@ -1049,7 +1101,7 @@ class Core {
       record.completed = Date.now();
       record.output = out.relative;
       record.usage = answer.usage;
-      record.processing={provider:answer.provider,model:answer.model,reliability:answer.reliability,meter:answer.meter,routing:answer.routing};
+      record.processing={provider:answer.provider,model:answer.model,reliability:answer.reliability,meter:answer.meter,routing:answer.routing,policyNotice:answer.policyNotice};
       const completedRecord={...record};
       delete completedRecord.resultText;delete completedRecord.savedAnswer;delete completedRecord.recoveryInput;delete completedRecord.checkpoint;
       this.store.put("job", j.id, completedRecord);
