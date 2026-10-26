@@ -1663,5 +1663,19 @@
       "155.0.4283.62"
     ],
     "independentSignificantFindings": 0
+  },
+  "speedMemoryBatch3_20261026": {
+    "status": "implementation-complete-hosted-acceptance-pending",
+    "branch": "chatgpt/batch3-idle-work-20261026",
+    "localTests": {
+      "passed": 885,
+      "failed": 1,
+      "skipped": 0,
+      "failure": "Windows synthetic Edge sign-in: LOW_MEMORY, repeated in isolated run at about1.73GiB available"
+    },
+    "hardeningPassed": 30,
+    "scope": "event-based resource waits, safe speech admission, completion/failure peak sampling, bounded off-main queued envelopes",
+    "notShipped": "Resident Windows WhatsApp monitor measured58,191,872bytes working set; original reader retained",
+    "doc": "docs/SPEED_MEMORY_BATCH3_2026-10-26.md"
   }
 }
