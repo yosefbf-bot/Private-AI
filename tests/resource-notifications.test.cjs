@@ -50,3 +50,21 @@ test('browser release wakes local admission without an ownership timer',async t=
  const done=pending.catch(e=>{if(!ctrl.signal.aborted)throw e;});await turn();assert.equal(ran,false);assert.equal(r.ramTimer,null);
  r.releaseBrowser(owner);await done;assert.equal(ran,true);
 });
+
+test('RAM loss or foreground arrival during awaited preparation cannot launch background speech',async t=>{
+ for(const pressure of [true,false]){
+  const {resources:r,setRAM}=fixture(),prepared=deferred(),ctrl=new AbortController();t.after(()=>{ctrl.abort();prepared.resolve();});let preparing,ran=false;
+  const entered=new Promise(resolve=>preparing=resolve);
+  const bg=r.task('background',()=>r.withAI(()=>{ran=true;},{minimum:1.5*GIB,prepare:()=>{preparing();return prepared.promise;}}),{signal:ctrl.signal});
+  const done=bg.catch(e=>{if(!ctrl.signal.aborted)throw e;});await entered;
+  const foreground=deferred();t.after(()=>foreground.resolve());let fg;
+  if(pressure)setRAM(1.2*GIB);else fg=r.task('foreground',()=>r.withAI(()=>foreground.promise));
+  prepared.resolve();await turn();assert.equal(ran,false);if(pressure)assert.equal(r.ai,null);
+  setRAM(3*GIB);r.notify();foreground.resolve();await fg;await done;assert.equal(ran,true);
+ }
+});
+test('real settings and recovery pause publish resource changes',t=>{
+ const {core}=require('./helpers.cjs').fixture(t);let revision=core.resources.revision;
+ core.saveSettings({workerPaused:true});assert.ok(core.resources.revision>revision);revision=core.resources.revision;
+ core.stability.pause();assert.ok(core.resources.revision>revision);
+});

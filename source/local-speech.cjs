@@ -91,9 +91,8 @@ function saveChunk(core,data){
     return {id,bytes,meeting,old};
 }
 async function transcribe(core,bytes,signal){
-  if(!await verified(core))throw fail('SPEECH_SETUP');
   if(core.resources.browser)throw fail('BUSY');
-  await core.resources.releaseModel();await core.resources.checkpoint(1.5*1024**3);
+  core.resources.cancel();
   const result=(await run(path.join(folder(core),'whisper-cli.exe'),['-m',path.join(folder(core),'ggml-tiny.en.bin'),'-f','-','-of','unused','-nt','-t','2','-ng'],{input:bytes,signal})).trim();
   core.assertUnlocked();if(signal.aborted)throw fail('CANCELLED');
   if(result.length>5000)throw fail('LIMIT');return result;
@@ -117,9 +116,10 @@ async function dispatch(live,op,data={},options={}){
   active.add(live);const controller=new AbortController();live.requests.set('local-speech',controller);
   try{
     if(op==='speechSetup')return await setup(core,controller.signal);
+    const admission={minimum:1.5*1024**3,releaseLocal:true,excludeBrowser:true,prepare:async()=>{if(!await verified(core))throw fail('SPEECH_SETUP');}};
     if(op==='speechDictate') {
       const bytes=wav(data.audio);
-      return await live.resources.task(options.background?'background':'foreground',()=>live.resources.withAI(async()=>({text:await transcribe(core,bytes,controller.signal)})),{signal:controller.signal});
+      return await live.resources.task(options.background?'background':'foreground',()=>live.resources.withAI(async()=>({text:await transcribe(core,bytes,controller.signal)}),admission),{signal:controller.signal});
     }
     const {id,bytes,meeting,old}=saveChunk(core,data);
     if(old?.status==='transcribed')return {id,replayed:true,text:old.text};
@@ -133,7 +133,7 @@ async function dispatch(live,op,data={},options={}){
         core.store.put('meeting_audio',id,{...core.store.get('meeting_audio',id),status:'transcribed',text:result});
       });
       return {id,text:result,replayed:false};
-    }),{signal:controller.signal});
+    },admission),{signal:controller.signal});
   }finally{active.delete(live);requestTokens.delete(live);live.requests.delete('local-speech');}
 }
 async function processPending(core){

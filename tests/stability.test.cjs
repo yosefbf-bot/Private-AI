@@ -23,15 +23,26 @@ test('model peak polling skips idle wakeups but captures short completed request
  brain.child=null;await sampler.poll(brain,observe);assert.equal(samples,6);
 });
 
-test('failed peak samples retry at the next idle tick before suppressing redundant queries',async()=>{
+test('failed peak samples are fenced until model activity changes without inventing a peak',async()=>{
  const {ProcessMemorySampler}=require('../source/process-memory.cjs');
  for(const reject of [false,true]){
   let samples=0,observed=0;const sampler=new ProcessMemorySampler(async()=>{if(++samples===1){if(reject)throw Error('Synthetic query timeout');return null;}return 1234;});
   const brain={child:{pid:42},activeSettings:{localContext:2048},lastUsed:100,busy:false};
   if(reject)await assert.rejects(sampler.poll(brain,()=>observed++),/Synthetic/);else await sampler.poll(brain,()=>observed++);
-  assert.equal(observed,0);await sampler.poll(brain,()=>observed++);await sampler.poll(brain,()=>observed++);
+  assert.equal(observed,0);for(let i=0;i<5;i++)await sampler.poll(brain,()=>observed++);
+  assert.equal(samples,1);assert.equal(observed,0);
+  brain.lastUsed++;await sampler.poll(brain,()=>observed++);
   assert.equal(samples,2);assert.equal(observed,1);
  }
+});
+
+test('short inference starts peak sampling on completion while the child is alive',async()=>{
+ const {LocalBrain}=require('../source/local-brain.cjs'),{ProcessMemorySampler}=require('../source/process-memory.cjs');
+ let samples=0;const observations=[],sampler=new ProcessMemorySampler(async()=>{samples++;return 4567;});let sampled;
+ const s={localModelPath:'synthetic',localContext:2048,localMaxOutput:128};
+ const brain=new LocalBrain({settings:()=>s,onIdle:b=>{sampled=sampler.poll(b,(settings,bytes)=>observations.push(bytes));},fetcher:async()=>({ok:true,json:async()=>({choices:[{message:{content:'Synthetic'},finish_reason:'stop'}]})})});
+ brain.child={pid:42,kill(){}};brain.activeSettings=s;brain.load=async()=>{};
+ try{assert.equal((await brain.generate(s,[{role:'user',content:'Hi'}])).text,'Synthetic');await sampled;assert.equal(samples,1);assert.deepEqual(observations,[4567]);await sampler.poll(brain,()=>assert.fail());assert.equal(samples,1);}finally{brain.close();}
 });
 
 test('model peak polling is serialized and discards results for a replaced engine',async()=>{

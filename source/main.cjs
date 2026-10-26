@@ -110,6 +110,7 @@ function protectFolder() {
 function loadCipher(create) {
   return loadVault(localRoot, safeStorage, create);
 }
+function sampleModelMemory(brain){return memorySampler.poll(brain,(settings,bytes)=>{const row=modelManager.catalog(settings).find(t=>t.file===settings.localModelPath);if(row)core.stability.observePeak(row.tier,settings.localContext,bytes);}).catch(()=>{});}
 function emit(event) {
   if (event.type === 'locked') { if(!browserWorker?.canContinueLocked?.())browserWorker?.close(); companion?.invalidateInvites(); }
   if(event.type==='job_finished')messaging?.jobFinished(event.jobId).catch(()=>{});
@@ -191,6 +192,7 @@ function createTray() {
         label: "Pause background jobs",
         click: () => {
           core.store.put("settings","main",{...core.settings(),workerPaused:true});
+          core.resources.notify();
           core.store.audit("settings");
           emit({ type: "jobs_changed" });
         },
@@ -975,7 +977,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
           data,
         ),
       );
-      core.router.local=new LocalBrain({runtime:path.join(resources(app.isPackaged?"local-runtime":"build/local-runtime"),"llama-server.exe"),settings:()=>core.settings(),emit});
+      core.router.local=new LocalBrain({runtime:path.join(resources(app.isPackaged?"local-runtime":"build/local-runtime"),"llama-server.exe"),settings:()=>core.settings(),emit,onIdle:sampleModelMemory});
       modelManager=new ModelManager({directory:path.join(process.env.LOCALAPPDATA||os.homedir(),"PrivateAIModels"),fetcher:(url,opts)=>session.fromPartition("privateai-download-memory",{cache:false}).fetch(url,opts),emit});
       core.modelManager=modelManager;
       browserWorker=new BrowserWorker(core);
@@ -1047,7 +1049,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       // Optional gateway failures stay in Settings; offline/keyless startup remains usable.
       companion.start().catch(() => {});
       timer = setInterval(() => {
-        memorySampler.poll(core.router.local,(settings,bytes)=>{const row=modelManager.catalog(settings).find(t=>t.file===settings.localModelPath);if(row)core.stability.observePeak(row.tier,settings.localContext,bytes);}).catch(()=>{});
+        sampleModelMemory(core.router.local);
         core.worker.tick().catch(() => core.stability.incident("service-failed"));
         if (
           !core.locked &&
