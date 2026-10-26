@@ -1744,7 +1744,7 @@
     "mainFollowup": "898/899; native synthetic startup STORAGE; investigating without weakening gate"
   },
   "speedMemoryBatch5_20261026": {
-    "status": "implemented-local-verified-final-combined-release-pending",
+    "status": "merged-exact-head-all-eight-gates-passed",
     "baseMain": "2f9449c4760fae5e74597ff64851ebc5a63c8f89",
     "fullBeforeReview": {
       "passed": 917,
@@ -1767,10 +1767,24 @@
       "protected streaming transport parity",
       "native Ollama adapter/real-daemon acceptance"
     ],
-    "installedOwnerAppChanged": false
+    "installedOwnerAppChanged": false,
+    "pullRequest": 42,
+    "acceptedHead": "8456a628ead723518fc1bbc880a215cc3e46b531",
+    "mergeCommit": "42cebcb7f2137e7713f66b968313b67f1783c695",
+    "acceptedRun": 40413273853,
+    "mainRun": 40415333337,
+    "mainResult": "all-eight-gates-passed",
+    "windowsTests": {
+      "passed": 925,
+      "failed": 0,
+      "skipped": 0
+    },
+    "actualInstallerRestartInferenceReinstallPortable": true,
+    "actualPackagedOCRAndLocalSearch": true,
+    "ownerInstallationChanged": false
   },
   "speedMemoryBatch6_20261026": {
-    "status": "local-verification-passed-awaiting-exact-head-hosted-acceptance",
+    "status": "merged-exact-head-all-eight-gates-passed",
     "branch": "chatgpt/batch6-package-size-20261026",
     "baseMain": "2f9449c4760fae5e74597ff64851ebc5a63c8f89",
     "batch5Checkpoint": "9efc56bc8a5fbdc215b8750acf901aafff5f5356",
@@ -1798,6 +1812,25 @@
       "baseline": "576661f12d3d88037c84d27f0e9591132a767ad04e5ee8d670322bfa16eed958",
       "candidate": "bdbdde5347daab79c604e74acc708cf41a6174b194a070eb2c434002547c0486"
     },
-    "nativeSigninFocusedPassed": true
+    "nativeSigninFocusedPassed": true,
+    "pullRequest": 42,
+    "acceptedHead": "8456a628ead723518fc1bbc880a215cc3e46b531",
+    "mergeCommit": "42cebcb7f2137e7713f66b968313b67f1783c695",
+    "acceptedRun": 40413273853,
+    "mainRun": 40415333337,
+    "mainResult": "all-eight-gates-passed",
+    "windowsTests": {
+      "passed": 925,
+      "failed": 0,
+      "skipped": 0
+    },
+    "actualInstallerRestartInferenceReinstallPortable": true,
+    "artifactId": 12696120185,
+    "artifactBytes": 500112707,
+    "artifactDownloadedAndDigestVerified": true,
+    "installerSHA256": "8a2407958b5422380f886e62bc39fba85a55dc20a478437cc6ab1a2bbddbb060",
+    "applicationArchiveSHA256": "fbb135ac197271bbb6ea4a4cec3301f01056198268f657eccd0a0af7fe8095cb",
+    "portableSHA256": "88f023ba8d80036bb1ac27a54bc4f964df6cf3b310083664b3388a47236f5851",
+    "temporaryBuildCleanup": "automatic approval blocked deletion; folders retained outside Git"
   }
 }
