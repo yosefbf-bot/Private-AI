@@ -35,7 +35,9 @@ test('scheduled pulls serialize with a persisted five-minute gap and survive ser
  assert.equal(x.core.store.list('job').filter(j=>j.status==='completed').length,2);
 });
 test('PCC off, app lock and pause preserve pending schedules without pulling reports',async t=>{
- const x=setup(t);x.recipe.sourceProvider='pcc';x.core.store.put('browserRecipe',x.recipe.id,x.recipe);await x.approve();const s=x.due();
+ const x=setup(t);x.recipe.sourceProvider='pcc';x.core.store.put('browserRecipe',x.recipe.id,x.recipe);
+ await assert.rejects(x.browser.run(x.recipe),{code:'INTEGRATION_UNAVAILABLE'});
+ x.core.integrations.configure('pcc',{enabled:true,mode:'manual'});await x.approve();x.core.integrations.configure('pcc',{enabled:false});const s=x.due();
  await x.core.browserReports.tick();assert.equal(x.clicks,1);assert.equal(x.core.store.get('schedule',s.id).enabled,true);
  x.core.integrations.configure('pcc',{enabled:true,mode:'manual'});x.core.locked=true;await x.core.browserReports.tick();assert.equal(x.clicks,1);
  x.core.locked=false;x.core.saveSettings({workerPaused:true});await x.core.browserReports.tick();assert.equal(x.clicks,1);

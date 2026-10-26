@@ -16,6 +16,7 @@ function formatCalendar(result){
 }
 function createTools(core,access,browser){return async prompt=>{
  const p=prompt.trim().toLowerCase();
+ const report=require('./report-commands.cjs').parse(prompt);if(report)return require('./report-commands.cjs').execute(core,browser,report);
  if(p==='/diagnose'||/^(?:troubleshoot|diagnose|help troubleshoot) private[ -]?ai[.!?]?$/.test(p))return diagnose(core);
  if(p==='/status')return `Worker: ${core.settings().workerPaused?'paused':'available'}.\nLocal model: ${core.router.local?.status().state||'unavailable'}.\nProcessing: ${core.settings().processingMode}.\nQueued tasks: ${core.store.list('job').filter(j=>j.status==='queued').length}.`;
  if(p==='/unread'||/^check .*unread emails/.test(p)){
@@ -26,7 +27,6 @@ function createTools(core,access,browser){return async prompt=>{
   const {start,end}=range(p.includes('tomorrow')?'tomorrow':'today');const rows=await access.outlook("outlook.calendar",{start,end});
   return formatCalendar(rows);
  }
- if(p.startsWith('/report ')){if(!browser)throw fail('LOCAL_UNAVAILABLE');const name=prompt.slice(8).trim(),recipe=core.store.list('browserRecipe').find(r=>r.name===name);if(!recipe)throw fail('INVALID');const out=await browser.run(recipe);return 'Report saved: '+out.relative;}
  const isSNF = core.settings().snfEnabled !== false;
  const snfOff = 'SNF Clinical Surveillance is currently disabled in Settings. Enable "SNF Clinical Surveillance" in Settings to activate clinical commands.';
  if(p==='/critical')return isSNF ? (core.snf ? core.snf.getCriticalAlertsReport() : 'SNF surveillance engine not loaded.') : snfOff;

@@ -873,6 +873,7 @@ export function createAutomationCenterUI({ api, esc, toast, refresh, renderPage,
         if (!s) return;
         try {
           btn.disabled = true;
+          if(s.reportQuery){const result=await api('reportAnalyzeSchedule',{id:s.id});toast(`Queued ${result.queued} report analyses. Track them in Browser reports.`);btn.disabled=false;return;}
           if(s.browserRecipeId){toast('Use Download report in Website report schedules for a manually approved run.');renderPage('browser');return;}
           await api('runJob', {
             name: s.name,

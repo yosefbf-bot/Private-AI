@@ -12,6 +12,10 @@ function userText(messages){const m=[...messages].reverse().find(m=>m.role==='us
 function references(messages){const m=[...messages].reverse().find(m=>m.role==='user');return Array.isArray(m?.content)?m.content.filter(p=>p.type==='input_text'&&p.text?.startsWith('UNTRUSTED ')).map(p=>p.text).join('\n\n'):'';}
 async function deterministic(prompt,messages,tools){
  const p=prompt.trim();let answer;
+ if(require('./report-commands.cjs').parse(p)){
+  if(!tools)throw fail('LOCAL_UNAVAILABLE');answer=await tools(p);
+  return {text:answer,provider:'deterministic',model:'Local report tools',reason:'requested_report_workflow',usage:{inputTokens:0,outputTokens:0},reliability:{score:null,label:'Review source evidence',reasons:['Report requests use saved workflows and explicit selections. Queued analysis is not completed analysis.']}};
+ }
  if(/^\/diagnose$/i.test(p)||/^(?:troubleshoot|diagnose|help troubleshoot) private[ -]?ai[.!?]?$/i.test(p)){if(!tools)throw fail('LOCAL_UNAVAILABLE');answer=await tools(p);return {text:answer,provider:'deterministic',model:'Local diagnostics',reason:'requested_app_diagnostics',usage:{inputTokens:0,outputTokens:0},reliability:{score:null,label:'Configuration checks',reasons:['Live network and external applications were not tested.']}};}
  const calc=p.match(/^(?:\/calc(?:ulate)?|calculate|what is)\s+([\d\s.()+*/%\-]+)\??$/i);
  if(calc)answer=`${calc[1].trim()} = ${calculate(calc[1])}`;

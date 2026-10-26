@@ -31,7 +31,7 @@ async function sectionedReport(core,j,parts,checkpoint,saveStep,signal){
  for(let i=checkpoint.sections.length;i<sections.length;i++){
   await core.resources.checkpoint();if(signal.aborted)throw fail('CANCELLED');
   saveStep(`section ${i+1} of ${sections.length} requested; completion unconfirmed`);
-  const result=await core.router.generate(core.key(),{...core.settings(),hipaa:j.hipaa!==false||core.settings().hipaa},sections[i].messages,{web:j.web,signal,taskPrompt:j.prompt});
+  const result=await core.router.generate(core.key(),{...core.settings(),hipaa:j.hipaa!==false||core.settings().hipaa},sections[i].messages,{web:j.web,signal,taskPrompt:j.prompt,allowTools:j.analysisOnly?false:undefined});
   checkpoint.sections.push({text:result.text,provider:result.provider,model:result.model,reliability:result.reliability,usage:result.usage,policyNotice:result.policyNotice});
   saveStep(`section ${i+1} of ${sections.length} saved`);
  }

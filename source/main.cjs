@@ -158,7 +158,9 @@ function showWindow() {
   win.on("close", (event) => {
     for (const id of desktopTemporary) core.endTemporary(id);
     desktopTemporary.clear();
-    if (!quitting && (core.settings().workerEnabled||messaging?.settings().enabled)) {
+    // Keep unfinished renderer edits intact. Heavy models unload independently;
+    // a scheduled Primary PC must not exit just because Worker mode is off.
+    if (!quitting && require('./app-lifecycle.cjs').needsBackground(core,{native:isNative,messaging:!!messaging?.settings().enabled,companion:!!companion?.settings().enabled})) {
       event.preventDefault();
       win.hide();
     }
@@ -382,11 +384,15 @@ async function dispatch(
       core.store.put("messaging","windows",{appId:data.appId,pid:data.pid});return true;
     }
     case "browserRecipes": return core.browserReports.list();
+    case "reportHistory": {const reports=core.reportHistory.list(data),ids=new Set(reports.map(r=>r.id));return {reports,analyses:core.store.summaries('report_analysis').filter(a=>ids.has(a.reportId))};}
+    case "reportTrends": return core.reportHistory.trends(data);
+    case "reportAnalyzeSchedule": return core.reportHistory.runSchedule(data.id);
+    case "reportAnalyze": {const intake=data.folder?await core.reportHistory.catalogFolder(data.folder):null;return {...core.reportHistory.queue(data,data.prompt),intake};}
     case "browserGrant": {
       if(data.enabled===false)return core.browserReports.grant(data.id,null,false);
       const plan=core.browserReports.plan(data.id);
       await confirmWrite('Allow this tested report workflow to run unattended?',
-        (data.allowLocked===true?'ALLOW LOCKED RETRIEVAL: this exact headless report may run while Windows or Private AI is locked. General chat, phone and AI analysis remain locked.\n':'Runs require Private AI unlocked.\n')+'Only report retrieval is authorized. MFA, verification or errors stop the run. Changed workflows or credentials require a new test and approval. No email/WhatsApp sending permission.\n\nReport: '+plan.recipe.name+'\nWebsite: '+plan.recipe.url+'\nBrowser: '+plan.recipe.browser+'\nWorkflow hash: '+plan.hash+'\n\nProtected automatic sign-in configuration:\n'+JSON.stringify(plan.recipe.autoLogin||null,null,2)+'\n\nReport steps:\n'+JSON.stringify(plan.recipe.steps,null,2),32768);
+        (data.allowLocked===true?'ALLOW LOCKED RETRIEVAL: this exact headless report may run while Windows or Private AI is locked. General chat, phone and AI analysis remain locked.\n':'Runs require Private AI unlocked.\n')+'Only report retrieval is authorized. MFA, verification or errors stop the run. Changed workflows or credentials require a new test and approval. No email/WhatsApp sending permission.\n\nReport: '+plan.recipe.name+'\nWebsite: '+plan.recipe.url+'\nBrowser: '+plan.recipe.browser+'\nWorkflow hash: '+plan.hash+'\n\nParameters, date rules, output folder and analysis:\n'+JSON.stringify(plan.recipe.report||null,null,2)+'\n\nProtected automatic sign-in configuration:\n'+JSON.stringify(plan.recipe.autoLogin||null,null,2)+'\n\nReport steps:\n'+JSON.stringify(plan.recipe.steps,null,2),32768);
       if(core.browserReports.plan(data.id).credentialRevision!==plan.credentialRevision)throw fail('REVIEW_CHANGED');
       return core.browserReports.grant(data.id,plan.hash,true,data.allowLocked===true);
     }
@@ -405,7 +411,7 @@ async function dispatch(
     case "browserDelete": await browserWorker.close();if(core.store.get('browserCredential',data.id))core.browserCredentials.remove(data.id);core.browserCredentials.invalidate(data.id);core.store.delete('browserIssue',data.id);core.store.delete("browserRecipe",data.id);return true;
     case "browserOpen": {const r=validateBrowserTarget(data);await browserWorker.open(r.url,r.origins,false,r.browser);return true;}
     case "browserClose": await browserWorker.close();return true;
-    case "browserRun": {const r=core.store.get("browserRecipe",data.id);if(!r)throw fail("INVALID");if(data.walkthrough===true)await confirmWrite('Walk through this report?', 'The visible report browser can remain open at a failed step so you can help. Close it when finished. Passwords, screenshots, page content and session URLs are not saved in the issue report. This does not authorize unattended access.');return browserWorker.run(r,{walkthrough:data.walkthrough===true,testSignin:data.testSignin===true});}
+    case "browserRun": {const r=core.store.get("browserRecipe",data.id);if(!r)throw fail("INVALID");if(data.walkthrough===true)await confirmWrite('Walk through this report?', 'The visible report browser can remain open at a failed step so you can help. Close it when finished. Passwords, screenshots, page content and session URLs are not saved in the issue report. This does not authorize unattended access.');return browserWorker.run(r,{walkthrough:data.walkthrough===true,testSignin:data.testSignin===true,parameters:data.parameters||{}});}
     case "localStatus": return {brain:core.router.local.status(),download:modelManager.status(),routing:core.router.tierStatus||{phase:'idle',tier:null}};
     case "localUnload": core.router.local.stop(); return true;
     case "localLoad": {
@@ -1085,7 +1091,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
     });
 }
 app.on("window-all-closed", () => {
-  if (!quitting && !isNative && !core?.settings().workerEnabled && !messaging?.settings().enabled && !companion?.settings().enabled) app.quit();
+  if (!quitting && !require('./app-lifecycle.cjs').needsBackground(core,{native:isNative,messaging:!!messaging?.settings().enabled,companion:!!companion?.settings().enabled})) app.quit();
 });
 app.on("before-quit", () => {
   if (quitting) return;

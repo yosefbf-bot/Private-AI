@@ -43,6 +43,8 @@ const EVENTS = new Set([
   "meeting_commitment_confirmed",
 ]);
 const META = {
+  report_analysis: ['id','reportId','state','created','jobId','error','output'],
+  report_history: ['id','recipeId','sourceRevision','name','sourceProvider','relative','workspace','size','hash','created','downloadDate','requestedPeriod','choices','tracking','state','fileId','duplicateOf','unknownRows','sourceRows','incomplete','error','comparisonError'],
   companion_meeting: ["id", "meetingId", "deviceId", "sourceId"],
   meeting_upload: ["id", "meetingId"],
   meeting_audio: ["id", "meetingId", "chunkId", "status", "created", "bytes", "sha256", "retryAt"],
