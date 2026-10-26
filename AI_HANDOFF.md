@@ -1,4 +1,4 @@
-# Speed and memory Batch4 — final local verification in progress
+# Speed and memory Batch4 — local verification complete, hosted acceptance pending
 
 Base accepted main0b5e227 (Batch3 PR40); branch chatgpt/batch4-document-intake-20261026.
 See docs/SPEED_MEMORY_BATCH4_2026-10-26.md. Captures use linear encrypted writes;
@@ -7,8 +7,10 @@ exports; PDF OCR reuses embedded text; history idle rollups and bounded trend
 passes reduce repeated work; extension capture has bounded work/partial notices.
 Matched synthetic uploads:227.2MB ->14.2MB serialized writes;5.077s ->0.339s.
 Matched100k trend result unchanged:256 ->190ms;0 ->392 heartbeat opportunities.
-One independent review's two findings fixed. Full Windows-native sign-in on this
-PC hit LOW_MEMORY; standalone Edge report download and Edge/Chrome capture passed.
+One independent review's two findings fixed. Final full suite899/899,0skips,
+hardening30/30, audit0, Gitleaks current/history0. Initial native sign-in failed
+LOW_MEMORY; final full run passed it. Expanded combined browser UI still hit
+LOW_MEMORY; standalone Edge report download and Edge/Chrome capture passed.
 No installed-app/data change. Continue batches5–6 in order and require current
 exact-head hosted gates before merging. Owner requests brief batch summaries and
 final measured/clearly estimated overall summary; send completed work to GitHub.
@@ -23,9 +25,10 @@ Candidate7187586, artifact12689923102; installer SHA256
 Both accepted full ZIPs exceed the connector's512MiB download cap, remain on
 GitHub and were not downloaded. Do not describe failed/older archives as these builds.
 
+
 ---
 
-# Speed and memory Batch3 â€” implementation verified locally, hosted acceptance pending
+# Speed and memory Batch3 — implementation verified locally, hosted acceptance pending
 
 Branch chatgpt/batch3-idle-work-20261026, code86e34d3 plus Batch2 correction1dc6f51.
 Resources use notification waits/shared RAM timer; speech admission no longer
@@ -36,11 +39,11 @@ prototype passed synthetic native UIA checks but held55.5MiB idle; not shipped.
 Full local885/886 pass,0skips; one live Edge acceptance failed LOW_MEMORY (1.73GiB
 available), including isolated retry. Hardening30/30, audit0, Gitleaks0, guides,
 repository pass. Exact-head hosted Windows tests remain mandatory before merge.
-No owner installation/data change. Continue batches4â€“6 in order; summarize each.
+No owner installation/data change. Continue batches4–6 in order; summarize each.
 
 ---
 
-# Speed and memory Batch 2 â€” October 26, 2026
+# Speed and memory Batch 2 — October 26, 2026
 
 Base main `41d487c` (Batch 1 PR38 and all exact-main gates passed).
 Branch `chatgpt/batch2-startup-renderer-20261026`, 3.0.9-dev.
@@ -55,7 +58,7 @@ Acceptance now uses the actual Unlock button; local Edge lock/unlock regression
 and lifecycle3/3 pass. The new exact-head Windows run must pass before merge.
 No owner application/data replacement. Companion source/protocol unchanged.
 
-Owner instruction: continue Batches 3â€“6 in order without waiting, briefly report
+Owner instruction: continue Batches 3–6 in order without waiting, briefly report
 completed scope and measured efficiency after each, publish checked work to
 GitHub. No duplicate cache/dependency features, lowered safety/model/retention
 limits, lost drafts or weakened release gates. Native tests are required for the
@@ -64,7 +67,7 @@ Power BI account acceptance or whole-process RAM percentage is claimed.
 
 ---
 
-# Speed and memory Batch 1 â€” October 26, 2026
+# Speed and memory Batch 1 — October 26, 2026
 
 Branch `chatgpt/batch1-efficient-records-20261026`, base main `80f4352`.
 See docs/SPEED_MEMORY_BATCH1_2026-10-26.md for scope, measured read/write reductions,
@@ -74,11 +77,11 @@ One read-only independent review; asynchronous speech regression corrected while
 retaining the existing final pending-audio guard. Exact-head GitHub checks and
 packaged acceptance must pass before merge. No installed app/data replacement.
 The owner approved Batch1; continue the six-batch plan in order, reporting material
-changes and actual measurements. Batches2â€“6 are not part of this change.
+changes and actual measurements. Batches2–6 are not part of this change.
 
 ---
 
-# Idle resources and configurable report history â€” October 26, 2026
+# Idle resources and configurable report history — October 26, 2026
 
 Current branch `chatgpt/report-history-idle-20261026`, base main `77ca24a`.
 856/856 Windows source tests and 30/30 hardening tests passed; syntax268,
@@ -118,7 +121,7 @@ mains before any follow-up.
 
 ---
 
-# Hosted package-download repair â€” October 25, 2026
+# Hosted package-download repair — October 25, 2026
 
 Base main fa517ab contains merged PR35's accepted efficiency changes. PR35 passed
 all eight gates, including 832 Windows source tests and actual installer/app/local
@@ -232,7 +235,7 @@ base783534. That is not physical-phone or new-source acceptance.
 
 ---
 
-# Edge process-exit diagnosis â€” October 21, 2026
+# Edge process-exit diagnosis — October 21, 2026
 
 Hosted c45197c/run39694326831 again failed760/761. The new safe lifecycle
 trace proves both pages/context close and browser disconnect at4237ms,
@@ -252,7 +255,7 @@ DPAPI/Edge save/restart pairs; full current-head hosted release remains pending.
 All761 source tests passed locally at c45197c before this fixture-only change.
 No production/browser/provider/credential source changed in this increment.
 
-# Copyright and report-download diagnosis â€” October 21, 2026
+# Copyright and report-download diagnosis — October 21, 2026
 
 Owner confirmed **YFriedman** and authorized the proposed proprietary
 license for authorized users. See LICENSE.txt and docs/COPYRIGHT_LICENSE_2026-10-21.md.
@@ -524,7 +527,7 @@ ETIMEDOUT; all assertions and outer60s bound remain. Actual focused3/3 passed.
 Owner installation/data/keys/models/pairings remain untouched. Android mainffa762a
 and its reviewed95-local/6-device results are accepted; do not repeat those tests.
 
-## October 15 current retained pause â€” NOT a completed release
+## October 15 current retained pause — NOT a completed release
 
 Android mainffa762a passes its merged-main GitHub job and both reviewed source
 runs passed6/6 real device cases. Desktop56bb69d push passed712 Windows tests,
@@ -630,7 +633,7 @@ and reuse existing features.
 
 ---
 
-## October 14 1% pause â€” current working source
+## October 14 1% pause — current working source
 
 Read the final pause section in docs/FOUR_PHASE_PROGRESS_2026-10-13.md first.
 Desktop3d348f4 is onPR18, all exact-head CI jobs passed. UncommittedPhase3
@@ -667,7 +670,7 @@ for October 14 at 3:25 a.m. America/New_York. Fetch both mains on resumption.
 ## October 13 offline tools accepted on Windows
 
 Read [the actual Windows acceptance report](docs/OFFLINE_TOOLS_WINDOWS_VALIDATION_2026-10-13.md).
-Frozen binary code 0eb4313 passed genuine 3.0.2â†’3.0.3 installer upgrade, installed
+Frozen binary code 0eb4313 passed genuine 3.0.2→3.0.3 installer upgrade, installed
 app, real English image/scanned-PDF OCR, BGE/sqlite-vec search and Automatic Small
 inference at min(actual RAM, 3 GiB), using 2048 while preserving saved 4096.
 All 25 owner data files stayed byte-identical; private recovery remains outside Git.
@@ -704,7 +707,7 @@ production audit is zero. Source real Small inference passed twice. Frozen Windo
 interim code 4f118fe built and its packaged startup/14 checks/12 diagnostics/19 views passed.
 That package is superseded by final frozen code 2cf3f39: its installer built and
 packaged 14 checks/12 diagnostics/19 views passed. Source real background recovery
-and foreground inference passed at actual bounded 2.5â†’3 GiB admission. Preserve
+and foreground inference passed at actual bounded 2.5→3 GiB admission. Preserve
 interim failed/low-memory receipts. The genuine 3.0.2 installer upgrade now passed
 with exit 0, exact installed EXE/ASAR hashes and all 25 existing owner data files
 byte-identical. A private verified local recovery copy was retained outside Git.
@@ -777,15 +780,15 @@ Read [the October 11 checkpoint](docs/ASSISTANT_FIRST_PROGRESS_2026-10-08.md) be
 
 # Shared AI development handoff
 
-## Audit follow-up â€” 2026-10-07
+## Audit follow-up — 2026-10-07
 
 Read [the follow-up](docs/AUDIT_FOLLOWUP_2026-10-07.md). Completed Worker results now survive temporary status-publication failure, and unavailable speech recognition no longer requests microphone access. A third confirmed fix prevents window-close callbacks from reading SQLite after shutdown. All 509 Windows tests passed after this correction; rebuild and acceptance remain required. Earlier repairs are preserved. Fresh native inputs were obtained from exact-head CI 37568590549 and are being manifest-verified for a new Windows package. Until a new dated execution report exists, older installer flags do not establish acceptance of these fixes.
 
-## Pre-use audit repairs â€” 2026-10-06
+## Pre-use audit repairs — 2026-10-06
 
 Read [the repair report](docs/PRE_USE_AUDIT_FIXES_2026-10-06.md). Based on main `1527da64ba667ee862e2e71221f51063e4c06fa1`, this branch fixes indefinite retention, voice stop/privacy (including the duplicate sidebar toggle), interrupted Worker status publication, the regulatory exemption claim and Mammoth's production dependency advisory. Android/protocol/schema are unchanged. See `PROJECT_STATUS.json` and the review PR for current source checks. The older installer below does not contain these repairs; its Windows execution flags must not be transferred to this branch. A new hash-bound package acceptance is still required; the local generated native build inputs are currently absent.
 
-## Current Windows candidate â€” 2026-10-06
+## Current Windows candidate — 2026-10-06
 
 The tested **3.0.1-dev** binary is frozen code `46a385d2a8d1b14acf3e960f2b4c601159ba3d04`, based on main `c269a18eec4ea5b4e347e3520be1cd4e9bd88876`; later reports/handoffs/source exports are supplemental. Read [the dated report](docs/WINDOWS_VALIDATION_2026-10-06.md) and [sanitized machine summary](docs/windows-validation-2026-10-06.json). Actual package/install/uninstall/reinstall, synthetic default-path DPAPI/SQLite retention, installed restart, Small local inference and 575-file portable roundtrip/extracted-app acceptance passed the unchanged hash gate. Current packaged shared capture/evidence/actions/internal drafts/selected-chat/lock/restricted reminders were exercised through IPC and pinned loopback HTTPS. No real message or mailbox dispatch occurred.
 
@@ -795,7 +798,7 @@ The failed 11a9114 TLS-client and 34f9d3e IPC-unlock/Notes harness attempts rema
 
 Android review head 85db208 also passed 4 hosted emulator instrumentation tests. Hosted unit tests passed 44 with 1 explicitly skipped external desktop fixture; local tests passed 45 with 0 skips. Local lint has 0 errors/72 warnings, hosted lint 0/74. These are separate debug/hosted checkpoints, not physical-phone or existing-signer upgrade acceptance; production APK inputs remain the separately documented local checkpoint.
 
-## Shared captures and native Android integration â€” 2026-10-05
+## Shared captures and native Android integration — 2026-10-05
 
 Fresh base: desktop main `c269a18eec4ea5b4e347e3520be1cd4e9bd88876`, Android main `7028ec6d131ffaaf9e03d2f22b3550d7a38ddf3c`. Both use `chatgpt/shared-companion-workflows-2026-10-05`. Read `docs/SHARED_CAPTURE_IMPLEMENTATION_PLAN_2026-10-05.md`, `docs/SHARED_COMPANION_UPDATE_2026-10-05.md`, `docs/NOTES_ROUNDS_COMPANION_GUIDE.md` and the extended Android contract. Desktop draft review is [PR #13](https://github.com/yosefbf-bot/Private-AI-OG-google-version/pull/13); the matching Android source `56e6796` is [PR #1](https://github.com/yosefbf-bot/AI-Mobile-companion-app/pull/1). The user merges both mains.
 
@@ -813,7 +816,7 @@ Later desktop head `2354815` run `37359845980` ended before any steps: GitHub an
 
 The earlier validated installer/package below belongs to its exact earlier code checkpoint. It does not contain this source update. Preserve recovery/models outside Git and keep the existing release/privacy/resource gates. The former 1% stop rule was subsequently revoked by the owner. The prior one-time 3:35 AM wakeup was superseded and paused after the user resumed manually.
 
-## Historical Windows validation â€” 2026-10-02
+## Historical Windows validation — 2026-10-02
 
 PR #11 is merged. Latest GitHub main was fetched and verified as
 `114e0838fac230d33a9deb2996b7dfc736ce9d90`, matching the 10/1 integration tree.
@@ -833,7 +836,7 @@ the installed High model kept synthetic unavailable medication status **unknown*
 
 Small 1.7B, Medium 3B and High 4B passed two real inference rounds, including model
 checksums, cancellation and browser-lane guards. Initially available RAM was about
-5.9â€“6.5 GiB; High used about 4.6 GiB at context 4096. High remains conditional on
+5.9–6.5 GiB; High used about 4.6 GiB at context 4096. High remains conditional on
 available RAM/workload; no protection was weakened. Extra 8B is absent and untested.
 The earlier High low-memory failure is historical evidence, not this candidate's result.
 
@@ -915,7 +918,7 @@ PR #6 is merged into main at `a897ba7a6f7ea0d79ec4e3593cc1260396e03a7e`; regress
 
 PR #7 is merged at `f0b6d88e274a77e38fb7ee67a686b5e1b81251b2`. Its checkup findings remain in `docs/APPLICATION_CHECKUP_2026-09-28.md`.
 
-PR #8 is merged at `1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a`, the main checkpoint fetched on 2026-09-28. Main CI run [36499532128](https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/36499532128) passed. Read `docs/BROWSER_PASSWORDS_2026-09-28.md` for browser choices, Bitwarden handoff and acceptance limits. PRs #6â€“#8 no longer require merging.
+PR #8 is merged at `1bca55ca7eafcfd6d34aa53945ca47b1a6082f8a`, the main checkpoint fetched on 2026-09-28. Main CI run [36499532128](https://github.com/yosefbf-bot/Private-AI-OG-google-version/actions/runs/36499532128) passed. Read `docs/BROWSER_PASSWORDS_2026-09-28.md` for browser choices, Bitwarden handoff and acceptance limits. PRs #6–#8 no longer require merging.
 
 Executive Desk, Operations Analytics & Assistant Consolidation (2026-09-29):
 Implemented the Administrator Executive Desk (`source/executive-desk-engine.cjs`, `source/ui/executive-desk.mjs`), Operations Analytics & Regulatory Sentinel (`source/operations-analytics-engine.cjs`, `source/ui/operations-analytics.mjs`), and Executive AI Assistant Suite (`source/executive-assistant-engine.cjs`). Read `docs/EXECUTIVE_DESK_AND_OPERATIONS_ROADMAP.md`.
@@ -937,7 +940,7 @@ Small/Medium local inference passed repeated actual-runtime tests. High passed o
 - Never commit secrets, PHI, runtime databases, vault keys, credentials or browser sessions. Preserve installed `%LOCALAPPDATA%\PrivateAI2` data/vaults and the Store/Core/IPC contracts.
 - Keep `package-lock.json` and tracked Windows `build/` inputs. Web preview exports can omit required desktop files; absence in the preview is not authorization to delete them. Use `npm ci --ignore-scripts` with the lockfile.
 - Desktop renderer calls go through `window.privateAI`; no Node access in UI. Wire new features in both desktop IPC and the restricted development adapter, retaining their separate allowlists and unlock/origin checks.
-- For editable UI, verify edit â†’ save â†’ reload â†’ downstream/copy output. Review/finalization must apply to the saved revision. Test the actual call path through Core/SQLite/IPC/HTTP where relevant, not only mock module methods or source strings.
+- For editable UI, verify edit → save → reload → downstream/copy output. Review/finalization must apply to the saved revision. Test the actual call path through Core/SQLite/IPC/HTTP where relevant, not only mock module methods or source strings.
 - Never invent clinical or operational measurements, source citations/dates, diagnoses, medication, code status, staff identities, audio samples or facility approval. Missing data is unknown; incomplete imports are not an all-clear. Built-in protocols are unapproved references.
 - Demo content belongs in the selected isolated encrypted namespace; generated/copied output must say DEMO DATA. Do not seed production. Legacy SBARs predating evidenceVersion 2 are retained for inspection but cannot be signed off; recreate from verified sources.
 - Browser speech recognition may send audio off the device. Meeting and chat microphone policies must block it in HIPAA/Local Only and when policy is unavailable; stop capture on navigation, completion and policy changes. No simulated audio measurement can be labeled as verified training.
@@ -946,7 +949,7 @@ Small/Medium local inference passed repeated actual-runtime tests. High passed o
 
 ## Development preview authentication
 
-Development mode is `Development / Demo Mode â€” Not for PHI` and binds to `127.0.0.1:3000`. Data stays outside the repository; the development vault is not Windows DPAPI. No production LAN/cloud hosting is supported.
+Development mode is `Development / Demo Mode — Not for PHI` and binds to `127.0.0.1:3000`. Data stays outside the repository; the development vault is not Windows DPAPI. No production LAN/cloud hosting is supported.
 
 The server loads or generates a random token in the git-ignored local `.env`. `PRIVATE_AI_DEV_TOKEN` must be at least 32 characters. The UI uses a DOM token form compatible with iframes, then POST `/api/session` and session/CSRF headers. Token injection into HTML and the unauthenticated `/api/dev-token` endpoint were removed because they defeated token possession. Do not restore them.
 

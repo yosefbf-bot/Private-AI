@@ -74,11 +74,16 @@ parameters/download/indexing. One independent review found two defects: omitted
 multipart tabular provenance and an undisclosed header-induced capture truncation;
 both fixed with regressions.
 
-First full run897/898,0skips: sole failure actual Windows DPAPI/Edge sign-in
-LOW_MEMORY under owner-PC pressure. Final verification and hosted acceptance are
-recorded in PROJECT_STATUS.json; do not treat this source checkpoint as installed.
+Final full local suite899/899,0skips,160.914s. Hardening30/30; production audit0;
+Gitleaks current/history0. First full run897/898 hit actual Windows DPAPI/Edge
+LOW_MEMORY under PC pressure; the final full run passed that native check too.
+Hosted acceptance is still pending; do not treat this source checkpoint as installed.
 Expanded multi-browser workflow UI also reached the unchanged LOW_MEMORY guard
 while two test browsers were resident (~1.9GiB free). Standalone actual Edge/Chrome
 capture bounds and separate native Edge report download/indexing passed. No memory
 floor, assertion, security policy or CI gate was lowered. Native Windows candidate
 acceptance remains required before merge.
+
+Final checks: syntax279, repository453, bundled guides, actual Edge generalUI41
+and authenticated hardening UI pass. No unintended deletions. Native report and
+CSV/XLSX multipart recovery5/5 pass; earlier full history/migration/export26/26.

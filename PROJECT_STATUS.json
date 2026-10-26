@@ -1690,7 +1690,7 @@
     "windowsAcceptance": true
   },
   "speedMemoryBatch4_20261026": {
-    "status": "final-local-verification-in-progress",
+    "status": "locally-verified-awaiting-exact-head-ci",
     "branch": "chatgpt/batch4-document-intake-20261026",
     "baseMain": "0b5e227a2887dff13fd4217023fddb1d9b246e90",
     "ownerInstallChanged": false,
@@ -1717,6 +1717,26 @@
       "Native sign-in/full two-browser UI limited by actual LOW_MEMORY",
       "Derived rows remain self-contained for rollback compatibility; no persistent incremental aggregation cache",
       "Hosted exact-head Windows acceptance pending"
-    ]
+    ],
+    "tests": {
+      "passed": 899,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 160913.99
+    },
+    "hardeningPassed": 30,
+    "productionAuditVulnerabilities": 0,
+    "secrets": {
+      "current": 0,
+      "history": 0
+    },
+    "actualNativeReportDownloadPassed": true,
+    "actualEdgeChromeCaptureBoundsPassed": true,
+    "fullWorkflowUi": "Earlier Edge/Chrome run passed; expanded combined workflow later hit LOW_MEMORY; standalone final capture and native report flow pass",
+    "syntaxFiles": 279,
+    "repositoryTrackedFiles": 453,
+    "generalUIChecks": 41,
+    "authenticatedUI": true,
+    "guideCheck": true
   }
 }
