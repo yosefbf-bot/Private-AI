@@ -37,6 +37,14 @@ loopback error; hosted validation is required. No owner app/data/pairing or
 signer changed. Current-head GitHub gates and any release/device acceptance
 must be checked separately; historical acceptance below does not cover this head.
 
+Packaging follow-up: first hosted run40249139669 passed Windows831tests and UI,
+then correctly rejected stale tracked source/build-info.json after beforePack.
+Ran prepare:browser and committed its current source digest/timestamp. Added a
+regression that catches stale metadata before the expensive Windows build;
+focused build-identity/preparation tests5/5. No cleanliness gate is relaxed.
+After future source edits, run npm run prepare:browser and commit generated
+metadata before packaging. New exact-head acceptance is required.
+
 # Earlier speed/resource/reliability program - October 25, 2026
 
 Coordinator Claude Code with implementer Codex CLI on branch
