@@ -172,13 +172,17 @@ async function main(workerData) {
       try {
         const doc = await job.promise;
         if (doc.numPages > 300) throw Error("LIMIT");
-        let out = "",ocr=null,ocrPages=0,usableCharacters=0;const emptyPages=[];
+        let out = "",ocr=null,ocrPages=0,usableCharacters=0;const emptyPages=[],embeddedPages=[];
+        const carried=workerData.embeddedPages;
+        if(carried&&(!Array.isArray(carried)||carried.length!==doc.numPages||carried.some(t=>typeof t!=="string")||carried.reduce((n,t)=>n+t.length,0)>350000))throw Error("FILE");
         try{
         for (let p = 1; p <= doc.numPages; p++) {
-          const page = await doc.getPage(p);
-          const content = await page.getTextContent();
-          let pageText=content.items.map((i) => i.str + (i.hasEOL ? "\n" : " ")).join("");
+          let page=null,pageText;
+          if(carried)pageText=carried[p-1];
+          else {page=await doc.getPage(p);const content=await page.getTextContent();pageText=content.items.map(i=>i.str+(i.hasEOL?"\n":" ")).join("");}
+          if(workerData.pdfTextOnly)embeddedPages.push(pageText);
           if(!pageText.trim()&&workerData.ocrDirectory&&(!workerData.ocrPages||workerData.ocrPages.includes(p))){
+            page??=await doc.getPage(p);
             const engine=require('./offline-ocr.cjs');if(++ocrPages>engine.MAX_OCR_PAGES)throw Error('LIMIT');
             const viewport=page.getViewport({scale:2}),width=Math.ceil(viewport.width),height=Math.ceil(viewport.height);engine.pixels(width,height);
             const {createCanvas}=require('@napi-rs/canvas'),canvas=createCanvas(width,height);
@@ -188,12 +192,12 @@ async function main(workerData) {
           }
           if(!pageText.trim())emptyPages.push(p);
           usableCharacters+=pageText.trim().length;
-          out+='\n[Page '+p+']\n'+(pageText.trim()?pageText:'[No usable text was extracted from this page. Source incomplete; unreadable content remains unknown.]')+'\n';page.cleanup();
+          out+='\n[Page '+p+']\n'+(pageText.trim()?pageText:'[No usable text was extracted from this page. Source incomplete; unreadable content remains unknown.]')+'\n';page?.cleanup();
           limit(out);
         }
         if (usableCharacters < 10 && (!workerData.pdfTextOnly || !emptyPages.length))
           throw Error("FILE");
-        return { text: out,unreadablePages:emptyPages,incomplete:emptyPages.length>0,usableCharacters,...(ocrPages?{ocr:{engine:'tesseract-local-eng',pages:ocrPages,unreadablePages:emptyPages,verified:false,notice:'Machine OCR text may omit or misread information. Verify against the original pages before clinical or operational decisions.'}}:{}) };
+        return { text: out,unreadablePages:emptyPages,incomplete:emptyPages.length>0,usableCharacters,...(workerData.pdfTextOnly?{embeddedPages}:{}),...(ocrPages?{ocr:{engine:'tesseract-local-eng',pages:ocrPages,unreadablePages:emptyPages,verified:false,notice:'Machine OCR text may omit or misread information. Verify against the original pages before clinical or operational decisions.'}}:{}) };
         }finally{await ocr?.close();}
       } finally {
         await job.destroy();

@@ -111,7 +111,7 @@ function tableRows(content) {
 }
 async function exportFile(
   root,
-  { content, format, title = "Report", subfolder = "Reports", jobId, onPrepared, policyNotice },
+  { content, format, title = "Report", subfolder = "Reports", jobId, onPrepared, policyNotice, preparedRelative },
 ) {
   if (!["txt", "md", "docx", "pdf", "xlsx", "csv"].includes(format))
     throw fail("FILE");
@@ -132,7 +132,7 @@ async function exportFile(
   });
   const dir = safePath(root, subfolder);
   fs.mkdirSync(dir, { recursive: true });
-  const name =
+  const name = preparedRelative ? path.basename(preparedRelative) :
     (jobId
       ? "Report_" + jobId
       : "Report_" + new Date().toISOString().replace(/[:.]/g, "-")) +
@@ -140,7 +140,8 @@ async function exportFile(
     uuid().slice(0, 8) +
     "." +
     format;
-  const file = safePath(root, path.join(subfolder, name));
+  const file = safePath(root, preparedRelative || path.join(subfolder, name));
+  if(preparedRelative&&(path.dirname(file)!==dir||path.extname(file)!=="."+format))throw fail("CHANGED");
   const temp = safePath(root, path.join(subfolder, "." + uuid() + ".partial"));
   onPrepared?.({relative:path.relative(root,file),sha256:require("node:crypto").createHash("sha256").update(Buffer.from(result.bytes)).digest("hex")});
   try {

@@ -73,6 +73,25 @@ test('resumed sections preserve unknown usage and the earlier provenance notice 
  assert.ok(fs.readFileSync(path.join(core.settings().workspace,record.output),'utf8').includes(NOTICE));
 });
 
+test('incomplete sections and the saved section plan survive settings changes and SQLite recovery',async t=>{
+ const f=setup(t,true),{core}=f,j=job(core,true);let calls=0;
+ core.router.generate=async()=>{if(++calls===2)throw fail('NETWORK');return {...answer(),incomplete:calls===1};};
+ await core.runJob(j);let record=core.store.get('job',j.id);
+ assert.equal(record.checkpoint.sections[0].incomplete,true);
+ const count=record.checkpoint.sectionPlan.length;reload(f);
+ core.saveSettings({sectionedReports:false});await core.runJob(core.store.get('job',j.id).recoveryInput);
+ record=core.store.get('job',j.id);assert.equal(record.status,'completed',record.reason);assert.equal(calls,count+1);
+ assert.equal(record.processing.incomplete,true);
+ assert.match(fs.readFileSync(path.join(core.settings().workspace,record.output),'utf8'),/section 1[^\n]*incomplete/i);
+});
+
+test('finished sections need no context readmission and legacy completeness stays unknown',async t=>{
+ const {core}=setup(t),checkpoint={sectionPlan:[{document:1,messages:[{role:'user',content:'X'.repeat(100000)}]}],sections:[answer()]};
+ core.router.generate=async()=>assert.fail('no regeneration');
+ const result=await sectionedReport(core,{prompt:'Synthetic'},[],checkpoint,()=>{},new AbortController().signal);
+ assert.equal(result.incomplete,null);assert.match(result.text,/completeness.*unknown/i);
+});
+
 for(const sectioned of [false,true])test(`${sectioned?'sectioned':'ordinary'} job retains provenance through saved-answer recovery, export and reload`,async t=>{
  const f=setup(t,sectioned),{core}=f,j=job(core,sectioned);let calls=0;
  core.router.generate=async()=>{calls++;return answer();};

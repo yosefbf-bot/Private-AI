@@ -1,3 +1,33 @@
+# Speed and memory Batch4 — local verification complete, hosted acceptance pending
+
+Base accepted main0b5e227 (Batch3 PR40); branch chatgpt/batch4-document-intake-20261026.
+See docs/SPEED_MEMORY_BATCH4_2026-10-26.md. Captures use linear encrypted writes;
+sectioned reports retain incompleteness and frozen plans, with resumable multipart
+exports; PDF OCR reuses embedded text; history idle rollups and bounded trend
+passes reduce repeated work; extension capture has bounded work/partial notices.
+Matched synthetic uploads:227.2MB ->14.2MB serialized writes;5.077s ->0.339s.
+Matched100k trend result unchanged:256 ->190ms;0 ->392 heartbeat opportunities.
+One independent review's two findings fixed. Final full suite899/899,0skips,
+hardening30/30, audit0, Gitleaks current/history0. Initial native sign-in failed
+LOW_MEMORY; final full run passed it. Expanded combined browser UI still hit
+LOW_MEMORY; standalone Edge report download and Edge/Chrome capture passed.
+No installed-app/data change. Continue batches5–6 in order and require current
+exact-head hosted gates before merging. Owner requests brief batch summaries and
+final measured/clearly estimated overall summary; send completed work to GitHub.
+
+Batch2 accepted: PR39 head1dc6f51,8/8 gates run40400211282; merged2ccc510.
+Main follow-up run40402762731 succeeded. Candidate29a6cc4, artifact12688803386,
+installer SHA256 f64451524f7bea48a5e343f971b17c5d1599485c28359fcce0ba0f63546096f4.
+Batch3 accepted: PR40 head9ac1575,8/8 gates run40402838428;886/886 Windows tests,
+installer/restart/realSmall inference/reinstall/portable passed; merged0b5e227.
+Candidate7187586, artifact12689923102; installer SHA256
+33468bfd686ec6c268708e78c26dad1a6750f42d5650d6c1071cd087b3d88508.
+Both accepted full ZIPs exceed the connector's512MiB download cap, remain on
+GitHub and were not downloaded. Do not describe failed/older archives as these builds.
+
+
+---
+
 # Speed and memory Batch3 — implementation verified locally, hosted acceptance pending
 
 Branch chatgpt/batch3-idle-work-20261026, code86e34d3 plus Batch2 correction1dc6f51.
