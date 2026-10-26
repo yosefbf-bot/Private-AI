@@ -98,7 +98,11 @@ class HybridRouter {
     cloudAttempted=true;
     return require('./workflows/budget.cjs').generate(this.core,key,{...s,hipaa:s.hipaa||current.hipaa,processingMode:current.processingMode,allowCloud:current.allowCloud},messages,{...options,onDelta:delta=>{if(delta)cloudOutput=true;options.onDelta?.(delta);}});
    };
-   const r=this.core.resources?await this.core.resources.withAI(call):await call();
+   // Ollama is an external local daemon, not a cloud resource. Do not overlap
+   // report automation or keep the app-owned GGUF model resident during its call.
+   // The daemon itself remains externally owned; never stop or reconfigure it.
+   const admission=initialCloud.provider==='ollama'?{excludeBrowser:true,releaseLocal:true}:{};
+   const r=this.core.resources?await this.core.resources.withAI(call,admission):await call();
    const row={...r,provider:initialCloud.provider,model:s.model,reason,routing:localRouting,localReliability:localResult?.reliability.score??null,reliability:{score:null,label:'Review required',reasons:['Cloud output has not been independently verified.']}};
    row.meter=this.meter.record(row,s);return row;
   }catch(e){

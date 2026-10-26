@@ -9,6 +9,7 @@ const {
   safeError,
   uuid,
 } = require("./security.cjs");
+const {boundedWriter}=require('./bounded-writer.cjs');
 function derive(cipher, nonce) {
   return new Cipher(
     Buffer.from(
@@ -30,6 +31,7 @@ function startBridge(pipe, cipher, dispatch, onDisconnect = () => {}) {
       return;
     }
     sockets.add(socket);
+    const writer=boundedWriter(socket,()=>socket.destroy());let pending=0;
     const context = { temporaryChats: new Set() };
     let authenticated = false,
       session,
@@ -42,7 +44,7 @@ function startBridge(pipe, cipher, dispatch, onDisconnect = () => {}) {
       sockets.delete(socket);
       onDisconnect(context);
     });
-    socket.write(encodeFrame({ challenge: nonce }));
+    writer.write(encodeFrame({ challenge: nonce }));
     let inbound = 0,
       outbound = 0;
     const send = (message) => {
@@ -50,7 +52,7 @@ function startBridge(pipe, cipher, dispatch, onDisconnect = () => {}) {
       const box = session
         .seal({ seq: ++outbound, message }, "server")
         .toString("base64");
-      socket.write(encodeFrame({ box }));
+      writer.write(encodeFrame({ box }));
     };
     socket.sendEvent = send;
     const reader = new FrameReader(
@@ -83,6 +85,7 @@ function startBridge(pipe, cipher, dispatch, onDisconnect = () => {}) {
           )
             throw fail("INVALID");
           if (++received > 100000) throw fail("LIMIT");
+          if(pending>=32)throw fail('LIMIT');pending++;
           try {
             const result = await dispatch(
               request.op,
@@ -93,7 +96,7 @@ function startBridge(pipe, cipher, dispatch, onDisconnect = () => {}) {
             send({ type: "result", id: request.id, result });
           } catch (e) {
             send({ type: "result", id: request.id, error: safeError(e) });
-          }
+          }finally{pending--;}
         } catch {
           socket.destroy();
         }
@@ -120,6 +123,8 @@ function startBridge(pipe, cipher, dispatch, onDisconnect = () => {}) {
 function connectBridge(pipe, cipher, onMessage) {
   return new Promise((resolve, reject) => {
     const socket = net.connect(pipe);
+    const writer=boundedWriter(socket,()=>socket.destroy());let disconnected=false;
+    const disconnect=()=>{if(!disconnected){disconnected=true;onMessage({type:"disconnected"});}};
     let session,
       inbound = 0,
       outbound = 0,
@@ -132,11 +137,11 @@ function connectBridge(pipe, cipher, onMessage) {
       if (!ready) {
         clearTimeout(timer);
         reject(fail("NETWORK"));
-      } else onMessage({ type: "disconnected" });
+      } else disconnect();
     });
     socket.on("close", () => {
       clearTimeout(timer);
-      if (ready) onMessage({ type: "disconnected" });
+      if (ready) disconnect();
       else reject(fail("NETWORK"));
     });
     const reader = new FrameReader(
@@ -145,7 +150,7 @@ function connectBridge(pipe, cipher, onMessage) {
           if (msg.challenge) {
             if (ready || session) throw fail("POLICY");
             session = derive(cipher, msg.challenge);
-            socket.write(
+            writer.write(
               encodeFrame({ proof: cipher.mac("bridge:" + msg.challenge) }),
             );
             return;
@@ -158,7 +163,7 @@ function connectBridge(pipe, cipher, onMessage) {
             clearTimeout(timer);
             resolve({
               send: (message) =>
-                socket.write(
+                writer.write(
                   encodeFrame({
                     box: session
                       .seal({ seq: ++outbound, message }, "client")

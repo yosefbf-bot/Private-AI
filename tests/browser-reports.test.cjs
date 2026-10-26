@@ -61,3 +61,9 @@ test('daily weekly and monthly browser schedules preserve spacing on edit/duplic
  }
  assert.throws(()=>x.due({gapMinutes:0}),{code:'INVALID'});
 });
+
+for(const phase of ['claim','finish'])test(`schedule persistence failure at ${phase} never latches busy/request ownership`,async t=>{
+ const x=setup(t);await x.approve();x.due();const put=x.core.store.put.bind(x.core.store);let fault=true;
+ x.core.store.put=(kind,id,value,...args)=>{if(fault&&(phase==='claim'?kind==='schedule':kind==='browserPull'&&x.clicks>1)){fault=false;throw require('../source/security.cjs').fail('STORAGE');}return put(kind,id,value,...args);};
+ await assert.rejects(x.core.browserReports.tick(),{code:'STORAGE'});assert.equal(x.core.browserReports.busy,false);assert.equal(x.core.requests.size,0);assert.equal(x.browser.busy,false);
+});

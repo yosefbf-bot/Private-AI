@@ -16,9 +16,9 @@ const {BrowserReports}=require('../source/browser-reports.cjs');
    const wrapper={launchPersistentContext:async(profile,options)=>{
     const context=await engine.launchPersistentContext(profile,{...options,headless:true});
     const create=context.newPage.bind(context);
-    context.newPage=async()=>{
-     const page=await create();page.on('pageerror',e=>console.error('Synthetic page error:',e.message));page.on('download',()=>console.log(selected+': download event'));await page.route('https://report.privateai.invalid/**',r=>r.request().url().endsWith('/download')?r.fulfill({headers:{'content-type':'text/plain','content-disposition':'attachment; filename=report.txt'},body:'Synthetic report'}):r.fulfill({contentType:'text/html',body:`<input id="pw" type="password"><main><button id="ready" hidden>Signed in</button><button id="export" onclick="location.href='/download'">Download</button></main><script>document.querySelector('#pw').value='SYNTHETIC_PASSWORD';Object.defineProperty(document.querySelector('#pw'),'value',{get(){throw Error('Credential value was read')}});setTimeout(()=>document.querySelector('#ready').hidden=false,200)</script>`}));return page;
-    };return context;
+    const instrument=async page=>{
+     page.on('pageerror',e=>console.error('Synthetic page error:',e.message));page.on('download',()=>console.log(selected+': download event'));await page.route('https://report.privateai.invalid/**',r=>r.request().url().endsWith('/download')?r.fulfill({headers:{'content-type':'text/plain','content-disposition':'attachment; filename=report.txt'},body:'Synthetic report'}):r.fulfill({contentType:'text/html',body:`<input id="pw" type="password"><main><button id="ready" hidden>Signed in</button><button id="export" onclick="location.href='/download'">Download</button></main><script>document.querySelector('#pw').value='SYNTHETIC_PASSWORD';Object.defineProperty(document.querySelector('#pw'),'value',{get(){throw Error('Credential value was read')}});setTimeout(()=>document.querySelector('#ready').hidden=false,200)</script>`}));return page;
+    };for(const page of context.pages())await instrument(page);context.newPage=async()=>instrument(await create());return context;
    }};
    worker=new BrowserWorker(core,{chromium:wrapper,firefox:wrapper});
    console.log(selected+': running synthetic workflow');const out=await worker.run({name:'Synthetic report',browser:selected,url:'https://report.privateai.invalid/report',steps:[{op:'login',selector:'#ready'},{op:'download',selector:'#export'}]});

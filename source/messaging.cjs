@@ -6,7 +6,8 @@ const {conversationId,conversations,selected,writable}=require('./messaging-poli
 const captures=require('./capture-workflows.cjs');
 const DEFAULT={enabled:false,adapter:'web',groupId:'',groupName:'',senders:[],conversations:[],readAll:true,disableAllWriting:false,prefix:'AI:',allowTasks:false,notifyStarted:false,notifyProgress:false,notifyComplete:true,notifyFailure:true,notifyJobs:false,sendSummaries:true,sendAttachments:false,forwardDesktop:false,allowWhileLocked:false,warningAccepted:false};
 class MessagingBridge{
- constructor(core){this.core=core;this.adapters={};this.approving=new Set();this.busy=false;this.state='off';this.baselined=new Set();this.verified=new Set();this.generation=0;this.timer=setInterval(()=>this.tick().catch(()=>{this.state='unavailable';}),5000);this.timer.unref?.();}
+ constructor(core){this.core=core;this.adapters={};this.approving=new Set();this.busy=false;this.state='off';this.baselined=new Set();this.verified=new Set();this.generation=0;this.timer=null;this.retiring=Promise.resolve();this.syncTimer();}
+ syncTimer(){if(!this.closed&&this.settings().enabled){if(!this.timer){this.timer=setInterval(()=>this.tick().catch(()=>{this.state='unavailable';}),5000);this.timer.unref?.();}}else{clearInterval(this.timer);this.timer=null;}}
  settings(){const saved=this.core.store.get('messaging','settings')||{};return {...DEFAULT,...saved,disableAllWriting:saved.disableAllWriting??saved.readOnly??false};}
  code(){let s=this.core.store.get('secret','messaging');if(!s){s={code:crypto.randomBytes(16).toString('base64url')};this.core.store.put('secret','messaging',s);}return s.code;}
  save(input){this.core.assertUnlocked();if(input.readOnly!==undefined&&input.disableAllWriting===undefined)input={...input,disableAllWriting:input.readOnly};const s={...this.settings()};for(const k of Object.keys(DEFAULT))if(input[k]!==undefined)s[k]=input[k];
@@ -29,11 +30,11 @@ class MessagingBridge{
   if(policyChanged){this.generation++;if(this.activeChatId)this.core.stop(this.activeChatId);if(['groupId','adapter','enabled','disableAllWriting','conversations'].some(k=>JSON.stringify(s[k])!==JSON.stringify(previous[k])))this.baselined.clear();for(const a of Object.values(this.adapters))a.reset?.();}
   else if(s.readAll!==previous.readAll)for(const a of Object.values(this.adapters))a.readScopeChanged?.();
   delete s.readOnly;s.revision=policyChanged?uuid():previous.revision||uuid();
-  this.core.store.put('messaging','settings',s);this.state=s.enabled?'waiting':'off';return s;
+  this.core.store.put('messaging','settings',s);this.syncTimer();if(!s.enabled||s.adapter!==previous.adapter){const retired=Object.entries(this.adapters).filter(([name])=>!s.enabled||name!==s.adapter).map(([,a])=>Promise.resolve(a.close?.()).catch(()=>{}));this.retiring=Promise.all([this.retiring,...retired]);}this.state=s.enabled?'waiting':'off';return s;
  }
  status(){return {settings:this.settings(),state:this.state,busy:this.busy,lastReadAt:this.lastReadAt||null,adapters:Object.keys(this.adapters),connection:this.adapters[this.settings().adapter]?.status?.()||{coverage:'open-conversation-only'}};}
  async pair(adapter,groupId){this.core.assertUnlocked();const a=this.adapters[adapter];if(!a)throw fail('MESSAGING');const shot=await a.snapshot(groupId);if(!shot.verified||!conversationId.test(shot.groupId)||!shot.groupName)throw fail('MESSAGING');this.verified.add(JSON.stringify([adapter,shot.groupId,shot.groupName]));return {groupId:shot.groupId,groupName:shot.groupName,senders:[...new Set(shot.messages.filter(m=>m.senderVerified).map(m=>m.sender))]};}
- async tick(){const s=this.settings(),generation=this.generation;if(!s.enabled||this.busy||this.core.settings().workerPaused)return;if(this.core.locked&&!s.allowWhileLocked){this.state='paused-locked';return;}const a=this.adapters[s.adapter];if(!a){this.state='unavailable';return;}this.busy=true;
+ async tick(){if(this.closed)return;const s=this.settings(),generation=this.generation;if(!s.enabled||this.busy||this.core.settings().workerPaused)return;if(this.core.locked&&!s.allowWhileLocked){this.state='paused-locked';return;}const a=this.adapters[s.adapter];if(!a){this.state='unavailable';return;}this.busy=true;
   try{await this.core.runMessagingBackground(async()=>{
    await this.reminders(a);
    a.onRead=shot=>this.observe(shot);
@@ -188,6 +189,6 @@ class MessagingBridge{
   const body='Report task '+id.slice(0,8)+(job.status==='completed'?' completed.':' did not complete.')+' Open Private AI to review '+(job.status==='completed'?'the saved report.':'the task details.');
   await this.core.runMessagingBackground(()=>this.send(adapter,target,uuid(),body));
  }
- close(){this.closed=true;clearInterval(this.timer);for(const a of Object.values(this.adapters))a.close?.();}
+ close(){this.closed=true;this.generation++;this.syncTimer();this.retiring=Promise.all([this.retiring,...Object.values(this.adapters).map(a=>Promise.resolve(a.close?.()).catch(()=>{}))]);return this.retiring;}
 }
 module.exports={MessagingBridge,DEFAULT};

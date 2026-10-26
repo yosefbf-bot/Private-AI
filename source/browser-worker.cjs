@@ -35,11 +35,12 @@ class BrowserWorker{
    check();
    if(!this.context){
     const browser=browsers[selected];await this.core.resources.reserveBrowser(this,'Report browser ('+browser.name+')');check();
-    const options={...launchOptions(selected),serviceWorkers:'block',...(scheduled?{headless:true,viewport:{width:1280,height:900}}:{})};
+    this.transferFolder=fs.mkdtempSync(path.join(this.core.root,'report-transfer-'));
+    const options={...launchOptions(selected),downloadsPath:this.transferFolder,serviceWorkers:'block',...(scheduled?{headless:true,viewport:{width:1280,height:900}}:{})};
     if(protectedLogin){options.ignoreDefaultArgs=options.ignoreDefaultArgs.filter(a=>a!=='--disable-extensions');options.args=['--disable-extensions'];}
     try{if(this.engines[browser.engine]===undefined)this.engines[browser.engine]=require('playwright-core')[browser.engine];this.context=await this.engines[browser.engine].launchPersistentContext(profilePath(this.core.root,selected),options);}catch{throw fail('BROWSER_SETUP');}
-    this.browser=selected;const opened=this.context;
-    opened.on('close',()=>{if(this.context===opened){this.context=null;this.browser=null;this.core.resources.releaseBrowser(this);}});
+    this.browser=selected;const opened=this.context,openedFolder=this.transferFolder;
+    opened.on('close',()=>{if(this.context===opened){this.context=null;this.browser=null;this.transferFolder=null;this.core.resources.releaseBrowser(this);if(openedFolder)void fs.promises.rm(openedFolder,{recursive:true,force:true}).catch(()=>{});}});
    }
    check();
    if(running)checkReportBrowser(this.context,selected);
@@ -52,7 +53,7 @@ class BrowserWorker{
    if(running)await this.context.route('**/*',this.network?this.network.handler:route=>{let allowed=false;try{check();const u=new URL(route.request().url());allowed=u.protocol==='https:'&&origins.includes(u.origin);}catch{}return allowed?route.continue():route.abort();});
    if(protectedLogin){if(!this.context.routeWebSocket)throw fail('BROWSER_SETUP');await this.context.routeWebSocket('**/*',socket=>socket.close());}
    check();
-   const page=selectedPage=this.context.pages().find(p=>{try{return origins.includes(new URL(p.url()).origin);}catch{return false;}})||await this.context.newPage();check();await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000});await this.network?.settle();check();return page;
+   const page=selectedPage=this.context.pages().find(p=>{try{return origins.includes(new URL(p.url()).origin);}catch{return false;}})||this.context.pages().find(p=>p.url()==='about:blank')||await this.context.newPage();check();await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000});await this.network?.settle();check();return page;
   }catch(e){try{this.network?.assert();}catch(networkError){e=networkError;}if(!['DEFERRED','INTERFERENCE'].includes(e.code))await this.close();if(e.code)throw e;throw fail('ACCESS');}finally{this.opening=false;}
  }
  async run(input,{scheduled=false,lease,walkthrough=false,testSignin=false,parameters={}}={}){
@@ -89,7 +90,7 @@ class BrowserWorker{
     if(step.op==='download'){
      const waiting=page.waitForEvent('download',{timeout:60000});waiting.catch(()=>{});await locator.click({timeout:20000});await this.network?.settle(waiting);const download=await waiting;check();const ext=path.extname(download.suggestedFilename()).toLowerCase();if(!['.pdf','.xlsx','.xls','.csv','.tsv','.docx','.txt'].includes(ext))throw fail('FILE');
      const name='Report-'+resolved.downloadDate+'-'+uuid()+ext,relative=resolved.folder+'/'+name;
-     fs.mkdirSync(safePath(root,resolved.folder),{recursive:true});const file=safePath(root,relative);temp=file+'.partial';await download.saveAs(temp);if(await download.failure())throw fail('FILE');check();if(fs.statSync(temp).size>100*1024**2)throw fail('LIMIT');if(fs.existsSync(file))throw fail('CHANGED');fs.renameSync(temp,file);temp=null;
+     fs.mkdirSync(safePath(root,resolved.folder),{recursive:true});const file=safePath(root,relative);temp=file+'.partial';await require('./browser-download.cjs').saveDownload(download,temp,check,{folder:this.transferFolder,close:()=>this.close()});check();if(fs.statSync(temp).size>100*1024**2)throw fail('LIMIT');if(fs.existsSync(file))throw fail('CHANGED');fs.renameSync(temp,file);temp=null;
      const out={relative,complete:true,requestedPeriod:resolved.period,downloadDate:resolved.downloadDate,choices:resolved.choices};
      if(this.core.reportHistory)out.reportId=await this.core.reportHistory.record(recipe,out,{guard:check});
      if(!scheduled)this.core.store.put('browserVerified',recipe.id,{id:recipe.id,hash:require('./browser-reports.cjs').digest(recipe),tested:Date.now()});this.core.store.delete('browserIssue',recipe.id);return out;
@@ -103,6 +104,6 @@ class BrowserWorker{
   }finally{if(temp)try{fs.unlinkSync(temp);}catch{}this.busy=false;this.scheduledGuard=null;this.activeRecipe=null;if(!keep)await this.close();}
  }
  canContinueLocked(){try{if(!this.scheduledGuard)return false;this.scheduledGuard();return true;}catch{return false;}}
- async close(cancelOpening=true){if(cancelOpening)this.generation++;const context=this.context;this.context=null;this.browser=null;try{await context?.close();}catch{}this.network?.clear();this.network=null;this.core.resources.releaseBrowser(this);}
+ async close(cancelOpening=true){if(cancelOpening)this.generation++;const context=this.context,folder=this.transferFolder;this.transferFolder=null;this.context=null;this.browser=null;try{await context?.close();}catch{}if(folder)try{await fs.promises.rm(folder,{recursive:true,force:true});}catch{}this.network?.clear();this.network=null;this.core.resources.releaseBrowser(this);}
 }
 module.exports={BrowserWorker,validateRecipe,validateBrowserTarget};

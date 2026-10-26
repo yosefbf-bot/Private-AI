@@ -29,7 +29,7 @@ async function create(directory){
  if(!stat.isFile()||stat.isSymbolicLink()||stat.size!==spec.bytes)throw Error('OCR_FAILED');
  const h=crypto.createHash('sha256');for await(const part of fs.createReadStream(language))h.update(part);
  if(h.digest('hex')!==spec.sha256)throw Error('OCR_FAILED');
- const core=physical(path.dirname(require.resolve('tesseract.js-core/tesseract-core-lstm.wasm.js')));
+ const core=physical(path.dirname(require.resolve('tesseract.js-core/tesseract-core-lstm.js')));
  const workerPath=physical(require.resolve('./ocr-thread.cjs'));
  let worker;
  try{

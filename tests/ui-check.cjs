@@ -584,7 +584,7 @@ let browser;
       runtime: {
         connectNative: () => ({
           onMessage: { addListener: (cb) => (handler = cb) },
-          onDisconnect: { addListener: () => {} },
+          onDisconnect: { addListener: cb => {window.__disconnectPanel=cb;} },
           postMessage: (request) =>
             window.nativeCall(request).then((response) => handler(response)),
           disconnect: () => {},
@@ -638,6 +638,13 @@ let browser;
   assert.equal(await panel.locator('#messages').evaluate(el=>el.scrollTop),0,'Reading position stays at older messages');
   await panel.evaluate(()=>window.__panelObserver.disconnect());finishLongStream();longStream=false;await panel.waitForFunction(()=>!document.querySelector('#send').disabled);
   checks.push('Extension stream updates only the active answer and preserves earlier DOM/reading position');
+  longStream=true;await panel.locator('#prompt').fill('Synthetic interrupted panel stream');await panel.locator('#send').click();
+  await panel.waitForFunction(()=>document.querySelector('.message:last-child .message-body')?.textContent.includes('STREAM_END'));
+  await panel.evaluate(()=>window.__disconnectPanel());await panel.waitForFunction(()=>!document.querySelector('#send').disabled&&!document.querySelector('#prompt').disabled);
+  assert.match(await panel.locator('#error').textContent(),/disconnected/);finishLongStream();longStream=false;
+  await panel.locator('#reconnect').click();await panel.waitForFunction(()=>document.querySelector('#mode').textContent.includes('smart-hybrid'));
+  checks.push('Extension disconnect rejects pending sends and restores controls without replay');
+
 
   await panel.evaluate(() => {
     window.chrome.scripting.executeScript = async () => {

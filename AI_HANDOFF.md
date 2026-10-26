@@ -1,3 +1,32 @@
+# Current: speed/memory batches5–6, final verification/publication
+
+Batch5 checkpoint9efc56b; Batch6 package changes built and independently reviewed.
+See docs/SPEED_MEMORY_BATCH6_2026-10-26.md for measured113.9MB/13.53% installed
+savings and six-batch summary. Fresh locked dependency install595 packages;
+retained versions/integrities unchanged. Final fresh locked Windows fullsuite925/925,0skips; hardening30/30; audit0.
+Both local baseline and reduced package passed real image/scanned-PDF OCR and
+BGE/sqlite-vec search,0cloud calls. Revised native DPAPI/Edge fixture passed3cycles.
+Exact-head hosted installer candidate acceptance pending. Owner apps/data unchanged; companion mained388c0 unchanged.
+Batch4 PR41 all8 checks passed before merge2f9449c; follow-up main40408908032 failed
+one synthetic native startup STORAGE (898/899). Added safe fixture diagnostics
+and removed redundant startup verification, preserving full actual ACL checks.
+Do not describe that main run as passed. Require final PR/main checks to pass.
+
+## Historical Batch5 local checkpoint
+
+# Speed/memory Batch5 — implementation and local checks complete
+
+Base accepted main2f9449c (PR41 all8 gates and actual Windows acceptance passed).
+See docs/SPEED_MEMORY_BATCH5_2026-10-26.md. Browser/WhatsApp/pipe lifetimes bounded;
+disabled messaging timer removed; Ollama/browser ownership corrected. Full917/917
+before final review fixes, then focused45/45 messaging,22/22 startup,2/2 panel,
+actualEdge UI42/42 and native report download pass. One review found2 lifecycle
+races, now fixed and narrowly re-reviewed. Hardening30/30, audit/secrets0.
+Two unsafe-to-claim replacements deferred: streamed protected HTTP parity and
+native Ollama adapter/real-daemon settings. Existing safety/output limits remain.
+Continue Batch6 packaging, then combined final fullsuite and exact-head Windows
+PR/main gates. Owner apps/data unchanged. Companion mained388c0 unchanged.
+
 # Speed and memory Batch4 — local verification complete, hosted acceptance pending
 
 Base accepted main0b5e227 (Batch3 PR40); branch chatgpt/batch4-document-intake-20261026.

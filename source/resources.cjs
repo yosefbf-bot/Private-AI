@@ -13,7 +13,7 @@ const WARNINGS = {
 class Resources {
  constructor(core, {memory=()=>Math.min(os.freemem(), process.availableMemory?.() || Infinity), sleep=defaultSleep}={}) {
   this.core=core; this.memory=memory; this.sleep=sleep; this.context=new AsyncLocalStorage(); this.foreground=0; this.background=null; this.ai=null; this.browser=null; this.approve=null; this.sequence=0;
-  this.revision=0;this.waiters=new Set();this.ramWaiters=0;this.ramTimer=null;
+  this.residentBrowsers=new Map();this.revision=0;this.waiters=new Set();this.ramWaiters=0;this.ramTimer=null;
  }
  notify(){this.revision++;for(const wake of [...this.waiters])wake();}
  waitForChange(revision,{ram=false,signal=this.current()?.signal}={}){
@@ -33,7 +33,7 @@ class Resources {
  releaseAI(task){if(this.ai===task){this.ai=null;this.notify();}}
  current(){return this.context.getStore();}
  isBackground(){return this.current()?.kind==='background'||!!this.core.backgroundToken&&this.core.backgroundContext?.getStore()===this.core.backgroundToken;}
- snapshot(){return {foreground:this.foreground, background:this.background ? {state:this.background.state,reason:this.background.reason} : {state:this.core.settings().workerPaused?'paused':'waiting',reason:this.core.settings().workerPaused?'Background work is paused. Review Health & recovery before resuming.':'No background task running.'},browser:this.browser?.label||null,availableMemoryGB:Math.round(this.memory()/GIB*10)/10};}
+ snapshot(){return {foreground:this.foreground, background:this.background ? {state:this.background.state,reason:this.background.reason} : {state:this.core.settings().workerPaused?'paused':'waiting',reason:this.core.settings().workerPaused?'Background work is paused. Review Health & recovery before resuming.':'No background task running.'},browser:this.browser?.label||null,residentBrowsers:[...this.residentBrowsers.values()],availableMemoryGB:Math.round(this.memory()/GIB*10)/10};}
  state(task,state,reason){if(!task||task.state===state&&task.reason===reason)return;task.state=state;task.reason=reason;task.update?.(state,reason);this.core.emit?.({type:'jobs_changed'});}
  async task(kind,fn,{signal,update}={}){
   if(this.current())return fn();
@@ -151,6 +151,9 @@ class Resources {
   this.browser={owner,label};if(this.core.router?.local)this.core.router.local.browserBusy=true;
   try{await this.releaseModel();await this.checkpoint(1.5*GIB);}catch(e){this.releaseBrowser(owner);throw e;}
  }
+ // Resident messaging is accounted by actual free RAM, not an exclusive AI-blocking token.
+ retainBrowser(owner,label){this.residentBrowsers.set(owner,label);this.releaseBrowser(owner);this.notify();}
+ retireBrowser(owner){this.residentBrowsers.delete(owner);this.releaseBrowser(owner);this.notify();}
  releaseBrowser(owner){if(this.browser?.owner!==owner)return;this.browser=null;if(this.core.router?.local)this.core.router.local.browserBusy=false;this.notify();}
 }
 module.exports={Resources,WARNINGS};

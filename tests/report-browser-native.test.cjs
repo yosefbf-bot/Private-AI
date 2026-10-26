@@ -3,24 +3,24 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const {fixture}=require('./helpers.cjs'),{BrowserWorker,validateRecipe}=require('../source/browser-worker.cjs');
 const {day,period}=require('../source/report-parameters.cjs');
 test('Windows Edge applies dates/options, downloads without overwrite and indexes source-linked history',{skip:process.platform!=='win32',timeout:60000},async t=>{
- const cleanup=[],{core}=fixture({after:f=>cleanup.push(f)});let worker,uiBrowser;const selected=[];
+ const cleanup=[],{core}=fixture({after:f=>cleanup.push(f)});let worker,uiBrowser;const selected=[];let extraPages=0;
  t.after(async()=>{await worker?.close();await uiBrowser?.close();for(const f of cleanup.reverse())f();});
  core.resources.memory=()=>8*1024**3;core.resources.approve=async()=>true;
  const engine=require('playwright-core').chromium,wrapper={launchPersistentContext:async(profile,options)=>{
   const context=await engine.launchPersistentContext(profile,{...options,headless:true}),create=context.newPage.bind(context);
-  context.newPage=async()=>{const page=await create();await page.route('https://report.privateai.invalid/**',async route=>{
+  const instrument=async page=>{await page.route('https://report.privateai.invalid/**',async route=>{
    const url=new URL(route.request().url());if(url.pathname==='/download'){
     selected.push(Object.fromEntries(url.searchParams));
     return route.fulfill({headers:{'content-type':'text/csv','content-disposition':'attachment; filename=synthetic.csv'},body:`date,residentId,unit,eventId\n${day(new Date())},R-SYNTHETIC,North,E-SYNTHETIC`});
    }
    return route.fulfill({contentType:'text/html',body:'<input id="start"><input id="end"><select id="unit"><option>All</option><option>North</option></select><input id="detail" type="checkbox"><button id="download" onclick="location.href=\'/download?\'+new URLSearchParams({start:document.querySelector(\'#start\').value,end:document.querySelector(\'#end\').value,unit:document.querySelector(\'#unit\').value,detail:document.querySelector(\'#detail\').checked})">Download</button>'});
-  });return page;};return context;
+  });return page;};for(const page of context.pages())await instrument(page);context.newPage=async()=>{extraPages++;return instrument(await create());};return context;
  }};
  worker=new BrowserWorker(core,{chromium:wrapper});
  const recipe=validateRecipe({name:'Synthetic configurable export',url:'https://report.privateai.invalid/report',steps:[{op:'fill',selector:'#start',value:'{{start}}'},{op:'fill',selector:'#end',value:'{{end}}'},{op:'select',selector:'#unit',value:'{{unit}}'},{op:'check',selector:'#detail',checked:true},{op:'download',selector:'#download'}],report:{period:'last month',folder:'Reports',dailyFolder:true,choices:{unit:{values:['All','North'],default:'North'}},tracking:{mode:'events',metric:'Synthetic events',dateColumn:'date',residentColumn:'residentId',unitColumn:'unit',eventIdColumn:'eventId'}}});
  const a=await worker.run(recipe),b=await worker.run(recipe,{parameters:{period:'yesterday'}});
  assert.deepEqual(selected[0],{...period('last month'),unit:'North',detail:'true'});assert.deepEqual(selected[1],{...period('yesterday'),unit:'North',detail:'true'});
- assert.notEqual(a.relative,b.relative);assert.equal(path.dirname(a.relative).replaceAll('\\','/'),'Reports/'+day(new Date()));assert.ok(fs.existsSync(path.join(core.settings().workspace,a.relative)));assert.equal(worker.context,null);
+ assert.equal(extraPages,0,'Each actual fresh launch reuses its one initial page');assert.notEqual(a.relative,b.relative);assert.equal(path.dirname(a.relative).replaceAll('\\','/'),'Reports/'+day(new Date()));assert.ok(fs.existsSync(path.join(core.settings().workspace,a.relative)));assert.equal(worker.context,null);
  await core.reportHistory.index(a.reportId);await core.reportHistory.index(b.reportId);
  assert.equal((await core.reportHistory.trends({entityType:'resident',entityId:'R-SYNTHETIC'})).groups[0].observations,1);
  core.reportHistory.queue({ids:[a.reportId]});assert.equal(await core.reportHistory.tick(),true);

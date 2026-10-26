@@ -24,14 +24,21 @@ function error(message) {
   $("error").textContent = message;
   $("error").hidden = false;
 }
+function rejectPending(message) {
+  for(const pending of requests.values()){clearTimeout(pending.timer);pending.reject(Error(message));}
+  requests.clear();
+}
 function connect() {
+  rejectPending('Reconnecting. Check the desktop for any unfinished operation.');
   try {
     port?.disconnect();
   } catch {}
   connected = false;
   try {
     port = chrome.runtime.connectNative("org.privateai.companion");
+    const currentPort=port;
     port.onMessage.addListener((message) => {
+      if(port!==currentPort)return;
       if (message.type === "event") {
         const e = message.event;
         if (e?.type === "delta" && chat?.id === e.chatId) {
@@ -55,21 +62,16 @@ function connect() {
       if (message.type === "result") {
         const pending = requests.get(message.id);
         if (!pending) return;
-        requests.delete(message.id);
+        requests.delete(message.id);clearTimeout(pending.timer);
         message.error
           ? pending.reject(Error(message.error.message))
           : pending.resolve(message.result);
       }
     });
     port.onDisconnect.addListener(() => {
+      if(port!==currentPort)return;
       connected = false;
-      for (const pending of requests.values())
-        pending.reject(
-          Error(
-            "Private AI disconnected. Open the desktop app, then reconnect.",
-          ),
-        );
-      requests.clear();
+      rejectPending('Private AI disconnected. Open the desktop app, then reconnect.');
       $("mode").textContent = "Desktop app disconnected";
       const ignored = chrome.runtime.lastError;
     });
@@ -84,13 +86,18 @@ function connect() {
 function call(op, data = {}) {
   if (!connected || !port)
     return Promise.reject(Error("Connect to Private AI first."));
+  if(requests.size>=32)return Promise.reject(Error('Too many pending requests. Wait or reconnect.'));
   return new Promise((resolve, reject) => {
     const id = crypto.randomUUID();
-    requests.set(id, { resolve, reject });
+    const timer=setTimeout(()=>{
+      connected=false;rejectPending('The desktop request timed out. Check its status before trying again.');
+      try{port?.disconnect();}catch{}
+    },op==='send'?1800000:120000);
+    requests.set(id, { resolve, reject, timer });
     try {
       port.postMessage({ id, op, data });
     } catch {
-      requests.delete(id);
+      requests.delete(id);clearTimeout(timer);
       reject(Error("The desktop connection is unavailable."));
     }
   });
@@ -283,6 +290,7 @@ document.addEventListener("click", (e) => {
       .catch(() => error("Clipboard access was unavailable."));
 });
 window.addEventListener("pagehide", () => {
+  rejectPending("Browser panel closed.");
   if (chat?.temporary)
     try {
       port?.postMessage({

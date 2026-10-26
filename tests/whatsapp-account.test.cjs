@@ -15,3 +15,40 @@ test('read permission revoked while account lookup waits prevents retention',asy
 test('lock, worker pause, and bridge disable stop event reading',async t=>{const x=setup(t);x.core.locked=true;await x.account.receive(x.message('locked',direct));x.core.locked=false;x.core.saveSettings({workerPaused:true});await x.account.receive(x.message('paused',direct));x.core.saveSettings({workerPaused:false});x.bridge.save({enabled:false});await x.account.receive(x.message('disabled',direct));assert.equal(x.bridge.readings().length,0);});
 test('observations are deduplicated, expire under retention, and can be cleared locally',async t=>{const x=setup(t);await x.account.receive(x.message('same',direct));await x.account.receive(x.message('same',direct));assert.equal(x.bridge.readings().length,1);x.core.store.cleanup(90,Date.now()+91*86400000);assert.equal(x.bridge.readings().length,0);await x.account.receive(x.message('new',direct));x.bridge.clearReadings();assert.equal(x.bridge.readings().length,0);});
 test('legacy readOnly setting migrates to disable-all-writing without changing read-all',async t=>{const x=setup(t);x.core.store.put('messaging','settings',{...x.bridge.settings(),disableAllWriting:undefined,readOnly:true});assert.equal(x.bridge.settings().disableAllWriting,true);assert.equal(x.bridge.settings().readAll,true);x.bridge.save({readAll:false});assert.equal(x.bridge.settings().disableAllWriting,true);assert.equal(x.core.store.get('messaging','settings').readOnly,undefined);});
+
+ test('messaging timer exists only while enabled and disable awaits account retirement',async t=>{
+ const {core}=fixture(t),b=new MessagingBridge(core);t.after(()=>b.close());assert.equal(b.timer,null);
+ b.save({enabled:true,warningAccepted:true});assert.ok(b.timer);let closed=0;b.adapters.web={close:async()=>{closed++;}};
+ b.save({enabled:false});await b.retiring;assert.equal(b.timer,null);assert.equal(closed,1);
+ });
+ test('late account initialization and events cannot resurrect a disabled generation',async t=>{
+ const {core}=fixture(t);core.resources.approve=async()=>true;core.resources.memory=()=>8*1024**3;
+ let finish;const c=new EventEmitter();let destroyed=0;c.initialize=()=>new Promise(r=>{finish=r;});c.destroy=async()=>{destroyed++;};
+ const account=new WhatsAppAccount(core,{factory:()=>c});await account.open();const closing=account.close();c.emit('qr');c.emit('ready');finish();await closing;
+ assert.equal(account.client,null);assert.equal(account.state,'off');assert.ok(destroyed>=1);assert.equal(core.resources.browser,null);assert.equal(core.resources.residentBrowsers.size,0);
+ });
+ test('account failure destroys resident browser without occupying the AI lane',async t=>{
+ const {core}=fixture(t);core.resources.approve=async()=>true;core.resources.memory=()=>8*1024**3;
+ const c=new EventEmitter();let destroyed=0;c.initialize=async()=>{};c.destroy=async()=>{destroyed++;};const a=new WhatsAppAccount(core,{factory:()=>c});t.after(()=>a.close());
+ await a.open();await a.initializing;assert.equal(core.resources.browser,null);assert.equal(core.resources.residentBrowsers.size,1);
+ assert.equal(await core.resources.withAI(async()=>42,{excludeBrowser:true}),42);
+ c.emit('auth_failure');await a.retiring;assert.equal(a.state,'authentication-failed');assert.equal(a.client,null);assert.ok(destroyed);assert.equal(core.resources.residentBrowsers.size,0);
+ });
+
+ test('wrapper retains a reopened account while prior destruction finishes',async t=>{
+ const {core}=fixture(t);core.resources.approve=async()=>true;core.resources.memory=()=>8*1024**3;
+ let release,destroyed=0;const gate=new Promise(r=>release=r),clients=[];
+ const a=new WhatsAppAccount(core,{factory:()=>{const c=new EventEmitter();c.initialize=async()=>{};c.destroy=async()=>{destroyed++;if(clients[0]===c)await gate;};clients.push(c);return c;}});
+ const wrapper=new (require('../source/whatsapp-web.cjs').WhatsAppWeb)(core);wrapper.account=a;await wrapper.open();await a.initializing;
+ const closing=wrapper.close(),opening=wrapper.open();release();await closing;await opening;await a.initializing;
+ assert.ok(wrapper.account===a);assert.equal(a.client,clients[1]);await wrapper.close();assert.equal(a.client,null);assert.ok(destroyed>=3);
+ });
+ test('logout event retirement catches cancellation and waits for library profile cleanup',async t=>{
+ const {core}=fixture(t);core.resources.approve=async()=>true;core.resources.memory=()=>8*1024**3;
+ let release,cleaned=false;const gate=new Promise(r=>release=r),c=new EventEmitter();c.pupPage=new EventEmitter();
+ c.authStrategy={beforeBrowserInitialized:async()=>{},afterBrowserInitialized:async()=>{},logout:async()=>{await gate;cleaned=true;}};c.destroy=async()=>{};
+ c.initialize=async()=>{await c.authStrategy.beforeBrowserInitialized();await c.authStrategy.afterBrowserInitialized();c.pupPage.on('framenavigated',async()=>{c.emit('disconnected');await c.authStrategy.logout();await c.authStrategy.beforeBrowserInitialized();await c.authStrategy.afterBrowserInitialized();});};
+ const a=new WhatsAppAccount(core,{factory:()=>c});t.after(()=>a.close());await a.open();await a.initializing;
+ const event=c.pupPage.listeners('framenavigated')[0]();await Promise.resolve();let retired=false;a.retiring.then(()=>retired=true);await Promise.resolve();assert.equal(retired,false);
+ release();await assert.doesNotReject(event);await a.retiring;assert.equal(cleaned,true);assert.equal(a.state,'disconnected');assert.equal(a.client,null);assert.equal(core.resources.residentBrowsers.size,0);
+ });

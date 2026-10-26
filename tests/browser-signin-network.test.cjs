@@ -68,3 +68,16 @@ test('settlement also drains a navigation started while an earlier handler is fi
  finally{releaseSecond();await second;await settling;}
  assert.deepEqual(h.navigations,['https://login.example.com/report']);
 });
+
+for(const status of [200,302,429])test(`fetched response ${status} is disposed after fulfillment or rejection`,async()=>{
+ const h=harness({status,location:'/report'}),events=[],fetch=h.route.fetch;
+ h.route.fetch=async(...args)=>({...await fetch(...args),dispose:async()=>events.push('dispose')});
+ h.route.fulfill=async()=>{events.push('fulfill');await new Promise(setImmediate);events.push('consumed');};
+ await h.net.handler(h.route);assert.deepEqual(events,status===429?['dispose']:['fulfill','consumed','dispose']);
+});
+
+test('failed fulfillment still releases the fetched response',async()=>{
+ const h=harness(),fetch=h.route.fetch;let disposed=0;
+ h.route.fetch=async(...args)=>({...await fetch(...args),dispose:async()=>disposed++});h.route.fulfill=async()=>{throw Error('synthetic');};
+ await h.net.handler(h.route);assert.equal(disposed,1);await assert.rejects(h.net.settle(),{code:'POLICY'});
+});
