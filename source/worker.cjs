@@ -126,7 +126,9 @@ class WorkerManager {
     this.lastPublish = 0;
     this.lastPoll = 0;
     this.pendingStatuses = new Set();
+    this.envelopeReader=null;this.closed=false;
   }
+  close(){this.closed=true;this.envelopeReader?.close().catch(()=>{});}
   publish() {
     const c = this.core,
       s = c.settings();
@@ -385,8 +387,9 @@ class WorkerManager {
   async tick() {
     const c = this.core,
       s = c.settings();
-    if (this.busy) return;
+    if (this.busy||this.closed) return;
     this.busy = true;
+    let envelopeReader;
     try {
       if (Date.now() - this.lastPublish > 45000) {
         try {
@@ -442,21 +445,22 @@ class WorkerManager {
         return;
       }
       if (!s.workspace) return;
-      const files = fs
-        .readdirSync(safePath(s.workspace, "Tasks/Queued"))
-        .filter((n) => /^[a-f0-9-]{36}\.json$/.test(n))
-        .slice(0, 200);
+      const {QueuedEnvelopeReader,queuedNames}=require('./queued-envelope.cjs');
+      const files=await queuedNames(s.workspace);
+      const receiver=c.identity().id;
       for (const name of files) {
+        const current=c.settings();
+        if(!c.store.db||current.workspace!==s.workspace||!current.workerEnabled||current.workerPaused||!["worker","both"].includes(current.role))return;
         const f = safePath(s.workspace, "Tasks/Queued/" + name);
         let env;
         try {
-          if (fs.statSync(f).size > 45000000) continue;
-          env = JSON.parse(fs.readFileSync(f));
-        } catch {
-          continue;
-        }
-        if (env.receiver !== c.identity().id || name !== env.id + ".json")
-          continue;
+          envelopeReader??=new QueuedEnvelopeReader(s.workspace,receiver);
+          this.envelopeReader=envelopeReader;
+          env=await envelopeReader.read(name);
+        } catch { continue; }
+        const latest=c.settings();
+        if(!c.store.db||latest.workspace!==s.workspace||!latest.workerEnabled||latest.workerPaused||!["worker","both"].includes(latest.role))return;
+        if(!env||env.receiver!==receiver||name!==env.id+'.json')continue;
         const peer = c.store.get("peer", env.sender);
         if (!peer) continue;
         let payload;
@@ -469,7 +473,7 @@ class WorkerManager {
         if (payload.expiresAt && payload.expiresAt <= Date.now()) {
           try {
             this.status(env.id, "failed", { error: "EXPIRED" });
-            fs.unlinkSync(f);
+            await fs.promises.unlink(f);
           } catch {}
           continue;
         }
@@ -489,7 +493,7 @@ class WorkerManager {
         });
         if (!claimed) {
           try {
-            fs.unlinkSync(f);
+            await fs.promises.unlink(f);
           } catch {}
           continue;
         }
@@ -497,7 +501,7 @@ class WorkerManager {
           this.publishStatus(env.id, "running", { started: Date.now() });
           await c.runJob(payload, true, true);
           try {
-            fs.unlinkSync(f);
+            await fs.promises.unlink(f);
           } catch {}
         } catch {
           try {
@@ -507,6 +511,8 @@ class WorkerManager {
         break;
       }
     } finally {
+      await envelopeReader?.close();
+      if(this.envelopeReader===envelopeReader)this.envelopeReader=null;
       this.busy = false;
     }
   }

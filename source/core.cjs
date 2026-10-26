@@ -278,6 +278,7 @@ class Core {
     if (s.role === "primary") s.workerEnabled = false;
     if (input.snfEnabled !== undefined) s.snfEnabled = Boolean(input.snfEnabled);
     this.store.put("settings", "main", s);
+    this.resources?.notify();
     if(changed || input.approved === false || !cloudAllowed(s)) for(const controller of this.requests.values()) controller.abort();
     this.store.audit("settings");
     return s;
@@ -1347,6 +1348,7 @@ class Core {
   }
   close() {
     require('./workflows/semantic-search.cjs').clear(this);
+    this.worker.close();
     clearInterval(this.speechWorkTimer);
     clearInterval(this.reminderTimer);
     this.integrations.close();

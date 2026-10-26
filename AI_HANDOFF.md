@@ -1,3 +1,18 @@
+# Speed and memory Batch3 — implementation verified locally, hosted acceptance pending
+
+Branch chatgpt/batch3-idle-work-20261026, code86e34d3 plus Batch2 correction1dc6f51.
+Resources use notification waits/shared RAM timer; speech admission no longer
+holds AI while waiting for memory/foreground. Peak sampling fences failures and
+starts on completion. Bounded ShareSync envelope parsing runs off the main thread.
+See docs/SPEED_MEMORY_BATCH3_2026-10-26.md. Original native WhatsApp reader retained:
+prototype passed synthetic native UIA checks but held55.5MiB idle; not shipped.
+Full local885/886 pass,0skips; one live Edge acceptance failed LOW_MEMORY (1.73GiB
+available), including isolated retry. Hardening30/30, audit0, Gitleaks0, guides,
+repository pass. Exact-head hosted Windows tests remain mandatory before merge.
+No owner installation/data change. Continue batches4–6 in order; summarize each.
+
+---
+
 # Speed and memory Batch 2 — October 26, 2026
 
 Base main `41d487c` (Batch 1 PR38 and all exact-main gates passed).

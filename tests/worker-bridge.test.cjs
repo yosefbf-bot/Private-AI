@@ -29,6 +29,30 @@ function pairedWorker(t) {
   return { sender, receiver, shared, job, file, bytes: fs.readFileSync(file) };
 }
 
+test('Worker intake never synchronously reads queued bodies on the main thread',async t=>{
+ const {receiver,job,file}=pairedWorker(t),read=fs.readFileSync;
+ t.mock.method(fs,'readFileSync',function(name,...args){if(String(name)===file)assert.fail('queued body read blocked the main thread');return read.call(this,name,...args);});
+ await receiver.core.worker.tick();assert.equal(receiver.calls.length,1);assert.equal(receiver.core.store.get('job',job.id).status,'completed');
+});
+
+test('locked enabled Worker still consumes an approved remote queued task',async t=>{
+ const {receiver,job}=pairedWorker(t);receiver.core.lock();await receiver.core.worker.tick();
+ assert.equal(receiver.calls.length,1);assert.equal(receiver.core.store.get('job',job.id).status,'completed');
+});
+
+test('bounded envelope thread discards large foreign bodies and retains signed property order',async t=>{
+ const {QueuedEnvelopeReader,LIMIT}=require('../source/queued-envelope.cjs');
+ const {sender,receiver,shared,job,file}=pairedWorker(t),reader=new QueuedEnvelopeReader(shared,receiver.core.identity().id);t.after(()=>reader.close());
+ const foreign=uuid()+'.json',large=path.join(shared,'Tasks/Queued',foreign);
+ fs.writeFileSync(large,JSON.stringify({id:foreign.slice(0,-5),receiver:uuid(),box:'x'.repeat(32*1024**2)}));
+ let ticks=0;const heartbeat=setInterval(()=>ticks++,2);t.after(()=>clearInterval(heartbeat));
+ assert.equal(await reader.read(foreign),null);assert.ok(ticks>1,'main loop runs while foreign JSON is read and parsed');
+ const env=await reader.read(path.basename(file));assert.equal(openJob(receiver.core.identity(),publicIdentity(sender.core.identity()),env).id,job.id);
+ const fd=fs.openSync(large,'w');try{fs.ftruncateSync(fd,LIMIT+1);}finally{fs.closeSync(fd);}
+ assert.equal(await reader.read(foreign),null);assert.equal(await reader.read('../escape.json'),null);
+ await reader.close();assert.equal(reader.worker,null);assert.equal(reader.pending,null);
+});
+
 test("an initial Worker status-write failure still executes once and a replay cannot repeat it", async t => {
   const { sender, receiver, job, file, bytes } = pairedWorker(t);
   const status = receiver.core.worker.status.bind(receiver.core.worker);

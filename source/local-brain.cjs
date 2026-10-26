@@ -22,7 +22,7 @@ function localInput(s,messages,options={}){
  return {textMessages,system};
 }
 class LocalBrain {
- constructor({runtime,settings,fetcher=globalThis.fetch,spawnProcess=spawn,memory=()=>Math.min(os.freemem(),process.availableMemory?.()||Infinity),emit=()=>{}}){Object.assign(this,{runtime,settings,fetcher,spawnProcess,memory,emit});this.child=null;this.retiring=new Set();this.lastError=null;this.loadPending=null;this.generation=0;this.busy=false;this.browserBusy=false;this.lastUsed=0;this.state='unloaded';this.timer=null;}
+ constructor({runtime,settings,fetcher=globalThis.fetch,spawnProcess=spawn,memory=()=>Math.min(os.freemem(),process.availableMemory?.()||Infinity),emit=()=>{},onIdle=()=>{}}){Object.assign(this,{runtime,settings,fetcher,spawnProcess,memory,emit,onIdle});this.activity=0;this.child=null;this.retiring=new Set();this.lastError=null;this.loadPending=null;this.generation=0;this.busy=false;this.browserBusy=false;this.lastUsed=0;this.state='unloaded';this.timer=null;}
  modelName(s){return path.basename(s.localModelPath||'Local model');}
  status(){return {state:this.state,busy:this.busy,availableMemoryGB:Math.round(this.memory()/GIB*10)/10,model:this.modelName(this.activeSettings||this.settings()),browserBusy:this.browserBusy,error:this.lastError};}
  armMaintenance(){if(!this.timer){this.timer=setInterval(()=>this.maintain(),5000);this.timer.unref?.();}}
@@ -61,7 +61,7 @@ class LocalBrain {
   this.busy=true;const abort=()=>this.stop('cancelled');options.signal?.addEventListener('abort',abort,{once:true});
   try{if(options.signal?.aborted)throw fail('CANCELLED');await this.load(s);if(options.signal?.aborted)throw fail('CANCELLED');const r=await this.fetcher(this.url+'/v1/chat/completions',{method:'POST',headers:{Authorization:'Bearer '+this.token,'Content-Type':'application/json'},body:JSON.stringify({model:'local',messages:[{role:'system',content:system},...textMessages],max_tokens:s.localMaxOutput,temperature:0.2,stream:false,cache_prompt:false,...(/qwen/i.test(s.localModelPath)?{chat_template_kwargs:{enable_thinking:false}}:{})}),signal:options.signal?AbortSignal.any([options.signal,AbortSignal.timeout(300000)]):AbortSignal.timeout(300000),redirect:'error'});if(!r.ok)throw fail('LOCAL_UNAVAILABLE');const data=await r.json(),answer=data.choices?.[0]?.message?.content;if(typeof answer!=='string'||answer.length>100000)throw fail('LOCAL_UNAVAILABLE');return {text:answer,localTokens:(data.usage?.prompt_tokens||0)+(data.usage?.completion_tokens||0),incomplete:data.choices[0].finish_reason==='length'};}
   catch(e){if(options.signal?.aborted)throw fail('CANCELLED');if(this.state==='failed'&&this.lastError?.code)throw fail(this.lastError.code);if(e.name==='TimeoutError'||e.name==='AbortError'){this.stop('inference-timeout');throw fail('LOCAL_UNAVAILABLE');}if(e.code)throw e;throw fail('LOCAL_UNAVAILABLE');}
-  finally{this.busy=false;this.lastUsed=Date.now();options.signal?.removeEventListener('abort',abort);}
+  finally{this.busy=false;this.lastUsed=Date.now();options.signal?.removeEventListener('abort',abort);this.completed();}
  }
  async embeddings(s,inputs,{signal,dimensions=384}={}){
   if(this.busy)throw fail('BUSY');if(this.browserBusy)throw fail('LOW_MEMORY');
@@ -85,8 +85,9 @@ class LocalBrain {
     const norm=Math.sqrt(v.reduce((n,x)=>n+x*x,0));if(!Number.isFinite(norm)||norm<=0)throw fail('DOCUMENT_SEARCH');return Float32Array.from(v,x=>x/norm);
    });
   }catch(e){if(signal?.aborted)throw fail('CANCELLED');if(this.state==='failed'&&this.lastError?.code)throw fail(this.lastError.code);if(e.name==='TimeoutError'||e.name==='AbortError')this.stop('embedding-timeout');if(e.code)throw e;throw fail('DOCUMENT_SEARCH');}
-  finally{this.busy=false;this.lastUsed=Date.now();signal?.removeEventListener('abort',abort);}
+  finally{this.busy=false;this.lastUsed=Date.now();signal?.removeEventListener('abort',abort);this.completed();}
  }
+ completed(){this.activity++;try{this.onIdle(this)?.catch?.(()=>{});}catch{}}
  stop(reason='user'){clearInterval(this.timer);this.timer=null;const child=this.child;this.generation++;this.child=null;this.state=reason==='low-memory'?'failed':'unloaded';this.lastError=reason==='low-memory'?safeError(fail('LOW_MEMORY')):null;this.token=null;if(this.embeddingMode){this.activeSettings=null;this.embeddingMode=false;}if(child){this.retiring.add(child);child.once?.('exit',()=>this.retiring.delete(child));try{child.kill();}catch{}}this.emit({type:'local-status',reason});}
  async waitStopped(){const deadline=Date.now()+10000;for(;;){for(const c of this.retiring)if(c.exitCode!==null||c.signalCode!==null)this.retiring.delete(c);if(!this.retiring.size)return;if(Date.now()>deadline)throw fail('BUSY');await new Promise(r=>setTimeout(r,100));}}
  close(){clearInterval(this.timer);this.stop('shutdown');}
