@@ -8,6 +8,50 @@ const {fail}=require('../source/security.cjs');
 const {planSections,splitUTF8,sectionedReport}=require('../source/sectioned-report.cjs');
 const {sampleProcessMemory}=require('../source/process-memory.cjs');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
+
+test('model peak polling skips idle wakeups but captures short completed requests and new engines',async()=>{
+ const {ProcessMemorySampler}=require('../source/process-memory.cjs');let samples=0;const observations=[];
+ const sampler=new ProcessMemorySampler(async()=>{samples++;return 1234;}),observe=(...args)=>observations.push(args);
+ const brain={child:{pid:42},activeSettings:{localContext:2048},lastUsed:100,busy:false};
+ await sampler.poll(brain,observe);
+ for(let i=0;i<240;i++)await sampler.poll(brain,observe);
+ assert.equal(samples,1);assert.equal(observations.length,1);
+ brain.lastUsed=200;await sampler.poll(brain,observe);assert.equal(samples,2);
+ brain.busy=true;await sampler.poll(brain,observe);await sampler.poll(brain,observe);assert.equal(samples,4);
+ brain.busy=false;brain.lastUsed=300;await sampler.poll(brain,observe);assert.equal(samples,5);
+ brain.child={pid:43};await sampler.poll(brain,observe);assert.equal(samples,6);
+ brain.child=null;await sampler.poll(brain,observe);assert.equal(samples,6);
+});
+
+test('failed peak samples retry at the next idle tick before suppressing redundant queries',async()=>{
+ const {ProcessMemorySampler}=require('../source/process-memory.cjs');
+ for(const reject of [false,true]){
+  let samples=0,observed=0;const sampler=new ProcessMemorySampler(async()=>{if(++samples===1){if(reject)throw Error('Synthetic query timeout');return null;}return 1234;});
+  const brain={child:{pid:42},activeSettings:{localContext:2048},lastUsed:100,busy:false};
+  if(reject)await assert.rejects(sampler.poll(brain,()=>observed++),/Synthetic/);else await sampler.poll(brain,()=>observed++);
+  assert.equal(observed,0);await sampler.poll(brain,()=>observed++);await sampler.poll(brain,()=>observed++);
+  assert.equal(samples,2);assert.equal(observed,1);
+ }
+});
+
+test('model peak polling is serialized and discards results for a replaced engine',async()=>{
+ const {ProcessMemorySampler}=require('../source/process-memory.cjs');let finish,samples=0;
+ const sampler=new ProcessMemorySampler(()=>{samples++;return new Promise(resolve=>finish=resolve);});
+ const brain={child:{pid:42},activeSettings:{localContext:2048},lastUsed:100,busy:true},observe=()=>assert.fail('Replaced engine peak cannot be assigned to the new engine');
+ const pending=sampler.poll(brain,observe);await sampler.poll(brain,observe);assert.equal(samples,1);
+ brain.child={pid:43};finish(1234);await pending;assert.equal(sampler.pending,false);
+});
+
+test('intermediate contexts inherit smaller-context peaks without ignoring larger measured peaks',t=>{
+ const {core}=fixture(t);core.modelManager={catalog:()=>[{tier:'small',file:'model'},{tier:'high',file:'other'}]};
+ core.stability.observePeak('small',2048,3*2**30);
+ assert.equal(core.stability.minimumFor({localModelPath:'model',localContext:3072}),3*2**30);
+ assert.equal(core.stability.minimumFor({localModelPath:'model',localContext:1024}),0);
+ assert.equal(core.stability.minimumFor({localModelPath:'other',localContext:3072}),0);
+ core.stability.observePeak('small',3072,4*2**30);
+ assert.equal(core.stability.minimumFor({localModelPath:'model',localContext:4096}),4*2**30);
+ assert.equal(core.stability.minimumFor({localModelPath:'model',localContext:2048}),3*2**30);
+});
 test('unclean restart enters safe startup and does not resume jobs or models',t=>{const {core}=fixture(t);core.store.put('maintenance','sessionHealth',{clean:false});const health=new Stability(core);health.start();assert.equal(health.safe,true);assert.equal(core.settings().workerPaused,true);assert.equal(core.router.local,null);health.acknowledge();assert.equal(core.settings().workerPaused,true);});
 test('clean session marker does not pause the next startup',t=>{const {core}=fixture(t);core.stability.close();const health=new Stability(core);health.start();assert.equal(health.safe,false);assert.equal(core.settings().workerPaused,false);});
 test('three model failures open a bounded cooldown, never a retry loop',t=>{const {core}=fixture(t);let now=1000;const h=new Stability(core,{now:()=>now});h.modelFailure();h.modelFailure();h.assertModel();h.modelFailure();assert.throws(()=>h.assertModel(),{code:'MODEL_COOLDOWN'});assert.equal(core.settings().workerPaused,true);now+=61000;h.assertModel();assert.equal(core.settings().workerPaused,true);});

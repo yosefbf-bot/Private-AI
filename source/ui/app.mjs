@@ -192,7 +192,7 @@ function updateTop() {
   const ram=state.ramProfile||state.health?.ramProfile;
   const ramPart=ram?`Hardware RAM: ${ram.totalGB} GB (${ram.availableGB} GB Free · ${ram.statusBadge}) · `:``;
   if(resource)$('resource-status').textContent=`${ramPart}Background: ${resource.background.state} — ${resource.background.reason||'Working; active phases finish before pausing.'}${resource.browser?' · '+resource.browser+' is open. Close it to free RAM for local reasoning.':''}`;
-  $("resource-status").hidden = !resource || !["blocked","error","low_memory"].includes(resource.background?.state);
+  $("resource-status").hidden = !resource || !(resource.browser || ["paused","blocked","error","low_memory"].includes(resource.background?.state) || (resource.background?.state==='waiting' && resource.background.reason && resource.background.reason!=='No background task running.'));
   const names = {
     search: "Search", dashboard: "Dashboard", meetings: "Meetings", today: "Dashboard",
     execdesk: "👔 Executive Desk",

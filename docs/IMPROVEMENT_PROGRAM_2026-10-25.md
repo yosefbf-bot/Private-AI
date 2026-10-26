@@ -1,5 +1,23 @@
 # Speed, resource, reliability and security program — status 2026-10-25
 
+## Current Codex increment
+
+The owner now requests Codex to coordinate directly. On isolated branch
+`chatgpt/desktop-efficiency-20261025`, based on48377dd and current main587e8dd,
+this increment implements per-run clinical feed indexes, encrypted job status
+summaries with older-writer invalidation, intermediate context admission, smaller
+cold classification context, less idle Windows peak sampling and visible blocking
+status. It preserves the earlier A/B/dependency work below. Full local831/831,
+hardening30/30, policy/syntax/guides/audit/secrets and affected browser flows pass.
+Real Small inference with a3GiB admission cap selected3072context and passed.
+See current AI_HANDOFF.md for measured scope and unperformed release acceptance.
+Companion PR16 polling timing repair3ec416c is in hosted validation. The existing
+Library warning assertion in hardening-ui-check is corrected and that flow passes.
+Other unchecked historical review proposals below remain proposals; they are not
+silently included or declared fixed by this focused increment.
+
+## Earlier program record
+
 Coordinator: Claude Code. Implementer: Codex CLI (`codex exec`, owner's ChatGPT sign-in).
 Branch: `claude/perf-reliability-2026-10` in both repositories, delivered as draft PRs.
 Nothing is merged to `main` without the owner.

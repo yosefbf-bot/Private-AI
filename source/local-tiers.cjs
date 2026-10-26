@@ -1,6 +1,6 @@
 'use strict';
 const {fail}=require('./security.cjs');
-const {localInput,requiredMemory}=require('./local-brain.cjs');
+const {localInput,requiredMemory,contextCandidates}=require('./local-brain.cjs');
 const {getRAMProfile}=require('./ram-profile.cjs');
 const {userText,references}=require('./deterministic.cjs');
 const ORDER=['small','medium','high','extra'];
@@ -28,6 +28,12 @@ async function generateTiers(router,s,messages,options,evaluate){
  const finish=(r,tier)=>{router.warmTier={tier,time:Date.now()};route.selectedTier=tier;route.contextTokens=r.localContextTokens;if(r.localContextTokens<s.localContext)route.notice=[route.notice,CONTEXT_NOTICE].filter(Boolean).join('\n\n');state('complete',tier);return {...r,model:all.find(t=>t.tier===tier)?.name||r.model,localTokens:tokens,routing:route};};
  async function run(row,msg,opts,{assessment=false}={}){
   let settings={...s,localModelPath:row.file,...(assessment?{localMaxOutput:128}:{})};
+  if(assessment){
+   const active=local.activeSettings;
+   const context=local.state==='ready'&&active?.localModelPath===row.file&&active.resourceMode===s.resourceMode&&active.localContext<=s.localContext?active.localContext:Math.min(2048,s.localContext);
+   const candidate={...settings,localContext:context};
+   if(fits(candidate,msg,opts))settings=candidate;
+  }
   if(!fits(settings,msg,opts))throw fail('LOCAL_CONTEXT');
   const invoke=async effective=>{
    settings=effective||settings;
@@ -96,8 +102,8 @@ async function generateTiers(router,s,messages,options,evaluate){
   }
   if(calls<2&&memoryBlocked.length&&resources?.isBackground()){
    const row=memoryBlocked.sort((a,b)=>a.bytes-b.bytes)[0];
-   const original={...s,localModelPath:row.file},candidate={...original,localContext:2048};
-   const waiting=s.localContext>2048&&candidate.localContext>candidate.localMaxOutput+256&&fits(candidate,messages,fullOptions)?candidate:original;
+   const original={...s,localModelPath:row.file};
+   const waiting=contextCandidates(original).find(candidate=>candidate.localContext>candidate.localMaxOutput+256&&fits(candidate,messages,fullOptions))||original;
    const reserve=(core.settings().ramReserveMB||1024)*1024**2;
    await resources.checkpoint(Math.max(requiredMemory(row.bytes,waiting.localContext)+Math.max(0,reserve-1024**3),(core.stability?.minimumFor(waiting)||0)+reserve));
    const result=await run(row,messages,fullOptions);

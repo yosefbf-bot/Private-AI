@@ -1,4 +1,18 @@
 {
+  "desktopEfficiency20261025": {
+    "status": "source-verified-awaiting-exact-head-ci",
+    "coordinator": "Codex",
+    "baseMain": "587e8dd6d22e235f6cd8373463a97615f1ba528f",
+    "preservedPerformanceHead": "48377ddb255fd921fbe4932d9555c989567001aa",
+    "version": "3.0.9-dev",
+    "tests": { "total": 831, "passed": 831, "failed": 0, "skipped": 0 },
+    "hardening": { "passed": 30, "failed": 0 },
+    "checks": ["syntax259", "repository-policy", "guide-check", "production-audit-zero", "gitleaks-current-and-history-zero", "assistant-ui-and-contrast", "authenticated-hardening-ui"],
+    "actualSmallInference": { "passed": true, "contextTokens": 3072, "savedContextTokens": 4096, "admissionCapGiB": 3, "elapsedMs": 13060, "peakWorkingSetBytes": 2221301760, "syntheticOnly": true },
+    "limitations": ["No current installer acceptance yet", "No owner installation or data change", "No physical-phone acceptance", "Broader historical performance-program items remain outside this increment"],
+    "companionPR": 16,
+    "companionFixHead": "3ec416c04276369f5f18c4c22ab0071490ac155c"
+  },
   "protectedReportSignin20261021": {
     "status": "candidate-hosted-restart-download-diagnosis",
     "baseMain": "452800210a33e34b1d18a648d1288562d9061d56",

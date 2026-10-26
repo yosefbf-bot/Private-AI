@@ -27,9 +27,36 @@ test('Automatic retains a compatible warm Small engine without budgeting its wei
  await f.run();assert.equal(f.calls.length,1);assert.equal(f.calls[0].settings.localContext,2048);
 });
 test('Automatic does not shrink context when the complete input cannot fit',async()=>{
- const f=fixture({memory:3*GIB});await assert.rejects(f.run('Hello '+ 'x'.repeat(2300)),{code:'LOW_MEMORY'});
+ const f=fixture({memory:3*GIB,cap:'small'});await assert.rejects(f.run('Hello '+ 'x'.repeat(4200)),{code:'LOW_MEMORY'});
  assert.equal(f.calls.length,0);assert.equal(f.s.localContext,4096);
 });
+test('Automatic can use an intermediate context when 2048 cannot retain the complete request',async()=>{
+ const f=fixture({memory:3*GIB}),prompt='Hello '+ 'x'.repeat(2300);
+ const result=await f.run(prompt);
+ assert.equal(f.calls.length,1);assert.equal(f.calls[0].settings.localContext,3072);
+ assert.equal(f.calls[0].messages[0].content,prompt);assert.equal(f.s.localContext,4096);
+ assert.equal(result.routing.contextTokens,3072);
+});
+
+test('background admission uses the same intermediate context as foreground admission',async()=>{
+ const f=fixture(),prompt='Hello '+ 'x'.repeat(2300);f.s.ramRecoverySeconds=0;let memory=2.5*GIB,waits=0;
+ f.core.resources.memory=()=>memory;f.core.resources.sleep=async()=>{memory=3*GIB;if(++waits>2)assert.fail('Must not wait for the unused 4096 context');};
+ const result=await f.core.resources.task('background',()=>f.router.generate('',f.s,[{role:'user',content:prompt}],{}));
+ assert.equal(waits,1);assert.equal(f.calls.length,1);assert.equal(f.calls[0].settings.localContext,3072);
+ assert.equal(f.calls[0].messages[0].content,prompt);assert.equal(result.routing.selectedTier,'small');
+});
+
+test('cold classification uses a small context and warm classification reuses the loaded context',async()=>{
+ for(const warmContext of [null,3072,4096]){
+  const f=fixture({cap:'extra',respond:(tier,n)=>({text:JSON.stringify(n===1?{required_tier:'high'}:{answer:'Comparison',evidence:[],uncertainties:[]})})});
+  if(warmContext){const row=f.rows[0];Object.assign(f.router.local,{state:'ready',activeSettings:{...f.s,localModelPath:row.file,localContext:warmContext},signature:[row.file,warmContext,f.s.resourceMode].join('|')});}
+  const prompt='Compare option A and option B';await f.run(prompt);
+  assert.deepEqual(f.calls.map(c=>c.tier),['small','high']);assert.equal(f.calls[0].settings.localContext,warmContext||2048);
+  assert.equal(f.calls[0].settings.localMaxOutput,128);assert.equal(f.calls[1].settings.localContext,4096);
+  assert.equal(f.calls[1].messages[0].content,prompt);assert.equal(f.s.localContext,4096);
+ }
+});
+
 test('Automatic context fitting preserves the configured RAM reserve',async()=>{
  const f=fixture({memory:3*GIB});f.s.ramReserveMB=2048;
  await assert.rejects(f.run(),{code:'LOW_MEMORY'});assert.equal(f.calls.length,0);

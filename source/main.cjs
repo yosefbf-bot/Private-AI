@@ -43,7 +43,7 @@ const {MessagingBridge}=require("./messaging.cjs");
 const {CompanionGateway}=require("./companion-gateway.cjs");
 const {WhatsAppWeb}=require("./whatsapp-web.cjs");
 const {WhatsAppWindows}=require("./whatsapp-windows.cjs");
-let samplingMemory=false;
+const memorySampler=new (require('./process-memory.cjs').ProcessMemorySampler)();
 let modelManager,browserWorker,messaging,companion,rendererRecoveries=0,rendererNeedsReload=false;
 const { loadVault, startupMessage } = require("./startup-storage.cjs");
 const { AccessManager, helperCall } = require("./access.cjs");
@@ -1041,8 +1041,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       // Optional gateway failures stay in Settings; offline/keyless startup remains usable.
       companion.start().catch(() => {});
       timer = setInterval(() => {
-        const brain=core.router.local,child=brain.child;
-        if(child&&!samplingMemory){samplingMemory=true;const settings=brain.activeSettings;require('./process-memory.cjs').sampleProcessMemory(child.pid).then(bytes=>{if(bytes&&brain.child===child){const row=modelManager.catalog(settings).find(t=>t.file===settings.localModelPath);if(row)core.stability.observePeak(row.tier,settings.localContext,bytes);}}).catch(()=>{}).finally(()=>{samplingMemory=false;});}
+        memorySampler.poll(core.router.local,(settings,bytes)=>{const row=modelManager.catalog(settings).find(t=>t.file===settings.localModelPath);if(row)core.stability.observePeak(row.tier,settings.localContext,bytes);}).catch(()=>{});
         core.worker.tick().catch(() => core.stability.incident("service-failed"));
         if (
           !core.locked &&

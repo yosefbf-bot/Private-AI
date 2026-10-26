@@ -7,6 +7,13 @@ const GIB=1024**3;
 // 256 KiB/token KV allowance for the bundled Qwen/Llama models. This is an
 // estimate, not a RAM guarantee; live pressure protection remains enabled.
 function requiredMemory(size,context){return size+GIB+context*262144;}
+// Smallest first, preserving the user's ceiling. Admission must still verify
+// complete input/output space, the RAM reserve and observed process peaks.
+function contextCandidates(settings){
+ const candidates=[];
+ for(let context=2048;context<settings.localContext;context+=1024)candidates.push({...settings,localContext:context});
+ candidates.push(settings);return candidates;
+}
 function exitFailure(code){const n=Number(code)>>>0;return [0xc0000135,0xc0000139].includes(n)?'LOCAL_DEPENDENCY':n===0xc000001d?'LOCAL_CPU':'LOCAL_ENGINE_START';}
 function localInput(s,messages,options={}){
  const textMessages=messages.map(m=>({role:m.role,content:typeof m.content==='string'?m.content:m.content.map(p=>{if(p.type==='input_image')throw fail('LOCAL_ONLY');return p.text||'';}).join('\n\n')}));
@@ -83,4 +90,4 @@ class LocalBrain {
  async waitStopped(){const deadline=Date.now()+10000;for(;;){for(const c of this.retiring)if(c.exitCode!==null||c.signalCode!==null)this.retiring.delete(c);if(!this.retiring.size)return;if(Date.now()>deadline)throw fail('BUSY');await new Promise(r=>setTimeout(r,100));}}
  close(){clearInterval(this.timer);this.stop('shutdown');}
 }
-module.exports={LocalBrain,requiredMemory,exitFailure,localInput};
+module.exports={LocalBrain,requiredMemory,contextCandidates,exitFailure,localInput};
