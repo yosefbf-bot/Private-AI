@@ -69,8 +69,12 @@ jobs:
         run: npm run build:helper
       - name: Install Windows runtime cross-compiler
         run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y g++-mingw-w64-x86-64-posix cmake ninja-build
+          # The runner's first-choice Azure mirror took 27 minutes for 93 MB.
+          # Use its existing official HTTPS fallbacks; retain APT signature checks.
+          grep -Fq 'mirror+file:/etc/apt/apt-mirrors.txt' /etc/apt/sources.list.d/ubuntu.sources
+          printf 'https://archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://security.ubuntu.com/ubuntu/\tpriority:2\n' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+          sudo timeout --kill-after=15s 5m apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 -o Acquire::http::Timeout=30 update
+          sudo timeout --kill-after=15s 8m apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 -o Acquire::http::Timeout=30 install --no-install-recommends -y g++-mingw-w64-x86-64-posix cmake ninja-build
       - name: Build checksum-pinned Windows inference runtime
         run: node build/setup-runtime.cjs
       - run: npm run check:release
