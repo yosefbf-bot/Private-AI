@@ -1,8 +1,8 @@
 {
   "version": "3.0.9-dev",
-  "updatedAt": "2026-10-26T22:06:53.641Z",
+  "updatedAt": "2026-10-26T22:32:30.261Z",
   "baselineCommit": "452800210a33e34b1d18a648d1288562d9061d56",
   "releaseStatus": "validation-pending",
   "note": "Protected report sign-in and guided recovery; consult exact-head Windows acceptance before release.",
-  "sourceSHA256": "a44f0ccbfaa8fef759812245c2cc7584b358ee5520257edda7aec0d414f812d5"
+  "sourceSHA256": "29d647f4a71ebd5a38a783a85ca21d1c50b4e12476bf78f56a7ad3c248f06331"
 }
