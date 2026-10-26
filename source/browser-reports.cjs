@@ -74,12 +74,13 @@ class BrowserReports {
   this.busy=true;
   const id=uuid(),controller=new AbortController();c.requests.set(id,controller);
   const row={id,title:due.name,sourceScheduleId:due.id,browserRecipeId:due.browserRecipeId,status:'waiting',started:Date.now(),remote:false};
-  c.store.transaction(()=>{
+  try{
+   c.store.transaction(()=>{
    const next=schedules.nextRun(due);c.store.put('schedule',due.id,{...due,next,enabled:next!==null,lastRun:Date.now()});
    c.store.put('job',id,row);
    // A crash after dispatch must not immediately trigger another website pull.
    c.store.put('browserPull','last',{finished:Date.now(),gapMinutes:due.gapMinutes||5});
-  });
+   });
   try{
    await c.resources.task('background',async()=>{
     const recipe=this.recipe(due.browserRecipeId);this.allowed(recipe);
@@ -100,7 +101,10 @@ class BrowserReports {
    c.store.delete('browserGrant',due.browserRecipeId);
    for(const linked of c.store.list('schedule').filter(s=>s.browserRecipeId===due.browserRecipeId&&s.enabled))c.store.put('schedule',linked.id,{...linked,enabled:false,error:row.reason});
   }finally{
-   if(c.store.db)c.store.put('browserPull','last',{finished:Date.now(),gapMinutes:due.gapMinutes||5});c.requests.delete(id);this.busy=false;
+   if(c.store.db)c.store.put('browserPull','last',{finished:Date.now(),gapMinutes:due.gapMinutes||5});
+  }
+  }finally{
+   c.requests.delete(id);this.busy=false;
    c.emit({type:'jobs_changed'});c.emit({type:'job_finished',jobId:id});
   }
   return true;

@@ -189,3 +189,11 @@ test('built-in helper stays available without pretending templates are model inf
  const answer=await ask(core,'Draft a general memo about reviewing source records');
  assert.equal(answer.processing.provider,'local');assert.match(answer.text,/no model inference/);assert.equal(answer.processing.reliability.score,null);assert.equal(calls.length,0);
 });
+
+ test('Ollama waits for report-browser ownership and retires only the app-owned model',async t=>{
+ const {core,calls}=fixture(t);core.saveSettings({provider:'ollama',model:'synthetic-local-model',processingMode:'cloud-first'});core.resources.memory=()=>8*1024**3;
+ const owner={};await core.resources.reserveBrowser(owner,'Synthetic report browser');let stopped=0;
+ core.router.local={child:{},busy:false,close(){}};core.router.local.stop=()=>{stopped++;core.router.local.child=null;};core.router.local.waitStopped=async()=>{};
+ const pending=ask(core,'Review the supplied record');await new Promise(r=>setImmediate(r));assert.equal(calls.length,0);assert.equal(stopped,0);assert.equal(core.resources.ramTimer,null);
+ core.resources.releaseBrowser(owner);await pending;assert.equal(calls.length,1);assert.equal(stopped,1);assert.equal(core.resources.ai,null);
+ });

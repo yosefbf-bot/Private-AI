@@ -125,3 +125,9 @@ test('Windows report browser rechecks a reused manual setup session before workf
  const context=launches[0].context;context.page.goto=()=>assert.fail('unsupported report navigation');context.browser=()=>({version:()=> '154.0.4258.62'});
  await assert.rejects(worker.run(base),{code:'BROWSER_UPDATE'});assert.equal(launches.length,1);assert.equal(context.closed,true);assert.equal(core.resources.browser,null);
 });
+
+ test('fresh report launch reuses the initial blank page and preserves other tabs',async t=>{
+ const {worker,launches}=harness(t),launch=worker.engines.chromium.launchPersistentContext;let created=0;
+ worker.engines.chromium.launchPersistentContext=async(...args)=>{const c=await launch(...args);const blank=c.page;const manager={url:()=> 'chrome-extension://synthetic/settings'};c.pages=()=>[manager,blank];c.newPage=async()=>{created++;return blank;};return c;};
+ await worker.open(base.url,['https://example.com']);assert.equal(created,0);assert.equal(launches[0].context.page.url(),base.url);
+ });

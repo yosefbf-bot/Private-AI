@@ -1690,7 +1690,7 @@
     "windowsAcceptance": true
   },
   "speedMemoryBatch4_20261026": {
-    "status": "locally-verified-awaiting-exact-head-ci",
+    "status": "merged-exact-head-gates-passed",
     "branch": "chatgpt/batch4-document-intake-20261026",
     "baseMain": "0b5e227a2887dff13fd4217023fddb1d9b246e90",
     "ownerInstallChanged": false,
@@ -1737,6 +1737,34 @@
     "repositoryTrackedFiles": 453,
     "generalUIChecks": 41,
     "authenticatedUI": true,
-    "guideCheck": true
+    "guideCheck": true,
+    "mergeMain": "2f9449c4760fae5e74597ff64851ebc5a63c8f89",
+    "runId": 40406474216
+  },
+  "speedMemoryBatch5_20261026": {
+    "status": "implemented-local-verified-final-combined-release-pending",
+    "baseMain": "2f9449c4760fae5e74597ff64851ebc5a63c8f89",
+    "fullBeforeReview": {
+      "passed": 917,
+      "failed": 0,
+      "skipped": 0
+    },
+    "reviewFixTests": 45,
+    "startupTests": 22,
+    "panelTests": 2,
+    "actualEdgeUIChecks": 42,
+    "nativeEdgeReportDownload": true,
+    "hardeningPassed": 30,
+    "disabledMessagingPollsPerHour": [
+      720,
+      0
+    ],
+    "transportQueuedBytesCap": 3600016,
+    "pendingRPCCap": 32,
+    "deferred": [
+      "protected streaming transport parity",
+      "native Ollama adapter/real-daemon acceptance"
+    ],
+    "installedOwnerAppChanged": false
   }
 }

@@ -9,7 +9,7 @@ function normalizeMessage(m,groupId,live=false){
 }
 // Uses the account's message stream, never sidebar clicking or global input.
 class WhatsAppAccount{
- constructor(core,{factory,now=Date.now}={}){this.core=core;this.factory=factory;this.now=now;this.client=null;this.state='off';this.pending=new Map();this.chatIds=[];this.cursor=0;this.lastDiscovery=0;this.dropped=0;this.epoch=0;this.onRead=null;}
+ constructor(core,{factory,now=Date.now}={}){this.core=core;this.factory=factory;this.now=now;this.client=null;this.state='off';this.pending=new Map();this.chatIds=[];this.cursor=0;this.lastDiscovery=0;this.dropped=0;this.epoch=0;this.onRead=null;this.generation=0;this.retiring=Promise.resolve();this.opening=false;}
  settings(){return this.core.store.get('messaging','settings')||{};}
  active(){const s=this.settings();return s.enabled&&!this.core.settings().workerPaused&&(!this.core.locked||s.allowWhileLocked);}
  readable(id){const s=this.settings();return this.active()&&s.adapter==='web'&&conversationId.test(id)&&(s.readAll!==false||conversations(s).some(c=>c.groupId===id));}
@@ -17,24 +17,49 @@ class WhatsAppAccount{
  readScopeChanged(){this.chatIds=[];this.cursor=0;this.lastDiscovery=0;}
  reset(){this.epoch++;this.pending.clear();this.chatIds=[];this.cursor=0;this.lastDiscovery=0;}
  async open(){
-  await this.core.resources.preflight('messaging');
-  if(this.client&&['disconnected','authentication-failed','connection-failed'].includes(this.state))await this.close();
-  if(this.client){await this.client.pupPage?.bringToFront();return;}
-  await this.core.resources.checkpoint(1.5*1024**3);
-  if(this.factory)this.client=this.factory();else{
-   const {Client,LocalAuth}=require('whatsapp-web.js');
-   const executablePath=[process.env['PROGRAMFILES(X86)'],process.env.PROGRAMFILES,process.env.LOCALAPPDATA].filter(Boolean).map(p=>path.join(p,'Microsoft/Edge/Application/msedge.exe')).find(p=>fs.existsSync(p));
-   if(!executablePath)throw fail('MESSAGING');
-   this.client=new Client({authStrategy:new LocalAuth({dataPath:path.join(this.core.root,'whatsapp-account-profile')}),puppeteer:{executablePath,headless:false},webVersionCache:{type:'none'},takeoverOnConflict:false});
-  }
-  const client=this.client;this.state='connecting';
-  client.on('qr',()=>{this.state='scan-qr';});
-  client.on('ready',()=>{if(this.client!==client)return;this.state='connected';this.readyAt=Math.floor(this.now()/1000)*1000;this.reset();});
-  client.on('auth_failure',()=>{this.state='authentication-failed';this.reset();});
-  client.on('disconnected',()=>{this.state='disconnected';this.reset();});
-  client.on('message_create',m=>{if(this.client!==client)return;this.receive(m).catch(()=>{this.state='read-error';});});
-  // QR pairing must not hold an IPC request open indefinitely.
-  this.initializing=client.initialize().catch(()=>{if(this.client===client){this.state='connection-failed';this.reset();}});
+  if(this.opening)throw fail('BUSY');this.opening=true;const generation=this.generation;
+  let owner;
+  try{
+   await this.retiring;await this.core.resources.preflight('messaging');
+   if(generation!==this.generation)throw fail('CANCELLED');
+   if(this.client){await this.client.pupPage?.bringToFront();return;}
+   owner={events:new Set()};await this.core.resources.reserveBrowser(owner,'WhatsApp connection startup');this.core.assertUnlocked();
+   if(generation!==this.generation)throw fail('CANCELLED');
+   let client;
+   if(this.factory)client=this.factory();else{
+    const {Client,LocalAuth}=require('whatsapp-web.js');
+    const executablePath=[process.env['PROGRAMFILES(X86)'],process.env.PROGRAMFILES,process.env.LOCALAPPDATA].filter(Boolean).map(p=>path.join(p,'Microsoft/Edge/Application/msedge.exe')).find(p=>fs.existsSync(p));
+    if(!executablePath)throw fail('MESSAGING');
+    client=new Client({authStrategy:new LocalAuth({dataPath:path.join(this.core.root,'whatsapp-account-profile')}),puppeteer:{executablePath,headless:false},webVersionCache:{type:'none'},takeoverOnConflict:false});
+   }
+   this.client=client;this.owner=owner;this.state='connecting';
+   const current=()=>this.client===client&&this.generation===generation;
+   const resident=()=>{if(current())this.core.resources.retainBrowser(owner,'WhatsApp account');};
+   // The library publishes pupBrowser before this hook and before its unbounded
+   // page load. Retired launches stop here, including close during launch().
+   let pageGuarded=false;
+   const guardPageEvents=()=>{
+    if(pageGuarded||!client.pupPage)return;pageGuarded=true;
+    const page=client.pupPage,on=page.on.bind(page);
+    // The library's asynchronous navigation listener emits disconnected before
+    // finishing logout/profile cleanup. Own its rejection and await its lifetime.
+    page.on=(event,listener)=>on(event,event!=='framenavigated'?listener:(...args)=>{
+     const task=Promise.resolve().then(()=>current()?listener.apply(page,args):undefined).catch(()=>{if(current())void this.close('connection-failed');});
+     owner.events.add(task);void task.then(()=>owner.events.delete(task));return task;
+    });
+   };
+   if(client.authStrategy){
+    const auth=client.authStrategy,before=auth.beforeBrowserInitialized.bind(auth),after=auth.afterBrowserInitialized.bind(auth);
+    auth.beforeBrowserInitialized=async()=>{if(!current())throw fail('CANCELLED');await before();if(!current())throw fail('CANCELLED');};
+    auth.afterBrowserInitialized=async()=>{guardPageEvents();if(!current()){await client.destroy();throw fail('CANCELLED');}await after();if(!current()){await client.destroy();throw fail('CANCELLED');}resident();};
+   }
+   client.on('qr',()=>{if(current())this.state='scan-qr';});
+   client.on('ready',()=>{if(!current())return;resident();this.state='connected';this.readyAt=Math.floor(this.now()/1000)*1000;this.reset();});
+   client.on('auth_failure',()=>{if(current())void this.close('authentication-failed');});
+   client.on('disconnected',()=>{if(current())void this.close('disconnected');});
+   client.on('message_create',m=>{if(!current())return;this.receive(m).catch(()=>{if(current())this.state='read-error';});});
+   this.initializing=Promise.resolve().then(()=>client.initialize()).then(resident,()=>{if(current())void this.close('connection-failed');});
+  }catch(e){if(owner)this.core.resources.retireBrowser(owner);throw e;}finally{this.opening=false;}
  }
  async receive(m){
   const id=serial(m.fromMe?m.to:m.from);if(!this.readable(id)||!['connected','read-error','queue-overflow'].includes(this.state))return;
@@ -98,6 +123,15 @@ class WhatsAppAccount{
   const extension={'image/jpeg':'jpg','image/png':'png','application/pdf':'pdf','text/plain':'txt'}[media.mimetype];
   return {data:media.data,mime:media.mimetype,name:'WhatsApp evidence.'+extension};
  }
- async close(){const client=this.client;this.client=null;this.reset();this.state='off';try{await client?.destroy();}catch{}}
+ close(state='off'){
+  this.generation++;const client=this.client,owner=this.owner,initializing=this.initializing;
+  this.client=null;this.owner=null;this.initializing=null;this.reset();this.state=state;
+  if(!client)return this.retiring;
+  // Invalidate synchronously, then wait for both the old launch and destruction.
+  // New sessions must await retirement before touching the shared profile.
+  const destroy=async()=>{try{await client.destroy();}catch{}};
+  this.retiring=Promise.all([this.retiring,destroy(),initializing,...(owner?.events||[])]).then(destroy).finally(()=>this.core.resources.retireBrowser(owner));
+  return this.retiring;
+ }
 }
 module.exports={WhatsAppAccount,normalizeMessage};

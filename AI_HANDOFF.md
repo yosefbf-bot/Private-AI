@@ -1,3 +1,16 @@
+# Speed/memory Batch5 — implementation and local checks complete
+
+Base accepted main2f9449c (PR41 all8 gates and actual Windows acceptance passed).
+See docs/SPEED_MEMORY_BATCH5_2026-10-26.md. Browser/WhatsApp/pipe lifetimes bounded;
+disabled messaging timer removed; Ollama/browser ownership corrected. Full917/917
+before final review fixes, then focused45/45 messaging,22/22 startup,2/2 panel,
+actualEdge UI42/42 and native report download pass. One review found2 lifecycle
+races, now fixed and narrowly re-reviewed. Hardening30/30, audit/secrets0.
+Two unsafe-to-claim replacements deferred: streamed protected HTTP parity and
+native Ollama adapter/real-daemon settings. Existing safety/output limits remain.
+Continue Batch6 packaging, then combined final fullsuite and exact-head Windows
+PR/main gates. Owner apps/data unchanged. Companion mained388c0 unchanged.
+
 # Speed and memory Batch4 — local verification complete, hosted acceptance pending
 
 Base accepted main0b5e227 (Batch3 PR40); branch chatgpt/batch4-document-intake-20261026.

@@ -8,6 +8,7 @@ function protectedNetwork({recipe,check,page:currentPage}){
  const queued=[],pendingNavigations=new Set();let failure=null,redirects=0,submission=false,expectedGet=null,secrets=[];
  const clean=value=>{const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password||!recipe.origins.includes(u.origin))throw fail('POLICY');return u;};
  const handle=async route=>{
+  let response;
   try{
    if(failure)throw failure;
    check();const request=route.request(),url=clean(request.url()),method=request.method();
@@ -16,7 +17,7 @@ function protectedNetwork({recipe,check,page:currentPage}){
    if(submission&&request.isNavigationRequest()&&request.frame()===currentPage()?.mainFrame()&&method!=='POST'&&url.href!==expectedGet)throw fail('POLICY');
    if(!['GET','HEAD','POST'].includes(method))throw fail('POLICY');
    if(method==='POST'&&(url.search||url.hash||!recipe.autoLogin.formActions.includes(url.origin+url.pathname)))throw fail('POLICY');
-   const response=await route.fetch({maxRedirects:0,timeout:45000});if(failure)throw failure;check();
+   response=await route.fetch({maxRedirects:0,timeout:45000});if(failure)throw failure;check();
    const status=response.status();
    if(status===429)throw fail('REPORT_RATE_LIMIT');
    if([301,302,303,307,308].includes(status)){
@@ -30,6 +31,7 @@ function protectedNetwork({recipe,check,page:currentPage}){
     await route.fulfill({response});
    }
   }catch(e){failure=['LOCKED','CANCELLED','BROWSER_REVIEW','REPORT_RATE_LIMIT','LIMIT'].includes(e.code)?fail(e.code):fail('POLICY');try{await route.abort();}catch{}}
+  finally{try{await response?.dispose?.();}catch{}}
  };
  const handler=route=>{
   let navigation=false;try{const request=route.request();navigation=request.isNavigationRequest()&&request.frame()===currentPage()?.mainFrame();}catch{}

@@ -47,6 +47,6 @@ class WhatsAppWeb{
   while(Date.now()<deadline){const after=await this.snapshot();if(!after.verified||after.groupId!==settings.groupId||after.groupName!==settings.groupName)throw fail('MESSAGING');if(after.messages.some(m=>!m.incoming&&!before.has(m.id)&&m.text===body))return {sent:true};await new Promise(r=>setTimeout(r,300));}
   throw fail('MESSAGING');
  }
- async close(){await this.account?.close();this.account=null;try{await this.context?.close();}catch{}this.context=null;this.page=null;this.core.resources.releaseBrowser(this);}
+ async close(){await this.account?.close();try{await this.context?.close();}catch{}this.context=null;this.page=null;this.core.resources.releaseBrowser(this);}
 }
 module.exports={WhatsAppWeb,readWhatsApp};

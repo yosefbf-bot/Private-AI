@@ -876,9 +876,10 @@ async function nativeHost() {
   }
   const cipher = loadCipher(false);
   let link;
+  const writer=require('./bounded-writer.cjs').boundedWriter(process.stdout,()=>{link?.close();app.exit(1);});
+  const relay=message=>{if(message.type==='disconnected'){writer.close();app.exit(0);return;}try{writer.write(encodeFrame(message));}catch{link?.close();app.exit(1);}};
   try {
-    link = await connectBridge(pipe, cipher, (message) =>
-      process.stdout.write(encodeFrame(message)),
+    link = await connectBridge(pipe, cipher, relay,
     );
   } catch {
     spawn(process.execPath, ["--background"], {
@@ -888,8 +889,7 @@ async function nativeHost() {
     for (let i = 0; i < 30 && !link; i++) {
       await new Promise((r) => setTimeout(r, 300));
       try {
-        link = await connectBridge(pipe, cipher, (message) =>
-          process.stdout.write(encodeFrame(message)),
+        link = await connectBridge(pipe, cipher, relay,
         );
       } catch {}
     }
