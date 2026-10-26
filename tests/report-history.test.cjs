@@ -101,6 +101,22 @@ test('report evidence makes its chat protected before tool execution and later m
  let protectedRequest=false;x.core.router.generate=async(_key,settings,_messages,options)=>{protectedRequest=settings.hipaa;options.onDelta?.('Synthetic follow-up');return {usage:{inputTokens:0,outputTokens:0},provider:'local'};};
  await x.core.send({chatId:chat.id,prompt:'Explain these report results'});assert.equal(protectedRequest,true);
 });
+
+test('report imports are protected at their first write even when public mode is selected',async t=>{
+ const x=setup(t);x.core.saveSettings({hipaa:false,publicModeConfirmed:true});const saved=[],put=x.core.store.put.bind(x.core.store);
+ x.core.store.put=(kind,id,value,...rest)=>{if(kind==='file')saved.push(value.hipaa);return put(kind,id,value,...rest);};
+ const a=await add(x,'protected.csv','date,residentId,unit,staffId,weight\n2026-01-01,R-1,North,S-1,70');const row=await x.history.index(a.id);
+ assert.ok(saved.length);assert.ok(saved.every(v=>v===true));assert.equal(x.core.store.get('file',row.fileId).hipaa,true);
+ const chat=x.core.createChat();await assert.rejects(x.core.send({chatId:chat.id,prompt:'Explain this document',fileIds:[row.fileId]}),{code:'POLICY'});assert.equal(x.calls.length,0);
+});
+
+test('large catalogues remain query-bounded without blocking background indexing or a selected report analysis',async t=>{
+ const x=setup(t),a=await add(x,'bounded.csv','date,residentId,unit,staffId,weight\n2026-01-01,R-1,North,S-1,70');
+ x.core.store.transaction(()=>{for(let i=0;i<1000;i++){const id=require('node:crypto').randomUUID();x.core.store.put('report_history',id,{id,workspace:x.core.settings().workspace,created:Date.now(),downloadDate:'2026-01-01',state:'indexed'});}});
+ assert.throws(()=>x.history.list(),{code:'LIMIT'});assert.equal(await x.history.tick(),true);assert.equal(x.core.store.get('report_history',a.id).state,'indexed');
+ x.history.queue({ids:[a.id]});let calls=0;x.core.runJob=async input=>{calls++;x.core.store.put('job',input.id,{id:input.id,status:'completed'});};
+ assert.equal(await x.history.tick(),true);assert.equal(calls,1);
+});
 test('new reports compare explicit source values by resident staff and unit; absent fields remain unknown',async t=>{
  const x=setup(t),today=require('../source/report-parameters.cjs').day(new Date());
  for(let i=0;i<6;i++){const d=new Date();d.setDate(d.getDate()-6+i);const a=await add(x,'old'+i+'.csv',`date,residentId,unit,staffId,weight\n${require('../source/report-parameters.cjs').day(d)},R-1,North,S-1,${70+i%2}`);await x.history.index(a.id);}

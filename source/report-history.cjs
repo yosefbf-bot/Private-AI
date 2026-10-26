@@ -39,6 +39,7 @@ class ReportHistory{
   for(const s of core.store.list('schedule'))if(s.reportQuery&&s.analysisState==='running')core.store.put('schedule',s.id,{...s,enabled:false,analysisState:'needs_review',error:'INTERRUPTED'});
  }
  days(){const n=this.core.settings().retentionDays;return n>0?Math.min(n,100):100;}
+ current(row,now=Date.now()){return !!row&&row.created>=now-this.days()*DAY&&row.created<=now&&row.workspace===this.core.settings().workspace;}
  available(){this.core.assertUnlocked();if(this.core.developmentMode||require('./snf/demo.cjs').forCore(this.core).current().demoMode)throw fail('POLICY');}
  production(){if(this.core.developmentMode||require('./snf/demo.cjs').forCore(this.core).current().demoMode)throw fail('POLICY');}
  async record(recipe,out,{now=Date.now(),guard=()=>{}}={}){
@@ -66,10 +67,12 @@ class ReportHistory{
   return {catalogued:files.length,added,excluded:entries.length-files.length,recursive:false};
  }
  list(query={}){
-  this.available();const now=Date.now(),cutoff=now-this.days()*DAY;
+  this.available();const now=Date.now();
+  if(query.ids!==undefined&&(!Array.isArray(query.ids)||!query.ids.length||query.ids.length>1000||query.ids.some(id=>!isId(id))))throw fail('INVALID');
+  const ids=query.ids?new Set(query.ids):null;
   let range;if(query.date)range=period(query.date,new Date(now));
   const selectedFolder=query.folder?folder(query.folder):null;
-  const rows=this.core.store.summaries('report_history').filter(r=>r.created>=cutoff&&r.created<=now&&r.workspace===this.core.settings().workspace&&(!range||r.downloadDate>=range.start&&r.downloadDate<=range.end)&&(!selectedFolder||r.relative.startsWith(selectedFolder+'/'))&&(!query.recipeId||r.recipeId===query.recipeId));
+  const rows=this.core.store.summaries('report_history').filter(r=>this.current(r,now)&&(!ids||ids.has(r.id))&&(!range||r.downloadDate>=range.start&&r.downloadDate<=range.end)&&(!selectedFolder||r.relative.startsWith(selectedFolder+'/'))&&(!query.recipeId||r.recipeId===query.recipeId));
   if(rows.length>1000)throw fail('LIMIT');return rows.sort((a,b)=>b.created-a.created);
  }
  async index(id){
@@ -78,11 +81,13 @@ class ReportHistory{
   if(r.workspace!==c.settings().workspace)throw fail('CHANGED');
   if(r.created<Date.now()-this.days()*DAY)throw fail('EXPIRED');
   const file=safePath(r.workspace,r.relative);if(r.size>20000000||fs.statSync(file).size>20000000)throw fail('LIMIT');if(await fileHash(file)!==r.hash)throw fail('CHANGED');this.available();
-  const duplicate=this.list().find(x=>x.id!==id&&x.state==='indexed'&&x.hash===r.hash&&x.recipeId===r.recipeId&&x.sourceRevision&&x.sourceRevision===r.sourceRevision&&fingerprint(x.tracking)===fingerprint(r.tracking)&&fingerprint(x.choices)===fingerprint(r.choices)&&c.store.get('report_history_rows',x.id)&&c.store.summaries('file').some(f=>f.id===x.fileId));
+  // Background work examines small encrypted metadata, not an unbounded user
+  // selection or all report bytes. Query limits must not stall the worker.
+  const duplicate=c.store.summaries('report_history').find(x=>this.current(x)&&x.id!==id&&x.state==='indexed'&&x.hash===r.hash&&x.recipeId===r.recipeId&&x.sourceRevision&&x.sourceRevision===r.sourceRevision&&fingerprint(x.tracking)===fingerprint(r.tracking)&&fingerprint(x.choices)===fingerprint(r.choices)&&c.store.get('report_history_rows',x.id)&&c.store.summary('file',x.fileId)?.hipaa===true);
   if(duplicate){Object.assign(r,{state:'indexed',duplicateOf:duplicate.id,fileId:duplicate.fileId,unknownRows:duplicate.unknownRows,incomplete:duplicate.incomplete,sourceRows:duplicate.sourceRows});c.store.transaction(()=>{c.store.put('report_history_rows',id,{id,rows:c.store.get('report_history_rows',duplicate.id).rows});c.store.put('report_history',id,r);});return r;}
   if(r.size>20000000)throw fail('LIMIT');
   await c.resources.checkpoint();
-  const imported=await c.importFile(file);let committed=false;
+  const imported=await c.importFile(file,null,null,true);let committed=false;
   try{
    this.available();if(await fileHash(file)!==r.hash)throw fail('CHANGED');
    const f=c.store.get('file',imported.id);let parsed={rows:[],unknownRows:0};
@@ -134,8 +139,7 @@ class ReportHistory{
  }
  queue(query={},prompt='Summarize the supplied report. Identify changes, missing information and follow-ups; cite source rows/pages. Do not infer clinical absence from missing data.'){
   this.available();text(prompt,12000);if(!prompt.trim())throw fail('INVALID');
-  if(query.ids!==undefined&&(!Array.isArray(query.ids)||!query.ids.length||query.ids.length>1000||query.ids.some(id=>!isId(id))))throw fail('INVALID');
-  const reports=query.ids?this.list().filter(r=>query.ids.includes(r.id)):this.list(query);
+  const reports=this.list(query);
   if(!reports.length)throw fail('NOT_FOUND');
   const active=new Map(this.core.store.summaries('report_analysis').filter(j=>['pending','running'].includes(j.state)).map(j=>[j.reportId,j]));
   const jobs=[];for(const report of reports){
@@ -174,15 +178,14 @@ class ReportHistory{
  }
  async tick(){
   const c=this.core;if(this.busy||c.locked||c.developmentMode||c.settings().workerPaused||c.resources.foreground||c.jobRunning||c.resources.background||c.resources.browser)return false;
-  let reports;try{reports=this.list();}catch(e){if(e.code==='POLICY')return false;throw e;}
-  const r=reports.find(r=>r.state==='pending');this.busy=true;
+  try{this.available();}catch(e){if(e.code==='POLICY')return false;throw e;}
+  const r=c.store.summaries('report_history').find(r=>r.state==='pending'&&this.current(r));this.busy=true;
   try{
    if(await this.scheduleDue())return true;
    if(r){try{await c.resources.task('background',()=>this.index(r.id));}catch(e){const current=c.store.get('report_history',r.id);if(current)c.store.put('report_history',r.id,{...current,state:'needs_review',error:safeError(e).code});}return true;}
-   const eligible=new Map(reports.map(r=>[r.id,r]));
    const summary=c.store.summaries('report_analysis').find(a=>{const r=c.store.summary('report_history',a.reportId);return a.state==='pending'&&(!r||r.workspace===c.settings().workspace);});if(!summary)return false;const analysis=c.store.get('report_analysis',summary.id);
    const report=c.store.get('report_history',analysis.reportId);
-   if(!report||!eligible.has(report.id)||report.state!=='indexed'||!report.fileId){c.store.put('report_analysis',analysis.id,{...analysis,state:'needs_review',error:'FILE'});return true;}
+   if(!this.current(report)||report.state!=='indexed'||!report.fileId){c.store.put('report_analysis',analysis.id,{...analysis,state:'needs_review',error:'FILE'});return true;}
    const jobId=uuid();c.store.put('report_analysis',analysis.id,{...analysis,state:'running',jobId});
    try{
     this.available();if(report.workspace!==c.settings().workspace)throw fail('CHANGED');const comparison=c.store.get('report_comparison',report.id)||(report.duplicateOf?c.store.get('report_comparison',report.duplicateOf):null);

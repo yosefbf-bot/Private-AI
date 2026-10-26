@@ -550,7 +550,7 @@ class Core {
       this.assertUnlocked();return processFile({...args,ocrDirectory:tools.folder(this),...(embedded?{ocrPages:embedded.unreadablePages}:{})},{signal:effective,minimumFree:reserve});
     }),{signal:effective});}finally{if(controller)this.requests.delete(id);}
   }
-  async importFile(file, temporaryChat, ownerChat = null) {
+  async importFile(file, temporaryChat, ownerChat = null, protectedSource = false) {
     this.assertUnlocked();
     try {
       const stat = fs.statSync(file);
@@ -569,6 +569,7 @@ class Core {
         bytes: bytes.toString("base64"),
         ownerChat,
         hipaa:
+          protectedSource === true ||
           this.settings().hipaa ||
           (temporaryChat || ownerChat
             ? this.chat(temporaryChat || ownerChat).hipaa

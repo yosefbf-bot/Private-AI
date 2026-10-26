@@ -29,6 +29,10 @@ owner data, pairings, signer and live website sessions have not been replaced.
   entries explicitly. Structured input is bounded to 350k characters, 10k rows and
   200 columns per file; a query stops at 100k observations/points and 20k groups.
   Report selection is bounded to 1,000 records; parser input is capped at 20 MB.
+- Report chats and imported working copies remain protected even in public mode.
+  Files receive protection on their first write. A catalogue over 1,000 records
+  does not stall background indexing or selected-report jobs; broad user queries
+  still fail visibly at their limit instead of silently dropping evidence.
 - Date/folder analysis can run manually or daily/weekdays/weekly/monthly via the
   existing scheduler. It processes each report separately, with available structured
   comparisons; it does not claim one consolidated all-files model synthesis.
