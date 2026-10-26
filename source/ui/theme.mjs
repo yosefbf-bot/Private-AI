@@ -16,3 +16,9 @@ export function setAppearance(value) {
 }
 system.addEventListener('change', apply);
 apply();
+
+// Display-size assets retain the original artwork as a local fallback.
+document.addEventListener('error',event=>{
+  const image=event.target;
+  if(image?.tagName==='IMG'&&image.dataset.original){const original=image.dataset.original;delete image.dataset.original;image.src=original;}
+},true);

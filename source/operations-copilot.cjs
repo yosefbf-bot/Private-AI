@@ -308,8 +308,9 @@ class OperationsCopilotEngine {
   // -------------------------------------------------------------
   // Meeting Management CRUD & Copilot
   // -------------------------------------------------------------
-  listMeetings() {
+  listMeetings({metadata=false}={}) {
     this.core.assertUnlocked();
+    if(metadata)return this.store.summaries('meeting').sort((a,b)=>(b.date||0)-(a.date||0));
     const list = this.store.list('meeting') || [];
     return list.map(m=>this.withTaskStatus(m)).sort((a, b) => (b.date || 0) - (a.date || 0));
   }
@@ -674,7 +675,7 @@ function dispatch(core, op, data = {}) {
 
     // Meetings Lifecycle & Live Copilot
     case 'meetingList':
-      return engine.listMeetings();
+      return engine.listMeetings({metadata:data.metadata===true});
     case 'meetingGet':
       return engine.getMeeting(data.id);
     case 'meetingSave':

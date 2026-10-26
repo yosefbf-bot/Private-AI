@@ -41,7 +41,7 @@ function connect() {
             if (!streamTimer)
               streamTimer = setTimeout(() => {
                 streamTimer = null;
-                if (busy) render();
+                if (busy) renderActiveMessage();
               }, 50);
           }
         }
@@ -133,12 +133,19 @@ function render() {
     $("messages").innerHTML = chat.messages
       .map(
         (m, i) =>
-          `<article class="message ${m.role}">${m.role === "assistant" ? '<div class="message-label">Private AI</div>' : ""}<div>${m.role === "user" ? esc(m.text) : markdown(m.text)}</div>${m.error ? `<p>${esc(m.error.message)}</p>` : ""}${m.role === "assistant" ? `<button class="copy" data-copy="${i}">Copy</button>` : ""}</article>`,
+          `<article class="message ${m.role}">${m.role === "assistant" ? '<div class="message-label">Private AI</div>' : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : markdown(m.text)}</div>${m.error ? `<p>${esc(m.error.message)}</p>` : ""}${m.role === "assistant" ? `<button class="copy" data-copy="${i}">Copy</button>` : ""}</article>`,
       )
       .join("");
     $("messages").scrollTop = $("messages").scrollHeight;
   }
   $("save").hidden = !chat?.temporary;
+}
+function renderActiveMessage() {
+  const list=$("messages"),message=chat?.messages?.at(-1),body=list.querySelector('.message:last-child .message-body');
+  if(message?.role!=='assistant'||!body)return;
+  const follow=list.scrollHeight-list.scrollTop-list.clientHeight<180;
+  body.innerHTML=markdown(message.text);
+  if(follow)list.scrollTop=list.scrollHeight;
 }
 async function fresh(temporary = false) {
   if (busy) return;

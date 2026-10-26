@@ -112,6 +112,12 @@ async function run({core,win,reportPath,exe,asar}){
   try{
    assert.equal((await call('lock')).ok,true);assert.equal((await call('createChat')).error.code,'LOCKED');
    assert.equal((await call('unlock',{passphrase:'SYNTHETIC wrong passphrase'})).ok,false);
+   // Exercise the real Unlock button: it refreshes renderer state after the
+   // protected IPC succeeds. Direct Core unlock intentionally cannot repopulate
+   // a locked screen via background status events.
+   await win.webContents.executeJavaScript(`(()=>{document.querySelector('#unlock-passphrase').value='SYNTHETIC validation passphrase';document.querySelector('[data-act="unlock"]').click();})()`);
+   let unlockedUI=false;for(let n=0;n<100;n++){unlockedUI=await win.webContents.executeJavaScript("!document.querySelector('#unlock-passphrase') && !!document.querySelector('#content h1')");if(unlockedUI&&!core.locked)break;await new Promise(r=>setTimeout(r,100));}
+   assert.equal(unlockedUI,true,'Real Unlock button restores the renderer');assert.equal(core.locked,false);
    assert.equal((await call('unlock',{passphrase:'SYNTHETIC validation passphrase'})).ok,true);
    assert.equal((await call('summary')).ok,true);
   }finally{core.store.delete('secret','applock');core.unlock();}

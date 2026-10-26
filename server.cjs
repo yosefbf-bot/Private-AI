@@ -174,6 +174,7 @@ async function dispatch(op, data = {}) {
     case "companionGrant": throw fail("POLICY");
     case "userGuide":
       return require("./source/app-guide.json");
+    case "workerSnapshot": return core.workerSnapshot();
     case "summary": {
       let buildInfo = {};
       try {

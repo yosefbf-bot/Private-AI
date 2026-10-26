@@ -43,6 +43,7 @@ test('real server requires a session and restricts production, privileges and de
     const unknownMatch=await call('staffingReplacementMatch',{openShift:{role:'CNA',hours:8},roster:[{name:'Synthetic HTTP unknown',role:'CNA'}]});assert.equal(unknownMatch.ok,true);assert.equal(unknownMatch.result[0].estimatedShiftCost,null);assert.equal(unknownMatch.result[0].currentHours,null);
     const knownMatch=await call('staffingReplacementMatch',{openShift:{role:'CNA',hours:12},roster:[{name:'Synthetic HTTP reviewed',role:'CNA',currentHours:35,hourlyRate:20,isAgency:false,overtimeRule:{reviewed:true,periodHoursConfirmed:true,thresholdHours:40,multiplier:1.5}}]});assert.equal(knownMatch.ok,true);assert.equal(knownMatch.result[0].estimatedShiftCost,310);
     assert.equal((await call('staffingReplacementMatch',{openShift:{role:'CNA',hours:8},roster:[{name:'Synthetic HTTP malformed',role:'CNA',currentHours:'38'}]})).error.code,'INVALID');
+    const narrow=await call('workerSnapshot');assert.equal(narrow.ok,true);assert.deepEqual(Object.keys(narrow.result).sort(),['jobs','resources','schedules','worker']);
     const summary = await call('summary');
     assert.equal(summary.ok, true);
     assert.equal(summary.result.settings.approved, false);

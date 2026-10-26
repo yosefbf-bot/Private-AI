@@ -37,7 +37,7 @@ test('shipped stream handler bypasses caching and lock/chat deletion clear compl
  const deletion=source.slice(source.indexOf('      case "delete-chat":'),source.indexOf('      case "save-temp":'));
  const body={innerHTML:'',classList:{add(){}}},elements=new Map(),sanitized=[],timers=[];
  const content={scrollHeight:500,scrollTop:500,clientHeight:100,querySelector:()=>body};elements.set('content',content);
- const stop={stop(){return true;}},context={createMarkdownCache,streamRenderInterval,marked,responseLayout,DOMPurify:{sanitize:(html,options)=>{sanitized.push(options);return html;}},
+ const stop={stop(){return true;}},context={pageGeneration:0,sessionGeneration:0,workerPoll:null,liveRefresh:{clear(){}},createMarkdownCache,streamRenderInterval,marked,responseLayout,DOMPurify:{sanitize:(html,options)=>{sanitized.push(options);return html;}},
   $:id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);},captureUI:stop,companionPairingUI:stop,workflowUI:stop,searchUI:stop,snfUI:stop,meetingsUI:stop,dashboardUI:stop,operationsCopilotUI:{stopListening(){}},closeVoiceSession(){},attachCodeCopyButtons(){},stopResponseTimer(){},
   chat:{id:'synthetic',messages:[{role:'assistant',text:''}]},sending:true,view:'chat',streamTimer:null,
   setTimeout:(fn,ms)=>{timers.push({fn,ms});return timers.length;},clearTimeout(){},
