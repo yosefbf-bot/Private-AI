@@ -158,7 +158,9 @@ function showWindow() {
   win.on("close", (event) => {
     for (const id of desktopTemporary) core.endTemporary(id);
     desktopTemporary.clear();
-    if (!quitting && (core.settings().workerEnabled||messaging?.settings().enabled)) {
+    // Keep unfinished renderer edits intact. Heavy models unload independently;
+    // a scheduled Primary PC must not exit just because Worker mode is off.
+    if (!quitting && require('./app-lifecycle.cjs').needsBackground(core,{native:isNative,messaging:!!messaging?.settings().enabled,companion:!!companion?.settings().enabled})) {
       event.preventDefault();
       win.hide();
     }
@@ -1085,7 +1087,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
     });
 }
 app.on("window-all-closed", () => {
-  if (!quitting && !isNative && !core?.settings().workerEnabled && !messaging?.settings().enabled && !companion?.settings().enabled) app.quit();
+  if (!quitting && !require('./app-lifecycle.cjs').needsBackground(core,{native:isNative,messaging:!!messaging?.settings().enabled,companion:!!companion?.settings().enabled})) app.quit();
 });
 app.on("before-quit", () => {
   if (quitting) return;
