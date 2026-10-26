@@ -3,14 +3,20 @@
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
 const {chromium}=require('playwright'),{fixture}=require('./helpers.cjs');
 const cleanup=[],{core}=fixture({after:f=>cleanup.push(f)}),root=path.resolve(__dirname,'..');
-let browser;const errors=[],calls=[];
+let browser,syntheticRecording=false,syntheticPending=false;const errors=[],calls=[];
 const chatControl={wait:null,started:null,release:null,finished:null};let chatCompletion=null,chatDispatched=false;
+const dashboardControl={op:null,wait:null,started:null};
 const captureControl={fail:false,wait:null,started:null,listWait:null,listStarted:null,summaryWait:null,summaryStarted:null};
 core.deleteKey('openai'); // Exercise keyless setup, including its warning in dark mode.
 // This UI fixture checks rendering, not the host's changing memory pressure.
 core.resources.memory=()=>8*1024**3;
 async function dispatch(op,data={}){
   calls.push(op);
+  if(dashboardControl.op===op&&dashboardControl.wait){const wait=dashboardControl.wait;dashboardControl.wait=null;dashboardControl.started?.();await wait;}
+  if(op==='workerSnapshot')return core.workerSnapshot();
+  if(syntheticRecording&&op==='speechStatus')return {supported:true,ready:true};
+  if(syntheticRecording&&op==='speechChunks')return syntheticPending?[{chunkId:'synthetic-pending',status:'pending'}]:[];
+  if(syntheticRecording&&op==='speechTranscribe'){syntheticPending=false;return true;}
   if(op==='send'){try{chatDispatched=true;chatControl.started?.();if(chatControl.wait)await chatControl.wait;return await core.send(data);}finally{chatControl.finished?.();}}
   if(op==='summary'&&captureControl.summaryWait){const wait=captureControl.summaryWait;captureControl.summaryWait=null;captureControl.summaryStarted?.();await wait;}
   if(op==='captureList'&&captureControl.listWait){const wait=captureControl.listWait;captureControl.listWait=null;captureControl.listStarted?.();await wait;}
@@ -43,6 +49,14 @@ const server=http.createServer((req,res)=>{
   await page.addInitScript(()=>{window.privateAI={call:(...args)=>window.testCall(...args),onEvent:cb=>window.__deliver=cb};navigator.mediaDevices.getUserMedia=async()=>{throw Error('Synthetic test does not open the physical microphone.');};});
   await page.goto('http://127.0.0.1:'+server.address().port+'/source/ui/index.html');
   await page.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
+  await page.evaluate(async()=>{
+    const {createChatHistory}=await import('/source/ui/chat-history.mjs');const target=document.createElement('div');document.body.append(target);
+    const rows=Array.from({length:10000},(_,i)=>({id:String(i),title:'Synthetic chat '+i})),draw=createChatHistory(target,x=>String(x));
+    draw(rows);if(target.querySelectorAll('.chat-item').length!==100)throw Error('History initial bound');
+    const first=target.firstElementChild;draw(rows);if(first!==target.firstElementChild)throw Error('Unchanged history replaced');
+    const updated=rows.filter(row=>row.id!=='150');updated.find(row=>row.id==='151').title='Synthetic renamed offscreen';draw(updated);target.querySelector('[data-history-more]').click();if(target.querySelector('[data-id="150"]')||!target.textContent.includes('Synthetic renamed offscreen'))throw Error('Stale offscreen history');if(target.querySelectorAll('.chat-item').length!==200)throw Error('History pagination');
+    draw(rows,'9999');if(target.querySelectorAll('.chat-item').length!==1||!target.textContent.includes('9999'))throw Error('Older search match unavailable');target.remove();
+  });
   assert.deepEqual(await page.locator('.primary-nav button').evaluateAll(buttons=>buttons.map(button=>button.dataset.view)),['search','dashboard','captures','meetings','workspace']);
   assert.equal(await page.locator('#sidebar [data-view=operations],#sidebar [data-view=actions],#sidebar [data-view=playbooks],#sidebar [data-view=worker]').count(),0);
   assert.equal(await page.locator('#resource-status').isVisible(),false,'Routine idle status stays out of the chat');
@@ -60,11 +74,35 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator('#dashboard-tasks [data-review]').count(),1);
   const out=process.env.PRIVATE_AI_UI_EVIDENCE||path.join(root,'Validation/assistant-first-2026-10-07');fs.mkdirSync(out,{recursive:true});
   await page.screenshot({path:path.join(out,'dashboard.png'),fullPage:true});
+  syntheticRecording=true;
+  await page.evaluate(()=>{
+    window.__audioStops=0;window.__originalAudioContext=window.AudioContext;
+    navigator.mediaDevices.getUserMedia=async()=>({getTracks:()=>[{stop(){window.__audioStops++;}}]});
+    window.AudioContext=class {constructor(){this.sampleRate=16000;this.destination={};}createMediaStreamSource(){return {connect(){},disconnect(){}};}createScriptProcessor(){return {connect(){},disconnect(){}};}async resume(){}async close(){}};
+  });
   await page.locator('#sidebar [data-view=meetings]').click();await page.locator('#meeting-new').click();await page.locator('#modal-content input[name=title]').fill('Synthetic maintenance meeting');await page.locator('#modal-submit').click();
+  await page.locator('#record-start').click();await page.getByText('Recording locally',{exact:true}).waitFor();
+  await page.evaluate(()=>{window.__meetingRecordPanel=document.querySelector('#meeting-recording');window.__meetingNote=document.querySelector('#meeting-note');});
   await page.locator('#meeting-note textarea').fill('We will call maintenance about the door.');await page.locator('#meeting-note button[type=submit]').click();
   await page.locator('[data-track]').click();assert.equal(core.store.count('todo'),2);
+  assert.equal(await page.evaluate(()=>window.__meetingRecordPanel===document.querySelector('#meeting-recording')&&window.__meetingNote===document.querySelector('#meeting-note')),true,'Adding notes/tracking follow-ups must preserve recording controls');
+  assert.equal(await page.evaluate(()=>window.__audioStops),0,'Ordinary notes and follow-ups must not stop capture');
+  await page.locator('#record-stop').click();await page.locator('#record-start').waitFor();assert.equal(await page.evaluate(()=>window.__audioStops),1);
+  syntheticPending=true;await page.locator('#sidebar [data-view=meetings]').click();await page.locator('[data-audio-retry]').waitFor();
+  await page.locator('#meeting-finish').click();await page.getByText('Retry pending audio before finishing the meeting.',{exact:true}).waitFor();
+  await page.locator('[data-audio-retry]').click();await page.locator('[data-audio-retry]').waitFor({state:'detached'});
+  await page.locator('#meeting-note textarea').fill('Synthetic note after audio recovery');await page.locator('#meeting-note button[type=submit]').click();await page.waitForFunction(()=>document.querySelector('#meeting-note textarea').value==='');
+  assert.equal(core.store.list('meeting')[0].transcript.filter(t=>t.text==='Synthetic note after audio recovery').length,1);
+  const largeMeeting=core.store.list('meeting')[0];largeMeeting.transcript=Array.from({length:2000},(_,i)=>({id:'synthetic-'+i,text:'Synthetic transcript '+i,speaker:'Unknown'}));core.store.put('meeting',largeMeeting.id,largeMeeting);
+  await page.locator('#sidebar [data-view=meetings]').click();await page.locator('#meeting-transcript').waitFor();
+  assert.equal(await page.locator('#meeting-transcript-rows article').count(),0);
+  await page.locator('#meeting-transcript > summary').click();await page.waitForFunction(()=>document.querySelectorAll('#meeting-transcript-rows article').length===100);
+  await page.locator('#meeting-transcript-more').click();assert.equal(await page.locator('#meeting-transcript-rows article').count(),200);
+  await page.locator('#meeting-transcript > summary').click();await page.waitForFunction(()=>document.querySelectorAll('#meeting-transcript-rows article').length===0);
+
   await page.locator('#meeting-finish').click();await page.getByText('Draft summary',{exact:true}).waitFor();assert.equal(core.store.list('meeting')[0].status,'completed');
   await page.screenshot({path:path.join(out,'meetings.png'),fullPage:true});
+  syntheticRecording=false;await page.evaluate(()=>{window.AudioContext=window.__originalAudioContext;navigator.mediaDevices.getUserMedia=async()=>{throw Error('Physical microphone unavailable in synthetic fixture.');};});
   await page.locator('#sidebar [data-view=workspace]').click();await page.locator('#wf-policies').click();await page.getByText('Facility policies selected.',{exact:false}).waitFor();
   assert.equal(core.store.list('project').filter(p=>p.name==='Facility policies').length,1);await page.locator('#wf-policies').click();assert.equal(core.store.count('project'),1);
   await page.locator('#wf-upload').click();await page.getByText('Files added to the collection.',{exact:true}).waitFor();
@@ -72,6 +110,26 @@ const server=http.createServer((req,res)=>{
   await page.locator('#sidebar [data-view=captures]').click();await page.locator('#sidebar [data-view=workspace]').click();await page.locator('#wf-project').selectOption(policy.id);assert.equal(core.store.get('project',policy.id).fileIds.length,1);
   await page.locator('#sidebar .more-tools > summary').click();await page.locator('#sidebar [data-view=automation]').click();await page.getByRole('heading',{name:'Automation',exact:true}).waitFor();
   await page.getByRole('button',{name:'Worker settings',exact:true}).click();await page.getByRole('heading',{name:"Let another PC handle the work"}).first().waitFor();
+  const beforeHidden=calls.filter(op=>op==='workerSnapshot'||op==='summary').length;
+  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));for(let i=0;i<10;i++)window.__deliver({type:'jobs_changed'});});
+  await page.waitForTimeout(350);assert.equal(calls.filter(op=>op==='workerSnapshot'||op==='summary').length,beforeHidden,'Hidden Worker must make zero refresh RPCs');
+  await page.locator('[name=workerName]').fill('Synthetic unsaved PC label');await page.locator('h1').click();
+  const originalName=await page.locator('[name=workerName]').elementHandle();
+  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});document.dispatchEvent(new Event('visibilitychange'));});
+  await page.waitForFunction(()=>document.querySelector('#worker-jobs'));
+  await page.waitForTimeout(350);assert.equal(calls.filter(op=>op==='workerSnapshot').length,1,JSON.stringify({errors,calls:calls.slice(-12),ui:await page.evaluate(()=>({hidden:document.hidden,modal:document.querySelector('#modal').open,auto:!!document.querySelector('#auto-modal-backdrop'),focus:document.activeElement?.tagName,dirty:!!document.querySelector('[data-live-dirty]')}))}));assert.equal(await page.locator('[name=workerName]').inputValue(),'Synthetic unsaved PC label');assert.equal(await originalName.evaluate(el=>el===document.querySelector('[name=workerName]')),true);
+  await page.locator('#sidebar [data-view=dashboard]').click();await page.locator('#dashboard-tasks').waitFor();
+  const liveTodo=core.saveTodo({title:'Synthetic live follow-up',status:'pending'});await page.evaluate(()=>window.__deliver({type:'todos_changed'}));await page.getByText('Synthetic live follow-up',{exact:true}).waitFor();
+  for(const operation of ['summary','workflowSummary']){
+    let release;dashboardControl.op=operation;dashboardControl.wait=new Promise(resolve=>release=resolve);const started=new Promise(resolve=>dashboardControl.started=resolve);
+    await page.evaluate(()=>window.__deliver({type:'jobs_changed'}));await started;
+    await page.locator(`[data-review="todo:${liveTodo.id}"]`).click();await page.locator('#modal [name=owner]').fill('Synthetic '+operation+' reviewer');await page.locator('#modal [name=note]').fill('Synthetic review survives background refresh');await page.locator('#modal [name=reviewer]').fill('Synthetic reviewer');
+    release();await page.waitForTimeout(250);await page.locator('#modal-submit').click();
+    await page.getByText('Synthetic '+operation+' reviewer',{exact:false}).first().waitFor();assert.equal(core.store.get('todo',liveTodo.id).owner,'Synthetic '+operation+' reviewer');
+  }
+  core.store.delete('todo',liveTodo.id);
+
+
   await page.locator('#sidebar [data-view=settings]').click();
   await page.locator('[name=appearance]').selectOption('dark');
   assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');

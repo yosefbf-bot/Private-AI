@@ -1,6 +1,48 @@
 {
-  "speedMemoryBatch1_20261026": {
+  "speedMemoryBatch2_20261026": {
     "status": "locally-verified-awaiting-exact-head-ci",
+    "baseMain": "41d487cae731054d0912611b16a84d3a3655319b",
+    "branch": "chatgpt/batch2-startup-renderer-20261026",
+    "version": "3.0.9-dev",
+    "tests": {
+      "passed": 874,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hardeningPassed": 30,
+    "syntaxFiles": 274,
+    "generalUIChecks": 41,
+    "nativeACLValidation": true,
+    "independentReview": "Four concrete findings fixed with IPC/browser regressions; one review",
+    "measured": {
+      "initialRendererBytes": [
+        799149,
+        235297
+      ],
+      "initialModules": [
+        32,
+        15
+      ],
+      "displayImageBytes": [
+        3502602,
+        115181
+      ],
+      "startupACLProcesses": [
+        2,
+        1
+      ],
+      "initialChatButtonsFor10000": 100,
+      "collapsedTranscriptRowsFor2000": 0,
+      "firstExpandedTranscriptRows": 100,
+      "hiddenWorkerRefreshRPCs": 0
+    },
+    "ownerInstallationChanged": false,
+    "wholeAppRAMReductionMeasured": false,
+    "physicalPhoneValidated": false,
+    "livePCCOrPowerBIValidated": false
+  },
+  "speedMemoryBatch1_20261026": {
+    "status": "merged-exact-main-ci-passed",
     "baseMain": "80f4352467a8e340ec848605f49d1fc63c624a3a",
     "branch": "chatgpt/batch1-efficient-records-20261026",
     "version": "3.0.9-dev",
@@ -32,7 +74,8 @@
     "ownerInstallationChanged": false,
     "physicalPhoneValidated": false,
     "livePCCOrPowerBIValidated": false,
-    "wholeAppRAMReductionMeasured": false
+    "wholeAppRAMReductionMeasured": false,
+    "acceptedMain": "41d487cae731054d0912611b16a84d3a3655319b"
   },
   "idleReports20261026": {
     "status": "locally-verified-awaiting-exact-head-ci",

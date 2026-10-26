@@ -1,27 +1,15 @@
+import {createVisibleRefresh} from "./visible-refresh.mjs";
+import {createChatHistory} from "./chat-history.mjs";
+import {lazyFeature} from "./lazy-feature.mjs";
+import {updateUniversalAlertBar} from "./alert-bar.mjs";
 import {appearance, setAppearance} from "./theme.mjs";
 import {integrationSettings} from "./integrations.mjs";
 import {companionSettings} from "./companion.mjs";
-import {createCompanionPairingUI} from "./companion-pairing.mjs";
-import {createWorkflowUI} from "./workflows.mjs";
-import {createCaptureUI} from "./captures.mjs";
 import {migrateLegacyStorage} from "./legacy-storage.mjs";
-import {createDashboardUI} from "./dashboard.mjs";
-import {createSearchUI} from "./search.mjs";
-import {createMeetingsUI} from "./meetings.mjs";
-import {createImportCenter} from "./snf/import-center.mjs";
 import {responseLayout,responseChecks} from "./response-layout.mjs";
-import {createMessagingUI} from "./messaging.mjs";
-import {createBrowserUI} from "./browser-recipes.mjs";
-import {createHybridUI} from "./hybrid.mjs";
 import { marked } from "./vendor/marked.mjs";
 import {createMarkdownCache, streamRenderInterval} from "./markdown-cache.mjs";
-import { createAccessUI } from "./access.mjs";
 import { VoiceManager } from "./voice.mjs";
-import { createSNFUI } from "./snf-ui.mjs";
-import { createAutomationCenterUI } from "./automation-center.mjs";
-import { createOperationsCopilotUI } from "./operations-copilot.mjs";
-import { createExecutiveDeskUI } from "./executive-desk.mjs";
-import { createOperationsAnalyticsUI } from "./operations-analytics.mjs";
 const $ = (id) => document.getElementById(id),
   esc = (v) =>
     String(v ?? "").replace(
@@ -86,15 +74,15 @@ function idsFrom(r) {
     .filter((k) => k.startsWith("file_"))
     .map((k) => k.slice(5));
 }
-const companionPairingUI=createCompanionPairingUI({api,form,esc});
-const workflowUI=createWorkflowUI({api,esc,toast,form,field,textarea,select,renderPage,refresh});
-const captureUI=createCaptureUI({api,esc,toast,form,field,textarea,select,refresh});
-const dashboardUI=createDashboardUI({api,esc,toast,form,field,textarea,select,refresh,renderPage});
-const searchUI=createSearchUI({api,esc,toast,openSource,state:()=>state});
-const meetingsUI=createMeetingsUI({api,esc,toast,form,field,textarea,refresh,renderPage});
-const importUI=createImportCenter({api,esc,toast,form});
-const snfUI = createSNFUI({ api, toast, esc, renderPage });
-const automationUI = createAutomationCenterUI({
+const companionPairingUI=lazyFeature(async()=>{const {createCompanionPairingUI}=await import("./companion-pairing.mjs");return createCompanionPairingUI({api,form,esc});});
+const workflowUI=lazyFeature(async()=>{const {createWorkflowUI}=await import("./workflows.mjs");return createWorkflowUI({api,esc,toast,form,field,textarea,select,renderPage,refresh});});
+const captureUI=lazyFeature(async()=>{const {createCaptureUI}=await import("./captures.mjs");return createCaptureUI({api,esc,toast,form,field,textarea,select,refresh});});
+const dashboardUI=lazyFeature(async()=>{const {createDashboardUI}=await import("./dashboard.mjs");return createDashboardUI({api,esc,toast,form,field,textarea,select,refresh,renderPage});});
+const searchUI=lazyFeature(async()=>{const {createSearchUI}=await import("./search.mjs");return createSearchUI({api,esc,toast,openSource,state:()=>state});});
+const meetingsUI=lazyFeature(async()=>{const {createMeetingsUI}=await import("./meetings.mjs");return createMeetingsUI({api,esc,toast,form,field,textarea,refresh,renderPage});});
+const importUI=lazyFeature(async()=>{const {createImportCenter}=await import("./snf/import-center.mjs");return createImportCenter({api,esc,toast,form});});
+const snfUI=lazyFeature(async()=>{const {createSNFUI}=await import("./snf-ui.mjs");return createSNFUI({ api, toast, esc, renderPage });});
+const automationUI=lazyFeature(async()=>{const {createAutomationCenterUI}=await import("./automation-center.mjs");return createAutomationCenterUI({
   api,
   esc,
   toast,
@@ -107,31 +95,31 @@ const automationUI = createAutomationCenterUI({
   textarea,
   fileChecks,
   idsFrom
-});
-const operationsCopilotUI = createOperationsCopilotUI({
+});});
+const operationsCopilotUI=lazyFeature(async()=>{const {createOperationsCopilotUI}=await import("./operations-copilot.mjs");return createOperationsCopilotUI({
   getState: () => state,
   api,
   esc,
   toast,
   refresh,
   renderPage
-});
-const executiveDeskUI = createExecutiveDeskUI({
+});});
+const executiveDeskUI=lazyFeature(async()=>{const {createExecutiveDeskUI}=await import("./executive-desk.mjs");return createExecutiveDeskUI({
   getState: () => state,
   api,
   esc,
   toast,
   refresh,
   renderPage
-});
-const operationsAnalyticsUI = createOperationsAnalyticsUI({
+});});
+const operationsAnalyticsUI=lazyFeature(async()=>{const {createOperationsAnalyticsUI}=await import("./operations-analytics.mjs");return createOperationsAnalyticsUI({
   getState: () => state,
   api,
   esc,
   toast,
   refresh,
   renderPage
-});
+});});
 const formatOptions =
   '<option value="">Save as…</option>' +
   ["pdf", "docx", "xlsx", "csv", "md", "txt"]
@@ -151,8 +139,10 @@ function toast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => ($("toast").hidden = true), 6500);
 }
+let sessionGeneration=0;
 async function refresh() {
-  state = await api("summary");
+  const ticket=sessionGeneration,result=await api("summary");if(ticket!==sessionGeneration)return;
+  state = result;
   voiceManager?.enforcePolicy();
   document.body.classList.toggle("advanced",state.settings.uiAdvanced===true);
   voiceTranscriptCache=state.voiceTranscripts||[];
@@ -161,16 +151,9 @@ async function refresh() {
   const banner=$("development-mode-banner"); if(banner){banner.hidden=!state.developmentMode;banner.textContent=state.modeLabel||"";}
   populateVoiceAgents();
 }
+const drawChatHistory=createChatHistory($("history"),esc);
 function renderChatHistory() {
-  if (!state) return;
-  const query = ($("search")?.value || "").toLowerCase();
-  $("history").innerHTML = (state.chats || [])
-    .filter((c) => !c.archived && (!query || c.title.toLowerCase().includes(query)))
-    .map(
-      (c) =>
-        `<button class="chat-item ${chat?.id === c.id ? "active" : ""}" data-act="chat" data-id="${c.id}">${esc(c.title)}</button>`,
-    )
-    .join("");
+  if(state)drawChatHistory(state.chats||[],$("search")?.value||'',chat?.id);
 }
 function renderSidebar() {
   const snfEnabled = state.settings.snfEnabled !== false;
@@ -178,7 +161,7 @@ function renderSidebar() {
   if (alertBar) alertBar.style.display = (state.snfAlerts?.critical > 0 || state.snfAlerts?.high > 0) ? "" : "none";
   const snfNavBtn = $("snf-sidebar-btn");
   if (snfNavBtn) snfNavBtn.style.display = snfEnabled ? "" : "none";
-  snfUI?.updateUniversalAlertBar(state.snfAlerts);
+  updateUniversalAlertBar(state.snfAlerts);
   const updated=new Date(state.buildInfo?.updatedAt||'');
   $('last-updated').textContent='Last updated: '+(Number.isNaN(updated.getTime())?'unavailable':updated.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}));
   renderChatHistory();
@@ -413,6 +396,8 @@ function autoResizePrompt() {
   p.style.height = `${h}px`;
 }
 function renderChat() {
+  pageGeneration++;
+  clearTimeout(workerPoll);
   if(!captureUI.stop())return;
   companionPairingUI.stop();
   workflowUI.stop();
@@ -426,7 +411,7 @@ function renderChat() {
   updateResponseTimeEstimate();
   if (!chat || !chat.messages.length) {
     $("content").innerHTML =
-      `<div class="welcome"><img src="icon.png" alt=""><h1>What would you like to work on?</h1><p>Chat, review documents, and prepare reports.<br>Your history stays on this PC.</p><div class="suggestions"><button data-act="suggest" data-text="Help me draft a clear, professional report."><b>Draft a report</b><span>Turn notes into something ready to share</span></button><button data-act="attach"><b>Review a document</b><span>Attach a PDF, Word, or Excel file</span></button><button data-act="suggest" data-text="Help me compare the information in my attached files."><b>Compare information</b><span>Find differences and useful details</span></button><button data-act="view" data-view="automation"><b>Prepare a scheduled report</b><span>Let a Worker PC handle recurring work</span></button></div></div>`;
+      `<div class="welcome"><img src="icon-display.png" data-original="icon.png" alt=""><h1>What would you like to work on?</h1><p>Chat, review documents, and prepare reports.<br>Your history stays on this PC.</p><div class="suggestions"><button data-act="suggest" data-text="Help me draft a clear, professional report."><b>Draft a report</b><span>Turn notes into something ready to share</span></button><button data-act="attach"><b>Review a document</b><span>Attach a PDF, Word, or Excel file</span></button><button data-act="suggest" data-text="Help me compare the information in my attached files."><b>Compare information</b><span>Find differences and useful details</span></button><button data-act="view" data-view="automation"><b>Prepare a scheduled report</b><span>Let a Worker PC handle recurring work</span></button></div></div>`;
     return;
   }
   $("content").innerHTML =
@@ -434,7 +419,7 @@ function renderChat() {
     chat.messages
       .map(
         (m, i) =>
-          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration advanced-only ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body, {streaming:sending && i === chat.messages.length - 1})}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.processing?.policyNotice ? `<div class="error-note">${esc(m.processing.policyNotice)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="response-checks" aria-label="Answer checks">${responseChecks(m.processing).map(label=>`<span class="pill">${esc(label)}</span>`).join(" ")}</div><details class="response-details"><summary>Details</summary><div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div></details>` : ""}${m.usage ? `<details class="response-details"><summary>Token usage</summary><div class="usage">${(m.usage.inputTokens?.toLocaleString() ?? 'unknown')} input · ${(m.usage.outputTokens?.toLocaleString() ?? 'unknown')} output tokens</div></details>` : ""}</article>`,
+          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon-display.png" data-original="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration advanced-only ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body, {streaming:sending && i === chat.messages.length - 1})}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.processing?.policyNotice ? `<div class="error-note">${esc(m.processing.policyNotice)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="response-checks" aria-label="Answer checks">${responseChecks(m.processing).map(label=>`<span class="pill">${esc(label)}</span>`).join(" ")}</div><details class="response-details"><summary>Details</summary><div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div></details>` : ""}${m.usage ? `<details class="response-details"><summary>Token usage</summary><div class="usage">${(m.usage.inputTokens?.toLocaleString() ?? 'unknown')} input · ${(m.usage.outputTokens?.toLocaleString() ?? 'unknown')} output tokens</div></details>` : ""}</article>`,
       )
       .join("") +
     "</div>";
@@ -462,7 +447,7 @@ async function renderGuide(){
   try{
     guideData=guideData||await api('userGuide');
     if(view!=='guide')return;
-    $("content").innerHTML=`<div class="page guide-page"><img class="guide-logo" src="logo.png" alt="Private AI"><h1>User guide</h1><p class="subtitle">Private AI ${esc(guideData.version)} · Available offline · No model or API needed</p><p>Search a feature below, or ask a how-to question in chat. These instructions stay with the app.</p><label class="field">Find a topic<input id="guide-search" type="search" placeholder="Try RAM, ShareSync, schedules, or privacy" autocomplete="off"></label><p id="guide-count" class="help" aria-live="polite"></p><div id="guide-topics"></div></div>`;
+    $("content").innerHTML=`<div class="page guide-page"><img class="guide-logo" src="logo-display.png" data-original="logo.png" alt="Private AI"><h1>User guide</h1><p class="subtitle">Private AI ${esc(guideData.version)} · Available offline · No model or API needed</p><p>Search a feature below, or ask a how-to question in chat. These instructions stay with the app.</p><label class="field">Find a topic<input id="guide-search" type="search" placeholder="Try RAM, ShareSync, schedules, or privacy" autocomplete="off"></label><p id="guide-count" class="help" aria-live="polite"></p><div id="guide-topics"></div></div>`;
     const search=$('guide-search');search.addEventListener('input',()=>renderGuideTopics(search.value));renderGuideTopics('');
   }catch(e){if(view==='guide')$("content").innerHTML=`<div class="page"><h1>User guide</h1><p>${esc(e.message)}</p></div>`;}
 }
@@ -609,10 +594,10 @@ window.privateAI.onEvent((event) => {
   if (event.type === "reminder_due") {
     const list = (event.items || []).map(i => i.title).join(", ");
     toast("⏰ Reminder due: " + (list || "Action item"));
-    refresh().then(() => { if (view === "todos") renderPage("todos"); }).catch(() => {});
+    requestLiveRefresh();
   }
   if (event.type === "todos_changed") {
-    refresh().then(() => { if (view === "todos") renderPage("todos"); }).catch(() => {});
+    requestLiveRefresh();
   }
   if(event.type==="model-download"){const e=document.getElementById("model-progress");if(e)e.textContent=event.error?.message||event.state+(event.total?" · "+Math.round(event.received/event.total*100)+"%":"");}
 
@@ -650,17 +635,13 @@ window.privateAI.onEvent((event) => {
   } else if (event.type === "locked") showLocked();
   else if (event.type === "unlocked") init();
   else if (event.type === "jobs_changed") {
-    refresh()
-      .then(() => {
-        if (["worker", "schedules"].includes(view)) renderPage(view);
-      })
-      .catch(() => {});
+    requestLiveRefresh();
   }
 });
-const messagingUI=createMessagingUI({api,esc,toast,refresh,state:()=>state});
-const browserUI=createBrowserUI({api,esc,toast});
-const hybridUI=createHybridUI({api,refresh,esc,state:()=>state,toast,render:renderPage});
-const accessUI = createAccessUI({
+const messagingUI=lazyFeature(async()=>{const {createMessagingUI}=await import("./messaging.mjs");return createMessagingUI({api,esc,toast,refresh,state:()=>state});});
+const browserUI=lazyFeature(async()=>{const {createBrowserUI}=await import("./browser-recipes.mjs");return createBrowserUI({api,esc,toast});});
+const hybridUI=lazyFeature(async()=>{const {createHybridUI}=await import("./hybrid.mjs");return createHybridUI({api,refresh,esc,state:()=>state,toast,render:renderPage});});
+const accessUI=lazyFeature(async()=>{const {createAccessUI}=await import("./access.mjs");return createAccessUI({
   api,
   form,
   field,
@@ -696,7 +677,7 @@ const accessUI = createAccessUI({
     renderChat();
     renderAttachments();
   },
-});
+});});
 function healthHTML(){
   const h=state.health||{},s=state.settings,r=state.resources||{};
   const ram=state.ramProfile||h.ramProfile||{totalGB:h.totalRAMGB||16,availableGB:h.availableRAMGB||3,profile:'conservative',statusBadge:'Conservative Mode (Compact Models)',description:'Host RAM is conserved for background clinical apps.',tierCap:'medium',keepAlive:'0s',threadBudget:4,recommendedModels:state.providers?.ollama?.ramModels?.conservative||[]};
@@ -1070,6 +1051,8 @@ function settingsHTML() {
   )}${field("Maximum output tokens", "maxOutput", s.maxOutput, "number")}${field("OpenAI organization (optional)", "org", s.org)}${field("OpenAI project (optional)", "projectId", s.projectId)}${field("App lock after minutes", "lockMinutes", s.lockMinutes, "number")}</div><p>Reasoning controls depend on the selected model. Automatic locking inside Private AI requires an app passphrase; your organization’s Windows lock remains separate.</p><div class="button-row"><button class="secondary" data-act="passphrase">Set app passphrase</button><button class="secondary" data-act="lock">Lock app</button><button class="secondary" data-act="backup">Create local encrypted backup</button><button class="secondary" data-act="self-check">Run local checks</button><button class="secondary" data-act="diagnostics">Create diagnostic report</button></div><p>Diagnostics contain technical metadata only. Local backups require this Windows profile and its original encryption key. A portable app does not make encrypted history portable.</p></details></div>`;
 }
 function showLocked() {
+  pageGeneration++;
+  liveRefresh.clear();clearTimeout(workerPoll);sessionGeneration++;
   md.clear();
   clearTimeout(streamTimer);
   streamTimer = null;
@@ -1502,6 +1485,7 @@ async function init() {
     if (view !== "locked") toast(e.message);
   }
 }
+let pageGeneration=0;
 function renderPage(name, options = {}) {
   if(!captureUI.stop())return;
   companionPairingUI.stop();
@@ -1519,60 +1503,63 @@ function renderPage(name, options = {}) {
     renderChat();
     return;
   }
+  const ticket=++pageGeneration;
   view = name;
+  scheduleWorkerPoll();
   updateTop();
   renderSidebar();
-  if (name === 'search') { $('content').innerHTML='<p>Loading…</p>';searchUI.render($('content'),options).catch(e=>toast(e.message));return; }
+  const content=document.createElement("div");content.className="route-host";$("content").replaceChildren(content);
+  if (name === 'search') { content.innerHTML='<p>Loading…</p>';searchUI.render(content,options).catch(e=>toast(e.message));return; }
   if (name === 'captures') {
-    $("content").innerHTML="<p>Loading…</p>";
-    captureUI.render($("content"),options).catch(e=>toast(e.message));
+    content.innerHTML="<p>Loading…</p>";
+    captureUI.render(content,options).catch(e=>toast(e.message));
     return;
   }
   if (name === 'dashboard' || name === 'meetings') {
-    $("content").innerHTML='<p>Loading…</p>';
-    (name === 'dashboard' ? dashboardUI : meetingsUI).render($("content"),options).catch(e=>toast(e.message));return;
+    content.innerHTML='<p>Loading…</p>';
+    (name === 'dashboard' ? dashboardUI : meetingsUI).render(content,options).catch(e=>toast(e.message));return;
   }
   if (["decisions","metrics","workspace"].includes(name)) {
-    $("content").innerHTML="<p>Loading…</p>";workflowUI.render($("content"),name,options).catch(e=>toast(e.message));return;
+    content.innerHTML="<p>Loading…</p>";workflowUI.render(content,name,options).catch(e=>toast(e.message));return;
   }
   if (["pcc","clinical-imports"].includes(name)) {
-    $("content").innerHTML="<p>Loading…</p>";
-    importUI.render($("content"),{sourceProvider:name==="pcc"?"pcc":"generic"}).catch(e=>toast(e.message));return;
+    content.innerHTML="<p>Loading…</p>";
+    importUI.render(content,{sourceProvider:name==="pcc"?"pcc":"generic"}).catch(e=>toast(e.message));return;
   }
   if (name === "execdesk") {
-    $("content").innerHTML="<p>Loading Executive Desk…</p>";
-    executiveDeskUI.render($("content"),options).catch(e=>toast(e.message));
+    content.innerHTML="<p>Loading Executive Desk…</p>";
+    executiveDeskUI.render(content,options).catch(e=>toast(e.message));
     return;
   }
   if (name === "opanalytics") {
-    $("content").innerHTML="<p>Loading Operations Analytics…</p>";
-    operationsCopilotUI.render($("content"), { ...options, tab: "analytics" }).catch(e=>toast(e.message));
+    content.innerHTML="<p>Loading Operations Analytics…</p>";
+    operationsCopilotUI.render(content, { ...options, tab: "analytics" }).catch(e=>toast(e.message));
     return;
   }
   if (name === "operations") {
-    $("content").innerHTML="<p>Loading Operations Intelligence…</p>";
-    operationsCopilotUI.render($("content"),options).catch(e=>toast(e.message));
+    content.innerHTML="<p>Loading Operations Intelligence…</p>";
+    operationsCopilotUI.render(content,options).catch(e=>toast(e.message));
     return;
   }
   if (name === "automation") {
-    $("content").innerHTML="<p>Loading…</p>";
-    automationUI.render($("content"), state,options).catch(e=>toast(e.message));
+    content.innerHTML="<p>Loading…</p>";
+    automationUI.render(content, state,options).catch(e=>toast(e.message));
     return;
   }
   if (name === "snf") {
-    snfUI.render($("content"),options).catch(e=>toast(e.message));
+    snfUI.render(content,options).catch(e=>toast(e.message));
     return;
   }
-  if(name==="messaging"||name==="browser"){const ui=name==="messaging"?messagingUI:browserUI;$("content").innerHTML="<p>Loading…</p>";ui.html().then(html=>{if(view===name)$("content").innerHTML='<p class="error-note">Primary-PC safety: visible browser actions and Outlook access require manual interruption approval. Every WhatsApp send needs your approval; Disable all writing blocks all WhatsApp sending. Tested website report workflows can separately be allowed to run on a schedule. The account WhatsApp connection can remain open for local reasoning; report-browser sessions still reserve the browser lane. Separate profiles do not guarantee focus isolation.</p>'+html;}).catch(e=>toast(e.message));return;}
-  if(name==="processing"||name==="usage"){$("content").innerHTML=hybridUI[name]();return;}
+  if(name==="messaging"||name==="browser"){const ui=name==="messaging"?messagingUI:browserUI;content.innerHTML="<p>Loading…</p>";ui.html().then(html=>{if(view===name&&ticket===pageGeneration&&content.isConnected)content.innerHTML='<p class="error-note">Primary-PC safety: visible browser actions and Outlook access require manual interruption approval. Every WhatsApp send needs your approval; Disable all writing blocks all WhatsApp sending. Tested website report workflows can separately be allowed to run on a schedule. The account WhatsApp connection can remain open for local reasoning; report-browser sessions still reserve the browser lane. Separate profiles do not guarantee focus isolation.</p>'+html;}).catch(e=>toast(e.message));return;}
+  if(name==="processing"||name==="usage"){hybridUI[name]().then(html=>{if(ticket===pageGeneration&&content.isConnected)content.innerHTML=html;}).catch(e=>toast(e.message));return;}
   if(name==="guide"){renderGuide();return;}
-  if(name==="health"){$("content").innerHTML=healthHTML();return;}
+  if(name==="health"){content.innerHTML=healthHTML();return;}
   if (name === "settings") {
-    $("content").innerHTML = settingsHTML();
+    content.innerHTML = settingsHTML();
     return;
   }
   if (name === "apps") {
-    $("content").innerHTML = accessUI.html();
+    accessUI.html().then(html=>{if(ticket===pageGeneration&&content.isConnected)content.innerHTML=html;}).catch(e=>toast(e.message));
     return;
   }
   const layouts = {
@@ -1639,14 +1626,14 @@ function renderPage(name, options = {}) {
     },
   };
   if (name === "worker") {
-    $("content").innerHTML = workerHTML();
+    content.innerHTML = workerHTML();
     return;
   }
   const d = layouts[name];
   if (!d) return;
-  $("content").innerHTML =
+  content.innerHTML =
     `<div class="page"><h1>${d.title}</h1><p class="subtitle">${d.subtitle}</p><button class="primary" data-act="${d.action}">${d.button}</button>${d.items.length ? d.items.map((i) => `<section class="card" data-source-id="${esc(i.id)}">${d.card(i)}</section>`).join("") : '<div class="empty">Nothing here yet. Add your first item when you need it.</div>'}${name === "schedules" ? jobsHTML() : ""}</div>`;
-  if(options.projectId){const row=[...$('content').querySelectorAll('[data-source-id]')].find(el=>el.dataset.sourceId===options.projectId);if(row){row.tabIndex=-1;row.focus();row.scrollIntoView({block:'center'});}else toast('This project is no longer in the current list.');}
+  if(options.projectId){const row=[...content.querySelectorAll('[data-source-id]')].find(el=>el.dataset.sourceId===options.projectId);if(row){row.tabIndex=-1;row.focus();row.scrollIntoView({block:'center'});}else toast('This project is no longer in the current list.');}
 }
 function jobsHTML() {
   return `<section class="section"><h2>Recent jobs</h2>${
@@ -1673,7 +1660,7 @@ function workerHTML() {
       ["both", "Both — chat and background jobs"],
     ],
     s.role,
-  )}<label class="check"><input name="workerEnabled" type="checkbox" ${s.workerEnabled ? "checked" : ""}> Enable background jobs on this PC</label><label class="check"><input name="autostart" type="checkbox" ${state.autostart ? "checked" : ""}> Start Private AI when I sign in to Windows</label><p>Background jobs require this Windows user to remain signed in and the PC to be awake. App locking and closing the window keep approved background jobs running; use Quit in the tray to stop the app.</p><div class="button-row"><button class="primary" data-act="save-worker">Save Worker settings</button><button class="secondary" data-act="pause-worker">${s.workerPaused ? "Resume jobs" : "Pause new jobs"}</button><button class="secondary" data-act="open-workspace">Open work folder</button></div><p>Connection fingerprint: <b>${esc(w.fingerprint)}</b></p></section><section class="section"><h2>Connect trusted PCs</h2><p>Select the same approved ShareSync work folder on each PC. Confirm matching fingerprints on both screens, then connect each PC to the other. Keys stay local.</p>${w.peers.map((p) => `<div class="card"><h3>${esc(p.label)} <span class="pill">${p.online ? "Recently seen" : "Offline or sync delayed"}</span></h3><p>${esc(p.fingerprint)}${p.changed ? " · Identity changed; reconnection is required." : ""}</p><button class="${p.trusted ? "secondary" : "primary"}" data-act="${p.trusted ? "peer-revoke" : "peer-trust"}" data-id="${p.id}">${p.trusted ? "Disconnect" : "Connect this PC"}</button></div>`).join("") || "<p>No other PCs found yet. Allow time for ShareSync to sync the folder.</p>"}<button class="secondary" data-act="refresh-worker">Refresh PCs</button></section>${jobsHTML()}</div>`;
+  )}<label class="check"><input name="workerEnabled" type="checkbox" ${s.workerEnabled ? "checked" : ""}> Enable background jobs on this PC</label><label class="check"><input name="autostart" type="checkbox" ${state.autostart ? "checked" : ""}> Start Private AI when I sign in to Windows</label><p>Background jobs require this Windows user to remain signed in and the PC to be awake. App locking and closing the window keep approved background jobs running; use Quit in the tray to stop the app.</p><div class="button-row"><button class="primary" data-act="save-worker">Save Worker settings</button><button class="secondary" data-act="pause-worker">${s.workerPaused ? "Resume jobs" : "Pause new jobs"}</button><button class="secondary" data-act="open-workspace">Open work folder</button></div><p>Connection fingerprint: <b>${esc(w.fingerprint)}</b></p></section><section class="section" id="worker-peers"><h2>Connect trusted PCs</h2><p>Select the same approved ShareSync work folder on each PC. Confirm matching fingerprints on both screens, then connect each PC to the other. Keys stay local.</p>${w.peers.map((p) => `<div class="card"><h3>${esc(p.label)} <span class="pill">${p.online ? "Recently seen" : "Offline or sync delayed"}</span></h3><p>${esc(p.fingerprint)}${p.changed ? " · Identity changed; reconnection is required." : ""}</p><button class="${p.trusted ? "secondary" : "primary"}" data-act="${p.trusted ? "peer-revoke" : "peer-trust"}" data-id="${p.id}">${p.trusted ? "Disconnect" : "Connect this PC"}</button></div>`).join("") || "<p>No other PCs found yet. Allow time for ShareSync to sync the folder.</p>"}<button class="secondary" data-act="refresh-worker">Refresh PCs</button></section><div id="worker-jobs">${jobsHTML()}</div></div>`;
 }
 async function editProject(id) {
   const p = state.projects.find((p) => p.id === id) || {};
@@ -1850,8 +1837,9 @@ async function runAgent(id) {
   }
 }
 document.addEventListener("change", event => { if (event.target.matches('[name="appearance"]')) setAppearance(event.target.value); });
+let historyTimer;
 $("search").addEventListener("input", () => {
-  if (state) renderChatHistory();
+  clearTimeout(historyTimer);historyTimer=setTimeout(renderChatHistory,120);
 });
 $("send").onclick = () => send().catch((e) => toast(e.message));
 $("stop").onclick = () => {
@@ -1946,7 +1934,7 @@ document.addEventListener("change", async (e) => {
       await api("settings", { snfEnabled: enabled });
       await refresh();
       if (!enabled) {
-        snfUI?.updateUniversalAlertBar(state.snfAlerts);
+        updateUniversalAlertBar(state.snfAlerts);
         if (view === "snf") renderChat();
         toast("Clinical navigation disabled. Unresolved critical alerts remain visible.");
       } else {
@@ -2583,23 +2571,48 @@ document.addEventListener("drop", async (e) => {
   }
 });
 let lastTouch = 0;
-document.addEventListener("keydown", () => {
+function recordActivity() {
   if (Date.now() - lastTouch > 30000 && state) {
     lastTouch = Date.now();
     api("activity").catch(() => {});
   }
+}
+document.addEventListener("keydown",recordActivity);
+document.addEventListener("pointerdown",recordActivity);
+const liveRefreshBlocked=()=>$("modal").open||!!document.querySelector('#auto-modal-backdrop')||!!document.activeElement?.matches('input,textarea,select')||!!$("content").querySelector('[data-live-dirty]');
+const liveRefresh=createVisibleRefresh({
+  visible:()=>!!state&&view!=='locked'&&!document.hidden,
+  blocked:liveRefreshBlocked,
+  run:async()=>{
+    const target=view,ticket=pageGeneration,host=$("content").firstElementChild;
+    try {
+      if(target==='worker'||target==='automation'){
+        const snapshot=await api('workerSnapshot');if(!state||ticket!==pageGeneration)return;
+        Object.assign(state,snapshot);updateTop();if(document.hidden||liveRefreshBlocked())return false;
+        if(target==='worker'){
+          const template=document.createElement('template');template.innerHTML=workerHTML();
+          for(const id of ['worker-peers','worker-jobs']){const old=document.getElementById(id),next=template.content.querySelector('#'+id);if(old&&next&&old.innerHTML!==next.innerHTML)old.replaceWith(next);}
+        }else if(host?.isConnected)await automationUI.render(host,state);
+      } else {
+        await refresh();if(!state||ticket!==pageGeneration)return;if(document.hidden||liveRefreshBlocked())return false;
+        if(target==='dashboard'&&host?.isConnected){const query=host.querySelector('#dashboard-search')?.value||'';return await dashboardUI.refresh(host,{query,canCommit:()=>ticket===pageGeneration&&!document.hidden&&!liveRefreshBlocked()});}
+        if(target==='todos')renderPage('todos');
+      }
+    }catch{}
+  }
 });
-setInterval(() => {
-  if (
-    state &&
-    ["worker", "schedules"].includes(view) &&
-    !$("modal").open &&
-    !document.activeElement?.matches("input,textarea,select")
-  )
-    refresh()
-      .then(() => renderPage(view))
-      .catch(() => {});
-}, 30000);
+function requestLiveRefresh(){liveRefresh.request();}
+let workerPoll;
+function scheduleWorkerPoll(){
+  clearTimeout(workerPoll);workerPoll=null;
+  if(state&&view==='worker'&&!document.hidden)workerPoll=setTimeout(()=>{requestLiveRefresh();scheduleWorkerPoll();},30000);
+}
+document.addEventListener('visibilitychange',()=>{liveRefresh.resume();scheduleWorkerPoll();if(!document.hidden&&['worker','automation','dashboard'].includes(view))requestLiveRefresh();});
+document.addEventListener('focusout',()=>liveRefresh.resume());
+document.addEventListener('close',()=>liveRefresh.resume(),true);
+// Automatic refreshes must not replace unfinished forms when focus moves away.
+document.addEventListener('input',event=>{if(view==='automation'&&event.target.matches('textarea,input:not([type=search])'))event.target.closest('.route-host')?.setAttribute('data-live-dirty','');});
+
 init();
 
 

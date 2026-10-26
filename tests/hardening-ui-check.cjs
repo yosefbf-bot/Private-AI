@@ -35,6 +35,9 @@ const {chromium}=require('playwright'),{spawn}=require('node:child_process'),fs=
   await page.locator('#sidebar [data-view="clinical-imports"]').click();
   await page.getByRole('heading',{name:'Clinical imports',exact:true}).waitFor();
   await page.getByText('Live clinical imports are disabled.',{exact:false}).first().waitFor();
+  await page.locator('#sidebar [data-view=snf]').click();await page.locator('#snf-med-search').waitFor();
+  const medSearch=await page.locator('#snf-med-search').elementHandle();await page.locator('#snf-med-search').pressSequentially('Synthetic medication');
+  assert.equal(await medSearch.evaluate(el=>el===document.querySelector('#snf-med-search')),true);assert.equal(await page.locator('#snf-med-search').inputValue(),'Synthetic medication');
   const created=await call('sbarGenerate',{residentName:'Synthetic UI Resident'});
   await page.locator('#sidebar [data-view=dashboard]').click();
   await page.locator('#dashboard-tasks [data-review]').first().click();

@@ -346,7 +346,7 @@ async function dispatch(
     return core.unlock();
   }
   core.assertUnlocked();
-  if (op !== "summary") core.touch();
+  if (!["summary","workerSnapshot","workflowSummary","workflowCommunicationList"].includes(op)) core.touch();
   if (op === "assistantDraftRetry") return require("./assistant-drafts.cjs").retry(core,data);
   if (op.startsWith("speech")) return require("./local-speech.cjs").dispatch(core,op,data);
   if (op.startsWith("voiceTranscript")) return require("./voice-history.cjs").dispatch(core,op,data);
@@ -457,6 +457,7 @@ async function dispatch(
     case "usageSummary": return core.router.meter.summary();
     case "ping":
       return { ok: true };
+    case "workerSnapshot": return core.workerSnapshot();
     case "summary": {
       const s = core.summary();
       if (native)
@@ -914,8 +915,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       if (isNative) return nativeHost();
       const sid = protectFolder();
       userSid = sid;
-      startupStage = "permission_check";
-      verifyPrivateAcl(localRoot, sid);
+      // protectFolder verifies the persisted DACL in the same native call.
       startupStage = "vault";
       const cipher = loadCipher(true);
       startupStage = "services";

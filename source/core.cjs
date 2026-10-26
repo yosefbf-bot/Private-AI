@@ -195,6 +195,12 @@ class Core {
       },
     };
   }
+  workerSnapshot() {
+    this.assertUnlocked();
+    const identity=this.identity();
+    return {jobs:this.store.summaries('job'),schedules:this.store.list('schedule'),resources:this.resources.snapshot(),
+      worker:{id:identity.id,label:identity.label,fingerprint:fingerprint(identity),busy:this.jobRunning,peers:this.worker.peers()}};
+  }
   saveSettings(input) {
     this.assertUnlocked();
     const current = this.settings(),

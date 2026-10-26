@@ -257,8 +257,8 @@ test('Operations Intelligence & Meeting Copilot Module Suite', async (t) => {
     // 3. app.mjs imports and routes operations
     const appPath = path.join(__dirname, '../source/ui/app.mjs');
     const appContent = fs.readFileSync(appPath, 'utf8');
-    assert.match(appContent, /import \{ createOperationsCopilotUI \} from "\.\/operations-copilot\.mjs";/);
-    assert.match(appContent, /const operationsCopilotUI = createOperationsCopilotUI/);
+    assert.match(appContent, /await import\("\.\/operations-copilot\.mjs"\)/);
+    assert.match(appContent, /const operationsCopilotUI=lazyFeature/);
     assert.match(appContent, /if \(name === "operations"\)/);
 
     // 4. today.mjs contains operations summary card

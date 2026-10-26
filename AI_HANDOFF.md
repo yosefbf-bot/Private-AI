@@ -1,3 +1,24 @@
+# Speed and memory Batch 2 — October 26, 2026
+
+Base main `41d487c` (Batch 1 PR38 and all exact-main gates passed).
+Branch `chatgpt/batch2-startup-renderer-20261026`, 3.0.9-dev.
+See docs/SPEED_MEMORY_BATCH2_2026-10-26.md for scope and measured bounds.
+Final local suite 874/874, no skips; hardening30; syntax274; production audit0;
+Gitleaks current/history0; guides/repository, Edge UI41 and assistant light/dark,
+authenticated hardening and Edge/Chrome synthetic report E2E passed.
+One independent review's four findings were fixed and regression tested.
+Exact-head GitHub/Windows packaged acceptance must pass before merge.
+No owner application/data replacement. Companion source/protocol unchanged.
+
+Owner instruction: continue Batches 3–6 in order without waiting, briefly report
+completed scope and measured efficiency after each, publish checked work to
+GitHub. No duplicate cache/dependency features, lowered safety/model/retention
+limits, lost drafts or weakened release gates. Native tests are required for the
+later Windows monitor and guarded-network changes. No physical phone, live PCC/
+Power BI account acceptance or whole-process RAM percentage is claimed.
+
+---
+
 # Speed and memory Batch 1 — October 26, 2026
 
 Branch `chatgpt/batch1-efficient-records-20261026`, base main `80f4352`.

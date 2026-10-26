@@ -65,6 +65,6 @@ function nativeAcl(root, sid, script) {
     throw fail("STORAGE");
   }
 }
-function protectPrivateFolder(root,sid){nativeAcl(root,sid,protectScript);}
+function protectPrivateFolder(root,sid){nativeAcl(root,sid,protectScript+verifyScript);}
 function verifyPrivateAcl(root,sid){nativeAcl(root,sid,verifyScript);}
 module.exports = { restrictedDacl, protectPrivateFolder, verifyPrivateAcl };

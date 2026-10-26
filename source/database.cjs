@@ -51,7 +51,7 @@ const META = {
   chat: ["id", "title", "project", "updated", "hipaa", "archived"],
   file: ["id", "name", "size", "updated", "hipaa", "ownerChat"],
   job: ['id','title','status','reason','error','output','outputCheck','remote','target','created','updated','started','completed','expiresAt','scheduleId','findingsCount','reportId','analysisJobId','browserRecipeId','prompt'],
-  meeting: ['id','status','companionSourceId','finishRequested','expectedChunkCount'],
+  meeting: ['id','title','date','type','shift','status','companionSourceId','finishRequested','expectedChunkCount'],
   capture_note: ['id'],
   todo: ['id','status','reminderEnabled','notified','dueAt','followUpDate'],
   snf_import_report: ['id','sourceProvider'],
@@ -59,7 +59,7 @@ const META = {
 };
 // Additive, disposable projections: schema-3 record/metadata layouts remain
 // readable by older versions. The marker is invalidated by old SQL writers too.
-const VERSIONS={job:2,meeting:1,capture_note:1,todo:1,snf_import_report:1,wf_metric_import:1};
+const VERSIONS={job:2,meeting:2,capture_note:1,todo:1,snf_import_report:1,wf_metric_import:1};
 const baseKind=kind=>kind.startsWith('demo:')?kind.slice(5):kind;
 const metaFields=kind=>META[baseKind(kind)];
 class Store {
@@ -226,6 +226,7 @@ class Store {
         hasDraftText:value.status==='failed'&&!!value.savedAnswer?.text});
       if(value.browserAnalysis)summary.browserAnalysis={state:value.browserAnalysis.state,ids:value.browserAnalysis.ids,error:value.browserAnalysis.error};
     }
+    if(type==='meeting')summary.transcriptCount=value.transcript?.length||0;
     if(type==='meeting'||type==='capture_note')Object.assign(summary,{hasAssistantDraft:!!value.assistantDraft,assistantDraftStatus:value.assistantDraft?.status,
       hasAssistantSource:type==='capture_note'?!!value.text?.trim():!!value.transcript?.length});
     if(type==='wf_metric_import')Object.assign(summary,{rowCount:value.rows.length,snapshotKeys:[...new Set(value.rows.map(r=>JSON.stringify([r.date,r.unit])))]});

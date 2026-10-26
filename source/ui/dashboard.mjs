@@ -5,9 +5,15 @@ export function createDashboardUI({api,esc,toast,form,field,textarea,select,refr
   const communicationUI=createCorrespondenceUI({api,esc,toast,form,field,textarea,select,refresh,renderPage});
   const when=v=>v?new Date(v).toLocaleString():'No deadline';
   const localDate=v=>v?new Date(v-new Date(v).getTimezoneOffset()*60000).toISOString().slice(0,16):'';
-  return {async render(container,options={}) {
+  return {async refresh(container,options={}) {
+    const ticket=generation,data=await api('workflowSummary');
+    if(ticket!==generation||!container.isConnected)return true;
+    if(!options.canCommit())return false;
+    await this.render(container,{...options,data});return true;
+  },async render(container,options={}) {
     const ticket=++generation,active=()=>ticket===generation&&container.isConnected;
-    const data=await api('workflowSummary');
+    const data=options.data||await api('workflowSummary');
+    options={...options};delete options.data;
     if(ticket!==generation || !container.isConnected)return;
     const open=data.changes.items.filter(x=>!x.closed), alerts=open.filter(x=>x.kind==='alert'), tasks=open.filter(x=>x.kind!=='alert');
     if(options.taskId){const selected=data.changes.items.find(x=>x.id===options.taskId&&x.kind==='todo');if(selected&&!tasks.includes(selected))tasks.push(selected);}
@@ -36,7 +42,7 @@ export function createDashboardUI({api,esc,toast,form,field,textarea,select,refr
         if(r&&active()){await api('workflowNoticeUpdate',{key:n.key,revision:n.revision,status:r.until?'snoozed':r.ack==='on'?'acknowledged':'unread',snoozedUntil:r.until?new Date(r.until).getTime():null});if(active())await this.render(container);}
       }catch(e){if(active())toast(e.message);}finally{button.disabled=false;}
     });
-    container.querySelector('#dashboard-search').oninput=draw;draw();
+    container.querySelector('#dashboard-search').value=options.query||'';container.querySelector('#dashboard-search').oninput=draw;draw();
     if(options.taskId){const target=container.querySelectorAll('[data-task-key]');const row=[...target].find(el=>el.dataset.taskKey===('todo:'+options.taskId));if(row){row.tabIndex=-1;row.focus();row.scrollIntoView({block:'center'});}else toast('This follow-up is outside the current Dashboard list or no longer available.');}
   },stop(){generation++;communicationUI.stop();}};
 }

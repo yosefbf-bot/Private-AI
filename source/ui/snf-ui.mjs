@@ -1,3 +1,4 @@
+import {updateUniversalAlertBar} from "./alert-bar.mjs";
 // SNF Command Center & Clinical Surveillance UI Module
 // Strictly read-only surveillance with persistent alert management
 // Pipeline: Normalized clinical imports → Medication Change Detector → Psych Watch → Persistent Alert Center → Morning Brief
@@ -21,41 +22,6 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
   let resolvingAlertId = null;
   let assigningAlertId = null;
 
-  function updateUniversalAlertBar(alertsSummary) {
-    if (!alertsSummary) return;
-    const critEl = document.getElementById('bar-crit-num');
-    const highEl = document.getElementById('bar-high-num');
-    const revEl = document.getElementById('bar-review-num');
-    const bannerEl = document.getElementById('bar-crit-banner');
-    const freshEl = document.getElementById('bar-pcc-freshness');
-    const sidebarBadge = document.getElementById('snf-sidebar-badge');
-
-    if (critEl) critEl.textContent = alertsSummary.critical || 0;
-    if (highEl) highEl.textContent = alertsSummary.high || 0;
-    if (revEl) revEl.textContent = alertsSummary.review || 0;
-
-    if (bannerEl) {
-      if (alertsSummary.critical > 0) {
-        bannerEl.hidden = false;
-        bannerEl.textContent = `⚠️ ${alertsSummary.critical} CRITICAL CLINICAL ITEM(S) REQUIRE IMMEDIATE REVIEW`;
-      } else {
-        bannerEl.hidden = true;
-      }
-    }
-
-    if (freshEl && alertsSummary.feedStatus) {
-      const fs = alertsSummary.feedStatus;
-      freshEl.hidden=!fs.monitoringEnabled;
-      freshEl.textContent = `PCC report date: ${fs.monitoringCurrentThroughFormatted} (${fs.isSurveillanceComplete ? 'Feeds current' : '⚠️ Feed Alert'})`;
-      freshEl.className = 'alert-bar-pcc-status ' + (fs.isSurveillanceComplete ? 'status-ok' : 'status-warn');
-    }
-
-    if (sidebarBadge) {
-      const total = alertsSummary.totalUnresolved || 0;
-      sidebarBadge.textContent = total === 1 ? '1 Alert' : `${total} Alerts`;
-      sidebarBadge.className = 'snf-sidebar-badge ' + (alertsSummary.critical > 0 ? 'badge-crit' : alertsSummary.high > 0 ? 'badge-high' : 'badge-normal');
-    }
-  }
 
   async function loadData(ticket=generation) {
     try {
@@ -1243,7 +1209,9 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     if (medSearch) {
       medSearch.addEventListener('input', (e) => {
         medChangeSearchQuery = e.target.value;
-        renderHTML(container);
+        const template=document.createElement('template');template.innerHTML=renderMedChangesTab(currentMetrics);
+        const current=container.querySelector('.med-changes-pane table'),next=template.content.querySelector('table');
+        if(current&&next){current.replaceWith(next);bindMedResults(next,container);}
       });
     }
 
@@ -1474,6 +1442,11 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     }
 
     bindCardEvents(container);
+  }
+
+  function bindMedResults(table,container){
+    table.querySelectorAll('[data-nav]').forEach(button=>button.onclick=()=>{activeTab=button.dataset.nav;renderHTML(container);});
+    table.querySelectorAll('[data-act="view-resident"]').forEach(button=>button.onclick=()=>{residentSearchQuery=button.dataset.query;activeTab='resident';renderHTML(container);doResidentSearch(residentSearchQuery,container);});
   }
 
   function bindCardEvents(container) {

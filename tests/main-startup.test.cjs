@@ -8,12 +8,12 @@ const {createRequire}=require('node:module'),{EventEmitter}=require('node:events
 const {Cipher}=require('../source/security.cjs'),{Store}=require('../source/database.cjs');
 const sourcePath=process.env.PRIVATEAI_TEST_MAIN||path.resolve(__dirname,'../source/main.cjs');
 const realRequire=createRequire(sourcePath);
-async function boot(t,{background=false,existing=false,browserWorker,protectedCredentials=false}={}){
+async function boot(t,{background=false,existing=false,browserWorker,protectedCredentials=false,aclFailure=false}={}){
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'privateai-startup-'));
  const root=path.join(folder,'PrivateAI2'),cipher=new Cipher(require('node:crypto').randomBytes(32));
  fs.mkdirSync(root);
  if(existing){const s=new Store(path.join(root,'privateai.db'),cipher);s.put('settings','main',{workerPaused:true,processingMode:'local-only',allowCloud:false,retentionDays:90});s.put('chat','kept',{id:'kept',title:'Saved chat',messages:[],updated:Date.now()});s.close();}
- const errors=[],dialogs=[],windows=[],trays=[],handlers=new Map();let core,ready,nativeCall;
+ const startupCalls=[],errors=[],dialogs=[],windows=[],trays=[],handlers=new Map();let core,ready,nativeCall;
  const app=new EventEmitter();Object.assign(app,{isPackaged:true,setName(){},setPath(){},requestSingleInstanceLock:()=>true,getLoginItemSettings:()=>({openAtLogin:false}),whenReady:()=>({then(fn){const p=Promise.resolve().then(fn);return {catch(fn){ready=p.catch(fn);return ready;}};}}),exit:code=>errors.push({exit:code}),quit:()=>app.emit('before-quit')});
  class Window extends EventEmitter{
   constructor(options){super();this.options=options;this.visible=true;this.focused=true;this.webContents=new EventEmitter();Object.assign(this.webContents,{send(){},setWindowOpenHandler(){}});windows.push(this);}
@@ -29,8 +29,8 @@ async function boot(t,{background=false,existing=false,browserWorker,protectedCr
  const context={require(name){
   if(name==='electron')return electron;
   if(name==='node:child_process')return {spawn:()=>assert.fail('Startup must not spawn a browser or local model'),execFileSync:exe=>exe.endsWith('whoami.exe')?'"test","S-1-5-21-123"':''};
-  if(name==='./windows-acl.cjs')return {protectPrivateFolder(){},verifyPrivateAcl(){}};
-  if(name==='./startup-storage.cjs')return {...realRequire(name),loadVault:()=>cipher};
+  if(name==='./windows-acl.cjs')return {protectPrivateFolder(){startupCalls.push('protect-and-verify');if(aclFailure)throw realRequire('./security.cjs').fail('STORAGE');},verifyPrivateAcl(){startupCalls.push('verify');}};
+  if(name==='./startup-storage.cjs')return {...realRequire(name),loadVault:()=>{startupCalls.push('vault');return cipher;}};
   if(name==='./bridge.cjs')return {startBridge:(_pipe,_cipher,call)=>{nativeCall=call;return {server:new EventEmitter(),broadcast(){},close(){}};}};
   if(name==='./browser-worker.cjs'&&browserWorker)return {...realRequire(name),BrowserWorker:class{constructor(){return browserWorker;}}};
   if(name==='./core.cjs'){const RealCore=realRequire(name).Core;return {Core:class extends RealCore{constructor(options){super(options);core=this;}}};}
@@ -38,7 +38,7 @@ async function boot(t,{background=false,existing=false,browserWorker,protectedCr
  },process:fakeProcess,__dirname:path.dirname(sourcePath),Buffer,URL,console,setInterval:()=>timer,clearInterval(){},setTimeout,clearTimeout};
  t.after(()=>{app.emit('before-quit');fs.rmSync(folder,{recursive:true,force:true});});
  vm.runInNewContext(fs.readFileSync(sourcePath,'utf8'),context,{filename:sourcePath});await ready;
- return {core,errors,dialogs,windows,trays,handlers,app,nativeCall};
+ return {core,errors,dialogs,windows,trays,handlers,app,nativeCall,startupCalls};
 }
 test('entry point reaches chat startup and wires approval only after real Core initialization',async t=>{
  const Module=require('node:module'),load=Module._load;
@@ -304,4 +304,16 @@ test('native QR pairing confirms actual HTTPS status and lock invalidates invita
  assert.equal((await call('companionStatus')).result.devices.length,1);
  assert.equal((await request(gateway,exchange.body,'/status')).status,200);
  await call('companionSave',{enabled:false});
+});
+
+test('startup verifies ACL in one call before vault access and fails closed for existing data',async t=>{
+ const success=await boot(t);assert.deepEqual(success.startupCalls.slice(0,2),['protect-and-verify','vault']);assert.equal(success.startupCalls.filter(x=>x==='verify').length,0);
+ const failure=await boot(t,{existing:true,aclFailure:true});assert.deepEqual(failure.startupCalls,['protect-and-verify']);assert.equal(failure.core,undefined);assert.equal(failure.windows.length,0);assert.ok(failure.errors.length>0);
+});
+test('Worker snapshot IPC is narrow, locked-gated and unavailable to the browser extension',async t=>{
+ const b=await boot(t);const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=()=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op:'workerSnapshot',data:{}});
+ b.core.lastActivity=123;const result=await call();assert.equal(b.core.lastActivity,123);assert.equal(result.ok,true);assert.deepEqual(Object.keys(result.result).sort(),['jobs','resources','schedules','worker']);
+ b.core.lock();assert.equal((await call()).error.code,'LOCKED');b.core.unlock();
+ await assert.rejects(b.nativeCall('workerSnapshot',{}),{code:'POLICY'});
 });

@@ -49,8 +49,8 @@ test('Automation & Agent Control Center UI module and integration', async (t) =>
   await t.test('app.mjs imports and routes automation-center', () => {
     const appPath = path.join(__dirname, '../source/ui/app.mjs');
     const content = fs.readFileSync(appPath, 'utf8');
-    assert.match(content, /import \{ createAutomationCenterUI \} from "\.\/automation-center\.mjs";/);
-    assert.match(content, /const automationUI = createAutomationCenterUI/);
+    assert.match(content, /await import\("\.\/automation-center\.mjs"\)/);
+    assert.match(content, /const automationUI=lazyFeature/);
     assert.match(content, /automation:\s*"⚡ Automation & Agent Center"/);
     assert.match(content, /if \(name === "automation"\)/);
   });

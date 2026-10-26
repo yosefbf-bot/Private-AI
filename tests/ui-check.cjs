@@ -53,6 +53,7 @@ const access = new AccessManager(core, async (d) => {
 let desktop, panel, requestedModel;
 core.resources.approve=async detail=>{assert.ok(detail);return true;}; // Explicit synthetic approval for the read-access UI fixture.
 async function dispatch(op, data = {}, native = false) {
+  if(op==='workerSnapshot')return core.workerSnapshot();
   if(op.startsWith('snf')) return require('../source/snf/index.cjs').dispatch(core,op,data);
   if(op.startsWith('workflow')) return require('../source/workflows/index.cjs').dispatch(core,op,data);
   if(op.startsWith('capture')) return require('../source/capture-workflows.cjs').dispatch(core,op,data);
@@ -628,6 +629,16 @@ let browser;
   assert.equal(await panel.evaluate(() => window.__parserLoads), 1);
   assert.equal(await panel.locator("#include").isChecked(), false);
   checks.push("Include Page loads the local parser and extracts once on Send, then resets");
+  longStream=true;await panel.locator('#prompt').fill('Synthetic extended panel stream');await panel.locator('#send').click();
+  await panel.waitForFunction(()=>document.querySelectorAll('.message').length===6);
+  await panel.evaluate(()=>{window.__firstPanelMessage=document.querySelector('.message');document.querySelector('#messages').scrollTop=0;window.__panelReplacements=0;window.__panelObserver=new MutationObserver(records=>{for(const record of records)if(record.target===document.querySelector('#messages'))window.__panelReplacements++;});window.__panelObserver.observe(document.querySelector('#messages'),{childList:true,subtree:true});});
+  await panel.waitForFunction(()=>document.querySelector('.message:last-child .message-body')?.textContent.includes('STREAM_END'));
+  assert.equal(await panel.evaluate(()=>window.__firstPanelMessage===document.querySelector('.message')),true);
+  assert.equal(await panel.evaluate(()=>window.__panelReplacements),0,'Streaming must not replace earlier messages');
+  assert.equal(await panel.locator('#messages').evaluate(el=>el.scrollTop),0,'Reading position stays at older messages');
+  await panel.evaluate(()=>window.__panelObserver.disconnect());finishLongStream();longStream=false;await panel.waitForFunction(()=>!document.querySelector('#send').disabled);
+  checks.push('Extension stream updates only the active answer and preserves earlier DOM/reading position');
+
   await panel.evaluate(() => {
     window.chrome.scripting.executeScript = async () => {
       throw Error("Synthetic restricted page");
