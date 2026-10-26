@@ -1,4 +1,39 @@
 {
+  "speedMemoryBatch1_20261026": {
+    "status": "locally-verified-awaiting-exact-head-ci",
+    "baseMain": "80f4352467a8e340ec848605f49d1fc63c624a3a",
+    "branch": "chatgpt/batch1-efficient-records-20261026",
+    "version": "3.0.9-dev",
+    "tests": {
+      "passed": 866,
+      "failed": 0,
+      "skipped": 0
+    },
+    "finalTargetedPassed": 16,
+    "hardeningPassed": 30,
+    "syntaxFiles": 269,
+    "generalUIChecks": 40,
+    "independentReview": "Completed; stale audio snapshot regression corrected with final safety guard preserved",
+    "measuredSyntheticCounts": {
+      "idleCompletedBodyReads": [
+        80,
+        0
+      ],
+      "staffingBodyReads": [
+        30,
+        2
+      ],
+      "identicalMessageSourceCandidateWrites": [
+        6,
+        0
+      ],
+      "phoneTaskSummaryDecryptions": 100
+    },
+    "ownerInstallationChanged": false,
+    "physicalPhoneValidated": false,
+    "livePCCOrPowerBIValidated": false,
+    "wholeAppRAMReductionMeasured": false
+  },
   "idleReports20261026": {
     "status": "locally-verified-awaiting-exact-head-ci",
     "baseMain": "77ca24aaba080d9d51c6c533176ccdebd187d0d6",

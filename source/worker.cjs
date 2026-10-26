@@ -309,7 +309,7 @@ class WorkerManager {
     if (!root) return { queuedExpired: 0, tempFiles: 0 };
     const counts = { queuedExpired: 0, tempFiles: 0 };
     for (const job of c.store
-      .project("job",j=>j.target?j:null).filter(Boolean)
+      .summaries("job")
       .filter(
         (j) =>
           j.target &&
@@ -317,8 +317,10 @@ class WorkerManager {
           j.expiresAt &&
           j.expiresAt <= now,
       )) {
+      const current=c.store.get('job',job.id);
+      if(!current?.target||current.status!=='queued'||!current.expiresAt||current.expiresAt>now)continue;
       c.store.put("job", job.id, {
-        ...job,
+        ...current,
         status: "expired",
         error: "EXPIRED",
         completed: now,

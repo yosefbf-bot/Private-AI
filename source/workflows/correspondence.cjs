@@ -2,6 +2,7 @@
 // Cached, owner-authorized review only. This module never reads an Inbox,
 // executes message instructions, calls a provider, or sends/deletes messages.
 const crypto = require('node:crypto');
+const {isDeepStrictEqual}=require('node:util');
 const {fail, uuid, isId} = require('../security.cjs');
 const captures = require('../capture-workflows.cjs');
 const messagingPolicy = require('../messaging-policy.cjs');
@@ -89,7 +90,7 @@ function record(core, input, opts) {
   const source = {...input,id,sourceHash,revision:old?.sourceHash === sourceHash ? old.revision : (old?.revision || 0)+1,
     observedAt:old?.sourceHash === sourceHash && Number.isSafeInteger(old.observedAt) && old.observedAt > 0 ? old.observedAt : now};
   // Rechecking a cache is not a fresh observation of the original message.
-  core.store.put(SOURCE,id,source,{updated:now,expires:expiry(core,source.observedAt)});
+  if(!isDeepStrictEqual(old,source))core.store.put(SOURCE,id,source,{updated:now,expires:expiry(core,source.observedAt)});
   const found = matches(source,opts), cid = captures.stableId('communication|'+id), prior = core.store.get(CANDIDATE,cid);
   if (!found.matched && !prior) return source;
   const status = !found.matched ? 'not_matched' : !prior || prior.sourceHash !== sourceHash || prior.status === 'not_matched' ? 'review' : prior.status;
@@ -99,7 +100,7 @@ function record(core, input, opts) {
     revision:changed ? (prior?.revision || 0)+1 : prior.revision,status,matchedKeywords:found.keywords,
     unreadMatch:found.unread,reason,owner:null,dueAt:null,observedAt:source.observedAt,
     changedSinceReview:!!prior?.reviewedSourceHash && prior.reviewedSourceHash !== sourceHash};
-  core.store.put(CANDIDATE,cid,row,{updated:now,expires:expiry(core,source.observedAt)});
+  if(!isDeepStrictEqual(prior,row))core.store.put(CANDIDATE,cid,row,{updated:now,expires:expiry(core,source.observedAt)});
   return source;
 }
 function observeOutlook(core, data, result) {

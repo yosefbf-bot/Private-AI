@@ -138,21 +138,32 @@ async function dispatch(live,op,data={},options={}){
 }
 async function processPending(core){
   if(!core.store.db||core.locked||core.developmentMode||core.settings().workerPaused||active.has(core)||require('./snf/demo.cjs').forCore(core).current().demoMode)return;
-  const meetings=core.store.list('meeting').filter(m=>m.companionSourceId&&m.status==='live');
+  const meetings=core.store.summaries('meeting').filter(m=>m.companionSourceId&&m.status==='live');
+  if(!meetings.length)return;
   const owned=new Set(meetings.map(m=>m.id));
-  const pending=core.store.summaries('meeting_audio').filter(a=>owned.has(a.meetingId)&&a.status!=='transcribed'&&!(a.retryAt>Date.now())).sort((a,b)=>a.created-b.created);
+  let chunks=core.store.summaries('meeting_audio');
+  const pending=chunks.filter(a=>owned.has(a.meetingId)&&a.status!=='transcribed'&&!(a.retryAt>Date.now())).sort((a,b)=>a.created-b.created);
   if(pending.length){
     const item=pending[0];
-    try{await dispatch(core,'speechTranscribe',item,{production:true,background:true});}
+    try{
+      await dispatch(core,'speechTranscribe',item,{production:true,background:true});
+      if(core.locked||!core.store.db)return;
+      // Audio may have arrived during transcription. Refresh once after await;
+      // idle passes share one snapshot instead of rescanning for each meeting.
+      chunks=core.store.summaries('meeting_audio');
+    }
     catch(e){
       if(!core.locked&&core.store.db){const row=core.store.get('meeting_audio',item.id);if(row)core.store.put('meeting_audio',row.id,{...row,retryAt:Date.now()+60000});}
       return;
     }
   }
   if(core.locked||!core.store.db)return;
+  const uploading=new Set(core.store.summaries('meeting_upload').map(a=>a.meetingId));
   for(const meeting of meetings.filter(m=>m.finishRequested)){
-    const audio=core.store.summaries('meeting_audio').filter(a=>a.meetingId===meeting.id);
-    if(audio.length!==meeting.expectedChunkCount||audio.some(a=>a.status!=='transcribed')||core.store.project('meeting_upload',a=>a.meetingId===meeting.id).some(Boolean))continue;
+    const audio=chunks.filter(a=>a.meetingId===meeting.id);
+    if(audio.length!==meeting.expectedChunkCount||audio.some(a=>a.status!=='transcribed')||uploading.has(meeting.id))continue;
+    const current=core.store.get('meeting',meeting.id);
+    if(!current||current.status!=='live'||!current.finishRequested||current.expectedChunkCount!==meeting.expectedChunkCount)continue;
     const engine=new (require('./operations-copilot.cjs').OperationsCopilotEngine)(core);
     // Finalization creates review drafts; task creation remains explicit review.
     engine.finalizeMeeting(meeting.id);

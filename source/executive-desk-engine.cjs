@@ -739,7 +739,10 @@ class ExecutiveDeskEngine {
       r.employeeName.toLowerCase() === employeeName.toLowerCase()
     );
 
-    const now = Date.now();
+    return this.attendanceHistoryFromRecords(employeeName,records);
+  }
+
+  attendanceHistoryFromRecords(employeeName,records,now=Date.now()) {
     const sixtyDaysAgo = now - (60 * 86400000);
     const recentRecords = records.filter(r => new Date(r.date).getTime() >= sixtyDaysAgo);
 
@@ -760,17 +763,21 @@ class ExecutiveDeskEngine {
   listAttendanceAlerts() {
     this.core.assertUnlocked();
     const records = this.store.list('exec_attendance') || [];
-    const byEmployee = new Map();
+    const byEmployee = new Map(), normalized = new Map(), now=Date.now();
 
     records.forEach(r => {
       const name = r.employeeName;
       if (!byEmployee.has(name)) byEmployee.set(name, []);
       byEmployee.get(name).push(r);
+      const key=name.toLowerCase();
+      if(!normalized.has(key))normalized.set(key,[]);
+      normalized.get(key).push(r);
     });
+    const totals=new Map([...normalized].map(([name,rows])=>[name,this.attendanceHistoryFromRecords(name,rows,now)]));
 
     const alerts = [];
     for (const [name, empRecords] of byEmployee.entries()) {
-      const history = this.getEmployeeAttendanceHistory(name);
+      const history = totals.get(name.toLowerCase());
       if (history.thresholdWarning) {
         alerts.push({
           employeeName: name,

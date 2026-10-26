@@ -80,3 +80,43 @@ test('configured PCC and raw retention counts avoid full import/clinical body re
  assert.equal(core.snf.getRetentionStatus().totalRawRecords,3);
  assert.deepEqual(reads.filter(a=>/^(snf_import_report|snf_med_order|snf_med_change|snf_progress_note):/.test(a)),[]);
 });
+
+test('attendance alert aggregation matches complete histories using one table scan',t=>{
+ const {core,cipher}=fixture(t),{ExecutiveDeskEngine}=require('../source/executive-desk-engine.cjs'),engine=new ExecutiveDeskEngine(core);
+ const now=new Date().toISOString(),old=new Date(Date.now()-70*86400000).toISOString();
+ const names=['Synthetic A','synthetic a','Synthetic B','Synthetic C'];
+ for(let i=0;i<20;i++)core.store.put('exec_attendance','synthetic-'+i,{employeeName:names[i%4],date:i===0?old:now,type:'call_off',points:2,isWeekend:i%2===0,excused:i===5,role:'RN',department:'Synthetic'},{updated:i});
+ const expected=names.map(n=>engine.getEmployeeAttendanceHistory(n)),reads=watch(cipher),alerts=engine.listAttendanceAlerts();
+ assert.equal(reads.filter(a=>a.startsWith('exec_attendance:')).length,20);
+ assert.equal(alerts.length,expected.filter(e=>e.thresholdWarning).length);
+ for(const e of expected){const a=alerts.find(a=>a.employeeName===e.employeeName);assert.equal(a.totalPoints,e.totalPoints60d);assert.equal(a.weekendCallOffs,e.weekendCallOffs60d);assert.equal(a.message,e.thresholdMessage);}
+ assert.equal(alerts.find(a=>a.employeeName==='Synthetic A').latestOccurrence,now);
+ assert.equal(engine.getEmployeeAttendanceHistory('Synthetic A').history.length,10,'Individual history still contains old and excused records');
+});
+
+test('speech finalization takes one audio snapshot and no unrelated transcript or upload bodies',async t=>{
+ const {core,cipher}=fixture(t);core.saveSettings({workerPaused:false});
+ for(let i=0;i<3;i++){
+  const id=crypto.randomUUID();core.store.put('meeting',id,{id,title:'Synthetic',status:'live',companionSourceId:'synthetic-'+i,finishRequested:true,expectedChunkCount:1,transcript:[]});
+  core.store.put('meeting_audio','audio-'+i,{meetingId:id,status:'transcribed',created:i});
+  // An incomplete upload prevents finalization. Its private body must stay unopened.
+  core.store.put('meeting_upload','upload-'+i,{meetingId:id,audio:'PRIVATE_AUDIO'});
+ }
+ const reads=watch(cipher);await require('../source/local-speech.cjs').processPending(core);
+ assert.equal(reads.filter(a=>a.startsWith('meta:meeting_audio:')).length,3);
+ assert.deepEqual(reads.filter(a=>/^(meeting|meeting_audio|meeting_upload):/.test(a)),[]);
+});
+
+test('old candidate and import writers rebuild summaries once without altering canonical bytes',t=>{
+ const {core,cipher}=fixture(t),s=core.store;
+ const values={meeting:{status:'completed',transcript:[{text:'Synthetic'}]},capture_note:{text:'Synthetic'},todo:{status:'pending',dueAt:1},snf_import_report:{sourceProvider:'manual'},wf_metric_import:{type:'census',rows:[{date:'2026-01-01',unit:'A',census:8}]}};
+ for(const [kind,value] of Object.entries(values)){
+  s.db.prepare('INSERT INTO records VALUES(?,?,?,?,?)').run(kind,'legacy',123,9999999999999,cipher.seal(value,kind+':legacy'));
+ }
+ const before=s.db.prepare("SELECT * FROM records WHERE id='legacy' ORDER BY kind").all(),reads=watch(cipher);
+ for(let n=0;n<2;n++)for(const kind of Object.keys(values))assert.ok(s.summary(kind,'legacy'));
+ for(const kind of Object.keys(values))assert.equal(reads.filter(a=>a===kind+':legacy').length,1);
+ assert.deepEqual(s.db.prepare("SELECT * FROM records WHERE id='legacy' ORDER BY kind").all(),before);
+ s.db.prepare("UPDATE records SET payload=? WHERE kind='capture_note' AND id='legacy'").run(cipher.seal({text:'Synthetic',assistantDraft:{status:'working'}},'capture_note:legacy'));
+ require('../source/assistant-drafts.cjs').recover(core);assert.equal(s.get('capture_note','legacy').assistantDraft.status,'needs-review');
+});

@@ -50,8 +50,18 @@ const META = {
   meeting_audio: ["id", "meetingId", "chunkId", "status", "created", "bytes", "sha256", "retryAt"],
   chat: ["id", "title", "project", "updated", "hipaa", "archived"],
   file: ["id", "name", "size", "updated", "hipaa", "ownerChat"],
-  job: [],
+  job: ['id','title','status','reason','error','output','outputCheck','remote','target','created','updated','started','completed','expiresAt','scheduleId','findingsCount','reportId','analysisJobId','browserRecipeId','prompt'],
+  meeting: ['id','status','companionSourceId','finishRequested','expectedChunkCount'],
+  capture_note: ['id'],
+  todo: ['id','status','reminderEnabled','notified','dueAt','followUpDate'],
+  snf_import_report: ['id','sourceProvider'],
+  wf_metric_import: ['id','type','completeDay','filename','reviewer','digest','sequence','importedAt','demo'],
 };
+// Additive, disposable projections: schema-3 record/metadata layouts remain
+// readable by older versions. The marker is invalidated by old SQL writers too.
+const VERSIONS={job:2,meeting:1,capture_note:1,todo:1,snf_import_report:1,wf_metric_import:1};
+const baseKind=kind=>kind.startsWith('demo:')?kind.slice(5):kind;
+const metaFields=kind=>META[baseKind(kind)];
 class Store {
   constructor(file, cipher) {
     this.cipher = cipher;
@@ -134,6 +144,10 @@ class Store {
         this.db.exec(
           "CREATE TABLE record_meta(kind TEXT NOT NULL,id TEXT NOT NULL,updated INTEGER NOT NULL,payload BLOB NOT NULL,PRIMARY KEY(kind,id));",
         );
+      }
+      this.db.exec(`CREATE TABLE IF NOT EXISTS record_projection(kind TEXT NOT NULL,id TEXT NOT NULL,version INTEGER NOT NULL,PRIMARY KEY(kind,id));
+        CREATE TABLE IF NOT EXISTS record_rollup(kind TEXT PRIMARY KEY,payload BLOB NOT NULL);`);
+      if(v < 3){
         for (const kind of Object.keys(META))
           for (const r of this.db
             .prepare("SELECT id,updated,payload FROM records WHERE kind=?")
@@ -157,6 +171,22 @@ class Store {
         CREATE TRIGGER IF NOT EXISTS invalidate_job_meta_delete AFTER DELETE ON records WHEN OLD.kind='job'
         BEGIN DELETE FROM record_meta WHERE kind='job' AND id=OLD.id; END;
       `);
+      const kinds=Object.keys(VERSIONS).flatMap(k=>[k,'demo:'+k]).map(k=>"'"+k+"'").join(',');
+      // No source contents, statuses, dates, names or unit keys in SQL indexes.
+      this.db.exec(`
+        CREATE TRIGGER IF NOT EXISTS invalidate_projection_insert AFTER INSERT ON records WHEN NEW.kind IN (${kinds})
+        BEGIN DELETE FROM record_meta WHERE kind=NEW.kind AND id=NEW.id; DELETE FROM record_projection WHERE kind=NEW.kind AND id=NEW.id; DELETE FROM record_rollup WHERE kind=NEW.kind; END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_projection_update AFTER UPDATE ON records WHEN OLD.kind IN (${kinds}) OR NEW.kind IN (${kinds})
+        BEGIN DELETE FROM record_meta WHERE (kind=OLD.kind AND id=OLD.id) OR (kind=NEW.kind AND id=NEW.id); DELETE FROM record_projection WHERE (kind=OLD.kind AND id=OLD.id) OR (kind=NEW.kind AND id=NEW.id); DELETE FROM record_rollup WHERE kind IN (OLD.kind,NEW.kind); END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_projection_delete AFTER DELETE ON records WHEN OLD.kind IN (${kinds})
+        BEGIN DELETE FROM record_meta WHERE kind=OLD.kind AND id=OLD.id; DELETE FROM record_projection WHERE kind=OLD.kind AND id=OLD.id; DELETE FROM record_rollup WHERE kind=OLD.kind; END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_meta_insert AFTER INSERT ON record_meta
+        BEGIN DELETE FROM record_projection WHERE kind=NEW.kind AND id=NEW.id; DELETE FROM record_rollup WHERE kind=NEW.kind; END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_meta_update AFTER UPDATE ON record_meta
+        BEGIN DELETE FROM record_projection WHERE (kind=OLD.kind AND id=OLD.id) OR (kind=NEW.kind AND id=NEW.id); DELETE FROM record_rollup WHERE kind IN (OLD.kind,NEW.kind); END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_meta_delete AFTER DELETE ON record_meta
+        BEGIN DELETE FROM record_projection WHERE kind=OLD.kind AND id=OLD.id; DELETE FROM record_rollup WHERE kind=OLD.kind; END;
+      `);
       this.db.exec("COMMIT");
     } catch (e) {
       this.db.exec("ROLLBACK");
@@ -164,7 +194,7 @@ class Store {
     }
   }
   put(kind, id, value, { updated = Date.now(), expires = null } = {}) {
-    const transaction = !!META[kind] && !this.db.isTransaction;
+    const transaction = !!metaFields(kind) && !this.db.isTransaction;
     if (transaction) this.db.exec("BEGIN IMMEDIATE");
     try {
       this._stmt(
@@ -176,7 +206,7 @@ class Store {
         expires,
         this.cipher.seal(value, kind + ":" + id),
       );
-      if (META[kind]) this.putMeta(kind, id, value, updated);
+      if (metaFields(kind)) this.putMeta(kind, id, value, updated);
       if (transaction) this.db.exec("COMMIT");
       return value;
     } catch (e) {
@@ -186,15 +216,19 @@ class Store {
   }
   putMeta(kind, id, value, updated) {
     const summary = Object.fromEntries(
-      META[kind].map((k) => [k, k === "id" ? id : value[k]]),
+      metaFields(kind).map((k) => [k, k === "id" ? id : value[k]]),
     );
     if(kind==='file')Object.assign(summary,fileInputMetadata(value));
-    if(kind==='job'){
-      // Match the existing overview projection, encrypted separately from large
-      // recovery inputs/answers. Backfill old records once through summaries().
-      const {recoveryInput,checkpoint,savedAnswer,...job}=value;
-      Object.assign(summary,job,{id,recoverable:!!recoveryInput&&!job.remote,step:checkpoint?.phase||null});
+    const type=baseKind(kind);
+    if(type==='job'){
+      Object.assign(summary,{recoverable:!!value.recoveryInput&&!value.remote,step:value.checkpoint?.phase||null,
+        playbook:value.playbook||value.recoveryInput?.playbook,hasResultText:!!value.resultText,
+        hasDraftText:value.status==='failed'&&!!value.savedAnswer?.text});
+      if(value.browserAnalysis)summary.browserAnalysis={state:value.browserAnalysis.state,ids:value.browserAnalysis.ids,error:value.browserAnalysis.error};
     }
+    if(type==='meeting'||type==='capture_note')Object.assign(summary,{hasAssistantDraft:!!value.assistantDraft,assistantDraftStatus:value.assistantDraft?.status,
+      hasAssistantSource:type==='capture_note'?!!value.text?.trim():!!value.transcript?.length});
+    if(type==='wf_metric_import')Object.assign(summary,{rowCount:value.rows.length,snapshotKeys:[...new Set(value.rows.map(r=>JSON.stringify([r.date,r.unit])))]});
     this._stmt(
       "INSERT INTO record_meta VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET updated=excluded.updated,payload=excluded.payload",
     ).run(
@@ -203,20 +237,42 @@ class Store {
       updated,
       this.cipher.seal(summary, "meta:" + kind + ":" + id),
     );
+    if(VERSIONS[type])this._stmt('INSERT INTO record_projection VALUES(?,?,?) ON CONFLICT(kind,id) DO UPDATE SET version=excluded.version').run(kind,id,VERSIONS[type]);
   }
-  summaries(kind) {
-    if (!META[kind]) throw fail("INVALID");
+  ensureMeta(kind,limit=-1,id=null) {
+    if (!metaFields(kind)) throw fail("INVALID");
     // Additive metadata backfill for records from earlier application versions.
     this.transaction(() => {
-      for (const r of this._stmt("SELECT r.id,r.updated,r.payload FROM records r LEFT JOIN record_meta m ON m.kind=r.kind AND m.id=r.id WHERE r.kind=? AND m.id IS NULL").iterate(kind))
+      for (const r of this._stmt(`SELECT r.id,r.updated,r.payload FROM
+        (SELECT * FROM records WHERE kind=? AND (? IS NULL OR id=?) ORDER BY updated DESC LIMIT ?) r
+        LEFT JOIN record_meta m ON m.kind=r.kind AND m.id=r.id
+        LEFT JOIN record_projection p ON p.kind=r.kind AND p.id=r.id
+        WHERE m.id IS NULL OR (? > 0 AND (p.version IS NULL OR p.version!=?))`).iterate(kind,id,id,limit,VERSIONS[baseKind(kind)]||0,VERSIONS[baseKind(kind)]||0))
         this.putMeta(kind,r.id,this.cipher.open(r.payload,kind+":"+r.id),r.updated);
     });
+  }
+  summaries(kind,{limit=-1}={}) {
+    if(!Number.isSafeInteger(limit)||(limit!==-1&&(limit<1||limit>1000)))throw fail('INVALID');
+    this.ensureMeta(kind,limit);
     return this._stmt(
-      "SELECT id,payload FROM record_meta WHERE kind=? ORDER BY updated DESC",
+      "SELECT id,payload FROM record_meta WHERE kind=? ORDER BY updated DESC LIMIT ?",
     )
-      .all(kind)
+      .all(kind,limit)
       .map((r) => this.cipher.open(r.payload, "meta:" + kind + ":" + r.id));
   }
+  aggregate(kind,build) {
+    // Only app-defined derivations use this internal cache. Build and publish
+    // under the same snapshot; old writes/delete/retention invalidate it in SQL.
+    return this.transaction(()=>{
+      this.ensureMeta(kind);
+      const cached=this._stmt('SELECT payload FROM record_rollup WHERE kind=?').get(kind);
+      if(cached)return this.cipher.open(cached.payload,'rollup:'+kind);
+      const value=build(this.summaries(kind));
+      this._stmt('INSERT INTO record_rollup VALUES(?,?)').run(kind,this.cipher.seal(value,'rollup:'+kind));
+      return value;
+    });
+  }
+  jobStatusTotals(){return this.aggregate('job',rows=>{const totals=new Map();for(const row of rows)totals.set(row.status,(totals.get(row.status)||0)+1);return Object.fromEntries(totals);});}
   get(kind, id) {
     const r = this._stmt("SELECT * FROM records WHERE kind=? AND id=?").get(
       kind,
@@ -227,7 +283,7 @@ class Store {
     return r ? this.cipher.open(r.payload, kind + ":" + id) : null;
   }
   summary(kind,id){
-    if(!META[kind])throw fail('INVALID');
+    this.ensureMeta(kind,-1,id);
     const row=this._stmt('SELECT updated,payload FROM record_meta WHERE kind=? AND id=?').get(kind,id);
     return row?{...this.cipher.open(row.payload,'meta:'+kind+':'+id),updated:row.updated}:null;
   }
@@ -282,11 +338,11 @@ class Store {
     this._stmt("DELETE FROM records WHERE kind=?").run(kind);
   }
   delete(kind, id) {
-    const transaction = !!META[kind] && !this.db.isTransaction;
+    const transaction = !!metaFields(kind) && !this.db.isTransaction;
     if (transaction) this.db.exec("BEGIN IMMEDIATE");
     try {
       this._stmt("DELETE FROM records WHERE kind=? AND id=?").run(kind, id);
-      if (META[kind])
+      if (metaFields(kind))
         this._stmt("DELETE FROM record_meta WHERE kind=? AND id=?").run(
           kind,
           id,

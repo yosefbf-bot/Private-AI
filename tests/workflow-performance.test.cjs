@@ -22,15 +22,23 @@ test('workflow summaries read file metadata without decrypting document bodies a
 });
 
 test('projected workflow jobs preserve legacy playbooks and failed drafts without exposing recovery inputs', async t => {
-  const {core} = fixture(t), playbook = {id:'synthetic',revision:2};
+  const {core,cipher} = fixture(t), playbook = {id:'synthetic',revision:2};
   core.store.put('job','failed',{title:'Failed',status:'failed',recoveryInput:{playbook,text:'PRIVATE_SYNTHETIC_RECOVERY'},savedAnswer:{text:'Synthetic failed draft'}},{updated:300});
   core.store.put('job','completed',{title:'Completed',status:'completed',playbook,savedAnswer:{text:'PRIVATE_COMPLETED_ANSWER'}},{updated:200});
   core.store.put('job','ordinary',{title:'Ordinary',status:'failed',savedAnswer:{text:'PRIVATE_ORDINARY_ANSWER'}},{updated:100});
+  const open=cipher.open.bind(cipher),reads=[];cipher.open=(p,a)=>{if(a.startsWith('job:'))reads.push(a);return open(p,a);};
   const summary = await dispatch(core, 'workflowSummary');
   assert.deepEqual(summary.runs.map(j=>j.id), ['failed','completed']);
   assert.deepEqual(summary.runs[0].playbook, playbook);
-  assert.equal(summary.runs[0].draftText, 'Synthetic failed draft');
-  assert.equal(summary.runs[1].draftText, null);
+  assert.equal(summary.runs[0].hasDraftText,true);
+  assert.equal(summary.runs[1].hasDraftText,false);
+  assert.deepEqual(reads,[]);
+  assert.doesNotMatch(JSON.stringify(summary),/Synthetic failed draft/);
+  assert.equal((await dispatch(core,'workflowJobDraft',{id:'failed'})).draftText,'Synthetic failed draft');
+  assert.deepEqual(reads,['job:failed']);
+  for(const id of ['completed','ordinary','missing'])await assert.rejects(dispatch(core,'workflowJobDraft',{id}),{code:'NOT_FOUND'});
+  core.developmentMode=true;await assert.rejects(dispatch(core,'workflowJobDraft',{id:'failed'}),{code:'POLICY'});core.developmentMode=false;
+  core.lock();await assert.rejects(dispatch(core,'workflowJobDraft',{id:'failed'}),{code:'LOCKED'});core.unlock();
   assert.doesNotMatch(JSON.stringify(summary), /PRIVATE_SYNTHETIC_RECOVERY|PRIVATE_COMPLETED_ANSWER|PRIVATE_ORDINARY_ANSWER/);
 });
 

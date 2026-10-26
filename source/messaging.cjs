@@ -1,5 +1,6 @@
 'use strict';
 const crypto=require('node:crypto');
+const {isDeepStrictEqual}=require('node:util');
 const {fail,uuid,safeError,text}=require('./security.cjs');
 const {conversationId,conversations,selected,writable}=require('./messaging-policy.cjs');
 const captures=require('./capture-workflows.cjs');
@@ -30,7 +31,7 @@ class MessagingBridge{
   delete s.readOnly;s.revision=policyChanged?uuid():previous.revision||uuid();
   this.core.store.put('messaging','settings',s);this.state=s.enabled?'waiting':'off';return s;
  }
- status(){return {settings:this.settings(),state:this.state,busy:this.busy,adapters:Object.keys(this.adapters),connection:this.adapters[this.settings().adapter]?.status?.()||{coverage:'open-conversation-only'}};}
+ status(){return {settings:this.settings(),state:this.state,busy:this.busy,lastReadAt:this.lastReadAt||null,adapters:Object.keys(this.adapters),connection:this.adapters[this.settings().adapter]?.status?.()||{coverage:'open-conversation-only'}};}
  async pair(adapter,groupId){this.core.assertUnlocked();const a=this.adapters[adapter];if(!a)throw fail('MESSAGING');const shot=await a.snapshot(groupId);if(!shot.verified||!conversationId.test(shot.groupId)||!shot.groupName)throw fail('MESSAGING');this.verified.add(JSON.stringify([adapter,shot.groupId,shot.groupName]));return {groupId:shot.groupId,groupName:shot.groupName,senders:[...new Set(shot.messages.filter(m=>m.senderVerified).map(m=>m.sender))]};}
  async tick(){const s=this.settings(),generation=this.generation;if(!s.enabled||this.busy||this.core.settings().workerPaused)return;if(this.core.locked&&!s.allowWhileLocked){this.state='paused-locked';return;}const a=this.adapters[s.adapter];if(!a){this.state='unavailable';return;}this.busy=true;
   try{await this.core.runMessagingBackground(async()=>{
@@ -125,12 +126,15 @@ class MessagingBridge{
  }
  observe(shot){
   const s=this.settings();if(!s.enabled||this.core.settings().workerPaused||(this.core.locked&&!s.allowWhileLocked)||!shot.verified||!conversationId.test(shot.groupId)||(!s.readAll&&!selected(s,{...shot,adapter:s.adapter})))return;
-  for(const m of shot.messages){if(typeof m.id!=='string'||m.id.length>300||typeof m.text!=='string')continue;
-   const id=crypto.createHmac('sha256',this.code()).update(s.adapter+'|'+shot.groupId+'|'+m.id).digest('hex');
-   const row={...m,id,adapter:s.adapter,groupId:shot.groupId,groupName:shot.groupName,text:m.text.slice(0,12000),observed:Date.now()};
-   const time=Number.isFinite(m.time)?m.time:Date.now();if(this.core.settings().retentionDays&&time<Date.now()-this.core.settings().retentionDays*86400000)continue;
-   if(s.readAll||selected(s,{...shot,adapter:s.adapter}))this.core.store.put('messageIn',id,row,{updated:time,expires:this.core.settings().retentionDays?time+this.core.settings().retentionDays*86400000:null});
-  }
+  const now=Date.now(),retention=this.core.settings().retentionDays,code=this.code();
+  this.core.store.transaction(()=>{for(const m of shot.messages){if(typeof m.id!=='string'||m.id.length>300||typeof m.text!=='string')continue;
+   const id=crypto.createHmac('sha256',code).update(s.adapter+'|'+shot.groupId+'|'+m.id).digest('hex'),old=this.core.store.get('messageIn',id);
+   const row=JSON.parse(JSON.stringify({...m,id,adapter:s.adapter,groupId:shot.groupId,groupName:shot.groupName,text:m.text.slice(0,12000),observed:old?.observed||now}));
+   const time=Number.isFinite(m.time)?m.time:row.observed;if(retention&&time<now-retention*86400000)continue;
+   if(!isDeepStrictEqual(old,row))this.core.store.put('messageIn',id,row,{updated:time,expires:retention?time+retention*86400000:null});
+  }});
+  // A repeated poll updates coverage without rewriting message observations.
+  this.lastReadAt=now;
  }
  readings(){this.core.assertUnlocked();return this.core.store.recent('messageIn',200);}
  clearReadings(){this.core.assertUnlocked();this.core.store.deleteKind('messageIn');}

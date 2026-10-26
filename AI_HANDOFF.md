@@ -1,3 +1,17 @@
+# Speed and memory Batch 1 — October 26, 2026
+
+Branch `chatgpt/batch1-efficient-records-20261026`, base main `80f4352`.
+See docs/SPEED_MEMORY_BATCH1_2026-10-26.md for scope, measured read/write reductions,
+compatibility and validation. Full tests866/866; final targeted16/16;
+hardening30/30; syntax269; guides/repository/audit and light/dark UI passed.
+One read-only independent review; asynchronous speech regression corrected while
+retaining the existing final pending-audio guard. Exact-head GitHub checks and
+packaged acceptance must pass before merge. No installed app/data replacement.
+The owner approved Batch1; continue the six-batch plan in order, reporting material
+changes and actual measurements. Batches2–6 are not part of this change.
+
+---
+
 # Idle resources and configurable report history — October 26, 2026
 
 Current branch `chatgpt/report-history-idle-20261026`, base main `77ca24a`.

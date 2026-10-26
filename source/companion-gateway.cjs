@@ -275,12 +275,12 @@ class CompanionGateway {
       let response;
       if (req.method === 'GET' && req.url === PREFIX+'/status') {
         const local = this.core.router.local?.status();
-        const jobs = device.scopes.tasks ? this.core.store.summaries('job') : null;
-        response = {status:'ONLINE', serverName:os.hostname(), loadedModel:local?.state === 'ready' ? local.model : null, localModelState:local?.state || 'unavailable', cpuUsage:null, gpuUsage:null, vramUsedGb:null, vramTotalGb:null, activeJobs:jobs ? jobs.filter(j => ['queued','running','waiting','paused'].includes(j.status)).length : null, uptime:`${Math.floor((Date.now()-this.started)/1000)}s`, processingMode:this.core.settings().processingMode, provider:this.core.settings().provider, scopes:device.scopes, protocolVersion:1,capabilities:CAPABILITIES};
+        const jobs = device.scopes.tasks ? this.core.store.jobStatusTotals() : null;
+        response = {status:'ONLINE', serverName:os.hostname(), loadedModel:local?.state === 'ready' ? local.model : null, localModelState:local?.state || 'unavailable', cpuUsage:null, gpuUsage:null, vramUsedGb:null, vramTotalGb:null, activeJobs:jobs ? ['queued','running','waiting','paused'].reduce((n,status)=>n+(jobs[status]||0),0) : null, uptime:`${Math.floor((Date.now()-this.started)/1000)}s`, processingMode:this.core.settings().processingMode, provider:this.core.settings().provider, scopes:device.scopes, protocolVersion:1,capabilities:CAPABILITIES};
       } else if (req.method === 'GET' && req.url === PREFIX+'/tasks') {
         this.assertSession(device,generation,'tasks');
-        const rows = this.core.store.summaries('job');
-        response = {tasks:rows.slice(0,100).map(j => ({id:j.id,status:j.status,created:j.created || null,updated:j.updated || null})), total:rows.length, truncated:rows.length>100, details:'Task status only. Review output and approvals on the desktop.'};
+        const rows = this.core.store.summaries('job',{limit:100}), total=this.core.store.count('job');
+        response = {tasks:rows.map(j => ({id:j.id,status:j.status,created:j.created || null,updated:j.updated || null})), total, truncated:total>100, details:'Task status only. Review output and approvals on the desktop.'};
       } else if (req.method === 'GET' && req.url === PREFIX+'/alerts') {
         this.assertSession(device,generation,'alerts');
         const rows = this.core.snf.getActiveAlerts(), coverage = this.core.snf.getFeedStatus();

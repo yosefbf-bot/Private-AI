@@ -8,6 +8,8 @@ class DemoStore {
  project(k,fn){return this.base.project('demo:'+k,fn);}
  list(k){return this.base.list('demo:'+k);}
  count(k){return this.base.count('demo:'+k);}
+ summaries(k,options){return this.base.summaries('demo:'+k,options);}
+ aggregate(k,build){return this.base.aggregate('demo:'+k,build);}
  delete(k,id){return this.base.delete('demo:'+k,id);}
  transaction(fn){return this.base.transaction(fn);}
  audit(){/* Demo events stay in the isolated encrypted records, never live alert audit. */}

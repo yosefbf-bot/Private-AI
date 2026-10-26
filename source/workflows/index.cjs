@@ -36,23 +36,17 @@ async function dispatch(core, op, data = {}) {
         projects: snf.demoMode ? [] : core.store.list("project"),
         runs: snf.demoMode
           ? []
-          : core.store
-              .project("job", (j) =>
-                j.playbook || j.recoveryInput?.playbook
-                  ? {
-                      id: j.id,
-                      title: j.title,
-                      status: j.status,
-                      reason: j.reason,
-                      playbook: j.playbook || j.recoveryInput?.playbook,
-                      outputCheck: j.outputCheck,
-                      draftText: j.status === "failed" ? j.savedAnswer?.text : null,
-                      output: j.output,
-                    }
-                  : null,
-              )
-              .filter(Boolean),
+          : core.store.summaries('job').filter(j=>j.playbook).map(j=>({
+              id:j.id,title:j.title,status:j.status,reason:j.reason,playbook:j.playbook,
+              outputCheck:j.outputCheck,hasDraftText:j.hasDraftText,output:j.output
+            })),
       };
+    case "workflowJobDraft": {
+      if(typeof data.id!=='string'||data.id.length>200||Object.keys(data).some(k=>k!=='id'))throw fail('INVALID');
+      const job=core.store.get('job',data.id);
+      if(!job||job.status!=='failed'||!(job.playbook||job.recoveryInput?.playbook)||!job.savedAnswer?.text)throw fail('NOT_FOUND');
+      return {id:data.id,draftText:job.savedAnswer.text};
+    }
     case "workflowNoticeUpdate":
       return require('./notices.cjs').update(core,snf,data);
     case "workflowActionSave":

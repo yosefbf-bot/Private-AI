@@ -35,13 +35,16 @@ async function draft(core,kind,id){
 async function processPending(core){
   if(!eligible(core)||busy.has(core)||core.requests.size||!available(core))return;
   for(const kind of ['capture_note','meeting']){
-    const next=core.store.list(kind).find(row=>(kind==='capture_note'||row.status==='completed')&&!row.assistantDraft&&source(kind,row).trim());
+    const next=core.store.summaries(kind).find(row=>(kind==='capture_note'||row.status==='completed')&&!row.hasAssistantDraft&&row.hasAssistantSource);
     if(next){try{await draft(core,kind,next.id);}catch{}return;}
   }
 }
 async function retry(core,data){core.assertUnlocked();return draft(core,data.kind,data.id);}
 function recover(core){
-  for(const kind of ['capture_note','meeting'])for(const row of core.store.list(kind))
-    if(row.assistantDraft?.status==='working')core.store.put(kind,row.id,{...row,assistantDraft:{...row.assistantDraft,status:'needs-review',error:'INTERRUPTED'}});
+  for(const kind of ['capture_note','meeting'])for(const meta of core.store.summaries(kind))
+    if(meta.assistantDraftStatus==='working'){
+      const row=core.store.get(kind,meta.id);
+      if(row?.assistantDraft?.status==='working')core.store.put(kind,meta.id,{...row,id:meta.id,assistantDraft:{...row.assistantDraft,status:'needs-review',error:'INTERRUPTED'}});
+    }
 }
 module.exports={processPending,retry,draft,recover};
