@@ -7,7 +7,10 @@ Final local suite 874/874, no skips; hardening30; syntax274; production audit0;
 Gitleaks current/history0; guides/repository, Edge UI41 and assistant light/dark,
 authenticated hardening and Edge/Chrome synthetic report E2E passed.
 One independent review's four findings were fixed and regression tested.
-Exact-head GitHub/Windows packaged acceptance must pass before merge.
+PR39 Windows run40396867490 passed874 source tests, UI and packaged startup/navigation,
+but companion acceptance hit a locked-renderer fixture after direct backend unlock.
+Acceptance now uses the actual Unlock button; local Edge lock/unlock regression
+and lifecycle3/3 pass. The new exact-head Windows run must pass before merge.
 No owner application/data replacement. Companion source/protocol unchanged.
 
 Owner instruction: continue Batches 3–6 in order without waiting, briefly report

@@ -71,3 +71,14 @@ Actual owner-account PCC/Power BI use, physical-phone acceptance and the owner's
 installed build are not established by these synthetic/source checks. The full
 Windows installer/app/inference/retained-data/portable release gates remain
 required for the new immutable candidate before merge.
+
+## Packaged acceptance follow-up
+
+PR39 run40396867490: all874 Windows source tests, assistant UI, installer execution,
+packaged startup, DPAPI/SQLite, document self-checks and20 views passed. The shared
+companion fixture then timed out navigating Notes because an earlier direct Core
+unlock had left the renderer locked. Background status refresh now correctly does
+not repopulate locked content. The fixture now uses the actual Unlock button and
+asserts renderer/Core recovery before retaining the direct IPC check. Added real
+Edge lock/event/unlock coverage passes; lifecycle3/3 pass. No runtime lock behavior
+or release assertion was weakened. New exact-head packaged acceptance is required.

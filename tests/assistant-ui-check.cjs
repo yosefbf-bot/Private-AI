@@ -28,6 +28,7 @@ async function dispatch(op,data={}){
   if(op==='summary')return {...core.summary(),autostart:false};
   if(op==='userGuide')return require('../source/app-guide.cjs').guide;
   if(op==='activity')return true;
+  if(op==='unlock'){const secret=core.store.get('secret','applock'),crypto=require('node:crypto');if(!crypto.timingSafeEqual(crypto.scryptSync(data.passphrase,secret.salt,32),Buffer.from(secret.hash,'hex')))throw require('../source/security.cjs').fail('UNLOCK');return core.unlock();}
   if(op==='createChat')return core.createChat(data);
   if(op==='chat')return core.chat(data.id);
   if(op==='pickFiles'){const file=path.join(core.root,'synthetic-policy.txt');fs.writeFileSync(file,'SYNTHETIC facility policy: review the conference door before use.');return [await core.importFile(file)];}
@@ -57,6 +58,12 @@ const server=http.createServer((req,res)=>{
     const updated=rows.filter(row=>row.id!=='150');updated.find(row=>row.id==='151').title='Synthetic renamed offscreen';draw(updated);target.querySelector('[data-history-more]').click();if(target.querySelector('[data-id="150"]')||!target.textContent.includes('Synthetic renamed offscreen'))throw Error('Stale offscreen history');if(target.querySelectorAll('.chat-item').length!==200)throw Error('History pagination');
     draw(rows,'9999');if(target.querySelectorAll('.chat-item').length!==1||!target.textContent.includes('9999'))throw Error('Older search match unavailable');target.remove();
   });
+  core.store.put('secret','applock',{salt:'synthetic-ui-unlock-salt',hash:require('node:crypto').scryptSync('SYNTHETIC UI unlock','synthetic-ui-unlock-salt',32).toString('hex')});core.lock();await page.evaluate(()=>window.__deliver({type:'locked'}));
+  await page.locator('#unlock-passphrase').waitFor();await page.evaluate(()=>window.__deliver({type:'jobs_changed'}));
+  assert.equal(await page.locator('#unlock-passphrase').count(),1,'Background refresh cannot restore locked content');
+  await page.locator('#unlock-passphrase').fill('SYNTHETIC UI unlock');await page.locator('[data-act=unlock]').click();
+  await page.getByRole('heading',{name:'What would you like to work on?'}).waitFor();assert.equal(core.locked,false);
+  core.store.delete('secret','applock');
   assert.deepEqual(await page.locator('.primary-nav button').evaluateAll(buttons=>buttons.map(button=>button.dataset.view)),['search','dashboard','captures','meetings','workspace']);
   assert.equal(await page.locator('#sidebar [data-view=operations],#sidebar [data-view=actions],#sidebar [data-view=playbooks],#sidebar [data-view=worker]').count(),0);
   assert.equal(await page.locator('#resource-status').isVisible(),false,'Routine idle status stays out of the chat');
