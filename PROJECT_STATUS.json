@@ -5,7 +5,7 @@
     "branch": "chatgpt/report-history-idle-20261026",
     "version": "3.0.9-dev",
     "tests": {
-      "passed": 853,
+      "passed": 854,
       "failed": 0,
       "skipped": 0
     },
@@ -27,7 +27,8 @@
     "companionPR": 17,
     "installedOwnerAppsChanged": false,
     "livePCCPowerBIValidated": false,
-    "physicalPhoneValidated": false
+    "physicalPhoneValidated": false,
+    "protectedReportChat": "Report commands promote their chat to HIPAA protection before execution and preserve it on later turns"
   },
   "hostedPackageDownload20261025": {
     "status": "locally-verified-awaiting-exact-head-ci",

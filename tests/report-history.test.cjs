@@ -93,6 +93,14 @@ test('sectioned report analyses retain the read-only tool boundary for every sec
  await sectionedReport(x.core,{prompt:'Analyze supplied evidence',analysisOnly:true,hipaa:true},[{type:'input_text',text:'Analyze supplied evidence'},{type:'input_text',text:'Synthetic source evidence. '.repeat(250)}],{},()=>{},new AbortController().signal);
  assert.ok(calls>1);
 });
+
+test('report evidence makes its chat protected before tool execution and later model turns',async t=>{
+ const x=setup(t);x.core.saveSettings({hipaa:false,publicModeConfirmed:true});const chat=x.core.createChat();
+ x.core.localTools=require('../source/local-tools.cjs').createTools(x.core,{},null);
+ const first=await x.core.send({chatId:chat.id,prompt:'/reports today'});assert.equal(first.chat.hipaa,true);assert.equal(x.core.chat(chat.id).hipaa,true);assert.equal(x.calls.length,0);
+ let protectedRequest=false;x.core.router.generate=async(_key,settings,_messages,options)=>{protectedRequest=settings.hipaa;options.onDelta?.('Synthetic follow-up');return {usage:{inputTokens:0,outputTokens:0},provider:'local'};};
+ await x.core.send({chatId:chat.id,prompt:'Explain these report results'});assert.equal(protectedRequest,true);
+});
 test('new reports compare explicit source values by resident staff and unit; absent fields remain unknown',async t=>{
  const x=setup(t),today=require('../source/report-parameters.cjs').day(new Date());
  for(let i=0;i<6;i++){const d=new Date();d.setDate(d.getDate()-6+i);const a=await add(x,'old'+i+'.csv',`date,residentId,unit,staffId,weight\n${require('../source/report-parameters.cjs').day(d)},R-1,North,S-1,${70+i%2}`);await x.history.index(a.id);}

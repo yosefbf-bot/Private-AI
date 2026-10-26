@@ -738,6 +738,10 @@ class Core {
     }
     text(prompt, 40000);
     if (!prompt.trim()) throw fail("INVALID");
+    // Report tools can return protected source names, identifiers and findings.
+    // Persist a stricter chat policy before execution, including future turns.
+    const reportCommand=require('./report-commands.cjs').parse(prompt);
+    if(reportCommand&&reportCommand.type!=='help')c.hipaa=true;
     if (page) {
       if (typeof page !== "object" || page.confirmed !== true)
         throw fail("INVALID");
