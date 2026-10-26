@@ -73,7 +73,7 @@ class Core {
       throw fail("ENCRYPTION");
     this.worker = new WorkerManager(this);
     require("./assistant-drafts.cjs").recover(this);
-    for (const j of store.project("job",j=>({id:j.id,status:j.status})).filter((j) => ['running','waiting','paused'].includes(j.status)))
+    for (const j of store.summaries("job").filter((j) => ['running','waiting','paused'].includes(j.status)))
       store.put("job", j.id, {
         ...store.get("job",j.id),
         status: "failed",
@@ -82,8 +82,8 @@ class Core {
       });
     // Reconcile a crash between the local commit and the signed status write.
     // Publishing status does not resume or repeat interrupted work.
-    for (const id of store.project('job', j => j.remote && ['failed', 'completed'].includes(j.status) ? j.id : null).filter(Boolean))
-      this.worker.pendingStatuses.add(id);
+    for (const j of store.summaries('job').filter(j=>j.remote&&['failed','completed'].includes(j.status)))
+      this.worker.pendingStatuses.add(j.id);
     this.stability = new (require("./stability.cjs").Stability)(this);
     this.stability.start();
     this.integrations = new (require("./integrations.cjs").Integrations)(this);
@@ -184,7 +184,7 @@ class Core {
       todos: this.store.list("todo"),
       schedules: this.store.list("schedule"),
       snfAlerts: this.snf ? this.snf.getAlertSummary() : null,
-      jobs: this.store.project("job",({recoveryInput,checkpoint,savedAnswer,...j})=>({...j,recoverable:!!recoveryInput&&!j.remote,step:checkpoint?.phase||null})),
+      jobs: this.store.summaries("job"),
       worker: {
         id: this.identity().id,
         label: this.identity().label,

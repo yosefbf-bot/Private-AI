@@ -48,6 +48,7 @@ const META = {
   meeting_audio: ["id", "meetingId", "chunkId", "status", "created", "bytes", "sha256", "retryAt"],
   chat: ["id", "title", "project", "updated", "hipaa", "archived"],
   file: ["id", "name", "size", "updated", "hipaa", "ownerChat"],
+  job: [],
 };
 class Store {
   constructor(file, cipher) {
@@ -143,6 +144,17 @@ class Store {
             );
         this.db.exec("PRAGMA user_version=3");
       }
+      // Schema-3 releases without job summaries may still write this database
+      // after a rollback. Invalidate projections at the SQL boundary too; the
+      // current writer rebuilds metadata in the same transaction as its record.
+      this.db.exec(`
+        CREATE TRIGGER IF NOT EXISTS invalidate_job_meta_insert AFTER INSERT ON records WHEN NEW.kind='job'
+        BEGIN DELETE FROM record_meta WHERE kind='job' AND id=NEW.id; END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_job_meta_update AFTER UPDATE ON records WHEN OLD.kind='job' OR NEW.kind='job'
+        BEGIN DELETE FROM record_meta WHERE kind='job' AND id IN (OLD.id,NEW.id); END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_job_meta_delete AFTER DELETE ON records WHEN OLD.kind='job'
+        BEGIN DELETE FROM record_meta WHERE kind='job' AND id=OLD.id; END;
+      `);
       this.db.exec("COMMIT");
     } catch (e) {
       this.db.exec("ROLLBACK");
@@ -175,6 +187,12 @@ class Store {
       META[kind].map((k) => [k, k === "id" ? id : value[k]]),
     );
     if(kind==='file')Object.assign(summary,fileInputMetadata(value));
+    if(kind==='job'){
+      // Match the existing overview projection, encrypted separately from large
+      // recovery inputs/answers. Backfill old records once through summaries().
+      const {recoveryInput,checkpoint,savedAnswer,...job}=value;
+      Object.assign(summary,job,{id,recoverable:!!recoveryInput&&!job.remote,step:checkpoint?.phase||null});
+    }
     this._stmt(
       "INSERT INTO record_meta VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET updated=excluded.updated,payload=excluded.payload",
     ).run(

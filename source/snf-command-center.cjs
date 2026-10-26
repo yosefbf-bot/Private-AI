@@ -938,9 +938,9 @@ class SNFCommandCenter {
 
   // --- ALERT LIFECYCLE & OPEN ISSUES ENGINE ---
 
-  _createAlert({ code, severity, title, message, residentId, residentName, residentRoom, drug, sources = [], whyFlagged = [] }) {
+  _createAlert({ code, severity, title, message, residentId, residentName, residentRoom, drug, sources = [], whyFlagged = [] }, evidenceContext) {
     severity = {review:'medium',info:'informational'}[severity] || severity;
-    const evidence = require('./snf/rules/evidence.cjs').capture.call(this, code, residentId, message, whyFlagged);
+    const evidence = require('./snf/rules/evidence.cjs').capture.call(this, code, residentId, message, whyFlagged, evidenceContext);
     sources = evidence.sources;
     const alertId = `alt-${code}-${residentId || 'facility'}-${(drug || 'general').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
     const existing = this.store.get('snf_alert', alertId);

@@ -52,3 +52,38 @@ test('job overview reads encrypted metadata without hydrating recovery inputs or
  assert.deepEqual(reads,[],'Repeated status reads must not open full job payloads');
  assert.ok(core.store.db.prepare("SELECT payload FROM record_meta WHERE kind='job' AND id='synthetic-job'").get(),'Summary remains encrypted in the existing metadata table');
 });
+
+test('legacy job metadata backfills once without changing recovery data, timestamps or later edits',t=>{
+ const {core,cipher}=fixture(t),value={title:'Synthetic legacy',status:'failed',recoveryInput:{text:'SYNTHETIC recovery'},checkpoint:{phase:'reasoning'}};
+ core.store.put('job','synthetic-legacy',value,{updated:123,expires:9999999999999});
+ core.store.db.prepare("DELETE FROM record_meta WHERE kind='job'").run();
+ const before=core.store.db.prepare("SELECT * FROM records WHERE kind='job'").get();
+ const open=cipher.open.bind(cipher);let reads=0;
+ cipher.open=(payload,aad)=>{if(aad==='job:synthetic-legacy')reads++;return open(payload,aad);};
+ assert.equal(core.store.summaries('job')[0].recoverable,true);
+ assert.equal(core.store.summaries('job')[0].step,'reasoning');
+ assert.equal(reads,1);
+ assert.deepEqual(core.store.db.prepare("SELECT * FROM records WHERE kind='job'").get(),before);
+ core.store.put('job','synthetic-legacy',{...value,status:'completed',recoveryInput:null,checkpoint:null});
+ const current=core.store.summaries('job')[0];
+ assert.equal(current.status,'completed');assert.equal(current.recoverable,false);assert.equal(current.step,null);
+ core.store.delete('job','synthetic-legacy');
+ assert.deepEqual(core.store.summaries('job'),[]);
+});
+
+test('record-only writes from an older release invalidate job metadata without resurrecting deleted jobs',t=>{
+ const {core,cipher,root}=fixture(t),{Store}=require('../source/database.cjs'),{Core}=require('../source/core.cjs');
+ for(const id of ['synthetic-finished','synthetic-deleted'])core.store.put('job',id,{title:id,status:'running',recoveryInput:{text:'SYNTHETIC retained'}});
+ // Simulate an older writer that knows records but has no job metadata support.
+ // Retain the row timestamp to ensure correctness does not rely on clock changes.
+ core.store.db.prepare("UPDATE records SET payload=? WHERE kind='job' AND id=?").run(cipher.seal({title:'Synthetic complete',status:'completed',recoveryInput:{text:'SYNTHETIC retained'}},'job:synthetic-finished'),'synthetic-finished');
+ core.store.db.prepare("DELETE FROM records WHERE kind='job' AND id=?").run('synthetic-deleted');
+ core.close();
+ const store=new Store(require('node:path').join(root,'privateai.db'),cipher),reopened=new Core({root,store,machine:'synthetic-machine'});
+ try{
+  assert.equal(store.get('job','synthetic-finished').status,'completed');
+  assert.equal(store.get('job','synthetic-finished').recoveryInput.text,'SYNTHETIC retained');
+  assert.equal(store.get('job','synthetic-deleted'),null);
+  assert.deepEqual(store.summaries('job').map(j=>[j.id,j.status]),[['synthetic-finished','completed']]);
+ }finally{reopened.close();}
+});
