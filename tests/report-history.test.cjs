@@ -13,7 +13,7 @@ test('encrypted history deduplicates identical source content without using requ
  const x=setup(t),today=require('../source/report-parameters.cjs').day(new Date()),csv=`date,residentId,unit,staffId,weight\n${today},R-1,North,S-1,70`,a=await add(x,'one.csv',csv);
  await x.history.index(a.id);const b=await add(x,'two.csv',csv);await x.history.index(b.id);
  assert.equal(x.history.list().length,2);assert.equal(x.core.store.get('report_history',b.id).duplicateOf,a.id);
- const trends=x.history.trends({entityType:'resident',entityId:'R-1'});assert.equal(trends.groups[0].observations,1);assert.equal(trends.groups[0].latest.date,today);assert.equal(trends.groups[0].latest.value,70);
+ const trends=await x.history.trends({entityType:'resident',entityId:'R-1'});assert.equal(trends.groups[0].observations,1);assert.equal(trends.groups[0].latest.date,today);assert.equal(trends.groups[0].latest.value,70);
  assert.equal(fs.readFileSync(path.join(x.root,'privateai.db')).includes(Buffer.from('Synthetic weights')),false);
 });
 
@@ -34,7 +34,7 @@ test('workflow source revisions isolate identical IDs and identical bytes from a
  const a=await add(x,'facility-a.csv',csv);await x.history.index(a.id);
  x.recipe=validateRecipe({...x.recipe,url:'https://other.example/report',origins:[],steps:[{op:'click',selector:'#facility-b'},{op:'download',selector:'#download'}]});
  const b=await add(x,'facility-b.csv',csv);await x.history.index(b.id);
- assert.equal(x.core.store.get('report_history',b.id).duplicateOf,undefined);const groups=x.history.trends({entityType:'resident',entityId:'R-1'}).groups;
+ assert.equal(x.core.store.get('report_history',b.id).duplicateOf,undefined);const groups=(await x.history.trends({entityType:'resident',entityId:'R-1'})).groups;
  assert.equal(groups.length,2);assert.notEqual(groups[0].sourceRevision,groups[1].sourceRevision);
 });
 
@@ -57,9 +57,9 @@ test('overlapping events deduplicate, contradictory values remain unknown and ag
  const x=setup(t),today=require('../source/report-parameters.cjs').day(new Date());
  x.recipe.report.tracking={mode:'events',metric:'Synthetic falls',dateColumn:'date',residentColumn:'residentId',unitColumn:'unit',eventIdColumn:'eventId'};
  for(const [name,id] of [['a','E-1'],['b','E-1'],['c','E-2']]){const r=await add(x,name+'.csv',`date,residentId,unit,eventId\n${today},R-1,North,${id}`);await x.history.index(r.id);}
- assert.equal(x.history.trends({entityType:'unit',entityId:'North'}).groups[0].observations,2);
+ assert.equal((await x.history.trends({entityType:'unit',entityId:'North'})).groups[0].observations,2);
  const r=x.history.list()[0];x.core.store.put('report_history_rows',r.id,{id:r.id,rows:Array.from({length:50001},(_,n)=>({date:today,entities:{resident:'R-1',unit:'North'},eventId:'unique-'+n,value:null,row:n+2}))});
- assert.throws(()=>x.history.trends(),{code:'LIMIT'});
+ await assert.rejects(x.history.trends(),{code:'LIMIT'});
 });
 
 test('daily report-selection schedules re-evaluate dates, claim once and pause for lock/background pause',async t=>{
@@ -121,9 +121,9 @@ test('new reports compare explicit source values by resident staff and unit; abs
  const x=setup(t),today=require('../source/report-parameters.cjs').day(new Date());
  for(let i=0;i<6;i++){const d=new Date();d.setDate(d.getDate()-6+i);const a=await add(x,'old'+i+'.csv',`date,residentId,unit,staffId,weight\n${require('../source/report-parameters.cjs').day(d)},R-1,North,S-1,${70+i%2}`);await x.history.index(a.id);}
  const a=await add(x,'new.csv',`date,residentId,unit,staffId,weight\n${today},R-1,North,S-1,90\n${today},R-2,North,,`);await x.history.index(a.id);
- const trends=x.history.trends({entityType:'resident',entityId:'R-1'});assert.equal(trends.groups.length,1);assert.equal(trends.groups[0].latest.value,90);assert.equal(trends.groups[0].anomaly,true);assert.equal(trends.groups[0].reviewRequired,true);
- assert.equal(x.history.trends({entityType:'staff',entityId:'S-1'}).groups.length,1);
- const unknown=x.history.trends({entityType:'resident',entityId:'R-2'});assert.equal(unknown.groups.length,0);assert.ok(unknown.unknownRows>0);
+ const trends=await x.history.trends({entityType:'resident',entityId:'R-1'});assert.equal(trends.groups.length,1);assert.equal(trends.groups[0].latest.value,90);assert.equal(trends.groups[0].anomaly,true);assert.equal(trends.groups[0].reviewRequired,true);
+ assert.equal((await x.history.trends({entityType:'staff',entityId:'S-1'})).groups.length,1);
+ const unknown=await x.history.trends({entityType:'resident',entityId:'R-2'});assert.equal(unknown.groups.length,0);assert.ok(unknown.unknownRows>0);
  assert.match(trends.notice,/not.*caus|not.*performance/i);
 });
 test('changed downloads fail before indexing; history obeys100-day window and never deletes source files',async t=>{
@@ -137,4 +137,39 @@ test('locking or pausing leaves pending history work untouched; restart marks un
  x.core.locked=true;assert.equal(await x.history.tick(),false);x.core.locked=false;x.core.saveSettings({workerPaused:true});assert.equal(await x.history.tick(),false);
  assert.equal(x.core.store.get('report_history',a.id).state,'pending');
  x.core.store.put('report_analysis','synthetic',{id:'synthetic',state:'running',created:Date.now()});new ReportHistory(x.core);assert.equal(x.core.store.get('report_analysis','synthetic').state,'needs_review');
+});
+
+test('completed analysis recovery and idle ticks never open old prompts or look up their reports',async t=>{
+ const x=setup(t);for(let i=0;i<200;i++)x.core.store.put('report_history','report-'+i,{id:'report-'+i,state:'indexed',created:Date.now(),workspace:x.core.settings().workspace});
+ for(let i=0;i<200;i++)x.core.store.put('report_analysis','done-'+i,{id:'done-'+i,reportId:'report-'+i,state:'completed',prompt:'Sensitive synthetic prompt',created:Date.now()});
+ x.core.store.put('report_analysis','running',{id:'running',state:'running',prompt:'Retain synthetic prompt',created:Date.now()});
+ let bodies=0,lookups=0;const get=x.core.store.get.bind(x.core.store),summary=x.core.store.summary.bind(x.core.store);
+ x.core.store.get=(kind,...args)=>{if(kind==='report_analysis')bodies++;return get(kind,...args);};
+ x.core.store.summary=(kind,...args)=>{if(kind==='report_history')lookups++;return summary(kind,...args);};
+ const history=new ReportHistory(x.core);assert.equal(bodies,1);assert.equal(get('report_analysis','running').prompt,'Retain synthetic prompt');
+ bodies=0;assert.equal(await history.tick(),false);assert.equal(bodies,0);assert.equal(lookups,0);
+ const open=x.core.store.cipher.open.bind(x.core.store.cipher);let metadata=0;
+ x.core.store.cipher.open=(value,aad)=>{if(/^meta:report_(analysis|history):/.test(aad))metadata++;return open(value,aad);};
+ assert.equal(await history.tick(),false);assert.equal(metadata,0,'unchanged idle passes use encrypted pending-candidate rollups');
+ history.cleanup();assert.equal(bodies,0);
+ const changed={...get('report_analysis','done-0'),state:'pending'};
+ x.core.store.db.prepare("UPDATE records SET payload=? WHERE kind='report_analysis' AND id='done-0'").run(x.core.store.cipher.seal(changed,'report_analysis:done-0'));
+ assert.equal(await history.tick(),true,'legacy SQL writes invalidate pending selection');assert.equal(get('report_analysis','done-0').state,'needs_review');
+});
+
+test('large trend comparisons yield and reject source changes between batches',async t=>{
+ const x=setup(t),today=require('../source/report-parameters.cjs').day(new Date()),a=await add(x,'yield.csv',`date,residentId,unit,staffId,weight\n${today},R-1,North,S-1,70`);await x.history.index(a.id);
+ x.core.store.put('report_history_rows',a.id,{id:a.id,rows:Array.from({length:10000},(_,n)=>({date:today,entities:{resident:'R-'+n},value:70,eventId:null,row:n+2}))});
+ let heartbeat=false;setImmediate(()=>{heartbeat=true;});const result=await x.history.trends();assert.equal(result.groups.length,10000);assert.equal(heartbeat,true);
+ setImmediate(()=>x.core.store.put('todo','unrelated',{id:'unrelated',text:'Synthetic unrelated reminder',status:'pending'}));assert.equal((await x.history.trends()).groups.length,10000,'unrelated writes must not abort source comparisons');
+ setImmediate(()=>x.core.store.delete('report_history',a.id));await assert.rejects(x.history.trends(),{code:'CHANGED'});
+});
+
+test('folder intake hashes each new source once and rejects bytes replaced during import',async t=>{
+ const x=setup(t),today=require('../source/report-parameters.cjs').day(new Date());fs.writeFileSync(path.join(x.core.settings().workspace,'Reports','folder.csv'),'Synthetic folder source');
+ const stream=fs.createReadStream;let reads=0;t.mock.method(fs,'createReadStream',(...args)=>{reads++;return stream(...args);});
+ await x.history.catalogFolder('Reports');assert.equal(reads,1);
+ const a=await add(x,'race.csv',`date,residentId,unit,staffId,weight\n${today},R-1,North,S-1,70`),importFile=x.core.importFile.bind(x.core);
+ x.core.importFile=async(...args)=>{const out=await importFile(...args),file=x.core.store.get('file',out.id);x.core.store.put('file',out.id,{...file,bytes:Buffer.from('Changed synthetic bytes').toString('base64')});return out;};
+ await assert.rejects(x.history.index(a.id),{code:'CHANGED'});assert.equal(x.core.store.count('file'),0);
 });

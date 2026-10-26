@@ -1,6 +1,6 @@
 {
   "speedMemoryBatch2_20261026": {
-    "status": "locally-verified-awaiting-exact-head-ci",
+    "status": "merged-exact-head-and-main-gates-passed",
     "baseMain": "41d487cae731054d0912611b16a84d3a3655319b",
     "branch": "chatgpt/batch2-startup-renderer-20261026",
     "version": "3.0.9-dev",
@@ -39,7 +39,10 @@
     "ownerInstallationChanged": false,
     "wholeAppRAMReductionMeasured": false,
     "physicalPhoneValidated": false,
-    "livePCCOrPowerBIValidated": false
+    "livePCCOrPowerBIValidated": false,
+    "mergeCommit": "2ccc5106c967c1d705df5e41f667fdf6104887ed",
+    "acceptedRun": 40400211282,
+    "mainRun": 40402762731
   },
   "speedMemoryBatch1_20261026": {
     "status": "merged-exact-main-ci-passed",
@@ -1665,7 +1668,7 @@
     "independentSignificantFindings": 0
   },
   "speedMemoryBatch3_20261026": {
-    "status": "implementation-complete-hosted-acceptance-pending",
+    "status": "merged-exact-head-gates-passed-main-followup-pending",
     "branch": "chatgpt/batch3-idle-work-20261026",
     "localTests": {
       "passed": 885,
@@ -1676,6 +1679,44 @@
     "hardeningPassed": 30,
     "scope": "event-based resource waits, safe speech admission, completion/failure peak sampling, bounded off-main queued envelopes",
     "notShipped": "Resident Windows WhatsApp monitor measured58,191,872bytes working set; original reader retained",
-    "doc": "docs/SPEED_MEMORY_BATCH3_2026-10-26.md"
+    "doc": "docs/SPEED_MEMORY_BATCH3_2026-10-26.md",
+    "mergeCommit": "0b5e227a2887dff13fd4217023fddb1d9b246e90",
+    "acceptedRun": 40402838428,
+    "windowsSourceTests": {
+      "passed": 886,
+      "failed": 0,
+      "skipped": 0
+    },
+    "windowsAcceptance": true
+  },
+  "speedMemoryBatch4_20261026": {
+    "status": "final-local-verification-in-progress",
+    "branch": "chatgpt/batch4-document-intake-20261026",
+    "baseMain": "0b5e227a2887dff13fd4217023fddb1d9b246e90",
+    "ownerInstallChanged": false,
+    "measured": {
+      "uploadSerializedBytes": [
+        227228796,
+        14158472
+      ],
+      "singleUploadMs": [
+        5077,
+        339
+      ],
+      "single100kTrendMs": [
+        256,
+        190
+      ],
+      "trendHeartbeats": [
+        0,
+        392
+      ]
+    },
+    "independentReview": "Two confirmed findings fixed; no additional confirmed defects",
+    "limits": [
+      "Native sign-in/full two-browser UI limited by actual LOW_MEMORY",
+      "Derived rows remain self-contained for rollback compatibility; no persistent incremental aggregation cache",
+      "Hosted exact-head Windows acceptance pending"
+    ]
   }
 }

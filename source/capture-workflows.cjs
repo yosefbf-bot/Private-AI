@@ -136,23 +136,46 @@ function writeEvidence(core, data, actor) {
   if (!chunk.length || chunk.length>80*1024) throw fail('LIMIT');
   const id = stableId(ctx.key+'|evidence|'+data.uploadId), inputHash = signature([data.total,name,data.mime,data.bytes,data.sha256]), done = core.store.get('capture_evidence',id);
   if (done) { if (done.inputHash !== inputHash || done.chunkHashes[data.index] !== hash(chunk)) throw fail('CHANGED'); return {uploadId:data.uploadId,index:data.index,complete:true,evidenceId:id,sha256:done.sha256,bytes:done.bytes}; }
-  const prior = core.store.get('capture_upload',id), row = prior || {id,actorKey:ctx.key,inputHash,total:data.total,chunks:{}};
-  if (row.inputHash !== inputHash || row.chunks[data.index] && row.chunks[data.index] !== data.data) throw fail('CHANGED');
-  row.chunks[data.index] = data.data;
-  if (Object.values(row.chunks).reduce((n,s)=>n+Buffer.from(s,'base64').length,0)>data.bytes) throw fail('LIMIT');
-  if (!prior && core.store.list('capture_upload').filter(r=>r.actorKey===ctx.key).length>=10) throw fail('LIMIT');
-  if (Object.keys(row.chunks).length !== data.total) {
-    core.store.put('capture_upload',id,row,{expires:Date.now()+86400000});
-    return {uploadId:data.uploadId,index:data.index,complete:false};
-  }
-  const bytes = Buffer.concat(Array.from({length:data.total},(_,i)=>Buffer.from(row.chunks[i],'base64')));
-  if (bytes.length !== data.bytes || hash(bytes) !== data.sha256) throw fail('CHANGED');
-  if (data.mime === 'image/png' && !bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])) || data.mime === 'image/jpeg' && !bytes.subarray(0,3).equals(Buffer.from([255,216,255])) || data.mime === 'application/pdf' && bytes.subarray(0,5).toString() !== '%PDF-' || data.mime === 'text/plain' && bytes.includes(0)) throw fail('FILE');
-  core.store.transaction(()=>{
-    core.store.put('capture_evidence',id,{id,actorKey:ctx.key,inputHash,chunkHashes:Object.fromEntries(Object.entries(row.chunks).map(([i,b])=>[i,hash(Buffer.from(b,'base64'))])),name,mime:data.mime,bytes:bytes.length,sha256:data.sha256,data:bytes.toString('base64'),created:Date.now()},{expires:expires(core)});
+  return core.store.transaction(()=>{
+    const prior=core.store.get('capture_upload',id);
+    if(prior&&prior.inputHash!==inputHash)throw fail('CHANGED');
+    if(!prior&&core.store.summaries('capture_upload').filter(r=>r.actorKey===ctx.key).length>=10)throw fail('LIMIT');
+    const row=prior||{id,actorKey:ctx.key,inputHash,total:data.total,receivedBytes:0,chunkHashes:{}};
+    const chunkId=index=>id+':'+index,expiry=Date.now()+86400000;
+    // Upgrade only this selected legacy upload, atomically. Existing completed
+    // evidence/replay format remains unchanged for desktop, phone and WhatsApp.
+    if(row.chunks){
+      row.chunkHashes={};row.receivedBytes=0;
+      for(const [index,data] of Object.entries(row.chunks)){
+        const bytes=Buffer.from(data,'base64');row.receivedBytes+=bytes.length;row.chunkHashes[index]=hash(bytes);
+        core.store.put('capture_upload_chunk',chunkId(index),{id:chunkId(index),uploadId:id,actorKey:ctx.key,data},{expires:expiry});
+      }
+      delete row.chunks;
+    }
+    const digest=hash(chunk),oldHash=row.chunkHashes[data.index];
+    if(oldHash&&oldHash!==digest)throw fail('CHANGED');
+    if(!oldHash){
+      if(row.receivedBytes+chunk.length>data.bytes)throw fail('LIMIT');
+      row.receivedBytes+=chunk.length;row.chunkHashes[data.index]=digest;
+      core.store.put('capture_upload_chunk',chunkId(data.index),{id:chunkId(data.index),uploadId:id,actorKey:ctx.key,data:data.data},{expires:expiry});
+    }
+    if(Object.keys(row.chunkHashes).length!==data.total){
+      core.store.put('capture_upload',id,row,{expires:expiry});
+      return {uploadId:data.uploadId,index:data.index,complete:false};
+    }
+    const pieces=Array.from({length:data.total},(_,index)=>{
+      const saved=core.store.get('capture_upload_chunk',chunkId(index));
+      if(!saved||saved.uploadId!==id||saved.actorKey!==ctx.key)throw fail('CHANGED');
+      const bytes=Buffer.from(saved.data,'base64');if(hash(bytes)!==row.chunkHashes[index])throw fail('CHANGED');return bytes;
+    });
+    const bytes=Buffer.concat(pieces);
+    if(bytes.length!==data.bytes||hash(bytes)!==data.sha256)throw fail('CHANGED');
+    if(data.mime==='image/png'&&!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))||data.mime==='image/jpeg'&&!bytes.subarray(0,3).equals(Buffer.from([255,216,255]))||data.mime==='application/pdf'&&bytes.subarray(0,5).toString()!=='%PDF-'||data.mime==='text/plain'&&bytes.includes(0))throw fail('FILE');
+    core.store.put('capture_evidence',id,{id,actorKey:ctx.key,inputHash,chunkHashes:row.chunkHashes,name,mime:data.mime,bytes:bytes.length,sha256:data.sha256,data:bytes.toString('base64'),created:Date.now()},{expires:expires(core)});
+    for(let index=0;index<data.total;index++)core.store.delete('capture_upload_chunk',chunkId(index));
     core.store.delete('capture_upload',id);
+    return {uploadId:data.uploadId,index:data.index,complete:true,evidenceId:id,sha256:data.sha256,bytes:bytes.length};
   });
-  return {uploadId:data.uploadId,index:data.index,complete:true,evidenceId:id,sha256:data.sha256,bytes:bytes.length};
 }
 function readEvidence(core, data, actor) {
   const ctx = context(core,actor); core = ctx.core;

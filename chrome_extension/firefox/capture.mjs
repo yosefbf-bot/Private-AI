@@ -42,11 +42,12 @@ export async function buildQuestion(
 export function extractVisible(selectionOnly = false) {
   const selection=selectionOnly?window.getSelection():null;
   if(selectionOnly&&(!selection||selection.isCollapsed||!selection.rangeCount))return {text:""};
-  const ranges=selectionOnly?Array.from({length:selection.rangeCount},(_,i)=>selection.getRangeAt(i)):null;
+  const ranges=selectionOnly?Array.from({length:Math.min(selection.rangeCount,64)},(_,i)=>selection.getRangeAt(i)):null;
   const parts = [];
   const visibleDocument=selectionOnly?null:document.implementation.createHTMLDocument(document.title);
   let length = 0,
-    visited = 0;
+    visited = 0, scanned = 0, partial = !!(selection&&selection.rangeCount>64);
+  const exhausted=()=>length>=60000||visited>=50000||scanned>=240000;
   const skip = new Set([
     "SCRIPT",
     "STYLE",
@@ -64,8 +65,9 @@ export function extractVisible(selectionOnly = false) {
   const root =
     (selectionOnly?document.body:document.querySelector('main,article,[role="main"]')) || document.body;
   if (!root || root.getClientRects().length === 0) return { text: "" };
-  function walk(node,parent=null) {
-    if (length >= 60000 || ++visited > 50000) return;
+  function walk(node,parent=null,depth=0) {
+    if(exhausted()||depth>128){partial=true;return;}
+    visited++;
     if (node.nodeType === Node.ELEMENT_NODE) {
       if (
         skip.has(node.tagName) ||
@@ -81,29 +83,34 @@ export function extractVisible(selectionOnly = false) {
       if(parent){const clone=visibleDocument.createElement(node.tagName);for(const name of ['id','class','role'])if(node.hasAttribute(name))clone.setAttribute(name,node.getAttribute(name));parent.appendChild(clone);parent=clone;}
     }
     if (node.nodeType === Node.TEXT_NODE) {
-      let raw=node.textContent;
-      if(ranges)raw=ranges.filter(r=>r.intersectsNode(node)).map(r=>node.textContent.slice(r.startContainer===node?r.startOffset:0,r.endContainer===node?r.endOffset:node.textContent.length)).join(" ");
+      const data=node.textContent;let raw='';
+      const spans=ranges?ranges.filter(r=>r.intersectsNode(node)).map(r=>[r.startContainer===node?r.startOffset:0,r.endContainer===node?r.endOffset:data.length]):[[0,data.length]];
+      for(const [start,end] of spans){const take=Math.min(end-start,240000-scanned);raw+=(raw?' ':'')+data.slice(start,start+take);scanned+=take;if(take<end-start){partial=true;break;}}
       const text = raw.replace(/\s+/g, " ").trim();
       if (text) {
         const piece = text.slice(0, 60000 - length);
+        if(piece.length<text.length)partial=true;
         parts.push(piece);
         parent?.appendChild(visibleDocument.createTextNode(piece+' '));
         length += piece.length + 1;
       }
       return;
     }
-    for (const child of node.childNodes) walk(child,parent);
+    for (const child of node.childNodes){if(exhausted()){partial=true;break;}walk(child,parent,depth+1);}
   }
   walk(root,visibleDocument?.body);
   let text=parts.join('\n').slice(0,60000),extraction='visible';
   // Parse only the already-filtered visible clone. Never resurrect hidden text,
   // password-manager overlays or form values, and keep portal/table capture intact.
-  if(!selectionOnly&&typeof globalThis.Readability==='function'&&(root.matches('article,.mw-parser-output,[itemtype*="Article"]')||root.querySelector('article,.mw-parser-output,[itemtype*="Article"]'))&&!visibleDocument.querySelector('table,[role="grid"],form')){
+  if(!partial&&!selectionOnly&&typeof globalThis.Readability==='function'&&(root.matches('article,.mw-parser-output,[itemtype*="Article"]')||root.querySelector('article,.mw-parser-output,[itemtype*="Article"]'))&&!visibleDocument.querySelector('table,[role="grid"],form')){
     try{const article=new globalThis.Readability(visibleDocument,{charThreshold:200,maxElemsToParse:50000}).parse();if(article?.textContent?.trim()){text=article.textContent.trim().slice(0,60000);extraction='article';}}catch{}
   }
   if(!selectionOnly&&text){
     let source='';try{const url=new URL(location.href);if(['http:','https:'].includes(url.protocol)){url.search='';url.hash='';url.username='';url.password='';source='Source page (query and fragment omitted): '+url.href+'\n';}}catch{}
-    text=(source+'Page title: '+String(document.title||'').replace(/\s+/g,' ').slice(0,300)+'\n'+text).slice(0,60000);
+    const combined=source+'Page title: '+String(document.title||'').slice(0,1200).replace(/\s+/g,' ').slice(0,300)+'\n'+text;
+    if(combined.length>60000)partial=true;
+    text=combined.slice(0,60000);
   }
-  return { text,extraction };
+  if(partial)text=('Partial page capture: page size or structure exceeded safe capture limits; remaining content was not read.\n'+text).slice(0,60000);
+  return {text,extraction,partial,visitedNodes:visited,scannedCharacters:scanned};
 }

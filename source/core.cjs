@@ -547,15 +547,15 @@ class Core {
       // Embedded PDF text needs neither an OCR model nor its memory reservation.
       // Retire the text worker before reserving OCR for the remaining pages.
       const embedded=args.ext==='.pdf'?await processFile({...args,pdfTextOnly:true},{signal:effective}):null;
-      if(embedded&&!embedded.unreadablePages.length)return embedded;
+      const {embeddedPages,...embeddedResult}=embedded||{};
+      if(embedded&&!embedded.unreadablePages.length)return embeddedResult;
       if(!await tools.verified(this,'ocr')){
-        if(embedded){if(embedded.usableCharacters<10)throw fail('FILE');return embedded;}
+        if(embedded){if(embedded.usableCharacters<10)throw fail('FILE');return embeddedResult;}
         return processFile(args,{signal:effective});
       }
       return await this.resources.task(this.resources.isBackground()?'background':'foreground',()=>this.resources.withAI(async()=>{
-      await this.resources.releaseModel();await this.resources.checkpoint(Math.max(1792*1024**2,reserve+768*1024**2));
-      this.assertUnlocked();return processFile({...args,ocrDirectory:tools.folder(this),...(embedded?{ocrPages:embedded.unreadablePages}:{})},{signal:effective,minimumFree:reserve});
-    }),{signal:effective});}finally{if(controller)this.requests.delete(id);}
+      this.assertUnlocked();return processFile({...args,ocrDirectory:tools.folder(this),...(embedded?{ocrPages:embedded.unreadablePages,embeddedPages}:{})},{signal:effective,minimumFree:reserve});
+    },{minimum:Math.max(1792*1024**2,reserve+768*1024**2),releaseLocal:true,excludeBrowser:true}),{signal:effective});}finally{if(controller)this.requests.delete(id);}
   }
   async importFile(file, temporaryChat, ownerChat = null, protectedSource = false) {
     this.assertUnlocked();
@@ -1077,8 +1077,8 @@ class Core {
 
       if(!record.savedAnswer)saveStep("answer requested; completion unconfirmed");
       const sourceBytes=Buffer.byteLength(JSON.stringify(parts));
-      const sectioned=this.settings().sectionedReports&&j.files?.length&&this.settings().processingMode!=="cloud-first"&&sourceBytes>Math.max(512,(this.settings().localContext-this.settings().localMaxOutput-512)*1.3);
-      if (!sectioned && parts.reduce((n,p)=>n+(p.text?.length||1000),0)>this.settings().contextChars) throw fail("LIMIT");
+      const sectioned=!!checkpoint.sectionPlan||(this.settings().sectionedReports&&j.files?.length&&this.settings().processingMode!=="cloud-first"&&sourceBytes>Math.max(512,(this.settings().localContext-this.settings().localMaxOutput-512)*1.3));
+      if (!record.savedAnswer && !sectioned && parts.reduce((n,p)=>n+(p.text?.length||1000),0)>this.settings().contextChars) throw fail("LIMIT");
       const answer = record.savedAnswer || (sectioned ? await require('./sectioned-report.cjs').sectionedReport(this,j,parts,checkpoint,saveStep,controller.signal) : await this.router.generate(
         this.key(),
         {
@@ -1098,7 +1098,10 @@ class Core {
       this.store.put("job", j.id, record);
       await this.resources.checkpoint();
       let out;
-      if(checkpoint.exportIntent){
+      if(sectioned&&reportText.length>350000||checkpoint.multipartExport){
+        out=await require('./sectioned-export.cjs').exportSectioned(root,{content:reportText,format:j.format||"pdf",jobId:j.id,checkpoint,saveStep,checkpointResources:()=>this.resources.checkpoint(),incomplete:answer.incomplete,policyNotice:answer.policyNotice});
+      }
+      if(!out&&checkpoint.exportIntent){
         const candidate=safePath(root,checkpoint.exportIntent.relative);
         if(fs.existsSync(candidate)){
           const digest=require("node:crypto").createHash("sha256").update(fs.readFileSync(candidate)).digest("hex");
@@ -1118,7 +1121,7 @@ class Core {
       record.completed = Date.now();
       record.output = out.relative;
       record.usage = answer.usage;
-      record.processing={provider:answer.provider,model:answer.model,reliability:answer.reliability,meter:answer.meter,routing:answer.routing,policyNotice:answer.policyNotice};
+      record.processing={provider:answer.provider,model:answer.model,reliability:answer.reliability,meter:answer.meter,routing:answer.routing,policyNotice:answer.policyNotice,incomplete:answer.incomplete};
       const completedRecord={...record};
       delete completedRecord.resultText;delete completedRecord.savedAnswer;delete completedRecord.recoveryInput;delete completedRecord.checkpoint;
       this.store.put("job", j.id, completedRecord);
@@ -1284,7 +1287,7 @@ class Core {
     this.assertUnlocked();
     const j = this.store.get("job", id);
     if (!j?.resultText||j.status!=="failed") throw fail("INVALID");
-    if(j.checkpoint?.exportIntent)throw fail("RECOVERY");
+    if(j.checkpoint?.exportIntent||j.checkpoint?.multipartExport||j.checkpoint?.sectionPlan&&j.resultText.length>350000)throw fail("RECOVERY");
     const out = await exportFile(this.settings().workspace, {
       content: j.resultText,
       format,

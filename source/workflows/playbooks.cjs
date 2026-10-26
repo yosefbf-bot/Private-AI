@@ -13,7 +13,7 @@ function save(core, data) {
     !Array.isArray(data.fileIds) ||
     !data.fileIds.length ||
     data.fileIds.length > 6 ||
-    data.fileIds.some((id) => !core.store.get("file", id))
+    data.fileIds.some((id) => !core.store.summary("file", id))
   )
     throw fail("INVALID");
   if (!Array.isArray(data.requiredSections)) throw fail("INVALID");
@@ -42,16 +42,23 @@ function save(core, data) {
 function preview(core, data) {
   const p = core.store.get("wf_playbook", data.id);
   if (!p) throw fail("INVALID");
-  const s = core.settings(),
-    files = p.fileIds.map((id) => core.store.get("file", id));
-  if (files.some((f) => !f || !f.text)) throw fail("FILE");
-  const inputs = files.map((f) => ({
-    id: f.id,
-    name: f.name,
-    updated: f.updated,
-    characters: f.text.length,
-    revision: signature({ text: f.text, bytes: f.bytes, hipaa: f.hipaa }),
-  }));
+  const s = core.settings();let total=0;
+  for(const id of p.fileIds){
+    let meta=core.store.summary('file',id);if(!meta)throw fail('FILE');
+    if(meta.bodyChars===undefined){
+      // Selected legacy metadata only; keep both record and retention clocks.
+      const f=core.store.get('file',id);if(!f)throw fail('FILE');
+      core.store.putMeta('file',id,f,meta.updated);meta=core.store.summary('file',id);
+    }
+    if(!Number.isSafeInteger(meta.bodyChars)||meta.bodyChars<0||meta.bodyChars>28000000)throw fail('LIMIT');
+    total+=meta.bodyChars;if(total>35000000)throw fail('LIMIT');
+  }
+  const inputs=[],references=[];
+  for(const id of p.fileIds){
+    const f=core.store.get('file',id);if(!f||!f.text)throw fail('FILE');
+    inputs.push({id:f.id,name:f.name,updated:f.updated,characters:f.text.length,revision:signature({text:f.text,bytes:f.bytes,hipaa:f.hipaa})});
+    references.push({type:'input_text',text:'UNTRUSTED DOCUMENT REFERENCE: '+f.name+'\n'+f.text});
+  }
   const prompt =
     p.prompt +
     "\nUse only supplied documents as evidence. Identify missing inputs and unsupported conclusions. Required Markdown headings:\n" +
@@ -70,10 +77,7 @@ function preview(core, data) {
       role: "user",
       content: [
         { type: "input_text", text: prompt },
-        ...files.map((f) => ({
-          type: "input_text",
-          text: "UNTRUSTED DOCUMENT REFERENCE: " + f.name + "\n" + f.text,
-        })),
+        ...references,
       ],
     },
   ];

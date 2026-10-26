@@ -15,6 +15,6 @@ function jsonStringBytes(value,nested=false){
  return base+extra+(nested?4+escaping:0);
 }
 function fileInputMetadata(file){
- return {inputBudgetVersion:1,image:!!file.image,mime:file.mime,ocr:!!file.ocr,hasOcrText:!!(file.ocr&&file.text?.trim()),textChars:String(file.text).length,textJSONBytes:jsonStringBytes(file.text,true),bodyJSONBytes:jsonStringBytes(file.bytes,true)};
+ return {inputBudgetVersion:1,image:!!file.image,mime:file.mime,ocr:!!file.ocr,hasOcrText:!!(file.ocr&&file.text?.trim()),textChars:String(file.text).length,bodyChars:typeof file.bytes==='string'?file.bytes.length:null,textJSONBytes:jsonStringBytes(file.text,true),bodyJSONBytes:jsonStringBytes(file.bytes,true)};
 }
 module.exports={REQUEST_BYTE_LIMIT,jsonStringBytes,fileInputMetadata};

@@ -22,7 +22,7 @@ test('Windows Edge applies dates/options, downloads without overwrite and indexe
  assert.deepEqual(selected[0],{...period('last month'),unit:'North',detail:'true'});assert.deepEqual(selected[1],{...period('yesterday'),unit:'North',detail:'true'});
  assert.notEqual(a.relative,b.relative);assert.equal(path.dirname(a.relative).replaceAll('\\','/'),'Reports/'+day(new Date()));assert.ok(fs.existsSync(path.join(core.settings().workspace,a.relative)));assert.equal(worker.context,null);
  await core.reportHistory.index(a.reportId);await core.reportHistory.index(b.reportId);
- assert.equal(core.reportHistory.trends({entityType:'resident',entityId:'R-SYNTHETIC'}).groups[0].observations,1);
+ assert.equal((await core.reportHistory.trends({entityType:'resident',entityId:'R-SYNTHETIC'})).groups[0].observations,1);
  core.reportHistory.queue({ids:[a.reportId]});assert.equal(await core.reportHistory.tick(),true);
  const analysis=core.store.list('report_analysis')[0];assert.equal(analysis.state,'completed');assert.ok(fs.existsSync(path.join(core.settings().workspace,analysis.output)));assert.equal(core.store.get('job',analysis.jobId).status,'completed');
  uiBrowser=await engine.launch({channel:'msedge',headless:true});const page=await uiBrowser.newPage();

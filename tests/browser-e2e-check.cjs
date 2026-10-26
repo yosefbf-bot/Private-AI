@@ -30,6 +30,14 @@ const {BrowserReports}=require('../source/browser-reports.cjs');
    await page.evaluate(()=>{const range=document.createRange();range.selectNodeContents(document.body);const s=window.getSelection();s.removeAllRanges();s.addRange(range);});
    const selection=await page.evaluate(extractVisible,true);assert.equal(selection.text,'Public report text');
    await page.evaluate(()=>{const r=document.createRange(),n=document.querySelector('#safe').firstChild;r.setStart(n,7);r.setEnd(n,13);window.getSelection().removeAllRanges();window.getSelection().addRange(r);});assert.equal((await page.evaluate(extractVisible,true)).text,'report');
+   await page.evaluate(()=>{document.body.innerHTML='<main></main>';document.querySelector('main').appendChild(document.createTextNode('prefix '+ 'word '.repeat(1000000)));});
+   const huge=await page.evaluate(extractVisible);assert.equal(huge.partial,true);assert.ok(huge.scannedCharacters<=240000);assert.ok(huge.text.length<=60000);assert.match(huge.text,/prefix word word/);assert.match(huge.text,/Partial page capture/);
+   await page.evaluate(()=>{document.body.innerHTML='<main>Visible prefix</main>';let p=document.querySelector('main');for(let i=0;i<200;i++){const n=document.createElement('div');p.appendChild(n);p=n;}p.textContent='Too deep';});
+   const deep=await page.evaluate(extractVisible);assert.equal(deep.partial,true);assert.ok(deep.visitedNodes<=130);assert.doesNotMatch(deep.text,/Too deep/);
+   await page.evaluate(()=>{document.body.innerHTML='<main>Visible prefix</main>';const f=document.createDocumentFragment();for(let i=0;i<60000;i++)f.appendChild(document.createElement('span'));document.querySelector('main').appendChild(f);});
+   const wide=await page.evaluate(extractVisible);assert.equal(wide.partial,true);assert.equal(wide.visitedNodes,50000);assert.match(wide.text,/Visible prefix/);
+   await page.evaluate(()=>{document.title='T'.repeat(300);document.body.innerHTML='<main></main>';document.querySelector('main').textContent='A'.repeat(59900);});
+   const boundary=await page.evaluate(extractVisible);assert.equal(boundary.partial,true);assert.match(boundary.text,/Partial page capture/);assert.ok(boundary.text.length<=60000);
    core.browserReports=new BrowserReports(core,worker);
    const calls=[];await page.exposeFunction('fixtureCall',async(op,data)=>{
     calls.push({op,data});if(op==='browserRecipes')return core.browserReports.list();
@@ -43,7 +51,7 @@ const {BrowserReports}=require('../source/browser-reports.cjs');
    await page.evaluate(async source=>{
     const {createBrowserUI}=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
     const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const ui=createBrowserUI({api:window.fixtureCall,esc,toast:()=>{}});
+    const ui=createBrowserUI({api:window.fixtureCall,esc,toast:message=>{(window.__syntheticErrors??=[]).push(message);}});
     document.querySelector('#content').innerHTML=await ui.html();
     document.addEventListener('click',async e=>{const b=e.target.closest('[data-act]');if(b&&await ui.handle(b.dataset.act,b.dataset.id))document.querySelector('#content').innerHTML=await ui.html();});
    },fs.readFileSync(path.join(__dirname,'../source/ui/browser-recipes.mjs'),'utf8'));
@@ -52,7 +60,7 @@ const {BrowserReports}=require('../source/browser-reports.cjs');
    await page.locator('[name=recipeName]').fill('Synthetic edited workflow');await page.locator('[data-act=browser-save]').click();await page.getByText('Synthetic edited workflow',{exact:true}).waitFor();assert.equal(core.store.list('browserRecipe').length,1);
    await page.locator('[data-act=browser-open][data-id]').click();await page.waitForTimeout(50);assert.equal(calls.find(c=>c.op==='browserOpen').data.browser,selected);assert.deepEqual(errors,[]);
    await page.locator('[data-act=browser-run]').click();
-   await page.getByText('This saved workflow has completed a manual download.',{exact:true}).waitFor({state:'attached'});
+   try{await page.getByText('This saved workflow has completed a manual download.',{exact:true}).waitFor({state:'attached'});}catch(error){console.error('Synthetic browser UI diagnostics:',await page.evaluate(()=>window.__syntheticErrors||[]));throw error;}
    await page.getByText('Run on a schedule',{exact:true}).click();
    await page.locator('[data-act=browser-grant]').click();
    await page.getByText('Revoke unattended access',{exact:true}).waitFor({state:'attached'});

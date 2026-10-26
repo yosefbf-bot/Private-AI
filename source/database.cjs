@@ -43,6 +43,8 @@ const EVENTS = new Set([
   "meeting_commitment_confirmed",
 ]);
 const META = {
+  capture_upload: ['id','actorKey'],
+  capture_upload_chunk: ['id','uploadId','actorKey'],
   report_analysis: ['id','reportId','state','created','jobId','error','output'],
   report_history: ['id','recipeId','sourceRevision','name','sourceProvider','relative','workspace','size','hash','created','downloadDate','requestedPeriod','choices','tracking','state','fileId','duplicateOf','unknownRows','sourceRows','incomplete','error','comparisonError'],
   companion_meeting: ["id", "meetingId", "deviceId", "sourceId"],
@@ -164,6 +166,12 @@ class Store {
       // after a rollback. Invalidate projections at the SQL boundary too; the
       // current writer rebuilds metadata in the same transaction as its record.
       this.db.exec(`
+        CREATE TRIGGER IF NOT EXISTS invalidate_report_candidates_insert AFTER INSERT ON records WHEN NEW.kind IN ('report_history','report_analysis')
+        BEGIN DELETE FROM record_meta WHERE kind=NEW.kind AND id=NEW.id; DELETE FROM record_rollup WHERE kind=NEW.kind; END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_report_candidates_update AFTER UPDATE ON records WHEN OLD.kind IN ('report_history','report_analysis') OR NEW.kind IN ('report_history','report_analysis')
+        BEGIN DELETE FROM record_meta WHERE (kind=OLD.kind AND id=OLD.id) OR (kind=NEW.kind AND id=NEW.id); DELETE FROM record_rollup WHERE kind IN (OLD.kind,NEW.kind); END;
+        CREATE TRIGGER IF NOT EXISTS invalidate_report_candidates_delete AFTER DELETE ON records WHEN OLD.kind IN ('report_history','report_analysis')
+        BEGIN DELETE FROM record_meta WHERE kind=OLD.kind AND id=OLD.id; DELETE FROM record_rollup WHERE kind=OLD.kind; END;
         CREATE TRIGGER IF NOT EXISTS invalidate_job_meta_insert AFTER INSERT ON records WHEN NEW.kind='job'
         BEGIN DELETE FROM record_meta WHERE kind='job' AND id=NEW.id; END;
         CREATE TRIGGER IF NOT EXISTS invalidate_job_meta_update AFTER UPDATE ON records WHEN OLD.kind='job' OR NEW.kind='job'
@@ -416,7 +424,7 @@ class Store {
     this.db.exec("BEGIN IMMEDIATE");
     let committed = false;
     try {
-      const captureKinds = ['capture_note','capture_draft','capture_evidence','capture_upload','capture_notification','capture_delivery','capture_whatsapp_route','meeting_upload'];
+      const captureKinds = ['capture_note','capture_draft','capture_evidence','capture_upload','capture_upload_chunk','capture_notification','capture_delivery','capture_whatsapp_route','meeting_upload'];
       const communicationKinds = ['wf_communication_source','wf_communication_candidate'];
       const activeCaptures = this.list('capture_note').filter(c=>c.actionIds.some(id=>this.get('todo',id)?.status==='pending'));
       const activeCaptureIds = new Set(activeCaptures.map(c=>c.id));
@@ -431,7 +439,8 @@ class Store {
           // Only files/jobs that could expire need their encrypted body opened.
           // Communications deliberately retain their observation-time rules below.
           if(['file','job'].includes(kind)&&!(r.expires&&r.expires<=now)&&!(cutoff&&r.updated<=cutoff))continue;
-          const value = ["job", "file", "meeting", "sbar", "wf_decision",'wf_action_meta',...captureKinds,...communicationKinds].includes(kind) ? this.get(kind, r.id) : null;
+          const value = kind==='capture_upload_chunk'?this.summary(kind,r.id):["job", "file", "meeting", "sbar", "wf_decision",'wf_action_meta',...captureKinds,...communicationKinds].includes(kind) ? this.get(kind, r.id) : null;
+          if(kind==='capture_upload_chunk'&&this.summary('capture_upload',value?.uploadId))continue;
           if (kind==='capture_note' && activeCaptureIds.has(r.id) || kind==='capture_evidence' && activeEvidenceIds.has(r.id) || kind==='capture_whatsapp_route' && activeCaptureIds.has(r.id) || kind==='capture_delivery' && activeDeliveryIds.has(r.id) || ['capture_draft','wf_action_meta','capture_notification','capture_delivery'].includes(kind) && activeCaptureIds.has(value?.captureId)) continue;
           if (kind === "wf_decision" && value?.status !== "closed") continue;
           if (kind === "meeting" && (value?.status !== "completed" || value?.actionItems?.some(a => !["completed", "cancelled"].includes(a.status)))) continue;
