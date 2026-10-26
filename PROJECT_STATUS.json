@@ -1739,7 +1739,9 @@
     "authenticatedUI": true,
     "guideCheck": true,
     "mergeMain": "2f9449c4760fae5e74597ff64851ebc5a63c8f89",
-    "runId": 40406474216
+    "runId": 40406474216,
+    "mainRun": 40408908032,
+    "mainFollowup": "898/899; native synthetic startup STORAGE; investigating without weakening gate"
   },
   "speedMemoryBatch5_20261026": {
     "status": "implemented-local-verified-final-combined-release-pending",
@@ -1766,5 +1768,36 @@
       "native Ollama adapter/real-daemon acceptance"
     ],
     "installedOwnerAppChanged": false
+  },
+  "speedMemoryBatch6_20261026": {
+    "status": "local-verification-passed-awaiting-exact-head-hosted-acceptance",
+    "branch": "chatgpt/batch6-package-size-20261026",
+    "baseMain": "2f9449c4760fae5e74597ff64851ebc5a63c8f89",
+    "batch5Checkpoint": "9efc56bc8a5fbdc215b8750acf901aafff5f5356",
+    "installedBytes": [
+      842227038,
+      728291317
+    ],
+    "asarBytes": [
+      194869584,
+      108025005
+    ],
+    "retainedDependencyVersionsChanged": 0,
+    "ownerInstallationChanged": false,
+    "wholeAppRAMReductionMeasured": false,
+    "independentReview": "No material findings; actual packaged acceptance remains required",
+    "tests": {
+      "passed": 925,
+      "failed": 0,
+      "skipped": 0,
+      "freshLockedInstall": true
+    },
+    "actualPackagedOCRAndLocalSearch": true,
+    "packagedCloudCalls": 0,
+    "localArchiveSHA256": {
+      "baseline": "576661f12d3d88037c84d27f0e9591132a767ad04e5ee8d670322bfa16eed958",
+      "candidate": "bdbdde5347daab79c604e74acc708cf41a6174b194a070eb2c434002547c0486"
+    },
+    "nativeSigninFocusedPassed": true
   }
 }

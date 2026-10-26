@@ -3,7 +3,7 @@
 const {app,safeStorage}=require('electron');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const root=process.argv[2],mode=process.argv[3];
-let stage='startup',issue=null,operationFailure=null,atSaveFailure=null,beforeCleanup=null,edgeObserved=false;const operations=[],operationFailures=[],browserExits=[],browserVersions=[],started=Date.now();
+let stage='startup',issue=null,operationFailure=null,atSaveFailure=null,beforeCleanup=null,edgeObserved=false;const startupACL=[],operations=[],operationFailures=[],browserExits=[],browserVersions=[],started=Date.now();
 function mark(value){operations.push({event:value,elapsedMs:Date.now()-started});if(operations.length>32)operations.shift();}
 function failed(label,error){mark(label+':error');const row={operation:label,kind:['TimeoutError','TargetClosedError','TypeError','Error'].includes(error.name)?error.name:'OTHER',code:['EACCES','EPERM','EBUSY','ENOENT','EEXIST','ENOSPC'].includes(error.code)?error.code:'OTHER',hints:['navigation','detached','not visible','not stable','intercepts pointer','outside of the viewport','waiting for locator','canceled','cancelled','Download is starting','EACCES','EPERM','EBUSY','ENOENT','EEXIST','ENOSPC','Permission denied','no such file','has been closed'].filter(token=>String(error.message).includes(token))};operationFailure??=row;operationFailures.push(row);if(operationFailures.length>4)operationFailures.shift();}
 function observe(label,action,count=false){return async(...args)=>{mark(label+':start');try{const result=await action(...args);mark(label+':'+(count?(result===0?'zero':result===1?'one':'many'):'done'));return result;}catch(error){failed(label,error);throw error;}};}
@@ -11,14 +11,28 @@ function observeSync(label,action){return(...args)=>{mark(label+':start');try{co
 if(!path.isAbsolute(root)||!path.basename(root).startsWith('privateai-signin-native-')||!['save','restart'].includes(mode))throw Error('Invalid synthetic fixture');
 app.setPath('userData',path.join(root,'electron-session'));app.disableHardwareAcceleration();
 app.whenReady().then(async()=>{
+ const childProcessStartup=require('node:child_process'),actualExec=childProcessStartup.execFileSync;
+ // Synthetic acceptance diagnostics contain only timing and allowlisted process
+ // outcomes, never arguments, SID, paths, environment, stdout or stderr.
+ childProcessStartup.execFileSync=function(executable,args,options){
+  if(!options?.env?.PRIVATE_AI_ACL_PATH)return actualExec.call(this,executable,args,options);
+  const start=Date.now();let outcome={elapsedMs:0,code:null,status:0,signal:null};
+  try{return actualExec.call(this,executable,args,options);}catch(error){
+   outcome.code=['ETIMEDOUT','EACCES','EPERM','EBUSY','ENOENT','ENOSPC'].includes(error.code)?error.code:'OTHER';
+   outcome.status=Number.isInteger(error.status)&&Math.abs(error.status)<=4294967295?error.status:null;
+   outcome.signal=['SIGTERM','SIGKILL','SIGINT','SIGABRT'].includes(error.signal)?error.signal:null;throw error;
+  }finally{outcome.elapsedMs=Date.now()-start;startupACL.push(outcome);if(startupACL.length>12)startupACL.shift();}
+ };
  const {protectPrivateFolder,verifyPrivateAcl}=require('../source/windows-acl.cjs');
- const {execFileSync}=require('node:child_process');
+ const {execFileSync}=childProcessStartup;stage='startup-identity';
  const sid=execFileSync(path.join(process.env.SystemRoot,'System32','whoami.exe'),['/user','/fo','csv','/nh'],{encoding:'utf8',windowsHide:true}).match(/S-1-5-(?:\d+-)*\d+/)?.[0];
- protectPrivateFolder(root,sid);verifyPrivateAcl(root,sid);
+ stage='startup-protect-and-verify';protectPrivateFolder(root,sid);
  const {loadVault}=require('../source/startup-storage.cjs'),{Store}=require('../source/database.cjs'),{Core}=require('../source/core.cjs');
  const {BrowserWorker,validateRecipe}=require('../source/browser-worker.cjs'),{BrowserReports,digest}=require('../source/browser-reports.cjs'),{BrowserCredentials}=require('../source/browser-credentials.cjs');
- const dataRoot=path.join(root,'private-data');fs.mkdirSync(dataRoot,{recursive:true});
- const cipher=loadVault(dataRoot,safeStorage,true),core=new Core({store:new Store(path.join(dataRoot,'privateai.db'),cipher),root:dataRoot,machine:'synthetic-native',client:{generate:()=>assert.fail('No cloud expected')}});
+ stage='startup-directory';const dataRoot=path.join(root,'private-data');fs.mkdirSync(dataRoot,{recursive:true});
+ stage='startup-vault';const cipher=loadVault(dataRoot,safeStorage,true);
+ stage='startup-database';const store=new Store(path.join(dataRoot,'privateai.db'),cipher);
+ stage='startup-core';const core=new Core({store,root:dataRoot,machine:'synthetic-native',client:{generate:()=>assert.fail('No cloud expected')}});
  let worker,server,livePage,liveContext,liveBrowser,edgeProcess;try{
   core.saveSettings({workspace:path.join(root,'Reports workspace'),processingMode:'local-only',allowCloud:false});
   core.resources.approve=async()=>true;
@@ -106,7 +120,7 @@ app.whenReady().then(async()=>{
    const job=core.store.list('job')[0];assert.equal(job.status,'completed');assert.equal(job.browserAnalysis.state,'pending');assert.equal(core.store.list('file').length,0);
   }
   const file=path.join(dataRoot,'report-signins',recipe.id+'.dpapi'),bytes=fs.readFileSync(file);assert.ok(!bytes.includes(Buffer.from('synthetic-native-password')));assert.ok(!bytes.includes(Buffer.from('synthetic-native-owner')));
-  process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({mode,passed:true,actualWindowsDPAPI:true,actualEdgeLogin:true,submissions,launches,unsafeRequests,edgeObserved,browserVersions,browserExits,operationFailures,operations,ciphertextSHA256:crypto.createHash('sha256').update(bytes).digest('hex')})+'\n');
+  process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({mode,passed:true,startupACL,actualWindowsDPAPI:true,actualEdgeLogin:true,submissions,launches,unsafeRequests,edgeObserved,browserVersions,browserExits,operationFailures,operations,ciphertextSHA256:crypto.createHash('sha256').update(bytes).digest('hex')})+'\n');
  }catch(e){beforeCleanup={pageClosed:livePage?livePage.isClosed():null,browserConnected:liveBrowser?liveBrowser.isConnected():null,workerHasContext:!!worker?.context,contextMatches:!!liveContext&&worker?.context===liveContext};mark('lifecycle:fixture-catch');issue=core.store.list('browserIssue').map(({phase,step,code})=>({phase,step,code}));
   // A transport disconnect can precede the owned child's exit callback. Observe
   // it briefly only after failure; do not retry or extend any browser operation.
@@ -114,4 +128,4 @@ app.whenReady().then(async()=>{
   throw e;
  }finally{mark('lifecycle:fixture-cleanup');await worker?.close();server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));core.close();}
  app.exit(0);
-}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,issue,atSaveFailure,beforeCleanup,edgeObserved,browserVersions,browserExits,operationFailure,operationFailures,operations,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});
+}).catch(error=>{process.stdout.write('SIGNIN_NATIVE_RESULT='+JSON.stringify({passed:false,mode,stage,startupACL,issue,atSaveFailure,beforeCleanup,edgeObserved,browserVersions,browserExits,operationFailure,operationFailures,operations,code:/^[A-Z0-9_]+$/.test(error.code||'')?error.code:'SYNTHETIC_ACCEPTANCE_FAILED'})+'\n');app.exit(1);});

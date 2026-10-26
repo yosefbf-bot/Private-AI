@@ -66,7 +66,16 @@
     "files": [
       "source/**/*",
       "LICENSE.txt",
-      "package.json"
+      "package.json",
+      "!node_modules/**/*.{js,mjs,cjs}.map",
+      "!node_modules/tesseract.js/dist/**/*",
+      "!node_modules/tesseract.js/docs/**/*",
+      "!node_modules/tesseract.js/scripts/**/*",
+      "!node_modules/tesseract.js-core/*.wasm.js",
+      "!node_modules/exceljs/dist/**/*",
+      "!node_modules/pdfjs-dist/build/**/*",
+      "!node_modules/pdfjs-dist/web/**/*",
+      "!node_modules/pdfjs-dist/legacy/web/**/*"
     ],
     "extraResources": [
       {
@@ -109,9 +118,7 @@
     }
   },
   "dependencies": {
-    "@google/genai": "^2.23.0",
     "@kenjiuno/msgreader": "1.28.0",
-    "@mozilla/readability": "0.6.0",
     "docx": "9.7.1",
     "dompurify": "3.4.17",
     "exceljs": "4.4.0",
@@ -132,7 +139,8 @@
     "electron": "44.3.0",
     "electron-builder": "26.15.3",
     "playwright": "1.64.0",
-    "prettier": "3.9.6"
+    "prettier": "3.9.6",
+    "@mozilla/readability": "0.6.0"
   },
   "overrides": {
     "mammoth": {

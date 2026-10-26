@@ -139,9 +139,16 @@ try {
 
   $inference=Join-Path $evidencePath 'inference';New-Item -ItemType Directory -Path $inference | Out-Null
   $receipt.phase='inference'
+  # Public checksum-pinned OCR/embedding assets go only into the isolated synthetic store.
+  & $node -e 'const tools=require(process.argv[1]);tools.setup({root:process.argv[2],assertUnlocked(){},requests:new Map()},"all").catch(()=>process.exit(1));' (Join-Path $PSScriptRoot '../source/document-tools-assets.cjs') $dataPath
+  if($LASTEXITCODE -ne 0){throw 'Pinned public document-tool setup failed.'}
+  $env:PRIVATE_AI_VALIDATION_DOCUMENT_TOOLS='1'
   $env:PRIVATE_AI_VALIDATION_MODEL=$modelPathResolved;$env:PRIVATE_AI_VALIDATION_AUTOMATIC='1';$env:PRIVATE_AI_VALIDATION_CONTEXT='4096';$env:PRIVATE_AI_VALIDATION_OUTPUT='128'
-  try{$actualInference=Run-Application $installedExe $report $inference $true}finally{foreach($name in @('PRIVATE_AI_VALIDATION_MODEL','PRIVATE_AI_VALIDATION_AUTOMATIC','PRIVATE_AI_VALIDATION_CONTEXT','PRIVATE_AI_VALIDATION_OUTPUT')){[Environment]::SetEnvironmentVariable($name,$null,'Process')}}
+  try{$actualInference=Run-Application $installedExe $report $inference $true}finally{foreach($name in @('PRIVATE_AI_VALIDATION_MODEL','PRIVATE_AI_VALIDATION_AUTOMATIC','PRIVATE_AI_VALIDATION_CONTEXT','PRIVATE_AI_VALIDATION_OUTPUT','PRIVATE_AI_VALIDATION_DOCUMENT_TOOLS')){[Environment]::SetEnvironmentVariable($name,$null,'Process')}}
   Copy-Item -LiteralPath $report -Destination (Join-Path $inference 'application-evidence.json')
+  $documentTools=$actualInference.documentTools
+  if(-not $documentTools.passed -or -not $documentTools.actualImageOCRExecuted -or -not $documentTools.actualScannedPDFOCRExecuted -or -not $documentTools.actualLocalEmbeddingExecuted -or -not $documentTools.actualSqliteVecRankingExecuted -or $documentTools.cloudInferenceCalls -ne 0){throw 'Actual packaged offline document acceptance failed.'}
+  Copy-Item -LiteralPath (Join-Path $clean 'document-tools-evidence.json') -Destination (Join-Path $inference 'document-tools-evidence.json')
   if(-not $actualInference.actualModelInferenceExecuted -or $actualInference.automaticAdmissionCapBytes -ne 3GB -or -not $actualInference.inference.response -or $actualInference.inference.provider -ne 'local'){throw 'Genuine bounded Automatic Small inference did not execute.'}
   $inferenceReceipt=[ordered]@{version=$ExpectedVersion;platform='win32';passed=$true;actualModelInferenceExecuted=$true;runtimeSHA256=$actualInference.inference.runtimeSHA256;modelSHA256=$actualInference.inference.modelSHA256;applicationArchiveSHA256=$actualInference.applicationArchiveSHA256;automaticAdmissionCapBytes=$actualInference.automaticAdmissionCapBytes;results=@($actualInference.inference)}
   Write-Receipt (Join-Path $inference 'inference-evidence.json') $inferenceReceipt
