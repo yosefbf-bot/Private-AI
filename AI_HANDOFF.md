@@ -1,16 +1,47 @@
-# Current: speed/memory batches5–6, final verification/publication
+# Current accepted source — six speed/memory batches, October26,2026
 
-Batch5 checkpoint9efc56b; Batch6 package changes built and independently reviewed.
-See docs/SPEED_MEMORY_BATCH6_2026-10-26.md for measured113.9MB/13.53% installed
-savings and six-batch summary. Fresh locked dependency install595 packages;
-retained versions/integrities unchanged. Final fresh locked Windows fullsuite925/925,0skips; hardening30/30; audit0.
-Both local baseline and reduced package passed real image/scanned-PDF OCR and
-BGE/sqlite-vec search,0cloud calls. Revised native DPAPI/Edge fixture passed3cycles.
-Exact-head hosted installer candidate acceptance pending. Owner apps/data unchanged; companion mained388c0 unchanged.
-Batch4 PR41 all8 checks passed before merge2f9449c; follow-up main40408908032 failed
-one synthetic native startup STORAGE (898/899). Added safe fixture diagnostics
-and removed redundant startup verification, preserving full actual ACL checks.
-Do not describe that main run as passed. Require final PR/main checks to pass.
+Desktop runtime main42cebcb7f2137e7713f66b968313b67f1783c695 (3.0.9-dev).
+PR42 head8456a628ead723518fc1bbc880a215cc3e46b531 passed all8 required jobs,
+run40413273853. Batches1–4 previously merged through PR38–41. Batch5–6 are now
+merged as well. No need to restart completed implementation or retest it without
+new changes, failures or a release requirement. Fetch current main before new work.
+
+Windows source925/925,0skips; actual installer/app/restart/Small local inference,
+retained-data uninstall/reinstall, portable, image/scanned-PDF OCR and local
+BGE/sqlite-vec all passed. Local full925, hardening30, actualEdge UI42, packaged
+XLSX/DOCX/PDF roundtrips also passed. Production audit and current/history secret
+scans0. Source fingerprints regenerated; no assertion or security gate weakened.
+Postmerge runtime-main run40415333337: all8jobs passed, including925/925 Windows tests and actual installed/portable acceptance.
+
+Accepted candidate4eaea96d9e3d7ee30095abefdd4f06a91211ebe7, artifact12696120185:
+installer SHA256 8a2407958b5422380f886e62bc39fba85a55dc20a478437cc6ab1a2bbddbb060
+ASAR SHA256 fbb135ac197271bbb6ea4a4cec3301f01056198268f657eccd0a0af7fe8095cb
+portable SHA256 88f023ba8d80036bb1ac27a54bc4f964df6cf3b310083664b3388a47236f5851
+Accepted archive500,112,707bytes, now below the connector512MiB limit; downloaded
+and hash-verified. Local delivery: Release/PrivateAI-3.0.9-Speed-Memory-20261026
+in the coordination workspace, with installer, portable ZIP, README and checksums.
+Installed owner applications/data were NOT changed. Companion mained388c0
+(1.2.7-dev/code10) unchanged and synchronized; mainrun40271727364 passed.
+
+Measured examples: initial renderer JS70.6% smaller; display images96.7% smaller;
+synthetic5MiB capture serialization227.2MB ->14.2MB (~94% less); disabled WhatsApp
+720 polling opportunities/hour ->0; matched installed payload842.2MB ->728.3MB
+(113.9MB/13.53% less). Whole-app RAM, battery and inference speed not quantified.
+See docs/SPEED_MEMORY_BATCH1_2026-10-26.md through BATCH6 for scope/evidence.
+
+Deliberate limitations: protected streaming HTTP needs native transport parity;
+native Ollama options need real-daemon tests; native WhatsApp monitor prototype
+was rejected for lack of proven savings; report derived records preserve old
+reader compatibility. No model RAM floor, clinical completeness, retention or
+privacy/approval protection was lowered. Live owner PCC/PowerBI/WhatsApp and
+physical-phone checks remain unperformed. Owner install remains a separate action.
+The historical Batch4 main-run STORAGE failure was not reproduced by the final
+native checks; safe startup diagnostics were added without retry/timeout changes.
+Fully merged Batch1–6 branches cleaned; old Batch2 checkout removed only after
+hash-checked evidence preservation. Automatic approval blocked removal of the two
+isolated comparison-build folders (~3.23GB); they remain outside the repositories.
+
+Historical implementation checkpoints below are superseded by this accepted state.
 
 ## Historical Batch5 local checkpoint
 
