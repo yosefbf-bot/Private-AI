@@ -18,7 +18,8 @@ document splitting, GPU and Ollama changes are outside this task.
   retains the complete answer input for the rule-selected answer brain.
 - Waiting uses the existing background resource coordinator and foreground
   priority. Approved background chats and ordinary jobs use the same admission
-  checks and wait at safe boundaries without needing a desktop button.
+  checks and wait at safe boundaries without needing a desktop button. Changing
+  RAM readings do not rewrite a chat unless its waiting state actually changes.
 - Cancel, lock, Quit, changed privacy/model settings, edited history, changed
   sources, deleted chats and unavailable/changed model files invalidate a wait.
   Revocation does not depend on successfully writing a status record. Queued

@@ -52,3 +52,11 @@ test('below-reserve web requests cannot become plain local inference',async t=>{
  const f=setup(t);f.core.saveSettings({hipaa:false,publicModeConfirmed:true,processingMode:'smart-hybrid',allowCloud:true});f.chat=f.core.createChat();f.setMemory(0.9*GIB);
  const result=await f.core.send({chatId:f.chat.id,prompt:'Synthetic web research request.',web:true});assert.equal(result.chat.messages.at(-1).error.code,'LOW_MEMORY');assert.equal(result.chat.messages.at(-1).memoryWait,undefined);assert.equal(f.calls(),0);
 });
+test('fluctuating RAM readings do not repeatedly rewrite the same waiting state',async t=>{
+ const f=setup(t),token=await offer(f),entry=f.core.chatMemoryWait.offers.get(token);f.core.chatMemoryWait.update(entry,'paused');
+ let chatWrites=0;const put=f.core.store.put.bind(f.core.store);f.core.store.put=(kind,...args)=>{if(kind==='chat')chatWrites++;return put(kind,...args);};
+ const task={state:'paused',reason:'Prior RAM reading',update:state=>f.core.chatMemoryWait.update(entry,state)};
+ for(const free of ['2.0','1.9','2.1'])f.core.resources.state(task,'paused',`Low RAM: ${free} GB available`);
+ assert.equal(chatWrites,0);assert.equal(f.core.chat(f.chat.id).messages.at(-1).memoryWait.state,'paused');
+ f.core.chatMemoryWait.update(entry,'waiting');assert.equal(chatWrites,1,'A real state transition must still be saved');
+});

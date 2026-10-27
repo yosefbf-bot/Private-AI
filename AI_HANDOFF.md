@@ -8,7 +8,8 @@ Compression/new splitting/GPU/Ollama remain untouched. No owner install/data cha
 Details and sanitized native evidence: docs/LOW_RAM_SAFE_CHANGES_2026-10-27.md
 and LOW_RAM_MEASUREMENTS_2026-10-27.json. Read limitations before making claims.
 
-Final local full suite976/976,0skips; focused low-RAM73; startup/identity38;
+Final local full suite977/977,0skips; focused low-RAM73 plus the write-guard
+regression; startup/identity38;
 hardening30/30, production dependency audit0, current/history Gitleaks0.
 Actual Edge general UI45 checks, hardening UI, and synthetic Edge/Chrome report
 login/download flows passed. Eighteen real native paired trials completed;
@@ -18,7 +19,7 @@ policy cap; no physical pressure allocation. Learned peak/reserve guards retaine
 
 Independent material review findings reproduced and fixed: teardown on failed
 status writes, failed queue ownership, runtime LOW_MEMORY fallback, selected/early
-admission routing, and text-capability enforcement. Initial fixture/CLI/format
+admission routing, text-capability enforcement and repeated waiting-state writes. Initial fixture/CLI/format
 failures are documented, not counted as successful quality or device acceptance.
 Exact-head GitHub runtime/Windows acceptance must pass before merge/release;
 query this branch PR and main rather than treating this local receipt as CI proof.

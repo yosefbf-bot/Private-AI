@@ -1861,7 +1861,7 @@
     "version": "3.0.9-dev",
     "companionMain": "9098b1e5840e0e8bb4f0ec5f36b51740d94b7003",
     "tests": {
-      "passed": 976,
+      "passed": 977,
       "failed": 0,
       "skipped": 0
     },

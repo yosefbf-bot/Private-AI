@@ -38,6 +38,7 @@ class ChatMemoryWait{
   localInput(entry.input.settings,entry.input.messages,entry.input);return c;
  }
  update(entry,state){
+  if(entry.state===state)return;
   const c=this.raw(entry.chatId),m=c?.messages[entry.index];if(!m||m.time!==entry.time||m.memoryWait?.token!==entry.token)return;
   entry.state=state;m.memoryWait={...m.memoryWait,state};this.core.saveChat(c);this.core.emit({type:'jobs_changed'});
  }
