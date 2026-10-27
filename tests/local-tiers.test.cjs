@@ -9,6 +9,21 @@ function fixture({cap='high',missing=[],memory=20*GIB,respond}={}){
  router.local={state:'unloaded',validate:settings=>rows.find(t=>t.file===settings.localModelPath).bytes,modelName:settings=>settings.localModelPath,generate:async(settings,messages,options)=>{const tier=rows.find(t=>t.file===settings.localModelPath)?.tier;calls.push({tier,settings,messages,options});return respond?respond(tier,calls.length,settings,messages,options):{text:JSON.stringify({required_tier:'small',answer:'Hello.',evidence:[],uncertainties:[]}),localTokens:10};}};
  const run=(prompt='Hello',opts={})=>core.resources.task('foreground',()=>router.generate(core.key(),s,[{role:'user',content:prompt}],opts));return {core,router,s,calls,rows,run};
 }
+
+test('preserving a chosen local brain offers memory waiting before smaller models or cloud',async()=>{
+ const f=fixture({memory:4*GIB,cap:'high'});Object.assign(f.s,{provider:'openai',model:'synthetic-model',processingMode:'smart-hybrid',allowCloud:true});let cloud=0;f.core.client.generate=async()=>{cloud++;return {text:'Synthetic cloud answer',usage:{inputTokens:1,outputTokens:1}};};
+ await assert.rejects(f.run('Compare two synthetic staffing options.',{preserveLocalModel:true}),e=>e.code==='LOW_MEMORY'&&e.localWait?.settings.localModelPath===f.rows[2].file);
+ assert.equal(f.calls.length,0);assert.equal(cloud,0);
+});
+test('a report can wait for its chosen larger brain without falling to a smaller one',async()=>{
+ const f=fixture({memory:4*GIB,cap:'high'});f.s.ramRecoverySeconds=0;let memory=4*GIB,waits=0;f.core.resources.memory=()=>memory;f.core.resources.sleep=async()=>{memory=8*GIB;if(++waits>2)assert.fail('Waiting must make progress after RAM recovers');};
+ const result=await f.core.resources.task('background',()=>f.router.generate('',f.s,[{role:'user',content:'Compare two synthetic staffing options.'}],{preserveLocalModel:true,waitForLocalMemory:true}));
+ assert.equal(waits,1);assert.deepEqual(f.calls.map(c=>c.tier),['high']);assert.equal(result.routing.selectedTier,'high');
+});
+test('a plain runtime LOW_MEMORY after inference starts cannot downgrade a preserved brain',async()=>{
+ const f=fixture({respond:tier=>{if(tier==='high')throw require('../source/security.cjs').fail('LOW_MEMORY');return {text:JSON.stringify({answer:'Synthetic other-model reply',evidence:[],uncertainties:[]})};}});
+ await assert.rejects(f.run('Compare two synthetic options.',{preserveLocalModel:true}),{code:'LOW_MEMORY'});assert.deepEqual(f.calls.map(c=>c.tier),['high']);
+});
 test('catalog has four pinned tiers and preserves existing Medium/High identities',()=>{assert.equal(TIERS.length,4);assert.equal(TIERS[1].id,'llama32-3b');assert.equal(TIERS[2].id,'qwen3-4b');for(const t of TIERS){const m=MODELS.find(m=>m.id===t.id);assert.match(m.sha256,/^[0-9a-f]{64}$/);assert.match(m.url,/\/resolve\/[0-9a-f]{40}\//);assert.ok(m.bytes>0);}assert.equal(MODELS.find(m=>m.id==='qwen3-1.7b').bytes,1282439584);});
 test('Small answers simple requests without a second inference',async()=>{const f=fixture(),result=await f.run();assert.deepEqual(f.calls.map(c=>c.tier),['small']);assert.equal(result.routing.selectedTier,'small');assert.equal(result.localTokens,10);assert.equal(result.model,'Small / Low — 1.7B');});
 test('Automatic fits the real Small model into 3 GiB without changing saved context or dropping input',async()=>{

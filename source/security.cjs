@@ -98,6 +98,7 @@ function safeError(e) {
   return {
     code: CODES[e?.code] ? e.code : "API",
     message: CODES[e?.code] || CODES.API,
+    ...(e?.code==='LOW_MEMORY'&&Number.isSafeInteger(e.ram?.requiredBytes)&&e.ram.requiredBytes>0&&Number.isSafeInteger(e.ram?.availableBytes)&&e.ram.availableBytes>=0?{ram:{requiredBytes:e.ram.requiredBytes,availableBytes:e.ram.availableBytes}}:{}),
   };
 }
 const uuid = () => crypto.randomUUID();

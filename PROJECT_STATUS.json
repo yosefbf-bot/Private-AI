@@ -1853,5 +1853,28 @@
     "physicalPhoneAcceptance": false,
     "cleanup": "referenced-temporary-folder-pair-not-located-no-deletion",
     "receiptContractCI": "pending"
+  },
+  "lowRamSafe_20261027": {
+    "status": "local-verification-complete-check-exact-pr-and-main-gates-before-release",
+    "baseMain": "73f26687a1c7ace4dc03f323bff83915d419c6c5",
+    "branch": "chatgpt/low-ram-measurement-20261027",
+    "version": "3.0.9-dev",
+    "companionMain": "9098b1e5840e0e8bb4f0ec5f36b51740d94b7003",
+    "tests": {
+      "passed": 977,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hardeningPassed": 30,
+    "generalUIChecks": 45,
+    "actualNativePairedTrials": 18,
+    "nativeIdleExitMs": 31493,
+    "physicalPressureAllocated": false,
+    "clinicalAccuracyEquivalenceValidated": false,
+    "ownerInstallationChanged": false,
+    "cacheCompressionAdded": false,
+    "newDocumentSplittingAdded": false,
+    "measurements": "docs/LOW_RAM_MEASUREMENTS_2026-10-27.json",
+    "notes": "Batch peak working-set savings approximately 3–5 MiB; no general speedup claim. Full Windows installer/portable evidence must come from the exact-head hosted gate."
   }
 }

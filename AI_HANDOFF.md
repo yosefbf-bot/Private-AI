@@ -1,3 +1,31 @@
+# Current task — safe low-RAM operation, October 27, 2026
+
+Base main73f2668; branch chatgpt/low-ram-measurement-20261027, desktop3.0.9-dev.
+Companion9098b1e unchanged. Implemented opt-in local chat RAM waiting with exact
+assembled input/model, unchanged reserve/watchdog, Balanced pressure-only64/32
+batches and approximately30-second inactive release without overriding Keep warm.
+Compression/new splitting/GPU/Ollama remain untouched. No owner install/data changed.
+Details and sanitized native evidence: docs/LOW_RAM_SAFE_CHANGES_2026-10-27.md
+and LOW_RAM_MEASUREMENTS_2026-10-27.json. Read limitations before making claims.
+
+Final local full suite977/977,0skips; focused low-RAM73 plus the write-guard
+regression; startup/identity38;
+hardening30/30, production dependency audit0, current/history Gitleaks0.
+Actual Edge general UI45 checks, hardening UI, and synthetic Edge/Chrome report
+login/download flows passed. Eighteen real native paired trials completed;
+batch savings only3–5MiB, mixed speed results, no clinical quality equivalence
+claim. Native Small answered then exited in31.493seconds under a conservative
+policy cap; no physical pressure allocation. Learned peak/reserve guards retained.
+
+Independent material review findings reproduced and fixed: teardown on failed
+status writes, failed queue ownership, runtime LOW_MEMORY fallback, selected/early
+admission routing, text-capability enforcement and repeated waiting-state writes. Initial fixture/CLI/format
+failures are documented, not counted as successful quality or device acceptance.
+Exact-head GitHub runtime/Windows acceptance must pass before merge/release;
+query this branch PR and main rather than treating this local receipt as CI proof.
+Physical phone, live PCC/PowerBI and long-context clinical-quality checks remain
+separate. Preserve the existing owner installation and accepted rollback assets.
+
 # Current task — next-step evidence and companion receipts, October 26, 2026
 
 Task1 merged PR44 after all8exact-head checks; main8260541 checks passed.

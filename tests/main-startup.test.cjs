@@ -65,6 +65,13 @@ test('desktop draft IPC saves independent encrypted records, reloads them and de
  assert.equal((await call('chat',{id:chat.id})).result.draft,'Synthetic IPC draft');
  assert.equal((await call('deleteChat',{id:chat.id})).result,true);assert.equal(b.core.store.get('chatDraft',chat.id),null);
 });
+test('desktop RAM-wait IPC rejects stale tokens, locked calls and extension invocation',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);const contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ assert.equal((await call('queueChatWhenMemoryFree',{chatId:'synthetic',token:'stale'})).error.code,'RECOVERY');
+ b.core.lock();assert.equal((await call('queueChatWhenMemoryFree',{chatId:'synthetic',token:'stale'})).error.code,'LOCKED');b.core.unlock();
+ await assert.rejects(b.nativeCall('queueChatWhenMemoryFree',{chatId:'synthetic',token:'stale'}),e=>e.code==='POLICY');
+});
 test('background entry point starts without opening a window or asking unattended approval',async t=>{
  const b=await boot(t,{background:true});assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.ok(b.core);assert.equal(b.windows.length,0);assert.equal(await b.core.resources.approve('Desktop input'),false);assert.equal(b.dialogs.length,0);assert.equal(b.core.router.local.state,'unloaded');
 });

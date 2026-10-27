@@ -79,10 +79,15 @@ class Resources {
    this.state(task,state,reason);await this.waitForChange(revision,{ram:ramWait});
   }
  }
+ localMemoryFailure(settings,minimum=GIB){
+  const reserve=(this.core.settings().ramReserveMB||1024)*1024**2,local=this.core.router.local;
+  const needed=Math.max(minimum,reserve,require('./local-brain.cjs').requiredMemory(local.validate(settings),settings.localContext)+Math.max(0,reserve-GIB),(this.core.stability?.minimumFor(settings)||0)+reserve);
+  const error=fail('LOW_MEMORY');error.ram={requiredBytes:Math.ceil(needed),availableBytes:Math.max(0,Math.floor(this.memory()))};Object.defineProperty(error,'localAdmission',{value:{...settings}});return error;
+ }
  async withAI(fn,{localSettings,waitForMemory=true,allowContextReduction=false,contextFits=()=>true,minimum=GIB,releaseLocal=false,excludeBrowser=false,prepare}={}){
   const task=this.current()||{id:++this.sequence,kind:'foreground'};
   for(;;){
-   await this.checkpoint(minimum,{releaseLocal});this.cancel(task);
+   try{await this.checkpoint(minimum,{releaseLocal});}catch(e){if(e.code==='LOW_MEMORY'&&localSettings)throw this.localMemoryFailure(localSettings,minimum);throw e;}this.cancel(task);
    if(this.blocked(task)||this.memory()<Math.max(minimum,(this.core.settings().ramReserveMB||1024)*1024**2))continue;
    const revision=this.revision;
    if(this.ai||((localSettings||excludeBrowser)&&this.browser)){
@@ -115,7 +120,7 @@ class Resources {
      if(candidate){localSettings=candidate;minimum=memoryNeeded(candidate);}
     }
     // Do not hold the AI lane while a paused background task waits for RAM/chat.
-    if(this.memory()<minimum){if(!waitForMemory)throw fail('LOW_MEMORY');this.releaseAI(task);await this.checkpoint(minimum);continue;}
+    if(this.memory()<minimum){if(!waitForMemory)throw this.localMemoryFailure(localSettings,minimum);this.releaseAI(task);await this.checkpoint(minimum);continue;}
    }}
    this.cancel(task);if(this.blocked(task))continue;
    this.state(task,'running','');return localSettings?await fn(localSettings):await fn();

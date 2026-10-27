@@ -39,6 +39,7 @@ test('real server requires a session and restricts production, privileges and de
     const cookie = response.headers.get('set-cookie').split(';')[0];
     const headers = {'content-type':'application/json', cookie, 'x-private-ai-csrf':session.csrf};
     const call = async (op, data={}) => (await fetch(base+'/api/call', {method:'POST', headers, body:JSON.stringify({op,data})})).json();
+    assert.equal((await call('queueChatWhenMemoryFree',{chatId:'synthetic',token:'stale'})).error.code,'RECOVERY','RAM-wait dispatch reaches Core without granting a new external capability');
     for(const op of ['browserCredentialSave','browserCredentialDelete','browserCredentialRead'])assert.equal((await call(op,{})).error.code,'POLICY',op+' must be desktop-only');
     const unknownMatch=await call('staffingReplacementMatch',{openShift:{role:'CNA',hours:8},roster:[{name:'Synthetic HTTP unknown',role:'CNA'}]});assert.equal(unknownMatch.ok,true);assert.equal(unknownMatch.result[0].estimatedShiftCost,null);assert.equal(unknownMatch.result[0].currentHours,null);
     const knownMatch=await call('staffingReplacementMatch',{openShift:{role:'CNA',hours:12},roster:[{name:'Synthetic HTTP reviewed',role:'CNA',currentHours:35,hourlyRate:20,isAgency:false,overtimeRule:{reviewed:true,periodHoursConfirmed:true,thresholdHours:40,multiplier:1.5}}]});assert.equal(knownMatch.ok,true);assert.equal(knownMatch.result[0].estimatedShiftCost,310);

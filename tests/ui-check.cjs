@@ -82,6 +82,7 @@ async function dispatch(op, data = {}, native = false) {
       return core.createChat(data);
     case "chat":
       return core.chat(data.id);
+    case "queueChatWhenMemoryFree": return core.queueChatWhenMemoryFree(data);
     case "send":
       sendRequests++;
       return core.send(data, (delta) => {
@@ -812,6 +813,41 @@ let browser;
   }
   checks.push('Light/dark playbook draft loads only on request through real Core; full saved text is preserved and rendered without HTML execution');
   checks.push('Surveillance retention notice makes no regulatory exemption claim');
+  // Exercise the shipped composer and queue UI with real Core/SQLite and a
+  // synthetic local engine. Native inference is measured separately.
+  const GIB=1024**3,priorEmit=core.emit,cloudCallsBeforeRAM=generationCalls;
+  let freeRAM=2*GIB;const localCalls=[],row={tier:'small',name:'Synthetic Small',file:'synthetic-small.gguf',bytes:1282439584,installed:true};
+  core.saveSettings({processingMode:'local-only',allowCloud:false,localTier:'small',localMaxTier:'small',localContext:2048,localMaxOutput:192,ramReserveMB:1024,ramRecoverySeconds:0,keepBrainMinutes:0});
+  core.modelManager={catalog:()=>[row],verifyTier:async()=>row};
+  core.router.local={state:'unloaded',status:()=>({state:'unloaded',availableMemoryGB:freeRAM/GIB}),validate:()=>row.bytes,modelName:()=>row.name,close(){},stop(){},generate:async(settings,messages)=>{localCalls.push({settings,messages});return {text:JSON.stringify({answer:'Synthetic queued local completion.',evidence:[],uncertainties:[]})};}};
+  core.resources.memory=()=>freeRAM;
+  core.emit=event=>{priorEmit(event);desktop.evaluate(e=>window.__deliver(e),event).catch(()=>{});};
+  await desktop.reload();await desktop.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
+  await desktop.locator('#prompt').fill('Synthetic complete RAM wait input.');await desktop.locator('#send').click();
+  await desktop.locator('[data-act=ram-wait]').waitFor();
+  assert.equal(await desktop.locator('.processing-time').count(),0,'A failed request must not look completed');
+  for(const theme of ['light','dark']){
+    await desktop.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+    assert.ok(await desktop.locator('[data-act=ram-wait]').isVisible());
+    assert.match(await desktop.locator('.message.assistant').innerText(),/GiB needed.*GiB was free/s);
+    await desktop.screenshot({path:path.join(root,`build/screenshots/ram-wait-${theme}.png`)});
+  }
+  await desktop.locator('[data-act=ram-wait]').click();await desktop.locator('[data-act=ram-cancel]').waitFor();
+  freeRAM=8*GIB;core.resources.notify();
+  await desktop.getByText('Synthetic queued local completion.',{exact:false}).first().waitFor();
+  assert.equal(await desktop.locator('[data-act=ram-cancel]').count(),0);assert.equal(localCalls.length,1);
+  assert.equal(localCalls[0].settings.localModelPath,row.file);assert.equal(localCalls[0].settings.localContext,2048);assert.match(JSON.stringify(localCalls[0].messages),/Synthetic complete RAM wait input/);
+  checks.push('RAM wait renders in light/dark, keeps the same brain/full input, and refreshes completion without another turn');
+  await desktop.locator('.new-chat').click();freeRAM=2*GIB;
+  await desktop.locator('#prompt').fill('Synthetic cancelled RAM request.');await desktop.locator('#send').click();await desktop.locator('[data-act=ram-wait]').click();await desktop.locator('[data-act=ram-cancel]').click();
+  freeRAM=8*GIB;core.resources.notify();await desktop.waitForFunction(()=>!document.querySelector('[data-act=ram-cancel]'));assert.equal(localCalls.length,1);
+  checks.push('Cancelling the visible RAM wait cannot run it when memory later returns');
+  await desktop.locator('.new-chat').click();freeRAM=2*GIB;
+  await desktop.locator('#prompt').fill('Synthetic stale RAM request.');await desktop.locator('#send').click();await desktop.locator('[data-act=ram-wait]').waitFor();
+  const offeredEntry=[...core.chatMemoryWait.offers.values()][0],changed=core.chat(offeredEntry.chatId);changed.messages[0].text='Synthetic edited input';core.saveChat(changed);
+  await desktop.locator('[data-act=ram-wait]').click();await desktop.getByText('This wait is no longer available.',{exact:false}).waitFor();
+  assert.equal(await desktop.locator('[data-act=ram-wait]').count(),0);assert.equal(generationCalls,cloudCallsBeforeRAM);assert.equal(localCalls.length,1);
+  checks.push('Stale RAM offers disappear after rejection; no smaller brain or cloud request is made');
   assert.deepEqual(errors, []);
   checks.push("No browser JavaScript errors");
   const result = {

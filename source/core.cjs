@@ -61,6 +61,7 @@ class Core {
     this.emit = emit;
     this.temporary = new Map();
     this.requests = new Map();
+    this.chatMemoryWait=new(require('./chat-memory-wait.cjs').ChatMemoryWait)(this);
     this.speechWorkTimer=setInterval(async()=>{try{await require("./local-speech.cjs").processPending(this);await require("./assistant-drafts.cjs").processPending(this);}catch{}},10000);this.speechWorkTimer.unref?.();
     this.locked = false;
     this.jobRunning = false;
@@ -278,6 +279,7 @@ class Core {
     if (s.role === "primary") s.workerEnabled = false;
     if (input.snfEnabled !== undefined) s.snfEnabled = Boolean(input.snfEnabled);
     this.store.put("settings", "main", s);
+    this.chatMemoryWait?.cancelChangedSettings();
     this.resources?.notify();
     if(changed || input.approved === false || !cloudAllowed(s)) for(const controller of this.requests.values()) controller.abort();
     this.store.audit("settings");
@@ -422,7 +424,7 @@ class Core {
       if(!draft&&typeof c.draft==='string')draft=this.store.put('chatDraft',id,{text:c.draft});
       if(draft)c.draft=draft.text;
     }
-    return c;
+    return this.chatMemoryWait.present(c);
   }
   saveChat(c) {
     c.updated = Date.now();
@@ -450,6 +452,7 @@ class Core {
     return c;
   }
   endTemporary(id) {
+    this.chatMemoryWait.cancelChat(id);
     if (this.temporary.has(id)) {
       this.requests.get(id)?.abort();
       this.temporary.delete(id);
@@ -458,6 +461,7 @@ class Core {
   }
   deleteChat(id) {
     this.assertUnlocked();
+    this.chatMemoryWait.cancelChat(id);
     for(const f of this.store.summaries("file").filter(f=>f.ownerChat===id))this.purgeRecoveryForFile(f.id);
     this.requests.get(id)?.abort();
     this.temporary.delete(id);
@@ -702,6 +706,7 @@ class Core {
   async send(data,onDelta=()=>{},{allowTools=true,isolatedContext=false,forceLocal=false}={}) {
     this.assertUnlocked();
     if(this.requests.has(data.chatId))throw fail('BUSY');
+    this.chatMemoryWait.cancelChat(data.chatId);
     const controller=new AbortController();this.requests.set(data.chatId,controller);
     const kind=this.backgroundContext.getStore()===this.backgroundToken?'background':'foreground';
     try{return await this.resources.task(kind,()=>this.sendCoordinated(data,onDelta,controller,allowTools,isolatedContext,forceLocal),{signal:controller.signal});}
@@ -788,6 +793,8 @@ class Core {
         input.messages,
         {
           instructions: isolatedContext ? '' : this.getInstructions(c),
+          preserveLocalModel:true,
+          waitForLocalMemory:this.resources.isBackground(),
           allowTools,
           omitted: input.omitted,
           web,
@@ -808,6 +815,7 @@ class Core {
       });
     } catch (e) {
       answer.error = safeError(e);
+      if(e.code==='LOW_MEMORY'&&e.localWait){try{this.chatMemoryWait.offer(c,answer,e.localWait);}catch{/* Keep the original safe failure if a wait snapshot cannot be retained. */}}
       this.store.audit("request_failed");
     } finally {
       this.requests.delete(chatId);
@@ -819,9 +827,11 @@ class Core {
     return { chat: c, omitted: input.omitted };
   }
   stop(id) {
+    this.chatMemoryWait.cancelChat(id);
     this.requests.get(id)?.abort();
     return true;
   }
+  queueChatWhenMemoryFree(data){return this.chatMemoryWait.queue(data);}
   purgeBackups() {
     let deferred = 0;
     const dir = path.join(this.root, "backups");
@@ -971,6 +981,7 @@ class Core {
     delete j.checkpoint;delete j.recoveryInput;delete j.savedAnswer;delete j.resultText;this.store.put('job',id,j);this.purgeBackups();return true;
   }
   purgeRecoveryForFile(id){
+    this.chatMemoryWait.cancelSource(id);
     const jobs=this.store.project('job',j=>j.recoveryInput?.sourceFileIds?.includes(id)?{id:j.id}:null).filter(Boolean);
     if(jobs.some(j=>this.requests.has(j.id)))throw fail('BUSY');
     require('./workflows/semantic-search.cjs').clear(this);
@@ -1086,7 +1097,7 @@ class Core {
           hipaa: j.hipaa !== false || this.settings().hipaa,
         },
         [{ role: "user", content: parts }],
-        { web: j.web, signal: controller.signal, taskPrompt:j.prompt,allowTools:j.analysisOnly?false:undefined },
+        { web: j.web, signal: controller.signal, taskPrompt:j.prompt,allowTools:j.analysisOnly?false:undefined,preserveLocalModel:true,waitForLocalMemory:true },
       ));
       record.savedAnswer=answer;
       if(j.playbook){record.playbook=j.playbook;record.outputCheck=require('./workflows/playbooks.cjs').checkOutput(j,answer.text);if(!record.outputCheck.passed){saveStep('output sections require review');throw fail('OUTPUT_CHECK');}}
@@ -1335,6 +1346,7 @@ class Core {
     };
   }
   lock() {
+    this.chatMemoryWait.cancelAll();
     require('./workflows/semantic-search.cjs').clear(this);
     for (const [id, controller] of this.requests)
       if (!['running','waiting','paused'].includes(this.store.get("job", id)?.status)) controller.abort();
@@ -1350,6 +1362,7 @@ class Core {
     return true;
   }
   close() {
+    this.chatMemoryWait.close();
     require('./workflows/semantic-search.cjs').clear(this);
     this.worker.close();
     clearInterval(this.speechWorkTimer);
