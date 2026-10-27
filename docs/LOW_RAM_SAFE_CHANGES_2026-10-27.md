@@ -20,7 +20,7 @@ document splitting, GPU and Ollama changes are outside this task.
   priority. Approved background chats and ordinary jobs use the same admission
   checks and wait at safe boundaries without needing a desktop button. Changing
   RAM readings do not rewrite a chat unless its waiting state actually changes.
-- Cancel, lock, Quit, changed privacy/model settings, edited history, changed
+- Cancel, archiving the chat, lock, Quit, changed privacy/model settings, edited history, changed
   sources, deleted chats and unavailable/changed model files invalidate a wait.
   Revocation does not depend on successfully writing a status record. Queued
   snapshots never restart automatically after reopening. Offers expire after
@@ -91,3 +91,8 @@ use the waiting option for temporary memory pressure, and retain the current
 models. A RAM upgrade offers substantially more headroom than batch tuning.
 Consider compression or document splitting only as separate, opt-in work with
 quality tests and explicit owner approval.
+
+Archive follow-up: real Core and Edge regressions verified that archiving a
+waiting chat releases background ownership while RAM remains low, retains the
+original messages, and prevents later inference. Local full 978/978 and Edge UI46
+passed for that correction; consult its exact-head CI before release.

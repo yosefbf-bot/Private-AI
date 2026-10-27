@@ -479,7 +479,7 @@ class Core {
     this.store.audit("chat_deleted");
     return true;
   }
-  archiveChat(id,archived=true){this.assertUnlocked();if(typeof archived!=='boolean')throw fail('INVALID');const c=this.chat(id);if(c.temporary)throw fail('INVALID');c.archived=archived;this.saveChat(c);return c;}
+  archiveChat(id,archived=true){this.assertUnlocked();if(typeof archived!=='boolean')throw fail('INVALID');let c=this.chat(id);if(c.temporary)throw fail('INVALID');if(archived){this.chatMemoryWait.cancelChat(id);c=this.chat(id);}c.archived=archived;this.saveChat(c);return c;}
   renameChat(id, title) {
     this.assertUnlocked();
     const c = this.chat(id);

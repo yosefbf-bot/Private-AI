@@ -1,3 +1,15 @@
+# Archive lifecycle follow-up — October 27, 2026
+
+PR46 is merged as caae5b2; all8 exact-head and all8 main gates passed.
+A final real Core/SQLite regression reproduced an archived RAM wait holding the
+background slot until memory recovered. Archive now cancels that wait and rereads
+the saved cancellation before archiving, preserving the original chat. It does
+not cancel ordinary foreground requests. Branch chatgpt/ram-wait-archive-20261027.
+Local full978/978,0skips; targeted50; hardening30; actual Edge UI46 including
+archive-under-low-RAM passed; repository/guide/syntax and secret checks passed.
+The initial archive regression failed as expected before the fix. Final follow-up
+PR/runtime gates must pass before merge; no installed owner app/data changed.
+
 # Current task — safe low-RAM operation, October 27, 2026
 
 Base main73f2668; branch chatgpt/low-ram-measurement-20261027, desktop3.0.9-dev.
