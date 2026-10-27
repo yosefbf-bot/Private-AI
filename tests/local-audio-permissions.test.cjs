@@ -1,0 +1,22 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+test('local audio permission is bound to explicit main-frame intent and revocable',()=>{
+ const {createLocalAudioPermissions}=require('../source/local-audio-permissions.cjs');
+ const url='file:///synthetic/index.html',frame={url},wc={mainFrame:frame},window={webContents:wc,isDestroyed:()=>false,isVisible:()=>true,isFocused:()=>true};
+ let locked=false;const core={get locked(){return locked;},assertUnlocked(){assert.equal(locked,false);},settings:()=>({hipaa:true,processingMode:'local_only'})};
+ const audio=createLocalAudioPermissions({getCore:()=>core,getWindow:()=>window,uiURL:url});
+ const event={sender:wc,senderFrame:frame},details={requestingUrl:url,isMainFrame:true,mediaTypes:['audio']};
+ const request=(permission='media',data=details,sender=wc)=>{let result;audio.request(sender,permission,v=>result=v,data);return result;};
+ assert.equal(request(),false);const first=audio.begin(event,{purpose:'meeting'});assert.ok(first.token);assert.equal(request(),true);
+ assert.equal(audio.check(wc,'media','file://',{requestingUrl:url,isMainFrame:true,mediaType:'audio'}),true);
+ for(const patch of [{mediaTypes:['video']},{mediaTypes:['audio','video']},{mediaTypes:[]},{isMainFrame:false},{requestingUrl:url+'?other'},{mediaTypes:undefined}])assert.equal(request('media',{...details,...patch}),false);
+ assert.equal(request('notifications'),false);assert.equal(request('media',details,{mainFrame:frame}),false);
+ assert.equal(audio.check(wc,'media','file://',{requestingUrl:url,isMainFrame:true}),false);
+ assert.throws(()=>audio.begin({...event,senderFrame:{url}},{purpose:'meeting'}));
+ assert.throws(()=>audio.begin(event,{purpose:'remote-speech'}));
+ audio.revoke();assert.equal(request(),false);
+ const next=audio.begin(event,{purpose:'dictation'});audio.end(event,{token:first.token});assert.equal(request(),true);
+ audio.end(event,{token:next.token});assert.equal(request(),false);
+ audio.begin(event,{purpose:'speaker-sample'});locked=true;assert.equal(request(),false);locked=false;
+ window.isVisible=()=>false;assert.equal(request(),false);assert.throws(()=>audio.begin(event,{purpose:'meeting'}));
+});

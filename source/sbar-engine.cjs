@@ -12,6 +12,20 @@
 
 const { fail, isId, text, uuid } = require('./security.cjs');
 
+// Report dates and date-only fields are not precise occurrence timestamps.
+function incidentWindow(rows,since,now){
+ const recent=[],unknown=[];
+ for(const row of rows){
+  const raw=row.originalData ? row.originalData.eventDate : row.eventDate;
+  const precise=typeof raw==='string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+  const time=precise?Date.parse(raw):NaN;
+  const evidence={...row,occurrenceTime:Number.isFinite(time)?new Date(time).toISOString():null,timingStatus:Number.isFinite(time)?'source_timestamp':'unknown'};
+  if(!Number.isFinite(time))unknown.push(evidence);
+  else if(time>=since&&time<=now)recent.push(evidence);
+ }
+ return {recent,unknown};
+}
+
 // Approved Facility Protocols Catalog (Standard SNF Clinical Governance)
 const FACILITY_PROTOCOLS = [
   {
@@ -492,6 +506,8 @@ class SBAREngine {
       baselineDelta: input.baselineDelta || 'Baseline comparison not available in current sources'
     };
 
+    const fallEvidence=incidentWindow(residentId?this.store.list('snf_fall').filter(r=>r.residentId===residentId):[],now-windowHours*3600000,now);
+
     // 4. Build Background (B)
     const background = {
       primaryDiagnoses: input.primaryDiagnoses || [],
@@ -512,9 +528,12 @@ class SBAREngine {
         source: 'User-entered mobility; verify source'
       },
       recentFalls: {
-        count: snapshot.alerts.filter(a => a.code === 'FALL_INCIDENT').length,
-        notes: snapshot.alerts.filter(a => a.code === 'FALL_INCIDENT').map(a => a.message).join('; ') || 'No matching fall alerts in available records; this does not establish absence of falls.',
-        source: 'Incident & Fall Log'
+        count: fallEvidence.recent.length,
+        timingUnknownCount: fallEvidence.unknown.length,
+        evidence: fallEvidence.recent,
+        timingUnknownEvidence: fallEvidence.unknown,
+        notes: `Recorded falls with precise timestamps in the ${windowHours}-hour window: ${fallEvidence.recent.length}. Timing unknown: ${fallEvidence.unknown.length}. Incomplete imported evidence does not establish absence of falls.`,
+        source: 'Normalized imported fall records; source provenance retained'
       },
       activeMedications: input.activeMedications || [],
       recentMedChanges: snapshot.medChanges,
@@ -727,7 +746,7 @@ class SBAREngine {
     sbarText += `Diagnoses: ${background.primaryDiagnoses.map(d => d.name).join(', ')}\n`;
     sbarText += `Allergies: ${background.allergies.value} | Code Status: ${background.codeStatus.value}\n`;
     sbarText += `Baseline Cognition: ${background.baselineCognition.value} | Mobility: ${background.baselineMobility.value}\n`;
-    sbarText += `Recent Falls (48h): ${background.recentFalls.count} | Recent Med Changes: ${background.recentMedChanges.length}\n\n`;
+    sbarText += `Fall evidence: ${background.recentFalls.notes || 'Coverage and occurrence timing unknown; verify imported sources.'} | Recent Med Changes: ${background.recentMedChanges.length}\n\n`;
 
     sbarText += `A — ASSESSMENT & DOCUMENTED FINDINGS:\n`;
     assessment.documentedFindings.forEach(f => {
@@ -767,7 +786,11 @@ class SBAREngine {
     if (data.situation) sbar.situation = { ...sbar.situation, ...data.situation };
     if (data.background) sbar.background = { ...sbar.background, ...data.background };
     if (data.assessment) sbar.assessment = { ...sbar.assessment, ...data.assessment };
-    if (Array.isArray(data.recommendations)) sbar.recommendations = data.recommendations;
+    if (Array.isArray(data.recommendations)) sbar.recommendations = data.recommendations.map(item=>{
+      if(item.safetyType==='facility_protocol')return {...item,verified:false,sourceLabel:'Reference — facility approval not recorded'};
+      if(item.safetyType==='user_selected')return {...item,verified:false,sourceLabel:'User-entered request — clinician verification required'};
+      return item;
+    });
     if (data.adaptedCommunicationText) sbar.adaptedCommunicationText = text(data.adaptedCommunicationText, 10000);
     if (data.targetKey && COMMUNICATION_TARGETS.some(t => t.id === data.targetKey)) {
       sbar.targetKey = data.targetKey;
@@ -855,11 +878,13 @@ class SBAREngine {
     if (!sbar) throw fail('NOT_FOUND');
 
     const now = Date.now();
-    const recipientName = text(input.recipientName || 'Attending Physician', 100);
+    const recipientName = text(input.recipientName || '', 100).trim();
+    if (!recipientName) throw fail('INVALID');
     const method = ['phone', 'secure_message', 'fax', 'in_person', 'other'].includes(input.method) ? input.method : 'phone';
     const outcome = ['message_left', 'provider_contacted', 'orders_received', 'no_new_orders', 'awaiting_callback', 'other'].includes(input.outcome) ? input.outcome : 'provider_contacted';
     const readback = ['not_applicable', 'pending', 'confirmed'].includes(input.readback) ? input.readback : 'not_applicable';
-    const user = text(input.user || 'Reporting Nurse', 100);
+    const user = text(input.user || '', 100).trim() || 'Unknown';
+    const actorAttribution = user === 'Unknown' ? 'unknown' : 'operator_entered';
     const note = text(input.note || '', 1000);
 
     const notificationRecord = {
@@ -872,6 +897,7 @@ class SBAREngine {
       outcome,
       readback,
       user,
+      actorAttribution,
       note
     };
 
@@ -961,7 +987,9 @@ class SBAREngine {
   // -------------------------------------------------------------
   // Close-the-Loop Progression
   // -------------------------------------------------------------
-  advanceCloseTheLoop(sbarId, { stage, note, user = 'Clinician' }) {
+  advanceCloseTheLoop(sbarId, { stage, note, user }) {
+    user=text(user || '',100).trim() || 'Unknown';
+    const actorAttribution=user==='Unknown'?'unknown':'operator_entered';
     this.core.assertUnlocked();
     if (!isId(sbarId)) throw fail('INVALID');
     const sbar = this.store.get('sbar', sbarId);
@@ -986,6 +1014,7 @@ class SBAREngine {
       stage,
       timestamp: now,
       user,
+      actorAttribution,
       note: text(note || `Advanced clinical loop to ${stage}`, 500)
     });
 
@@ -1065,19 +1094,25 @@ class SBAREngine {
     const newOrders = (this.store.list('snf_med_order') || []).filter(m => (typeof m.startDate === 'number' ? m.startDate : Date.parse(m.startDate || m.orderDate || '')) >= since24h);
 
     // 5. Pending Labs / Tests
-    const pendingLabs = alerts.filter(a => a.code === 'LAB_CRITICAL' || a.code === 'ANTIBIOTIC_NEW');
+    const pendingLabs = this.store.list('snf_lab').filter(row => row.criticalValue === true && !['completed','resolved'].includes(String(row.followUpStatus).toLowerCase()));
 
     // 6. Falls / Incidents
-    const falls = alerts.filter(a => a.code === 'FALL_INCIDENT' && (a.firstDetected || 0) >= since24h);
+    const fallEvidence=incidentWindow(this.store.list('snf_fall'),since24h,now);
+    const falls=fallEvidence.recent;
+    // Retain explicitly recorded historical alerts; current imports use normalized feeds.
+    for(const alert of alerts.filter(a=>a.code==='FALL_INCIDENT'&&a.firstDetected>=since24h&&a.firstDetected<=now)) {
+      if(!falls.some(row=>row.id===alert.sourceRecordId || row.provenance?.rowId && alert.sources?.some(source=>source.rowId===row.provenance.rowId)))falls.push({...alert,evidenceKind:'legacy_alert',eventDate:new Date(alert.firstDetected).toISOString()});
+    }
 
     // 7. Hospital Transfers / Returns
-    const transfers = alerts.filter(a => a.code === 'ACUTE_TRANSFER' && (a.firstDetected || 0) >= since24h);
+    const transferEvidence=incidentWindow(this.store.list('snf_transfer'),since24h,now);
+    const transfers=transferEvidence.recent;
 
     // 8. Behavioral / Psychotropic Concerns
     const behaviors = alerts.filter(a => /^(AP-|PRN-|GDR-|PSYCH-|PHARM-)/.test(a.code));
 
     // 9. Wounds / Skin
-    const wounds = alerts.filter(a => a.code === 'WOUND_PRESSURE');
+    const wounds = this.store.list('snf_wound').filter(row => !['resolved','healed','closed'].includes(String(row.originalData?.status || '').toLowerCase()));
 
     // 10. Follow-Ups Pending
     const followUpsPending = pendingTodos.map(t => ({
@@ -1091,7 +1126,7 @@ class SBAREngine {
     const providerContactNeeded = sbars.filter(s => s.closeTheLoop?.stage === 'awaiting_callback' || s.status === 'draft');
 
     // 12. Items Requiring Family Notification
-    const familyNotificationNeeded = falls.filter(f => !f.actionNote || !f.actionNote.toLowerCase().includes('family'));
+    const familyNotificationNeeded = falls.filter(f => f.originalData?.familyNotified !== true && !/^(true|yes)$/i.test(String(f.originalData?.familyNotified)));
 
     const handoff = {
       id: uuid(),
@@ -1099,6 +1134,7 @@ class SBAREngine {
       facilityName: this.core.snf?.getSettings?.().facilityName || 'Facility name not configured',
       demo: !!this.core.snf?.demoMode,
       generatedAt: now,
+      coverage: { notice:'Imported evidence only. Missing or undated events remain unknown; an empty section does not establish absence of incidents. Wound and lab follow-up status must be verified.', feeds:this.core.snf?.getFeedStatus?.() || null },
       summary: {
         totalAcute: acuteConcerns.length,
         totalFalls24h: falls.length,
@@ -1112,7 +1148,9 @@ class SBAREngine {
         newOrders,
         pendingLabsTests: pendingLabs,
         fallsIncidents: falls,
+        fallsTimingUnknown: fallEvidence.unknown,
         hospitalTransfersReturns: transfers,
+        transfersTimingUnknown: transferEvidence.unknown,
         behavioralPsychotropicConcerns: behaviors,
         woundsSkin: wounds,
         followUpsPending,
@@ -1125,7 +1163,9 @@ class SBAREngine {
         itemsRequiringFamilyNotification: familyNotificationNeeded.map(f => ({
           alertId: f.id,
           residentName: f.residentName,
-          event: f.message
+          event: f.message || 'Imported fall — verify family notification',
+          notificationStatus: f.originalData?.familyNotified === false || /^(false|no)$/i.test(String(f.originalData?.familyNotified)) ? 'not_notified' : 'unknown',
+          provenance:f.provenance
         }))
       }
     };

@@ -27,27 +27,30 @@ function createTools(core,access,browser){return async prompt=>{
   const {start,end}=range(p.includes('tomorrow')?'tomorrow':'today');const rows=await access.outlook("outlook.calendar",{start,end});
   return formatCalendar(rows);
  }
+ const {forCore,markExport}=require('./snf/demo.cjs');
+ const snf=forCore(core).current();
+ const clinical=()=>{
  const isSNF = core.settings().snfEnabled !== false;
  const snfOff = 'SNF Clinical Surveillance is currently disabled in Settings. Enable "SNF Clinical Surveillance" in Settings to activate clinical commands.';
- if(p==='/critical')return isSNF ? (core.snf ? core.snf.getCriticalAlertsReport() : 'SNF surveillance engine not loaded.') : snfOff;
- if(p==='/psychwatch')return isSNF ? (core.snf ? core.snf.getPsychWatchReport() : 'SNF surveillance engine not loaded.') : snfOff;
- if(p==='/newmeds')return isSNF ? (core.snf ? core.snf.getNewMedsReport() : 'SNF surveillance engine not loaded.') : snfOff;
- if(p==='/behaviorgap')return isSNF ? (core.snf ? core.snf.getBehaviorGapsReport() : 'SNF surveillance engine not loaded.') : snfOff;
- if(p==='/diagnosisgap')return isSNF ? (core.snf ? core.snf.getDiagnosisGapsReport() : 'SNF surveillance engine not loaded.') : snfOff;
- if(p==='/gdr')return isSNF ? (core.snf ? core.snf.getGDRReport() : 'SNF surveillance engine not loaded.') : snfOff;
- if(p==='/prn14')return isSNF ? (core.snf ? core.snf.getPRN14Report() : 'SNF surveillance engine not loaded.') : snfOff;
- if(p==='/medchange')return isSNF ? (core.snf ? core.snf.getNewMedsReport() : 'SNF surveillance engine not loaded.') : snfOff;
- if(p==='/unresolved')return isSNF ? (core.snf ? core.snf.getUnresolvedIssuesReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/critical')return isSNF ? (snf ? snf.getCriticalAlertsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/psychwatch')return isSNF ? (snf ? snf.getPsychWatchReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/newmeds')return isSNF ? (snf ? snf.getNewMedsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/behaviorgap')return isSNF ? (snf ? snf.getBehaviorGapsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/diagnosisgap')return isSNF ? (snf ? snf.getDiagnosisGapsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/gdr')return isSNF ? (snf ? snf.getGDRReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/prn14')return isSNF ? (snf ? snf.getPRN14Report() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/medchange')return isSNF ? (snf ? snf.getNewMedsReport() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/unresolved')return isSNF ? (snf ? snf.getUnresolvedIssuesReport() : 'SNF surveillance engine not loaded.') : snfOff;
  if(p.startsWith('/resident')) {
   if(!isSNF) return snfOff;
   const q = prompt.slice(9).trim();
-  return core.snf ? core.snf.getResidentTimelineReport(q) : 'SNF surveillance engine not loaded.';
+  return snf ? snf.getResidentTimelineReport(q) : 'SNF surveillance engine not loaded.';
  }
- if(p==='/morning')return isSNF ? (core.snf ? core.snf.generateMorningBrief() : 'SNF surveillance engine not loaded.') : snfOff;
+ if(p==='/morning')return isSNF ? (snf ? snf.generateMorningBrief() : 'SNF surveillance engine not loaded.') : snfOff;
  if(p==='/7day') {
   if(!isSNF) return snfOff;
-  if (!core.snf) return 'SNF surveillance engine not loaded.';
-  const metrics = core.snf.getDashboardMetrics();
+  if (!snf) return 'SNF surveillance engine not loaded.';
+  const metrics = snf.getDashboardMetrics();
   return `# 7-DAY CLINICAL SURVEILLANCE & PSYCH WATCH TRENDS\n\n` +
    `- Active Census: ${metrics.totalCensus}\n` +
    `- Antipsychotic Residents: ${metrics.antipsychoticResidentsCount}\n` +
@@ -62,8 +65,8 @@ function createTools(core,access,browser){return async prompt=>{
  }
  if(p==='/qapi') {
   if(!isSNF) return snfOff;
-  if (!core.snf) return 'SNF surveillance engine not loaded.';
-  const metrics = core.snf.getDashboardMetrics();
+  if (!snf) return 'SNF surveillance engine not loaded.';
+  const metrics = snf.getDashboardMetrics();
   const qm = metrics.qmWatch;
   return `# QAPI CLINICAL PERFORMANCE & SURVEILLANCE SUMMARY\n\n` +
    `### 1. Psychotropic Medication Quality Measure (${qm.label})\n` +
@@ -81,6 +84,8 @@ function createTools(core,access,browser){return async prompt=>{
    `- Data Freshness: ${metrics.feedStatus.dataCurrentThroughFormatted}\n`;
  }
  throw fail('INVALID');
+ };
+ return markExport(clinical(),snf?.demoMode);
 };}
 function diagnose(core){
  const s=core.settings(),local=core.router.local?.status(),wa=core.store.get('messaging','settings')||{};

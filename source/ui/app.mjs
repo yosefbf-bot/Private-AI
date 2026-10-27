@@ -402,7 +402,7 @@ function renderChat() {
   companionPairingUI.stop();
   workflowUI.stop();
   searchUI.stop();
-  snfUI.stop();
+  snfUI.stop();importUI.stop();operationsCopilotUI.stop();
   meetingsUI.stop();dashboardUI.stop();
   voiceManager?.enforcePolicy();
   view = "chat";
@@ -591,6 +591,7 @@ async function send(regenerate = false) {
   }
 }
 window.privateAI.onEvent((event) => {
+  if(event.type==='local_audio_revoked'){operationsCopilotUI.stopListening();closeVoiceSession();return;}
   if (event.type === "reminder_due") {
     const list = (event.items || []).map(i => i.title).join(", ");
     toast("⏰ Reminder due: " + (list || "Action item"));
@@ -1060,7 +1061,7 @@ function showLocked() {
   companionPairingUI.stop();
   workflowUI.stop();
   searchUI.stop();
-  snfUI.stop();
+  snfUI.stop();importUI.stop();operationsCopilotUI.stop();
   meetingsUI.stop({discard:true});dashboardUI.stop();operationsCopilotUI.stopListening();
   closeVoiceSession();
   if ($("modal").open) $("modal-cancel").click();
@@ -1491,7 +1492,7 @@ function renderPage(name, options = {}) {
   companionPairingUI.stop();
   workflowUI.stop();
   searchUI.stop();
-  snfUI.stop();
+  snfUI.stop();importUI.stop();operationsCopilotUI.stop();
   dashboardUI.stop();
   if (name === "schedules") name = "automation";
   if (["today", "actions", "execdesk", "opanalytics", "playbooks"].includes(name)) name = "dashboard";

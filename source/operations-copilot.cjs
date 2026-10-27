@@ -315,8 +315,12 @@ class OperationsCopilotEngine {
     return list.map(m=>this.withTaskStatus(m)).sort((a, b) => (b.date || 0) - (a.date || 0));
   }
 
+  meetingRevision(meeting) {
+    return require('node:crypto').createHash('sha256').update(JSON.stringify(meeting)).digest('hex');
+  }
+
   withTaskStatus(meeting) {
-    return {...meeting, carryover:(meeting.carryoverRefs||[]).map(ref=>{
+    return {...meeting, revision:this.meetingRevision(meeting), carryover:(meeting.carryoverRefs||[]).map(ref=>{
       const source=this.store.get('meeting',ref.meetingId),item=source?.actionItems?.find(a=>a.id===ref.actionId),todo=item?.convertedTodoId&&this.store.get('todo',item.convertedTodoId);
       return { ...ref, title:source?.title||'Source unavailable',task:item?.task||'Source unavailable',status:todo?.status||item?.status||'unavailable',assignee:todo?.owner||item?.assignee||'',dueDate:todo?.dueAt??item?.dueDate??null };
     }), actionItems:(meeting.actionItems||[]).map(item=>{
@@ -359,7 +363,7 @@ class OperationsCopilotEngine {
     };
 
     this.store.put('meeting', meeting.id, meeting);
-    return meeting;
+    return this.withTaskStatus(meeting);
   }
 
   saveMeeting(input = {}) {
@@ -371,25 +375,28 @@ class OperationsCopilotEngine {
     const existing = this.store.get('meeting', input.id);
     if (!existing) throw fail('NOT_FOUND');
 
-    const updated = {
-      ...existing,
-      title: input.title ? text(input.title, 150) : existing.title,
-      type: input.type || existing.type,
-      shift: input.shift || existing.shift,
-      status: input.status || existing.status,
-      attendees: Array.isArray(input.attendees) ? input.attendees : existing.attendees,
-      agenda: Array.isArray(input.agenda) ? input.agenda : existing.agenda,
-      transcript: Array.isArray(input.transcript) ? input.transcript : existing.transcript,
-      actionItems: Array.isArray(input.actionItems) ? input.actionItems : existing.actionItems,
-      decisions: Array.isArray(input.decisions) ? input.decisions : existing.decisions,
-      clinicalRadar: Array.isArray(input.clinicalRadar) ? input.clinicalRadar : existing.clinicalRadar,
-      summary: input.summary !== undefined ? text(input.summary, 20000) : existing.summary,
-      updatedAt: Date.now()
-    };
-
-    updated.actionItems = this.withTaskStatus(updated).actionItems;
+    // Content revision covers every writer (transcription, linked actions, finalization,
+    // speaker correction and older clients), without rewriting existing encrypted records.
+    if (input.revision !== this.meetingRevision(existing)) throw fail('REVIEW_CHANGED');
+    if (existing.status === 'completed') throw fail('POLICY');
+    const allowed = new Set(['id','revision','title','type','shift','attendees','agenda']);
+    if (Object.keys(input).some(key => !allowed.has(key))) throw fail('INVALID');
+    const updated = {...existing, updatedAt:Date.now()};
+    if (input.title !== undefined) updated.title = text(input.title,150);
+    if (input.type !== undefined) {
+      if (!MEETING_TEMPLATES[input.type]) throw fail('INVALID');
+      updated.type = input.type;
+    }
+    if (input.shift !== undefined) {
+      if (!['day','evening','night','all'].includes(input.shift)) throw fail('INVALID');
+      updated.shift = input.shift;
+    }
+    for (const key of ['attendees','agenda']) if (input[key] !== undefined) {
+      if (!Array.isArray(input[key])) throw fail('INVALID');
+      updated[key] = input[key];
+    }
     this.store.put('meeting', updated.id, updated);
-    return updated;
+    return this.withTaskStatus(updated);
   }
 
   deleteMeeting(id) {
@@ -544,7 +551,7 @@ class OperationsCopilotEngine {
 
     meeting.updatedAt = Date.now();
     this.store.put('meeting', meeting.id, meeting);
-    return meeting;
+    return this.withTaskStatus(meeting);
   }
 
   // Converts a meeting action item to an official Private AI To-Do item

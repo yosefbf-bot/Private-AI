@@ -85,6 +85,8 @@ let core,
   nativeLink;
 const desktopTemporary = new Set();
 const uiURL = pathToFileURL(path.join(__dirname, "ui", "index.html")).href;
+const localAudio=require('./local-audio-permissions.cjs').createLocalAudioPermissions({getCore:()=>core,getWindow:()=>win,uiURL,
+  onRevoke:()=>{if(win&&!win.isDestroyed())win.webContents.send('privateai:event',{type:'local_audio_revoked'});}});
 function systemExe(name) {
   return path.join(process.env.SystemRoot || "C:\\Windows", "System32", name);
 }
@@ -112,7 +114,7 @@ function loadCipher(create) {
 }
 function sampleModelMemory(brain){return memorySampler.poll(brain,(settings,bytes)=>{const row=modelManager.catalog(settings).find(t=>t.file===settings.localModelPath);if(row)core.stability.observePeak(row.tier,settings.localContext,bytes);}).catch(()=>{});}
 function emit(event) {
-  if (event.type === 'locked') { if(!browserWorker?.canContinueLocked?.())browserWorker?.close(); companion?.invalidateInvites(); }
+  if (event.type === 'locked') { localAudio.revoke(); if(!browserWorker?.canContinueLocked?.())browserWorker?.close(); companion?.invalidateInvites(); }
   if(event.type==='job_finished')messaging?.jobFinished(event.jobId).catch(()=>{});
   if (win && !win.isDestroyed()) win.webContents.send("privateai:event", event);
   bridge?.broadcast(event);
@@ -145,9 +147,12 @@ function showWindow() {
     },
   });
   win.setMenuBarVisibility(false);
-  win.webContents.on("will-navigate", (e) => e.preventDefault());
+  win.webContents.on("will-navigate", (e) => {localAudio.revoke();e.preventDefault();});
+  win.webContents.on("did-start-navigation",(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame)localAudio.revoke();});
+  win.on("hide",()=>localAudio.revoke());
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.webContents.on('render-process-gone',()=>{
+    localAudio.revoke();
     core.stability.incident('renderer-gone');core.stability.pause();
     for(const [id,c] of core.requests)if(!core.store.get('job',id))c.abort();
     core.temporary.clear();desktopTemporary.clear();
@@ -157,6 +162,7 @@ function showWindow() {
   win.on('unresponsive',()=>{core.stability.incident('renderer-hung');core.stability.pause();});
   win.loadURL(uiURL);
   win.on("close", (event) => {
+    localAudio.revoke();
     for (const id of desktopTemporary) core.endTemporary(id);
     desktopTemporary.clear();
     // Keep unfinished renderer edits intact. Heavy models unload independently;
@@ -923,10 +929,10 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       startupStage = "services";
       session
         .fromPartition("privateai-memory")
-        .setPermissionRequestHandler((_wc, _p, callback) => callback(false));
+        .setPermissionRequestHandler(localAudio.request);
       session
         .fromPartition("privateai-memory")
-        .setPermissionCheckHandler(() => false);
+        .setPermissionCheckHandler(localAudio.check);
       session
         .fromPartition("privateai-memory")
         .webRequest.onBeforeRequest(
@@ -1005,6 +1011,13 @@ if (!isNative && !app.requestSingleInstanceLock()) {
         );
         app.quit();
       });
+      // Desktop-only audio intent: never exposed to the HTTP/native/phone dispatchers.
+      ipcMain.handle('privateai:microphone',(event,request)=>{
+        requireUI(event);
+        if(request?.action==='begin')return localAudio.begin(event,request);
+        if(request?.action==='end')return localAudio.end(event,request);
+        throw fail('INVALID');
+      });
       ipcMain.handle("privateai:call", async (event, request) => {
         try {
           requireUI(event);
@@ -1066,7 +1079,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
           }
         }
       }, 15000);
-      powerMonitor.on('suspend',()=>{core.stability.incident('sleep');core.stability.pause();for(const c of core.requests.values())c.abort();core.router.local.stop('sleep');});
+      powerMonitor.on('suspend',()=>{localAudio.revoke();core.stability.incident('sleep');core.stability.pause();for(const c of core.requests.values())c.abort();core.router.local.stop('sleep');});
       powerMonitor.on('resume',()=>{core.stability.incident('wake');core.stability.pause();emit({type:'jobs_changed'});});
       powerMonitor.on("lock-screen", () => core.lock());
       powerMonitor.on("unlock-screen", () => {

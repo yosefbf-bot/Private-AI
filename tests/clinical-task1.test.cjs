@@ -73,3 +73,41 @@ test('clinical alert audit records supplied actor or unknown, never a fabricated
  core.snf.assignAlert(id,'Synthetic assignee','Synthetic reviewer');
  last=core.store.get('snf_alert',id).auditTrail.at(-1);assert.equal(last.user,'Synthetic reviewer');assert.equal(last.actorAttribution,'operator_entered');
 });
+
+test('reference protocol and operator-entered recommendations never gain verification on save',t=>{
+ const {core}=fixture(t),sbar=dispatch(core,'sbarGenerate',{residentName:'Synthetic Resident'});
+ const protocol=dispatch(core,'sbarProtocols')[0];assert.equal(protocol.isCurrent,false);
+ const result=dispatch(core,'sbarSave',{id:sbar.id,recommendations:[{text:'Synthetic request',safetyType:'facility_protocol',protocolRef:{protocolId:protocol.id},verified:true,sourceLabel:'Approved Facility Protocol'},
+  {text:'Synthetic manual request',safetyType:'user_selected',verified:true}]});
+ assert.equal(result.recommendations[0].verified,false);assert.match(result.recommendations[0].sourceLabel,/reference.*facility approval not recorded/i);
+ assert.equal(result.recommendations[1].verified,false);
+});
+
+
+test('precise incident times survive normalization while missing and date-only occurrence times remain unknown',async t=>{
+ const {core}=fixture(t),recent=new Date(Date.now()-12*3600000).toISOString(),day=recent.slice(0,10);
+ await core.snf.ingestReports([report('census',[{residentId:'synthetic-r',name:'Synthetic Resident'}]),
+  ...['falls','transfers'].map(type=>report(type,[
+   {id:type+'-timed',residentId:'synthetic-r',eventDate:recent},
+   {id:type+'-undated',residentId:'synthetic-r'},
+   {id:type+'-date-only',residentId:'synthetic-r',eventDate:day}]))]);
+ const handoff=dispatch(core,'sbarShiftHandoff');
+ for(const [key,unknown,type] of [['fallsIncidents','fallsTimingUnknown','falls'],['hospitalTransfersReturns','transfersTimingUnknown','transfers']]){
+  assert.deepEqual(handoff.sections[key].map(r=>r.originalData.id),[type+'-timed']);
+  assert.equal(handoff.sections[key][0].occurrenceTime,recent);
+  assert.deepEqual(handoff.sections[unknown].map(r=>r.originalData.id).sort(),[type+'-date-only',type+'-undated']);
+  assert.ok(handoff.sections[unknown].every(r=>r.occurrenceTime===null));
+ }
+ const sbar=dispatch(core,'sbarGenerate',{residentId:'synthetic-r'});
+ assert.equal(sbar.background.recentFalls.count,1);assert.equal(sbar.background.recentFalls.timingUnknownCount,2);
+ assert.ok(sbar.background.recentFalls.evidence[0].provenance.rowId);
+});
+
+test('copied SBAR communication preserves unknown incident timing, including an unknown-only feed',async t=>{
+ const {core}=fixture(t);
+ await core.snf.ingestReports([report('census',[{residentId:'synthetic-unknown',name:'Synthetic Unknown'}]),report('falls',[{residentId:'synthetic-unknown',location:'Synthetic site'}])]);
+ const sbar=dispatch(core,'sbarGenerate',{residentId:'synthetic-unknown'});
+ assert.equal(sbar.background.recentFalls.count,0);assert.equal(sbar.background.recentFalls.timingUnknownCount,1);
+ assert.match(sbar.adaptedCommunicationText,/Timing unknown: 1/);
+ assert.match(sbar.adaptedCommunicationText,/does not establish absence/);
+});

@@ -1,3 +1,4 @@
+import {openLocalAudio} from './local-audio-capture.mjs';
 // Local PCM recording only. No SpeechRecognition or network speech service.
 export function encodeWav(samples) {
   const bytes=new Uint8Array(44+samples.length*2),v=new DataView(bytes.buffer);
@@ -7,10 +8,10 @@ export function encodeWav(samples) {
   let raw='';for(let i=0;i<bytes.length;i+=8192)raw+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(raw);
 }
 export async function recordMeeting({signal,onChunk,onSave=async()=>{},onState,onError,speechOnly=false,onLevel=()=>{},mediaDevices=navigator.mediaDevices,AudioContextClass=window.AudioContext}) {
-  let stream,context,source,processor,stopped=false,buffer=new Float32Array(320000),length=0,queue=[],processing=false,finish;
+  let audioLease,stream,context,source,processor,stopped=false,buffer=new Float32Array(320000),length=0,queue=[],processing=false,finish;
   let voiced=0,quiet=0;
   const drained=new Promise(resolve=>finish=resolve);
-  const release=()=>{stream?.getTracks().forEach(t=>t.stop());processor?.disconnect();source?.disconnect();context?.close().catch(()=>{});};
+  const release=()=>{audioLease?.release();processor?.disconnect();source?.disconnect();context?.close().catch(()=>{});};
   const pump=async()=>{
     if(processing)return;processing=true;
     try{while(queue.length){const chunk=queue[0];const saved=await chunk.saved;if(saved.error)throw saved.error;await onChunk({chunkId:chunk.chunkId});queue.shift();}}
@@ -23,7 +24,8 @@ export async function recordMeeting({signal,onChunk,onSave=async()=>{},onState,o
   signal?.addEventListener('abort',abort,{once:true});
   try{
     if(signal?.aborted)throw Error('Recording cancelled.');
-    stream=await mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:false,autoGainControl:false}});
+    audioLease=await openLocalAudio({signal,purpose:speechOnly?'dictation':'meeting',mediaDevices,onRevoke:()=>stop(false),constraints:{audio:{channelCount:1,echoCancellation:true,noiseSuppression:false,autoGainControl:false},video:false}});
+    stream=audioLease.stream;
     if(stopped||signal?.aborted){release();throw Error('Recording cancelled.');}
     context=new AudioContextClass({sampleRate:16000});
     if(context.sampleRate!==16000)throw Error('This microphone cannot provide 16 kHz audio. Use another input device.');
@@ -37,7 +39,7 @@ export async function recordMeeting({signal,onChunk,onSave=async()=>{},onState,o
       for(let i=0;i<input.length;i++) {buffer[length++]=input[i];if(length===buffer.length){flush();if(queue.length>=3){onError(Error('Recording paused: transcription cannot keep up. Saved chunks will finish processing.'));stop();break;}}}
       if(speechOnly&&voiced>=4000&&quiet>=16000)flush();
     };
-    source.connect(processor);processor.connect(context.destination);await context.resume();onState('Recording locally');
+    source.connect(processor);processor.connect(context.destination);await context.resume();if(stopped||signal?.aborted){release();throw Error('Recording cancelled.');}onState('Recording locally');
     return {stop,drained};
   }catch(e){stop(false);throw e;}
 }
