@@ -1834,29 +1834,24 @@
     "temporaryBuildCleanup": "automatic approval blocked deletion; folders retained outside Git"
   },
   "nextSteps20261026": {
-    "task": 1,
-    "status": "local-verified-awaiting-exact-head-CI",
-    "baseMain": "74283cb03ccac2cb454497ce4f68ffe191108ff6",
-    "companionMain": "ed388c0e1f03f78a2f8eaaf1fff46f9b76bd80f8",
-    "regressions": 9,
-    "clinicalUITests": 8,
-    "hardeningPassed": 30,
-    "generalUIChecks": 42,
-    "actualElectronSyntheticAudio": true,
-    "physicalMicrophoneTested": false,
-    "installedAppChanged": false,
-    "wholeAppMeasurementsPending": true,
-    "remainingTasks": [
-      2,
-      3,
-      4,
-      5,
-      6
-    ],
-    "tests": {
-      "passed": 937,
+    "baseMain": "82605411e07160548d6fa2d7d33668407c3a3585",
+    "clinicalPR": 44,
+    "clinicalMerged": true,
+    "wholeAppMeasurement": "awaiting-Windows-UAC-consent-no-measurements",
+    "headlessBudget": "kept-1.5-GiB-after-repeat-pressure-abort",
+    "installedSpeedChecks": 18,
+    "installedSpeedViews": 20,
+    "installedSpeedActualSmallInference": true,
+    "desktopLocalTests": {
+      "passed": 938,
       "failed": 0,
       "skipped": 0
-    }
+    },
+    "hardeningPassed": 30,
+    "ciPolicyPassed": 19,
+    "companionPR": 18,
+    "physicalPhoneAcceptance": false,
+    "cleanup": "referenced-temporary-folder-pair-not-located-no-deletion",
+    "receiptContractCI": "pending"
   }
 }

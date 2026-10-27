@@ -362,6 +362,13 @@ class CompanionGateway {
       if (answer?.error) throw fail(answer.error.code);
       if (!answer?.text) throw fail('LOCAL_UNAVAILABLE');
       const response = {reply:answer.text,sessionId:session,requestId:data.requestId || null,processing:answer.processing ? {provider:answer.processing.provider,model:answer.processing.model,reason:answer.processing.reason,policyNotice:answer.processing.policyNotice} : null,incomplete:!!answer.incomplete};
+      // Optional additive receipt linkage. Never correlate by text: identical
+      // questions may have different request identities and privacy policies.
+      const userIndex = result.chat.messages.length - 2, answerIndex = userIndex + 1;
+      if (result.chat.messages[userIndex]?.role === 'user' && answer.role === 'assistant') {
+        response.userMessageId = this.historyMessageId(result.chat, userIndex);
+        response.assistantMessageId = this.historyMessageId(result.chat, answerIndex);
+      }
       if (requestKey) this.core.store.put('companion_request',requestKey,{inputHash,chatId:saved.chatId,response,expires},{expires});
       return response;
     } finally { clearTimeout(timeout); res.removeListener('close',disconnected); this.active.delete(sessionKey); }
@@ -386,6 +393,7 @@ class CompanionGateway {
     const conversations = [...rows.values()].sort((a,b)=>b.updated-a.updated);
     return {conversations:conversations.slice(0,100),truncated:conversations.length>100};
   }
+  historyMessageId(chat,index) { return captures.stableId(chat.id+'|'+index+'|'+(chat.messages[index].time || 0)); }
   history(device,data) {
     if (Object.keys(data).length!==1 || !allowedId(data.sessionId)) throw httpError('INVALID',400);
     const session = data.sessionId;
@@ -397,7 +405,7 @@ class CompanionGateway {
       const m = chat.messages[i], body = String(m.text || '');
       if (body.length>remaining) break;
       remaining -= body.length;
-      messages.unshift({id:captures.stableId(chat.id+'|'+i+'|'+(m.time || 0)),role:m.role,text:body,created:m.time || null,...(m.error?{error:m.error}:{}),processing:m.processing?{provider:m.processing.provider,model:m.processing.model,reason:m.processing.reason}:null});
+      messages.unshift({id:this.historyMessageId(chat,i),role:m.role,text:body,created:m.time || null,...(m.error?{error:m.error}:{}),processing:m.processing?{provider:m.processing.provider,model:m.processing.model,reason:m.processing.reason}:null});
     }
     return {sessionId:session,title:chat.title,updated:chat.updated,messages,truncated:messages.length<chat.messages.length};
   }

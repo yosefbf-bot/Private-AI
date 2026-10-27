@@ -176,6 +176,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Actual assistant UI acceptance failed.' }
           node tests/clinical-ui-check.cjs 2>&1 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'privateai-clinical-ui-tests.log')
           if ($LASTEXITCODE -ne 0) { throw 'Clinical UI safety acceptance failed.' }
+            node tests/hardening-ui-check.cjs 2>&1 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'privateai-hardening-ui-tests.log')
+            if ($LASTEXITCODE -ne 0) { throw 'Development boundary and hardening UI acceptance failed.' }
       - name: Build the real installer and freeze candidate hashes
         shell: pwsh
         run: |
