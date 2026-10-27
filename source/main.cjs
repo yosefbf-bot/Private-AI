@@ -507,6 +507,8 @@ async function dispatch(
       if (native) result.chat = compactChat(result.chat);
       return result;
     }
+    case "queueChatWhenMemoryFree":
+      return core.queueChatWhenMemoryFree(data);
     case "stop":
       return core.stop(data.id);
     case "liveSession":

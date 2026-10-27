@@ -17,6 +17,22 @@ function floorTier(prompt,messages){
 }
 function fits(s,messages,options){try{localInput(s,messages,options);return true;}catch(e){if(e.code==='LOCAL_CONTEXT')return false;throw e;}}
 function excerpt(text,max=160){let result='';for(const c of text){if(Buffer.byteLength(result+c)>max)break;result+=c;}return result;}
+function prepareMemoryWait(router,s,messages,options){
+ const manager=router.core.modelManager;if(!manager||/^\s*\//.test(userText(messages)))return null;
+ const rows=manager.catalog(s).filter(r=>r.installed),mode=s.localTier||'auto';
+ let row;
+ if(mode==='selected')row=rows.find(r=>r.file===s.localModelPath);
+ else if(mode!=='auto')row=rows.find(r=>r.tier===mode);
+ else{
+  const cap=s.localMaxTier?ORDER.indexOf(s.localMaxTier):ORDER.indexOf(getRAMProfile({freeBytes:router.core.resources.memory()}).tierCap),desired=floorTier(options.taskPrompt??userText(messages),messages);
+  row=rows.find(r=>r.tier===ORDER[Math.min(cap,desired)]);
+  const warm=router.warmTier;if(s.keepBrainMinutes>0&&warm&&Date.now()-warm.time<s.keepBrainMinutes*60000&&ORDER.indexOf(warm.tier)<=cap&&ORDER.indexOf(warm.tier)>=desired&&router.local.state==='ready')row=rows.find(r=>r.tier===warm.tier&&r.file===router.local.activeSettings?.localModelPath)||row;
+ }
+ if(!row)return null;
+ const opts={instructions:(options.instructions||'')+'\n'+ANSWER_SCHEMA},settings={...s,localModelPath:row.file};
+ const selected=mode==='auto'?contextCandidates(settings).find(c=>c.localContext>c.localMaxOutput+256&&fits(c,messages,opts)):fits(settings,messages,opts)?settings:null;
+ return selected?{settings:selected,messages,instructions:opts.instructions,tier:row.tier,model:row.name,omitted:options.omitted||0}:null;
+}
 async function generateTiers(router,s,messages,options,evaluate){
  const core=router.core,manager=core.modelManager,local=router.local,resources=core.resources;
  const mode=s.localTier||'auto',ram=getRAMProfile({freeBytes:resources?.memory?.()});
@@ -47,7 +63,19 @@ async function generateTiers(router,s,messages,options,evaluate){
    if(before!==undefined)core.stability?.observe(row.tier,settings.localContext,Math.max(0,before-resources.memory()));
    tokens+=r.localTokens||0;return r;
   };
-  const r=resources?await resources.withAI(invoke,{localSettings:settings,waitForMemory:false,allowContextReduction:mode==='auto',contextFits:candidate=>fits(candidate,msg,opts)}):await invoke();
+  let r;
+  try{r=resources?await resources.withAI(invoke,{localSettings:settings,waitForMemory:!!options.waitForLocalMemory,allowContextReduction:mode==='auto',contextFits:candidate=>fits(candidate,msg,opts)}):await invoke();}
+  catch(e){
+   if(e.localAdmission){
+    if(assessment){
+     // Triage is not the answer. If it cannot start, pin the complete request
+     // to the rule-selected answer brain rather than replaying the excerpt.
+     const candidate=prepareMemoryWait(router,s,messages,options);
+     if(candidate){const error=resources.localMemoryFailure(candidate.settings);Object.defineProperty(error,'localWait',{value:candidate});throw error;}
+     Object.defineProperty(e,'localAssessment',{value:true});
+    }else Object.defineProperty(e,'localWait',{value:{settings:e.localAdmission,messages:msg,instructions:opts.instructions,tier:row.tier,model:row.name,omitted:opts.omitted||0}});
+   }throw e;
+  }
   route.attempts.push({tier:row.tier,phase:assessment?'assessment':'answer',status:'completed',contextTokens:settings.localContext});return {...r,localContextTokens:settings.localContext};
  }
  function note(row,e,phase){if(e.code==='CANCELLED'||options.signal?.aborted)throw fail('CANCELLED');route.attempts.push({tier:row.tier,phase,status:'skipped',code:['LOW_MEMORY','LOCAL_CONTEXT','LOCAL_FILE_MISSING','LOCAL_MODEL','BUSY'].includes(e.code)?e.code:'LOCAL_UNAVAILABLE'});}
@@ -59,7 +87,7 @@ async function generateTiers(router,s,messages,options,evaluate){
   const warm=router.warmTier;
   if(s.keepBrainMinutes>0&&warm&&Date.now()-warm.time<s.keepBrainMinutes*60000&&ORDER.indexOf(warm.tier)<=cap&&local.state==='ready'){
    const row=available.find(t=>t.tier===warm.tier&&t.file===local.activeSettings?.localModelPath);
-   if(row&&ORDER.indexOf(row.tier)>=desired){route.recommendedTier=ORDER[desired];try{const result=await run(row,messages,fullOptions);route.notice='Reused the loaded brain under your follow-up setting.';return finish(result,row.tier);}catch(e){note(row,e,'answer');}}
+   if(row&&ORDER.indexOf(row.tier)>=desired){route.recommendedTier=ORDER[desired];try{const result=await run(row,messages,fullOptions);route.notice='Reused the loaded brain under your follow-up setting.';return finish(result,row.tier);}catch(e){note(row,e,'answer');if(e.code==='LOW_MEMORY'&&options.preserveLocalModel)throw e;}}
   }
   const small=available.find(t=>t.tier==='small');
   if(small&&!(desired>0&&desired>=cap)){
@@ -81,7 +109,7 @@ async function generateTiers(router,s,messages,options,evaluate){
      if(parsed?.uncertainties?.length)desired=Math.max(desired,2);
      if(references(messages)&&evaluate(r.text,references(messages),!options.omitted&&!r.incomplete).reliability.score<70)desired=Math.max(desired,2);
     }
-   }catch(e){note(small,e,'assessment');desired=Math.max(desired,1);}
+   }catch(e){note(small,e,'assessment');if(e.code==='LOW_MEMORY'&&options.preserveLocalModel)throw e;desired=Math.max(desired,1);}
   }else if(!small)route.notice='Small is not installed; local task rules selected the starting tier.';
   route.recommendedTier=ORDER[desired];
   const target=Math.min(desired,cap);
@@ -98,7 +126,7 @@ async function generateTiers(router,s,messages,options,evaluate){
     const result=await run(row,messages,fullOptions);
     if(rank<desired)route.notice='A larger tier was recommended but was capped, unavailable, or did not fit. Review this smaller-model response.';
     return finish(result,row.tier);
-   }catch(e){last=e;if(e.code==='LOW_MEMORY')memoryBlocked.push(row);note(row,e,'answer');}
+   }catch(e){last=e;if(e.code==='LOW_MEMORY')memoryBlocked.push(row);note(row,e,'answer');if(e.code==='LOW_MEMORY'&&options.preserveLocalModel){e.routing=route;e.localTokens=tokens;throw e;}}
   }
   if(calls<2&&memoryBlocked.length&&resources?.isBackground()){
    const row=memoryBlocked.sort((a,b)=>a.bytes-b.bytes)[0];
@@ -115,4 +143,4 @@ async function generateTiers(router,s,messages,options,evaluate){
   last.routing=route;last.localTokens=tokens;throw last;
  }finally{if(router.tierStatus?.phase!=='complete')router.tierStatus={phase:'waiting',tier:null};}
 }
-module.exports={generateTiers,floorTier,ORDER,ANSWER_SCHEMA};
+module.exports={generateTiers,floorTier,ORDER,ANSWER_SCHEMA,prepareMemoryWait};

@@ -395,6 +395,21 @@ function autoResizePrompt() {
   const h = Math.min(Math.max(p.scrollHeight, 44), 220);
   p.style.height = `${h}px`;
 }
+function memoryWaitHTML(m,index){
+  const wait=m.memoryWait;if(!wait)return '';
+  const ram=m.error?.ram,need=ram?`Estimated ${(ram.requiredBytes/1024**3).toFixed(1)} GiB needed; ${(ram.availableBytes/1024**3).toFixed(1)} GiB was free. `:'';
+  if(wait.state==='offered')return `<div class="error-note">${esc(need)}${chat?.temporary?'Your original message remains in this temporary chat while it is open.':'Your original message is saved.'} Wait for RAM using ${esc(wait.model)} with the same supplied input.<div class="button-row"><button data-act="ram-wait" data-index="${index}">Run when memory is free</button></div></div>`;
+  if(['waiting','paused','running'].includes(wait.state))return `<div class="error-note" role="status">${wait.state==='running'?'Running the original local request':'Waiting for RAM or the next safe background boundary'} · ${esc(wait.model)}<div class="button-row"><button data-act="ram-cancel">Cancel waiting request</button></div></div>`;
+  if(wait.state==='interrupted')return '<div class="error-note">This wait is no longer available. Check the original message and current settings, then retry explicitly when ready.</div>';
+  return '';
+}
+let ramRefreshPending=false,ramRefreshAgain=false;
+function refreshMemoryWaitChat(){
+  if(view!=='chat'||!chat||sending||!['offered','waiting','paused','running'].includes(chat.messages.at(-1)?.memoryWait?.state))return;
+  if(ramRefreshPending){ramRefreshAgain=true;return;}
+  ramRefreshPending=true;const id=chat.id,ticket=pageGeneration;
+  api('chat',{id}).then(next=>{if(view==='chat'&&chat?.id===id&&pageGeneration===ticket){chat=next;renderChat();}}).catch(()=>{}).finally(()=>{ramRefreshPending=false;if(ramRefreshAgain){ramRefreshAgain=false;refreshMemoryWaitChat();}});
+}
 function renderChat() {
   pageGeneration++;
   clearTimeout(workerPoll);
@@ -419,7 +434,7 @@ function renderChat() {
     chat.messages
       .map(
         (m, i) =>
-          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon-display.png" data-original="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration advanced-only ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body, {streaming:sending && i === chat.messages.length - 1})}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${m.processing?.policyNotice ? `<div class="error-note">${esc(m.processing.policyNotice)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="response-checks" aria-label="Answer checks">${responseChecks(m.processing).map(label=>`<span class="pill">${esc(label)}</span>`).join(" ")}</div><details class="response-details"><summary>Details</summary><div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div></details>` : ""}${m.usage ? `<details class="response-details"><summary>Token usage</summary><div class="usage">${(m.usage.inputTokens?.toLocaleString() ?? 'unknown')} input · ${(m.usage.outputTokens?.toLocaleString() ?? 'unknown')} output tokens</div></details>` : ""}</article>`,
+          `<article class="message ${m.role}" data-index="${i}">${m.role === "assistant" ? `<div class="message-label"><img src="icon-display.png" data-original="icon.png" alt="">Private AI${m.durationMs ? `<span class="message-duration advanced-only ${m.durationMs < 2000 ? 'fast' : m.durationMs < 5000 ? 'moderate' : 'extended'}" title="Response completed in ${(m.durationMs / 1000).toFixed(1)}s">⏱ ${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}</div>` : ""}<div class="message-body">${m.role === "user" ? esc(m.text) : md(responseLayout(m.text).body, {streaming:sending && i === chat.messages.length - 1})}</div>${m.role === "assistant" && responseLayout(m.text).footnotes.length ? `<footer class="response-footnotes" aria-label="Response notes">${responseLayout(m.text).footnotes.map(note=>`<div>${esc(note)}</div>`).join("")}</footer>` : ""}${m.page ? '<span class="pill">Page included by request</span>' : ""}${m.fileIds?.length ? `<span class="pill">${m.fileIds.length} attached file(s)</span>` : ""}${m.error && !['offered','waiting','paused','running'].includes(m.memoryWait?.state) ? `<div class="error-note">${esc(m.error.message)}</div>` : ""}${memoryWaitHTML(m,i)}${m.processing?.policyNotice ? `<div class="error-note">${esc(m.processing.policyNotice)}</div>` : ""}${m.incomplete ? '<div class="error-note">The response reached the output limit. Ask to continue, or increase the limit in Settings.</div>' : ""}<div class="message-actions">${m.role === "user" ? `<button data-act="edit" data-index="${i}">Edit</button>` : `<button data-act="copy" data-index="${i}">Copy</button><select aria-label="Save response as" data-export="${i}">${formatOptions}</select>${i === chat.messages.length - 1 ? '<button data-act="regenerate">Regenerate</button>' : ""}`}</div>${m.processing ? `<div class="response-checks" aria-label="Answer checks">${responseChecks(m.processing).map(label=>`<span class="pill">${esc(label)}</span>`).join(" ")}</div><details class="response-details"><summary>Details</summary><div class="usage">${esc(m.processing.provider)} · ${esc(m.processing.model)}${m.durationMs ? ` · ⏱ ${(m.durationMs / 1000).toFixed(1)}s` : ''} · Evidence checks: ${esc(m.processing.reliability?.label||"not independently verified")} · API ${m.processing.meter?.estimatedCost===null?"cost unknown":"$"+(m.processing.meter?.estimatedCost||0).toFixed(5)}<details><summary>Evidence checks and routing</summary>${esc(m.processing.reason?.replaceAll("_"," "))}<br>${esc(m.processing.reliability?.reasons?.join(" ")||"")}</details></div></details>` : ""}${m.usage ? `<details class="response-details"><summary>Token usage</summary><div class="usage">${(m.usage.inputTokens?.toLocaleString() ?? 'unknown')} input · ${(m.usage.outputTokens?.toLocaleString() ?? 'unknown')} output tokens</div></details>` : ""}</article>`,
       )
       .join("") +
     "</div>";
@@ -508,6 +523,7 @@ async function attach() {
   await refresh();
 }
 async function send(regenerate = false) {
+  if(['waiting','paused','running'].includes(chat?.messages.at(-1)?.memoryWait?.state)){toast('Cancel the waiting request before sending another message in this chat.');return;}
   if (sending) return;
   const prompt = $("prompt").value.trim();
   if (!regenerate && !prompt) return;
@@ -552,9 +568,9 @@ async function send(regenerate = false) {
     $("task-forward").value = "default";
     const result = await api("send", args);
     chat = result.chat;
-    sent = true;
+    sent = !result.chat.messages.at(-1)?.error;
     const lastMsg = chat?.messages?.at(-1);
-    if (lastMsg && lastMsg.role === "assistant" && !lastMsg.durationMs) {
+    if (lastMsg && lastMsg.role === "assistant" && !lastMsg.durationMs && !lastMsg.error) {
       lastMsg.durationMs = Date.now() - sendStart;
     }
     if (result.omitted)
@@ -636,6 +652,7 @@ window.privateAI.onEvent((event) => {
   } else if (event.type === "locked") showLocked();
   else if (event.type === "unlocked") init();
   else if (event.type === "jobs_changed") {
+    refreshMemoryWaitChat();
     requestLiveRefresh();
   }
 });
@@ -2139,6 +2156,14 @@ document.addEventListener("click", async (e) => {
         await api("copy", { text: chat.messages[Number(index)].text });
         toast("Copied.");
         break;
+      case "ram-wait": {
+        if(!chat||sending)break;const id=chat.id,token=chat.messages[Number(index)]?.memoryWait?.token;if(!token)break;
+        try{await api('queueChatWhenMemoryFree',{chatId:id,token});}catch(error){try{const next=await api('chat',{id});if(view==='chat'&&chat?.id===id){chat=next;renderChat();}}catch{}throw error;}const next=await api('chat',{id});
+        if(view==='chat'&&chat?.id===id){chat=next;renderChat();toast('Queued locally with the same brain and supplied input. Locking or closing the app ends the wait.');}break;
+      }
+      case "ram-cancel": {
+        if(!chat)break;const id=chat.id;await api('stop',{id});const next=await api('chat',{id});if(view==='chat'&&chat?.id===id){chat=next;renderChat();}break;
+      }
       case "regenerate":
         await send(true);
         break;

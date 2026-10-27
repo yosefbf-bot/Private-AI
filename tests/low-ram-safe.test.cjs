@@ -9,8 +9,8 @@ function engine(t,{mode='balanced',free=8*GIB,keepBrainMinutes=0}={}){
  const brain=new LocalBrain({runtime:'/synthetic-engine',settings:()=>settings,memory:()=>free,spawnProcess:(exe,args)=>{launches.push(args);const c=new EventEmitter();c.exitCode=null;c.signalCode=null;c.kill=()=>{c.signalCode='SIGTERM';c.emit('exit',null,'SIGTERM');};return c;},fetcher:async(url,opts)=>{if(url.endsWith('/health'))return {ok:true};requests.push(JSON.parse(opts.body));return {ok:true,json:async()=>({choices:[{message:{content:'Synthetic answer'},finish_reason:'stop'}],usage:{prompt_tokens:20,completion_tokens:3}})};}});
  brain.validate=()=>1282439584;brain.port=async()=>12345;t.after(()=>brain.close());return {brain,settings,launches,requests};
 }
-test('balanced inference uses smaller batches with the exact same model, context, output budget and input',async t=>{
- const {brain,settings,launches,requests}=engine(t),input='Synthetic full input. '.repeat(40);
+test('balanced inference under pressure uses smaller batches with the exact same model, context, output budget and input',async t=>{
+ const {brain,settings,launches,requests}=engine(t,{free:3.5*GIB}),input='Synthetic full input. '.repeat(40);
  await brain.generate(settings,[{role:'user',content:input}]);
  const args=launches[0],value=flag=>args[args.indexOf(flag)+1];
  assert.equal(value('--batch-size'),'64');assert.equal(value('--ubatch-size'),'32');
@@ -19,6 +19,9 @@ test('balanced inference uses smaller batches with the exact same model, context
 });
 test('performance mode retains the existing standard batches',async t=>{
  const {brain,settings,launches}=engine(t,{mode:'performance'});await brain.load(settings);const args=launches[0];assert.equal(args[args.indexOf('--batch-size')+1],'128');assert.equal(args[args.indexOf('--ubatch-size')+1],'64');
+});
+test('balanced inference retains standard batches when RAM is comfortable',async t=>{
+ const {brain,settings,launches}=engine(t);await brain.load(settings);const args=launches[0];assert.equal(args[args.indexOf('--batch-size')+1],'128');assert.equal(args[args.indexOf('--ubatch-size')+1],'64');
 });
 test('inactive balanced model is unloaded after a short grace period when RAM is tight',async t=>{
  const {brain,settings}=engine(t);await brain.load(settings);brain.memory=()=>2*GIB;brain.lastUsed=Date.now()-35000;brain.maintain();assert.equal(brain.child,null);assert.equal(brain.state,'unloaded');assert.equal(settings.localIdleMinutes,5);

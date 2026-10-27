@@ -200,6 +200,8 @@ async function dispatch(op, data = {}) {
       return await core.send(data, (delta) =>
         emit({ type: "delta", chatId: data.chatId, delta })
       );
+    case "queueChatWhenMemoryFree":
+      return core.queueChatWhenMemoryFree(data);
     case "stop":
       return core.stop(data.id);
     case "exportChat": {
