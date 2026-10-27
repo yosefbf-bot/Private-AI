@@ -1,9 +1,11 @@
+import {createPageLifetime} from './page-lifetime.mjs';
 import {updateUniversalAlertBar} from "./alert-bar.mjs";
 // SNF Command Center & Clinical Surveillance UI Module
 // Strictly read-only surveillance with persistent alert management
 // Pipeline: Normalized clinical imports → Medication Change Detector → Psych Watch → Persistent Alert Center → Morning Brief
 
 export function createSNFUI({ api, toast, esc, renderPage }) {
+  const lifetime=createPageLifetime(api,toast);
   let generation=0;
   let activeTab = 'medchanges'; // 'feeds' | 'medchanges' | 'psychwatch' | 'alerts' | 'brief' | 'qm' | 'issues' | 'resident'
   let alertSeverityFilter = 'unresolved'; // 'unresolved' | 'critical' | 'high' | 'review' | 'all'
@@ -50,6 +52,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
   async function render(container,options={}) {
     const ticket=++generation;
+    lifetime.start(container);
     container.innerHTML = `<div class="page snf-page"><div class="snf-loading">Loading SNF Clinical Surveillance Center…</div></div>`;
     await loadData(ticket);
     if(ticket!==generation||!container.isConnected)return;
@@ -61,7 +64,21 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     if(ticket===generation&&container.isConnected)renderHTML(container);
   }
 
+  function matchingAlerts(){
+    const q=alertSearchQuery.trim().toLowerCase();
+    return currentAlerts.filter(a=>{
+      if(alertSeverityFilter!=='all'&&a.status==='resolved')return false;
+      if(['critical','high'].includes(alertSeverityFilter)&&a.severity!==alertSeverityFilter)return false;
+      if(alertSeverityFilter==='review'&&!['medium','review'].includes(a.severity))return false;
+      return !q||['id','residentName','title','description','message','ruleCode','code'].some(k=>typeof a[k]==='string'&&a[k].toLowerCase().includes(q));
+    });
+  }
+  function alertResults(alerts){
+    return alerts.length?alerts.map(a=>renderAlertCard(a)).join(''):'<div class="snf-empty-card"><h3>No alerts match these filters</h3><p>Change the filters or search. This does not establish absence of clinical concerns or complete monitoring.</p></div>';
+  }
+
   function renderHTML(container) {
+    if(!lifetime.current(container))return;
     if (!currentMetrics) {
       container.innerHTML = `<div class="page snf-page"><div class="snf-error">Surveillance engine initializing or unavailable.</div></div>`;
       return;
@@ -73,30 +90,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
     const alertSum = m.alerts;
     if(activeTab==='feeds'&&!fs.monitoringEnabled)activeTab='medchanges';
 
-    // Filter alerts
-    let filteredAlerts = [...currentAlerts];
-    if (alertSeverityFilter === 'unresolved') {
-      filteredAlerts = filteredAlerts.filter(a => a.status !== 'resolved');
-    } else if (alertSeverityFilter === 'critical') {
-      filteredAlerts = filteredAlerts.filter(a => a.severity === 'critical' && a.status !== 'resolved');
-    } else if (alertSeverityFilter === 'high') {
-      filteredAlerts = filteredAlerts.filter(a => a.severity === 'high' && a.status !== 'resolved');
-    } else if (alertSeverityFilter === 'review') {
-      filteredAlerts = filteredAlerts.filter(a => a.severity === 'medium' && a.status !== 'resolved');
-    }
-
-    if (alertSearchQuery.trim()) {
-      const q = alertSearchQuery.toLowerCase();
-      filteredAlerts = filteredAlerts.filter(a =>
-        (typeof a.id==='string' && a.id.toLowerCase()===q) ||
-        (a.residentName && a.residentName.toLowerCase().includes(q)) ||
-        (a.title && a.title.toLowerCase().includes(q)) ||
-        (a.description && a.description.toLowerCase().includes(q)) ||
-        (a.message && a.message.toLowerCase().includes(q)) ||
-        (a.ruleCode && a.ruleCode.toLowerCase().includes(q)) ||
-        (a.code && a.code.toLowerCase().includes(q))
-      );
-    }
+    const filteredAlerts = matchingAlerts();
 
     container.innerHTML = `
       <div class="page snf-page">
@@ -694,16 +688,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
           </div>
         </div>
 
-        ${alerts.length === 0 ? `
-          <div class="snf-empty-card">
-            <h3>No alerts matching the selected criteria</h3>
-            <p>All clinical surveillance items in this view are resolved or none were detected.</p>
-          </div>
-        ` : `
-          <div class="alerts-list">
-            ${alerts.map(a => renderAlertCard(a)).join('')}
-          </div>
-        `}
+        <div class="alerts-list">${alertResults(alerts)}</div>
       </div>
     `;
   }
@@ -1168,6 +1153,8 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
   // EVENT BINDINGS
   // ==========================================
   function bindEvents(container) {
+    const {api,toast,active}=lifetime.scope(container);
+    const ticket=generation;
     // Pipeline stepper clicks
     container.querySelectorAll('[data-nav]').forEach(el => {
       el.addEventListener('click', async () => {
@@ -1229,23 +1216,9 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
       alertSearch.addEventListener('input', (e) => {
         alertSearchQuery = e.target.value;
         const alertsList = container.querySelector('.alerts-list');
-        const filtered = currentAlerts.filter(a => {
-          if (alertSeverityFilter === 'unresolved' && a.status === 'resolved') return false;
-          if (alertSeverityFilter === 'critical' && (a.severity !== 'critical' || a.status === 'resolved')) return false;
-          if (alertSeverityFilter === 'high' && (a.severity !== 'high' || a.status === 'resolved')) return false;
-          if (alertSeverityFilter === 'review' && (a.severity !== 'review' || a.status === 'resolved')) return false;
-          const q = alertSearchQuery.toLowerCase();
-          return !q ||
-            (typeof a.id==='string' && a.id.toLowerCase()===q) ||
-        (a.residentName && a.residentName.toLowerCase().includes(q)) ||
-            (a.title && a.title.toLowerCase().includes(q)) ||
-            (a.description && a.description.toLowerCase().includes(q)) ||
-            (a.message && a.message.toLowerCase().includes(q)) ||
-            (a.ruleCode && a.ruleCode.toLowerCase().includes(q)) ||
-            (a.code && a.code.toLowerCase().includes(q));
-        });
+        const filtered = matchingAlerts();
         if (alertsList) {
-          alertsList.innerHTML = filtered.map(a => renderAlertCard(a)).join('');
+          alertsList.innerHTML = alertResults(filtered);
           bindCardEvents(container);
         }
       });
@@ -1258,9 +1231,11 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
         btnRunRules.disabled = true;
         btnRunRules.textContent = 'Running Rules Engine…';
         try {
-          await api('snfRunRules', { user: 'Nurse Clinician' });
+          await api('snfRunRules', { user: undefined });
           toast('Surveillance rules re-evaluated across the imported clinical records.');
-          await loadData();
+          if(!active())return;
+          await loadData(ticket);
+          if(!active())return;
           renderHTML(container);
         } catch (e) {
           toast('Error running rules: ' + e.message);
@@ -1366,7 +1341,9 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
           const res = await api('snfRetentionCleanup');
           const total = res.total || 0;
           toast(`Retention cleanup complete: pruned ${total} expired record(s) (>100d).`);
-          await loadData();
+          if(!active())return;
+          await loadData(ticket);
+          if(!active())return;
           renderHTML(container);
         } catch (e) {
           toast('Cleanup failed: ' + e.message);
@@ -1450,14 +1427,18 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
   }
 
   function bindCardEvents(container) {
+    const {api,toast,active}=lifetime.scope(container);
+    const ticket=generation;
     // Acknowledge buttons
     container.querySelectorAll('[data-act="ack-alert"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         try {
-          await api('snfAcknowledgeAlert', { alertId: id, user: 'Nurse Clinician' });
+          await api('snfAcknowledgeAlert', { alertId: id, user: undefined });
           toast('Alert acknowledged.');
-          await loadData();
+          if(!active())return;
+          await loadData(ticket);
+          if(!active())return;
           renderHTML(container);
         } catch (e) {
           toast('Failed to acknowledge alert: ' + e.message);
@@ -1489,10 +1470,12 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
         const assignee = container.querySelector(`#assign-select-${id}`)?.value;
         const note = container.querySelector(`#assign-note-${id}`)?.value || '';
         try {
-          await api('snfAssignAlert', { alertId: id, assignedTo: assignee, note, user: 'Nurse Clinician' });
+          await api('snfAssignAlert', { alertId: id, assignedTo: assignee, note, user: undefined });
           toast(`Alert assigned to ${assignee}.`);
           assigningAlertId = null;
-          await loadData();
+          if(!active())return;
+          await loadData(ticket);
+          if(!active())return;
           renderHTML(container);
         } catch (e) {
           toast('Failed to assign alert: ' + e.message);
@@ -1528,10 +1511,12 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
           return;
         }
         try {
-          await api('snfResolveAlert', { alertId: id, resolutionStatus: status, note, user: 'Nurse Clinician' });
+          await api('snfResolveAlert', { alertId: id, resolutionStatus: status, note, user: undefined });
           toast('Alert resolved and audited.');
           resolvingAlertId = null;
-          await loadData();
+          if(!active())return;
+          await loadData(ticket);
+          if(!active())return;
           renderHTML(container);
         } catch (e) {
           toast('Failed to resolve alert: ' + e.message);
@@ -1541,6 +1526,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
   }
 
   async function doResidentSearch(query, container) {
+    const {api,toast}=lifetime.scope(container);
     if (!query?.trim()) return;
     try {
       const res = await api('snfResidentTimeline', { query: query.trim() });
@@ -1582,7 +1568,7 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
 
   return {
     render,
-    stop(){generation++;},
+    stop(){generation++;lifetime.stop();currentMetrics=null;currentAlerts=[];currentIssues=[];currentMedChanges=[];currentPsychWatch={};currentResidentTimeline=currentBrief='';},
     updateUniversalAlertBar,
     refresh: loadData
   };

@@ -1,3 +1,4 @@
+import { createPageLifetime } from './page-lifetime.mjs';
 import { captureSpeakerSample } from './speaker-capture.mjs';
 import { browserSpeechAllowed } from './speech-policy.mjs';
 import { createOperationsAnalyticsUI } from './operations-analytics.mjs';
@@ -8,6 +9,8 @@ import { createOperationsAnalyticsUI } from './operations-analytics.mjs';
 
 export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage, getState = () => null }) {
   // Navigation tabs: 'operations' | 'copilot' | 'speaker_review' | 'sbar' | 'handoff' | 'protocols' | 'history'
+  const lifetime=createPageLifetime(api,toast);
+  let sbarDirty=false;
   let activeTab = 'operations';
   let captureController = null, captureDialog = null, pendingAcoustic = null, capturePolicy = null;
   let activeMeeting = null; // Current live or selected meeting
@@ -62,6 +65,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
   return {
     async render(container, options = {}) {
+      const {api,toast,active}=lifetime.start(container);
+      sbarDirty=false;
       currentOptions = options;
       if (options.tab) activeTab = options.tab;
       if (options.alertId || options.residentName) {
@@ -114,6 +119,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         activeMeeting = meetingHistory.find(m => m.id === activeMeeting?.id) || meetingHistory.find(m => m.status === 'live') || null;
         activeSbar = sbarList.find(s => s.id === activeSbar?.id) || sbarList[0] || null;
       } catch (err) {
+        if(!active())return;
         container.innerHTML = `
           <div class="ops-page">
             <div class="ops-error-banner" role="alert">
@@ -130,6 +136,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
     },
 
     renderFullView(container) {
+      if(!lifetime.current(container))return;
       const ops = opsData || {};
       const census = ops.census || {payerMix: {}};
       const surv = ops.surveillance || { criticalAlertsCount: 0, highAlertsCount: 0, fallAlerts24h: 0, fallAlerts7d: 0, activeWoundAlerts: 0, activeInfectionAlerts: 0, activePsychAlerts: 0 };
@@ -715,11 +722,11 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               </button>
               ${s && s.status !== 'finalized' ? '<button type="button" class="ops-btn ops-btn-primary" id="ops-save-sbar-btn">Save Draft</button>' : ''}
               ${s && s.status === 'draft' ? `
-                <button type="button" class="ops-btn ops-btn-secondary" id="ops-review-sbar-btn">
+                <button type="button" class="ops-btn ops-btn-secondary" id="ops-review-sbar-btn" ${sbarDirty?'disabled':''}>
                   ✓ Mark Clinician Reviewed
                 </button>
               ` : s && s.status === 'reviewed' ? `
-                <button type="button" class="ops-btn ops-btn-sm ops-btn-danger" id="ops-finalize-sbar-btn">
+                <button type="button" class="ops-btn ops-btn-sm ops-btn-danger" id="ops-finalize-sbar-btn" ${sbarDirty?'disabled':''}>
                   🔒 Finalize SBAR
                 </button>
               ` : ''}
@@ -984,7 +991,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                   <button type="button" class="ops-btn ops-btn-sm ops-btn-primary" id="ops-copy-adapted-btn">📋 Copy Communication</button>
                 </div>
               </div>
-              <textarea class="ops-textarea ops-adapted-text" id="ops-adapted-text" rows="8">${esc(s.adaptedCommunicationText || '')}</textarea>
+              <textarea class="ops-textarea ops-adapted-text" id="ops-adapted-text" rows="8" readonly>${esc(s.adaptedCommunicationText || '')}</textarea>
             </section>
 
             <!-- Notification Tracking & Audit Logger Strip -->
@@ -999,7 +1006,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
               <div class="ops-notification-form-grid">
                 <div class="ops-form-field">
                   <label for="ops-notify-recipient">Recipient Name:</label>
-                  <input type="text" id="ops-notify-recipient" class="ops-input-sm" value="Dr. Robert Smith (Attending)">
+                  <input type="text" id="ops-notify-recipient" class="ops-input-sm" value="" placeholder="Enter the actual recipient" required>
                 </div>
 
                 <div class="ops-form-field">
@@ -1068,6 +1075,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
     // -------------------------------------------------------------
     renderHandoffView(ops) {
       const h = shiftHandoffData;
+      const details=(row,fields)=>esc(fields.map(([label,key])=>`${label}: ${row[key] ?? 'Unknown'}`).join('; ')) + `<small> Source: ${esc(row.sourceReport || row.provenance?.reportType || 'Unknown')}; row ${esc(row.provenance?.rowId || row.originalRow || 'Unknown')}; occurrence ${esc(row.occurrenceTime || 'time unknown')}; report date ${esc(row.reportDate || 'Unknown')}</small>`;
 
       return `
         <div class="ops-handoff-container">
@@ -1098,7 +1106,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 <p>Click <strong>"Generate Handoff Report"</strong> to assemble today's 12-section shift continuity briefing from live records.</p>
               </div>
             ` : `
-              <div class="ops-handoff-12grid">
+              <p class="help">${esc(h.coverage?.notice || 'Incomplete imported evidence; missing facts remain unknown.')}</p><div class="ops-handoff-12grid">
                 <!-- 1. New / Changed Residents -->
                 <div class="ops-h12-card">
                   <h3 class="ops-h12-title">1. New / Changed Residents (${h.sections.newOrChangedResidents.length})</h3>
@@ -1133,7 +1141,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 <div class="ops-h12-card">
                   <h3 class="ops-h12-title">4. New Orders (${h.sections.newOrders.length})</h3>
                   <div class="ops-h12-body">
-                    ${h.sections.newOrders.length === 0 ? `<p class="ops-none">No new medication orders received on prior shift.</p>` : h.sections.newOrders.map(o => `
+                    ${h.sections.newOrders.length === 0 ? `<p class="ops-none">No matching records in available evidence; coverage may be incomplete.</p>` : h.sections.newOrders.map(o => `
                       <div class="ops-h12-item"><strong>${esc(o.name || o.medicationName)}</strong>: ${esc(o.directions || 'As ordered')}</div>
                     `).join('')}
                   </div>
@@ -1143,28 +1151,29 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 <div class="ops-h12-card">
                   <h3 class="ops-h12-title">5. Pending Labs / Diagnostics (${h.sections.pendingLabsTests.length})</h3>
                   <div class="ops-h12-body">
-                    ${h.sections.pendingLabsTests.length === 0 ? `<p class="ops-none">No pending stat labs awaiting callback.</p>` : h.sections.pendingLabsTests.map(l => `
-                      <div class="ops-h12-item">${esc(l.residentName)}: ${esc(l.message)}</div>
+                    ${h.sections.pendingLabsTests.length === 0 ? `<p class="ops-none">No matching records in available evidence; coverage may be incomplete.</p>` : h.sections.pendingLabsTests.map(l => `
+                      <div class="ops-h12-item">${esc(l.residentName)}: ${details(l,[['Test','testName'],['Result','result'],['Follow-up','followUpStatus']])}</div>
                     `).join('')}
                   </div>
                 </div>
 
                 <!-- 6. Falls / Incidents -->
                 <div class="ops-h12-card">
-                  <h3 class="ops-h12-title">6. Falls &amp; Incidents (24h) (${h.sections.fallsIncidents.length})</h3>
+                  <h3 class="ops-h12-title">6. Falls &amp; Incidents (confirmed timestamp within 24h) (${h.sections.fallsIncidents.length})</h3>
                   <div class="ops-h12-body">
-                    ${h.sections.fallsIncidents.length === 0 ? `<p class="ops-none">Zero falls reported in past 24 hours.</p>` : h.sections.fallsIncidents.map(f => `
-                      <div class="ops-h12-item text-warn"><strong>${esc(f.residentName)}</strong>: ${esc(f.message)}</div>
+                    ${h.sections.fallsIncidents.length === 0 ? `<p class="ops-none">No matching records in available evidence; coverage may be incomplete.</p>` : h.sections.fallsIncidents.map(f => `
+                      <div class="ops-h12-item text-warn"><strong>${esc(f.residentName)}</strong>: ${f.evidenceKind==='legacy_alert'?esc(f.message):details(f,[['Location','location'],['Injury','injuryLevel']])}</div>
                     `).join('')}
                   </div>
                 </div>
 
+                <div class="ops-h12-card"><h3>Incident timing unknown</h3><p>Date-only or missing occurrence times cannot be assigned to the 24-hour window.</p>${[...(h.sections.fallsTimingUnknown||[]),...(h.sections.transfersTimingUnknown||[])].map(r=>`<div>${esc(r.residentName)}: ${details(r,[['Location','location'],['Reason','reason']])}</div>`).join('')}</div>
                 <!-- 7. Hospital Transfers / Returns -->
                 <div class="ops-h12-card">
                   <h3 class="ops-h12-title">7. Hospital Transfers &amp; Returns (${h.sections.hospitalTransfersReturns.length})</h3>
                   <div class="ops-h12-body">
-                    ${h.sections.hospitalTransfersReturns.length === 0 ? `<p class="ops-none">No ER runs or transfers on prior shift.</p>` : h.sections.hospitalTransfersReturns.map(t => `
-                      <div class="ops-h12-item">${esc(t.residentName)}: ${esc(t.message)}</div>
+                    ${h.sections.hospitalTransfersReturns.length === 0 ? `<p class="ops-none">No matching records in available evidence; coverage may be incomplete.</p>` : h.sections.hospitalTransfersReturns.map(t => `
+                      <div class="ops-h12-item">${esc(t.residentName)}: ${details(t,[['Destination','hospital'],['Reason','reason']])}</div>
                     `).join('')}
                   </div>
                 </div>
@@ -1183,8 +1192,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
                 <div class="ops-h12-card">
                   <h3 class="ops-h12-title">9. Wounds &amp; Complex Skin Care (${h.sections.woundsSkin.length})</h3>
                   <div class="ops-h12-body">
-                    ${h.sections.woundsSkin.length === 0 ? `<p class="ops-none">No new stageable wounds.</p>` : h.sections.woundsSkin.map(w => `
-                      <div class="ops-h12-item">${esc(w.residentName)}: ${esc(w.message)}</div>
+                    ${h.sections.woundsSkin.length === 0 ? `<p class="ops-none">No matching records in available evidence; coverage may be incomplete.</p>` : h.sections.woundsSkin.map(w => `
+                      <div class="ops-h12-item">${esc(w.residentName)}: ${details(w,[['Site','site'],['Type','woundType'],['Stage','stage'],['Treatment','treatment']])}</div>
                     `).join('')}
                   </div>
                 </div>
@@ -1413,6 +1422,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
     // Event Wiring & Interactive Operations Handlers
     // -------------------------------------------------------------
     attachEvents(container) {
+      const {api,toast,active}=lifetime.scope(container);
       // Tab Switching
       container.querySelectorAll('[data-ops-tab]').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -1599,7 +1609,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
           if (item) {
             item.completed = e.currentTarget.checked;
             try {
-              await api('meetingSave', activeMeeting);
+              activeMeeting = await api('meetingSave', {id:activeMeeting.id,revision:activeMeeting.revision,agenda:activeMeeting.agenda});
             } catch (err) {
               console.error('Failed to save agenda state:', err);
             }
@@ -1623,7 +1633,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         });
 
         try {
-          await api('meetingSave', activeMeeting);
+          activeMeeting = await api('meetingSave', {id:activeMeeting.id,revision:activeMeeting.revision,agenda:activeMeeting.agenda});
           this.renderFullView(container);
           toast(`Added agenda item: "${newTitle}"`);
         } catch (err) {
@@ -1786,7 +1796,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       // -----------------------------------------------------------
       if (activeSbar && activeSbar.evidenceVersion !== 2) {
         container.querySelector('.ops-sbar-headline')?.insertAdjacentHTML('afterend', '<p role="alert">Legacy SBAR may contain sample clinical facts. Preserve for review and create a new draft from verified sources. Copying and sign-off are blocked.</p>');
-        for (const id of ['ops-save-sbar-btn','ops-review-sbar-btn','ops-finalize-sbar-btn','ops-copy-sbar-btn']) { const b=container.querySelector('#'+id); if(b)b.disabled=true; }
+        for (const id of ['ops-save-sbar-btn','ops-review-sbar-btn','ops-finalize-sbar-btn','ops-copy-sbar-btn','ops-copy-adapted-btn']) { const b=container.querySelector('#'+id); if(b)b.disabled=true; }
       }
       container.querySelector('#ops-toggle-sources-btn')?.addEventListener('click', () => {
         showSources = !showSources;
@@ -1794,6 +1804,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       });
 
       container.querySelector('#ops-sbar-target-sel')?.addEventListener('change', async (e) => {
+        if(sbarDirty){e.currentTarget.value=activeSbar.targetKey;toast('Save your edits before changing the communication target.');return;}
         const newTarget = e.currentTarget.value;
         if (!activeSbar) return;
         try {
@@ -1806,6 +1817,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       });
 
       container.querySelector('#ops-sbar-template-sel')?.addEventListener('change', async (e) => {
+        if(sbarDirty){toast('Save your edits before selecting another template.');return;}
         const tplKey = e.currentTarget.value;
         try {
           activeSbar = await api('sbarGenerate', {
@@ -1860,7 +1872,10 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
 
       const editFields = ['#sbar-edit-situation-concern', '#sbar-edit-clinician-notes'];
       editFields.forEach(selector => container.querySelector(selector)?.addEventListener('input', () => {
-        for (const id of ['ops-review-sbar-btn','ops-finalize-sbar-btn','ops-copy-sbar-btn']) {
+        sbarDirty=true;
+        activeSbar.situation={...activeSbar.situation,concern:container.querySelector('#sbar-edit-situation-concern')?.value || ''};
+        activeSbar.assessment={...activeSbar.assessment,clinicianNotes:container.querySelector('#sbar-edit-clinician-notes')?.value || ''};
+        for (const id of ['ops-review-sbar-btn','ops-finalize-sbar-btn','ops-copy-sbar-btn','ops-copy-adapted-btn']) {
           const button = container.querySelector('#' + id); if (button) button.disabled = true;
         }
         const save = container.querySelector('#ops-save-sbar-btn'); if (save) save.textContent = 'Save Changes (review required)';
@@ -1871,16 +1886,18 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
           activeSbar = await api('sbarSave', {
             id: activeSbar.id,
             situation: {concern: container.querySelector('#sbar-edit-situation-concern')?.value || ''},
-            assessment: {clinicianNotes: container.querySelector('#sbar-edit-clinician-notes')?.value || ''}
+            assessment: {clinicianNotes: container.querySelector('#sbar-edit-clinician-notes')?.value || ''},
+            recommendations:activeSbar.recommendations
           });
           sbarList = await api('sbarList');
+          sbarDirty=false;
           this.renderFullView(container);
           toast('Draft saved. Review the updated content before finalizing.');
         } catch (err) { toast(err.message); }
       });
 
       container.querySelector('#ops-review-sbar-btn')?.addEventListener('click', async () => {
-        if (!activeSbar) return;
+        if (!active() || !activeSbar || sbarDirty) return;
         const reviewer = window.prompt('Clinician Reviewer Name / Title:', '')?.trim();
         if (!reviewer) return;
         try {
@@ -1894,7 +1911,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       });
 
       container.querySelector('#ops-finalize-sbar-btn')?.addEventListener('click', async () => {
-        if (!activeSbar) return;
+        if (!active() || !activeSbar || sbarDirty) return;
         const finalizer = window.prompt('Finalizing Nurse Supervisor Name / Title:', '')?.trim();
         if (!finalizer) return;
         try {
@@ -1907,38 +1924,18 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
         }
       });
 
-      container.querySelector('#ops-copy-sbar-btn')?.addEventListener('click', () => {
-        if (activeSbar) {
-          navigator.clipboard?.writeText(activeSbar.adaptedCommunicationText || '');
-          toast('SBAR text copied to clipboard.');
-        }
-      });
+      const copyCommunication=async()=>{
+        if(!active() || !activeSbar || activeSbar.evidenceVersion!==2 || sbarDirty)return;
+        try{await navigator.clipboard?.writeText(activeSbar.adaptedCommunicationText || '');toast('Communication text copied to clipboard.');}catch{toast('Clipboard unavailable.');}
+      };
+      for(const id of ['ops-copy-sbar-btn','ops-copy-adapted-btn']) {
+        const button=container.querySelector('#'+id);
+        if(button){button.disabled=!activeSbar||activeSbar.evidenceVersion!==2||sbarDirty;button.addEventListener('click',copyCommunication);}
+      }
 
-      container.querySelector('#ops-copy-adapted-btn')?.addEventListener('click', () => {
-        const txt = container.querySelector('#ops-adapted-text')?.value || '';
-        if (txt) {
-          navigator.clipboard?.writeText(txt);
-          toast('Communication text copied to clipboard.');
-        }
-      });
-
-      // Add Protocol Recommendation Button
-      container.querySelector('#ops-add-protocol-rec-btn')?.addEventListener('click', () => {
-        if (!activeSbar || facilityProtocols.length === 0) return;
-        const prot = facilityProtocols[0];
-        const intv = prot.interventions?.[0]?.text || 'Initiate vital signs re-check protocol.';
-        activeSbar.recommendations = activeSbar.recommendations || [];
-        activeSbar.recommendations.push({
-          id: `rec_${Date.now()}`,
-          text: intv,
-          safetyType: 'facility_protocol',
-          sourceLabel: `Approved Facility Protocol: ${prot.name} (v${prot.version})`,
-          protocolRef: { name: prot.name, version: prot.version },
-          verified: true
-        });
-        toast(`Added intervention from protocol: ${prot.name}`);
-        this.renderFullView(container);
-      });
+      // References have no recorded facility approval. Never promote them to orders.
+      const protocolButton=container.querySelector('#ops-add-protocol-rec-btn');
+      if(protocolButton){protocolButton.disabled=true;protocolButton.title='Reference — facility approval not recorded';protocolButton.insertAdjacentHTML('afterend','<p class="help">Reference — facility approval not recorded. No approved facility protocol is available.</p>');}
 
       // Add Clinician Manual Request
       container.querySelector('#ops-add-manual-rec-btn')?.addEventListener('click', () => {
@@ -1950,9 +1947,10 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
             id: `rec_manual_${Date.now()}`,
             text: customReq.trim(),
             safetyType: 'user_selected',
-            sourceLabel: 'Clinician Manual Selection (User Selected)',
-            verified: true
+            sourceLabel: 'User-entered request — clinician verification required',
+            verified: false
           });
+          sbarDirty=true;
           this.renderFullView(container);
         }
       });
@@ -1960,7 +1958,8 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       // Log Notification Event
       container.querySelector('#ops-log-notification-btn')?.addEventListener('click', async () => {
         if (!activeSbar) return;
-        const recipientName = container.querySelector('#ops-notify-recipient')?.value || 'Attending Physician';
+        const recipientName = container.querySelector('#ops-notify-recipient')?.value?.trim();
+        if(!recipientName){toast('Enter the actual recipient before recording contact.');return;}
         const method = container.querySelector('#ops-notify-method')?.value || 'phone';
         const outcome = container.querySelector('#ops-notify-outcome')?.value || 'provider_contacted';
         const readback = container.querySelector('#ops-notify-readback')?.value || 'not_applicable';
@@ -1972,7 +1971,7 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
             method,
             outcome,
             readback,
-            user: activeSpeaker || 'Charge Nurse',
+            user: undefined, // Speaker suggestions do not authenticate the person documenting contact.
             callbackIntervalMinutes: 45
           });
 
@@ -2189,6 +2188,10 @@ export function createOperationsCopilotUI({ api, esc, toast, refresh, renderPage
       const key=JSON.stringify([settings?.hipaa,settings?.processingMode]);
       if (!settings || ((captureController || pendingAcoustic) && capturePolicy !== key) ||
           (!browserSpeechAllowed(settings) && recognitionInstance)) this.stopListening();
+    },
+
+    stop() {
+      lifetime.stop();this.stopListening();activeMeeting=activeSbar=opsData=speakerReviewData=null;meetingHistory=[];sbarList=[];
     },
 
     stopListening() {

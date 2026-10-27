@@ -1832,5 +1832,31 @@
     "applicationArchiveSHA256": "fbb135ac197271bbb6ea4a4cec3301f01056198268f657eccd0a0af7fe8095cb",
     "portableSHA256": "88f023ba8d80036bb1ac27a54bc4f964df6cf3b310083664b3388a47236f5851",
     "temporaryBuildCleanup": "automatic approval blocked deletion; folders retained outside Git"
+  },
+  "nextSteps20261026": {
+    "task": 1,
+    "status": "local-verified-awaiting-exact-head-CI",
+    "baseMain": "74283cb03ccac2cb454497ce4f68ffe191108ff6",
+    "companionMain": "ed388c0e1f03f78a2f8eaaf1fff46f9b76bd80f8",
+    "regressions": 9,
+    "clinicalUITests": 8,
+    "hardeningPassed": 30,
+    "generalUIChecks": 42,
+    "actualElectronSyntheticAudio": true,
+    "physicalMicrophoneTested": false,
+    "installedAppChanged": false,
+    "wholeAppMeasurementsPending": true,
+    "remainingTasks": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "tests": {
+      "passed": 937,
+      "failed": 0,
+      "skipped": 0
+    }
   }
 }

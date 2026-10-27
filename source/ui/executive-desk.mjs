@@ -812,7 +812,7 @@ export function createExecutiveDeskUI({ api, esc, toast, refresh, renderPage, ge
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <div>
                       <label class="ops-label">Physician Name</label>
-                      <input type="text" class="ops-input" id="gw-md-name" value="Dr. Robert Smith">
+                      <input type="text" class="ops-input" id="gw-md-name" value="" placeholder="Enter the actual clinician">
                     </div>
                     <div>
                       <label class="ops-label">Resident &amp; Room</label>

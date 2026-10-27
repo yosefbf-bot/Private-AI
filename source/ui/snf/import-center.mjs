@@ -1,3 +1,4 @@
+import {createPageLifetime} from '../page-lifetime.mjs';
 import {parseCSV} from '../csv.mjs';
 export {parseCSV};
 const fields = [
@@ -34,14 +35,21 @@ const fields = [
   "status",
 ];
 export function createImportCenter({ api, esc, toast, form }) {
+  const call=api;
+  const lifetime=createPageLifetime(api,toast);
   return {
+    stop(){lifetime.stop();},
     async render(container, {sourceProvider="generic"} = {}) {
+      const scope=lifetime.start(container);
+      const {toast,active,wait}=scope;
       const [batches, schema, dashboard, workflows] = await Promise.all([
-        api("snfImports"),
-        api("snfImportSchema"),
-        api("snfDashboard"),
-        api("workflowSummary"),
+        call("snfImports"),
+        call("snfImportSchema"),
+        call("snfDashboard"),
+        call("workflowSummary"),
       ]);
+      if(!active())return;
+      const api=scope.api;
       if(sourceProvider==='pcc'&&!dashboard.integrations?.find(x=>x.id==='pcc')?.canImport){
         container.innerHTML=`<div class="page"><h1>PointClickCare — Not connected</h1><p>General clinical imports remain available.</p><button data-act="view" data-view="settings">Configure integration</button><button data-act="view" data-view="clinical-imports">Clinical imports</button></div>`;return;
       }
@@ -114,7 +122,7 @@ export function createImportCenter({ api, esc, toast, form }) {
             const file = e.target.files[0];
             if (!file || file.size > 10 * 1024 * 1024)
               throw Error("Select a CSV or JSON file smaller than 10 MB.");
-            const rawText = await file.text();
+            const rawText = await wait(file.text());
             selected = { file, rawText };
             const box = container.querySelector("#pcc-mapping");
             if (file.name.toLowerCase().endsWith(".csv")) {
@@ -201,7 +209,7 @@ export function createImportCenter({ api, esc, toast, form }) {
                 `<p>${v.accepted.length} accepted; ${v.rejected.length} rejected. Rejected rows will not be imported.</p><pre>${esc(JSON.stringify({ mappingErrors: v.mappingErrors, rejected: v.rejected, firstAcceptedRows: v.accepted.slice(0, 10) }, null, 2))}</pre>`,
                 v.mappingErrors.length ? "Close" : "Import accepted rows",
               );
-              if (!proceed || v.mappingErrors.length) return;
+              if (!active() || !proceed || v.mappingErrors.length) return;
               previewToken = preview.token;
             }
             const result = profile

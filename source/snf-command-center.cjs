@@ -1009,9 +1009,9 @@ class SNFCommandCenter {
   }
 
   updateAlert(id, patch, user) { return require('./snf/alerts/lifecycle.cjs').updateAlert.call(this,id,patch,user); }
-  acknowledgeAlert(id,user='Clinician') { const a=this.store.get('snf_alert',id); if(a?.status==='resolved')return a;return this.updateAlert(id,{status:'acknowledged'},user); }
-  assignAlert(id,owner,user='Clinician',note='') { return this.updateAlert(id,{status:'in_review',owner,note},user); }
-  resolveAlert(id,reason,note='',user='Clinician') { return this.updateAlert(id,{status:'resolved',resolutionReason:reason,note},user); }
+  acknowledgeAlert(id,user) { const a=this.store.get('snf_alert',id); if(a?.status==='resolved')return a;return this.updateAlert(id,{status:'acknowledged'},user); }
+  assignAlert(id,owner,user,note='') { return this.updateAlert(id,{status:'in_review',owner,note},user); }
+  resolveAlert(id,reason,note='',user) { return this.updateAlert(id,{status:'resolved',resolutionReason:reason,note},user); }
 
   _syncOpenIssues() {
     const alerts = this.store.list('snf_alert');

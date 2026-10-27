@@ -17,13 +17,13 @@ async function boot(t,{background=false,existing=false,browserWorker,protectedCr
  const app=new EventEmitter();Object.assign(app,{isPackaged:true,setName(){},setPath(){},requestSingleInstanceLock:()=>true,getLoginItemSettings:()=>({openAtLogin:false}),whenReady:()=>({then(fn){const p=Promise.resolve().then(fn);return {catch(fn){ready=p.catch(fn);return ready;}};}}),exit:code=>errors.push({exit:code}),quit:()=>app.emit('before-quit')});
  class Window extends EventEmitter{
   constructor(options){super();this.options=options;this.visible=true;this.focused=true;this.webContents=new EventEmitter();Object.assign(this.webContents,{send(){},setWindowOpenHandler(){}});windows.push(this);}
-  setMenuBarVisibility(){} loadURL(url){this.url=url;} isDestroyed(){return false;} isVisible(){return this.visible;} isFocused(){return this.focused;} show(){this.visible=true;} hide(){this.visible=false;} focus(){this.focused=true;}
+  setMenuBarVisibility(){} loadURL(url){this.url=url;} isDestroyed(){return false;} isVisible(){return this.visible;} isFocused(){return this.focused;} show(){this.visible=true;} hide(){this.visible=false;this.emit("hide");} focus(){this.focused=true;}
  }
  class Tray extends EventEmitter{constructor(){super();trays.push(this);}setToolTip(){}setContextMenu(menu){this.menu=menu;}}
  const partitions=new Map();
  const electron={app,BrowserWindow:Window,Tray,Menu:{buildFromTemplate:x=>x},nativeImage:{createFromPath:()=>({})},powerMonitor:new EventEmitter(),safeStorage:protectedCredentials?{isEncryptionAvailable:()=>true,encryptString:s=>cipher.seal(s,'synthetic-signin'),decryptString:b=>cipher.open(b,'synthetic-signin')}:{},shell:{},clipboard:{},
   ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},dialog:{showErrorBox:(title,message)=>errors.push({title,message}),showMessageBox:async(_win,detail)=>{dialogs.push(detail);return {response:1};}},
-  session:{fromPartition(name){if(!partitions.has(name))partitions.set(name,{setPermissionRequestHandler(){},setPermissionCheckHandler(){},webRequest:{onBeforeRequest(){}},fetch:()=>assert.fail('Startup must not request network access')});return partitions.get(name);}}};
+  session:{fromPartition(name){if(!partitions.has(name))partitions.set(name,{setPermissionRequestHandler(handler){this.request=handler;},setPermissionCheckHandler(handler){this.check=handler;},webRequest:{onBeforeRequest(){}},fetch:()=>assert.fail('Startup must not request network access')});return partitions.get(name);}}};
  const fakeProcess=new EventEmitter();Object.assign(fakeProcess,{platform:'win32',env:{LOCALAPPDATA:folder,SystemRoot:'C:\\Windows'},argv:['PrivateAI.exe',...(background?['--background']:[])],execPath:'C:\\PrivateAI\\PrivateAI.exe',resourcesPath:path.resolve(__dirname,'../resources'),stdin:new EventEmitter(),stdout:Object.assign(new EventEmitter(),{write(frame){frames.push(frame);return true;}}),stderr:{write(){}}});
  fakeProcess.stdin.resume=()=>{};
  const timer={unref(){}};
@@ -40,7 +40,7 @@ async function boot(t,{background=false,existing=false,browserWorker,protectedCr
  },process:fakeProcess,__dirname:path.dirname(sourcePath),Buffer,URL,console,setInterval:()=>timer,clearInterval(){},setTimeout,clearTimeout};
  t.after(()=>{app.emit('before-quit');fs.rmSync(folder,{recursive:true,force:true});});
  vm.runInNewContext(fs.readFileSync(sourcePath,'utf8'),context,{filename:sourcePath});await ready;
- return {core,errors,dialogs,windows,trays,handlers,app,nativeCall,startupCalls,relay,frames,sent,fakeProcess};
+ return {core,errors,dialogs,windows,trays,handlers,app,nativeCall,startupCalls,relay,frames,sent,fakeProcess,partitions,powerMonitor:electron.powerMonitor};
 }
 test('entry point reaches chat startup and wires approval only after real Core initialization',async t=>{
  const Module=require('node:module'),load=Module._load;
@@ -326,3 +326,15 @@ test('Worker snapshot IPC is narrow, locked-gated and unavailable to the browser
  b.fakeProcess.stdin.emit('data',require('../source/security.cjs').encodeFrame({id:'request',op:'summary'}));assert.equal(b.sent.length,1);
  b.relay({type:'disconnected'});assert.deepEqual(b.errors,[{exit:0}]);assert.equal(b.fakeProcess.stdout.listenerCount('drain'),0);
  });
+
+test('shipped desktop microphone IPC requires main-frame intent and revokes on hide, lock and navigation',async t=>{
+ const b=await boot(t);assert.deepEqual(b.errors,[]);const win=b.windows[0],wc=win.webContents,frame={url:win.url};wc.mainFrame=frame;
+ const event={sender:wc,senderFrame:frame},handler=b.handlers.get('privateai:microphone'),session=b.partitions.get('privateai-memory');assert.equal(typeof handler,'function');
+ const allowed=()=>{let yes;session.request(wc,'media',result=>yes=result,{requestingUrl:win.url,isMainFrame:true,mediaTypes:['audio']});return yes;};
+ assert.equal(allowed(),false);
+ handler(event,{action:'begin',purpose:'meeting'});assert.equal(allowed(),true);win.hide();assert.equal(allowed(),false);
+ win.show();handler(event,{action:'begin',purpose:'dictation'});b.core.lock();assert.equal(allowed(),false);b.core.unlock();
+ handler(event,{action:'begin',purpose:'meeting'});wc.emit('did-start-navigation',{},win.url,false,true);assert.equal(allowed(),false);
+ handler(event,{action:'begin',purpose:'meeting'});b.powerMonitor.emit('suspend');assert.equal(allowed(),false);
+ assert.throws(()=>handler({...event,senderFrame:{url:win.url}},{action:'begin',purpose:'meeting'}),{code:'POLICY'});
+});

@@ -1,7 +1,9 @@
 'use strict';
 const {fail}=require('../../security.cjs');
 const STATES=['new','acknowledged','assigned','in_review','waiting','resolved','snoozed'];
-function updateAlert(id,patch,user='Clinical User'){
+function updateAlert(id,patch,user){
+ const actorAttribution=typeof user==='string'&&user.trim()?'operator_entered':'unknown';
+ user=actorAttribution==='unknown'?'Unknown':user.trim().slice(0,100);
  const alert=this.store.get('snf_alert',id);if(!alert||!patch||typeof patch!=='object')throw fail('INVALID');
  const now=Date.now(),next=patch.status||alert.status;
  if(!STATES.includes(next))throw fail('INVALID');
@@ -19,7 +21,7 @@ function updateAlert(id,patch,user='Clinical User'){
  if(patch.note){alert.notes=[...(alert.notes||[]),{text:String(patch.note).slice(0,4000),user,time:now}];alert.actionNote=String(patch.note).slice(0,4000);}
  if(next==='resolved'){alert.resolutionReason=alert.resolutionStatus=String(patch.resolutionReason).slice(0,1000);alert.resolvedBy=user;alert.resolvedAt=now;}
  else if(before.status==='resolved'){alert.resolvedAt=null;alert.resolvedBy=null;}
- alert.auditTrail=[...(alert.auditTrail||[]),{action:next==='resolved'?'resolved':next==='acknowledged'?'acknowledged':patch.owner?'assigned':'updated',user,timestamp:now,note:patch.note||'',before,after:{status:next,owner:alert.owner,dueDate:alert.dueDate},resolutionReason:patch.resolutionReason||null,evidenceReviewed:patch.evidenceReviewed||[]}];
+ alert.auditTrail=[...(alert.auditTrail||[]),{action:next==='resolved'?'resolved':next==='acknowledged'?'acknowledged':patch.owner?'assigned':'updated',user,actorAttribution,timestamp:now,note:patch.note||'',before,after:{status:next,owner:alert.owner,dueDate:alert.dueDate},resolutionReason:patch.resolutionReason||null,evidenceReviewed:patch.evidenceReviewed||[]}];
  this.store.put('snf_alert',id,alert);this._syncOpenIssues();this._invalidateCache();return alert;
 }
 function operational(alert,now=Date.now()){

@@ -109,7 +109,7 @@ test('voice stop, privacy revocation, late callbacks and unavailable policy fail
 test('late microphone permission after close, push-to-talk stop or policy revocation releases every track',async()=>{
  const {LocalRecognition}=await import('../source/ui/local-recognition.mjs');const previous=global.window,descriptor=Object.getOwnPropertyDescriptor(global,'navigator');
  let grant,stopped=0,allowed=true;
- global.window={AudioContext:class {constructor(){throw Error('Must not create context after cancellation');}}};
+ global.window=Object.assign(new EventTarget(),{AudioContext:class {constructor(){throw Error('Must not create context after cancellation');}}});
  Object.defineProperty(global,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:()=>new Promise(r=>grant=r)}}});
  try{
   for(const mode of ['abort','stop','policy']){

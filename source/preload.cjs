@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer, webUtils } = require("electron");
 contextBridge.exposeInMainWorld(
   "privateAI",
   Object.freeze({
+    beginLocalAudio: ({purpose}={}) => ipcRenderer.invoke('privateai:microphone',{action:'begin',purpose}),
+    endLocalAudio: ({token}={}) => ipcRenderer.invoke('privateai:microphone',{action:'end',token}),
     call: (op, data = {}) => ipcRenderer.invoke("privateai:call", { op, data }),
     dropFiles: (files, chatId, temporary) =>
       ipcRenderer.invoke("privateai:drop", {

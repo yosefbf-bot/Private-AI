@@ -1,3 +1,15 @@
+# Current task — clinical safety follow-up, October 26, 2026
+
+Branch chatgpt/clinical-safety-20261026, based on fetched main74283cb; companion
+mained388c0 unchanged. Task1 of the owner-approved six next steps is implemented.
+See docs/NEXT_STEPS_PROGRESS_2026-10-26.md for scope, tests and remaining work.
+Final local suite 937/937 passed, no skips; hardening 30/30. Edge UI42,
+clinical UI8, assistant/contrast checks, and Edge/Chrome report flows passed.
+Independent material findings fixed with regressions. Exact-head CI pending.
+This is source verification, not an installed upgrade; the owner's speed-build
+ASAR already matches fbb135ac (the owner installed it). Do not replace owner
+app/data or run memory-pressure tests without the plan's current approval.
+
 # Current accepted source — six speed/memory batches, October26,2026
 
 Desktop runtime main42cebcb7f2137e7713f66b968313b67f1783c695 (3.0.9-dev).

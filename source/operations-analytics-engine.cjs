@@ -77,7 +77,7 @@ const DEFAULT_REGULATORY_ITEMS = [
   {
     id: 'reg_med_director',
     category: 'practitioner_credentialing',
-    title: 'Medical Director Credentialing (Dr. Robert Smith, MD)',
+    title: 'Medical Director Credentialing (synthetic demo profile)',
     authority: 'State Medical Board / Facility Medical Staff Office',
     identifierNumber: 'ME-4019283 / DEA: BS1928374',
     responsibleParty: 'Medical Staff Coordinator / LNHA',
