@@ -82,6 +82,7 @@ async function dispatch(op, data = {}, native = false) {
       return core.createChat(data);
     case "chat":
       return core.chat(data.id);
+    case "archiveChat": return core.archiveChat(data.id,data.archived);
     case "queueChatWhenMemoryFree": return core.queueChatWhenMemoryFree(data);
     case "send":
       sendRequests++;
@@ -842,6 +843,13 @@ let browser;
   await desktop.locator('#prompt').fill('Synthetic cancelled RAM request.');await desktop.locator('#send').click();await desktop.locator('[data-act=ram-wait]').click();await desktop.locator('[data-act=ram-cancel]').click();
   freeRAM=8*GIB;core.resources.notify();await desktop.waitForFunction(()=>!document.querySelector('[data-act=ram-cancel]'));assert.equal(localCalls.length,1);
   checks.push('Cancelling the visible RAM wait cannot run it when memory later returns');
+  await desktop.locator('.new-chat').click();freeRAM=2*GIB;
+  await desktop.locator('#prompt').fill('Synthetic archived RAM request.');await desktop.locator('#send').click();await desktop.locator('[data-act=ram-wait]').click();await desktop.locator('[data-act=ram-cancel]').waitFor();
+  const archivedWait=[...core.chatMemoryWait.offers.values()][0];assert.ok(archivedWait);
+  await desktop.locator('[data-act=chat-archive]').click();await desktop.getByRole('heading',{name:'What would you like to work on?'}).waitFor();
+  for(let i=0;i<100&&core.requests.has(archivedWait.chatId);i++)await new Promise(r=>setTimeout(r,5));
+  assert.equal(core.requests.has(archivedWait.chatId),false);assert.equal(core.resources.background,null);assert.equal(core.chat(archivedWait.chatId).archived,true);assert.equal(localCalls.length,1);
+  checks.push('Archiving a waiting chat frees the background slot immediately while RAM is still low');
   await desktop.locator('.new-chat').click();freeRAM=2*GIB;
   await desktop.locator('#prompt').fill('Synthetic stale RAM request.');await desktop.locator('#send').click();await desktop.locator('[data-act=ram-wait]').waitFor();
   const offeredEntry=[...core.chatMemoryWait.offers.values()][0],changed=core.chat(offeredEntry.chatId);changed.messages[0].text='Synthetic edited input';core.saveChat(changed);

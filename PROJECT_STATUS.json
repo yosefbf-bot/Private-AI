@@ -1875,6 +1875,21 @@
     "cacheCompressionAdded": false,
     "newDocumentSplittingAdded": false,
     "measurements": "docs/LOW_RAM_MEASUREMENTS_2026-10-27.json",
-    "notes": "Batch peak working-set savings approximately 3–5 MiB; no general speedup claim. Full Windows installer/portable evidence must come from the exact-head hosted gate."
+    "notes": "Batch peak working-set savings approximately 3–5 MiB; no general speedup claim. Full Windows installer/portable evidence must come from the exact-head hosted gate.",
+    "archiveFollowup": {
+      "status": "locally-verified-awaiting-exact-head-gates",
+      "baseMain": "caae5b2f2301f37346b76a76a1fe1c35029b14e5",
+      "branch": "chatgpt/ram-wait-archive-20261027",
+      "tests": {
+        "passed": 978,
+        "failed": 0,
+        "skipped": 0
+      },
+      "targetedPassed": 50,
+      "generalUIChecks": 46,
+      "hardeningPassed": 30,
+      "baseAcceptedRun": 40530689097,
+      "baseAcceptedMainRun": 40533354155
+    }
   }
 }

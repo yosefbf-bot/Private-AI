@@ -30,6 +30,11 @@ test('changed model settings invalidate a saved wait offer instead of choosing a
 test('deleted chats cannot be resurrected by queued completion',async t=>{
  const f=setup(t),token=await offered(f);await f.core.queueChatWhenMemoryFree({chatId:f.c.id,token});f.core.deleteChat(f.c.id);f.setFree(8*GIB);await settled(f.core,f.c.id);assert.equal(f.calls.length,0);assert.equal(f.core.store.get('chat',f.c.id),null);
 });
+test('archiving a RAM-wait chat releases background ownership without waiting for more memory',async t=>{
+ const f=setup(t),token=await offered(f);await f.core.queueChatWhenMemoryFree({chatId:f.c.id,token});
+ await new Promise(r=>setTimeout(r,5));f.core.archiveChat(f.c.id);await settled(f.core,f.c.id);
+ assert.equal(f.core.resources.background,null);assert.equal(f.calls.length,0);assert.equal(f.core.chat(f.c.id).archived,true);assert.equal(f.core.chatMemoryWait.offers.size,0);
+});
 test('memory error metadata is numeric and cannot expose arbitrary error properties',()=>{
  const {safeError,fail}=require('../source/security.cjs'),error=fail('LOW_MEMORY');error.ram={requiredBytes:3*GIB,availableBytes:2*GIB,secret:'private'};error.localSettings={localModelPath:'sensitive'};assert.deepEqual(safeError(error).ram,{requiredBytes:3*GIB,availableBytes:2*GIB});assert.ok(!JSON.stringify(safeError(error)).includes('sensitive'));
 });
