@@ -1,4 +1,31 @@
-# Current task — clinical safety follow-up, October 26, 2026
+# Current task — next-step evidence and companion receipts, October 26, 2026
+
+Task1 merged PR44 after all8exact-head checks; main8260541 checks passed.
+Installed speed-build synthetic GUI18checks/20views and actualSmall inference
+passed; all19rollback manifest entries match. Production data untouched.
+Five headlessEdge report measurements and repeated low-memory acceptance did not
+justify lowering the1.5GiB floor; candidate reverted. Whole-app UAC consent remains
+pending and no whole-app percentage is claimed. Details:
+docs/NEXT_STEPS_PROGRESS_2026-10-26.md, HEADLESS_REPORT_MEMORY_2026-10-26.md,
+WHOLE_APP_MEASUREMENT_2026-10.md and NEXT_STEPS_VALIDATION_2026-10-26.md.
+
+Current desktop branch chatgpt/companion-receipt-contract-20261026 adds optional
+explicit history IDs to acknowledged phone responses and includes the existing
+hardening UI test in Windows acceptance. Companion PR18 keeps encrypted receipts
+across history replacement, removes unused SDKs and supplies a phone checklist.
+Neither runtime PR may merge before exact-head checks pass. Physical phone and
+live account checks remain unperformed. No unverified cleanup targets deleted.
+Desktop final local suite938/938,0skips; hardening30/30, CI policy19/19, syntax294,
+repository471, guide check, production audit0. Edge generalUI42 and assistant25,
+notes14, contrast117, dark7; Edge/Chrome report flows and hardening UI passed.
+Native Electron fake audio passed; restore-and-record/physical microphone are
+not claimed. Initial stale build metadata and native fixture ordering failures
+are retained in local logs; metadata regenerated and fixture corrected/reviewed.
+Current/history Gitleaks scans0. Local release-files check is blocked because this
+source worktree has no build/local-runtime/llama-server.exe; the unchanged hosted
+Windows staging/installer gate must supply and validate the genuine runtime.
+
+# Prior checkpoint — clinical safety follow-up, October 26, 2026
 
 Branch chatgpt/clinical-safety-20261026, based on fetched main74283cb; companion
 mained388c0 unchanged. Task1 of the owner-approved six next steps is implemented.

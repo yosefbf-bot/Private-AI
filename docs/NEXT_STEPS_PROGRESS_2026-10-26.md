@@ -45,7 +45,7 @@ efficiency worktree. Preserve the shared node_modules junction; do not run npm c
   remains untested. Final full suite 937/937, no failures/skips.
 - Hardening 30/30; syntax 294 files; repository 471 tracked files; guide check
   passed; production dependencies and current/history secret scans zero findings.
-  Final source/PR gate still must pass before merge.
+  PR44 head6a4a54c passed all8 required jobs and merged as8260541; main checks passed.
 
 Architecture corrections to the proposed plan: current stored Review severity
 is `medium` (rules convert `review`); filtering supports both without rewriting
@@ -55,3 +55,25 @@ Meeting edits use a content revision covering every writer rather than relying
 on all existing services to increment a new numeric revision field.
 
 No dependency/version/schema changes and no installed app or owner data edits.
+
+## Tasks 2–6 checkpoint
+
+- Task2 audited harness and frozen builds prepared; process-policy approval and
+  UAC approval obtained, but Windows consent remains pending. No whole-app timing
+  or RAM percentage is claimed. See WHOLE_APP_MEASUREMENT_2026-10.md.
+- Task3 five real headless Edge report runs measured. A lower candidate failed the
+  repeated1GiB pressure abort boundary, so all lower-budget changes were reverted.
+  Keep1.5GiB. See HEADLESS_REPORT_MEMORY_2026-10-26.md.
+- Task4 installed speed payload/rollback verified; actual installed GUI18checks,
+  20views and realSmall inference passed in a fresh synthetic profile. Owner data
+  unchanged. See NEXT_STEPS_VALIDATION_2026-10-26.md and local owner results.
+- Task5 companion PR18 preserves encrypted receipts and removes proven-unused SDKs;
+  desktop provides additive optional history IDs. No new schema/dependency or scope.
+  Independent review passed; hosted Android acceptance/APK size remain pending.
+- Task6 current hardening UI already passes; now included in the existing Windows
+  job. Referenced cleanup pair could not be located; no unverified files deleted.
+
+Remaining desktop evidence/checks are grouped with the receipt-contract PR to
+avoid separate identical full CI runs. Do not merge either runtime change until
+its exact-head gate passes. Installed build and physical phone acceptance remain
+separate from current-source GitHub acceptance.

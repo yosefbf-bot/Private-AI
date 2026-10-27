@@ -1,5 +1,22 @@
 # Android companion desktop contract — updated 2026-10-05
 
+## Additive chat receipt linkage — October 26, 2026
+
+Successful `/chat/send` replies can additionally include `userMessageId` and
+`assistantMessageId`, the same opaque IDs exposed in that session's authenticated
+history. Both fields are optional for backward compatibility and are retained in
+the existing 24-hour idempotency response. No new route, scope or credential is
+introduced. Consumers must correlate only explicit same-session, same-pairing IDs,
+never question/answer text. An identical question sent twice has distinct IDs.
+
+The companion preserves acknowledged request provenance in its encrypted durable
+operation store separately from replaceable history. Repeating uses a fresh request
+ID and the original full question/minimum privacy, with stricter current privacy
+still applied. The receipt is not an automatically replayable pending operation.
+Deleting that phone conversation deletes its receipts; existing desktop retention
+and phone authentication/policy migration continue to apply. Older desktop replies
+without linkage still work, but their history cannot safely recover this association.
+
 This is the implemented desktop contract in Private AI **3.0.1-dev**, based on
 GitHub main `c269a18eec4ea5b4e347e3520be1cd4e9bd88876`. Android is maintained
 separately. The supplied Google script's endpoint names are retained; its example

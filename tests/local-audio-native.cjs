@@ -6,7 +6,14 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const root=process.argv[2];if(!path.isAbsolute(root)||!path.basename(root).startsWith('privateai-audio-native-'))throw Error('Isolated root required');
 app.setPath('userData',path.join(root,'profile'));app.setPath('sessionData',path.join(root,'session'));
 app.commandLine.appendSwitch('use-fake-device-for-media-stream');
-let win,controller;const timer=setTimeout(()=>{console.log('LOCAL_AUDIO_RESULT='+JSON.stringify({passed:false,reason:'timeout'}));app.exit(1);},25000);
+let win,controller,stage='startup';const timer=setTimeout(()=>{console.log('LOCAL_AUDIO_RESULT='+JSON.stringify({passed:false,reason:'timeout',stage}));app.exit(1);},25000);
+async function showReady(){
+ win.show();win.focus();
+ // Native ShowWindow and renderer visibility notifications are asynchronous.
+ // Wait for actual visibility before beginning a new capture; never bypass it.
+ await win.webContents.executeJavaScript(`new Promise((resolve,reject)=>{const timer=setTimeout(()=>{document.removeEventListener('visibilitychange',check);reject(Error('Synthetic window stayed hidden'));},2000);function check(){if(!document.hidden){clearTimeout(timer);document.removeEventListener('visibilitychange',check);resolve();}}document.addEventListener('visibilitychange',check);check();})`);
+ assert.equal(win.isVisible(),true);assert.equal(win.isFocused(),true);
+}
 app.whenReady().then(async()=>{
  const html=path.join(root,'synthetic.html');fs.writeFileSync(html,'<!doctype html><title>Synthetic local microphone acceptance</title><p>Synthetic device only</p>');
  const uiURL=pathToFileURL(html).href;
@@ -17,16 +24,16 @@ app.whenReady().then(async()=>{
  ses.setPermissionRequestHandler((...args)=>{requests++;controller.request(...args);});ses.setPermissionCheckHandler((...args)=>{checks++;return controller.check(...args);});
  ses.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*','ws://*/*','wss://*/*']},(_details,callback)=>callback({cancel:true}));
  ipcMain.handle('privateai:microphone',(event,request)=>request.action==='begin'?controller.begin(event,request):controller.end(event,request));
- win.on('hide',()=>controller.revoke());await win.loadURL(uiURL);win.show();win.focus();
+ win.on('hide',()=>controller.revoke());await win.loadURL(uiURL);await showReady();
  const moduleURL=pathToFileURL(path.resolve(__dirname,'../source/ui/local-audio-capture.mjs')).href;
  const initial=await win.webContents.executeJavaScript(`(async()=>{try{await navigator.mediaDevices.getUserMedia({audio:true});return false;}catch{return true;}})()`,true);assert.equal(initial,true);
- const live=await win.webContents.executeJavaScript(`(async()=>{const {openLocalAudio}=await import(${JSON.stringify(moduleURL)});window.capture=await openLocalAudio({purpose:'meeting',mediaDevices:navigator.mediaDevices,constraints:{audio:true,video:false}});return capture.stream.getAudioTracks()[0].readyState;})()`,true);assert.equal(live,'live');
- const cameraDenied=await win.webContents.executeJavaScript(`(async()=>{try{const s=await navigator.mediaDevices.getUserMedia({video:true});s.getTracks().forEach(t=>t.stop());return false;}catch{return true;}})()`,true);assert.equal(cameraDenied,true);
- win.hide();
- const stopped=await win.webContents.executeJavaScript(`new Promise(resolve=>{const check=()=>{if(capture.stream.getAudioTracks()[0].readyState==='ended')resolve(true);else setTimeout(check,20);};check();})`);assert.equal(stopped,true);
- win.show();win.focus();
+ stage='PCM capture';
  const recorderURL=pathToFileURL(path.resolve(__dirname,'../source/ui/meeting-recorder.mjs')).href;
  const pcm=await win.webContents.executeJavaScript(`(async()=>{const {recordMeeting}=await import(${JSON.stringify(recorderURL)});let bytes=0,levels=0,ready;const measured=new Promise(r=>ready=r);const states=[];const recorder=await recordMeeting({onSave:async chunk=>{bytes+=chunk.audio.length;},onChunk:async()=>{},onError:e=>{throw e;},onState:s=>states.push(s),onLevel:()=>{if(++levels>=3)ready();}});await measured;await recorder.stop();return {bytes,levels,states};})()`,true);
  assert.ok(pcm.bytes>44);assert.ok(pcm.states.includes('Recording locally'));assert.equal(pcm.states.at(-1),'Stopped');
+ stage='capture before hide';const live=await win.webContents.executeJavaScript(`(async()=>{const {openLocalAudio}=await import(${JSON.stringify(moduleURL)});window.capture=await openLocalAudio({purpose:'meeting',mediaDevices:navigator.mediaDevices,constraints:{audio:true,video:false}});return capture.stream.getAudioTracks()[0].readyState;})()`,true);assert.equal(live,'live');
+ const cameraDenied=await win.webContents.executeJavaScript(`(async()=>{try{const s=await navigator.mediaDevices.getUserMedia({video:true});s.getTracks().forEach(t=>t.stop());return false;}catch{return true;}})()`,true);assert.equal(cameraDenied,true);
+ win.hide();
+ const stopped=await win.webContents.executeJavaScript(`new Promise(resolve=>{const check=()=>{if(capture.stream.getAudioTracks()[0].readyState==='ended')resolve(true);else setTimeout(check,20);};check();})`);assert.equal(stopped,true);
  assert.ok(requests>0&&checks>0);clearTimeout(timer);console.log('LOCAL_AUDIO_RESULT='+JSON.stringify({passed:true,actualElectron:true,syntheticDevice:true,physicalMicrophone:false,requests,checks,unarmedDenied:initial,cameraDenied,stoppedOnHide:stopped,pcmFrames:pcm.levels,pcmSaved:true}));win.destroy();app.quit();
-}).catch(error=>{clearTimeout(timer);console.log('LOCAL_AUDIO_RESULT='+JSON.stringify({passed:false,reason:error.message}));win?.destroy();app.exit(1);});
+}).catch(error=>{clearTimeout(timer);console.log('LOCAL_AUDIO_RESULT='+JSON.stringify({passed:false,reason:error.message,stage}));win?.destroy();app.exit(1);});

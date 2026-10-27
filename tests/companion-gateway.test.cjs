@@ -102,6 +102,21 @@ test('stable request IDs replay the saved response without another generation an
   assert.deepEqual(again.body,first.body);assert.equal(core.store.list('chat')[0].messages.length,2);
   assert.equal((await request(gateway,pairing,'/chat/send',{...data,prompt:'/calc 10*3'})).status,409);
 });
+test('acknowledged phone replies identify the exact history messages without matching prompt text',async t=>{
+  const {gateway,pairing}=await setup(t),sessionId='receipt-history';
+  const data={prompt:'/calc 10*2',sessionId,requestId:'receipt-first',requireLocal:true};
+  const first=await request(gateway,pairing,'/chat/send',data);
+  const second=await request(gateway,pairing,'/chat/send',{...data,requestId:'receipt-second'});
+  const history=await request(gateway,pairing,'/conversations/history',{sessionId});
+  assert.equal(first.status,200);assert.equal(second.status,200);assert.equal(history.status,200);
+  const rows=history.body.messages;
+  assert.equal(first.body.userMessageId,rows[0].id);assert.equal(first.body.assistantMessageId,rows[1].id);
+  assert.equal(second.body.userMessageId,rows[2].id);assert.equal(second.body.assistantMessageId,rows[3].id);
+  assert.notEqual(first.body.userMessageId,second.body.userMessageId);
+  assert.deepEqual((await request(gateway,pairing,'/chat/send',data)).body,first.body);
+  const other=gateway.pair({name:'Unrelated synthetic phone',scopes:{chat:true}});
+  assert.equal((await request(gateway,other,'/conversations/history',{sessionId})).status,404);
+});
 test('deleted chats cannot be replayed and expired companion records follow existing encrypted retention',async t=>{
   const {gateway,pairing,core}=await setup(t),data={prompt:'/calc 5+5',requestId:'retention-example'};
   assert.equal((await request(gateway,pairing,'/chat/send',data)).status,200);
