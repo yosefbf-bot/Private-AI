@@ -1,6 +1,6 @@
 'use strict';
 const {fail}=require('./security.cjs');
-const {localInput,requiredMemory,contextCandidates}=require('./local-brain.cjs');
+const {localInput,requiredMemory,contextCandidates,budgetSettings}=require('./local-brain.cjs');
 const {getRAMProfile}=require('./ram-profile.cjs');
 const {userText,references}=require('./deterministic.cjs');
 const {signature}=require('./workflows/actions.cjs');
@@ -43,7 +43,7 @@ function prepareMemoryWait(router,s,messages,options){
  }
  if(!row)return null;
  const opts={instructions:(options.instructions||'')+'\n'+ANSWER_SCHEMA},settings={...s,localModelPath:row.file};
- const selected=mode==='auto'?contextCandidates(settings).find(c=>c.localContext>c.localMaxOutput+256&&fits(c,messages,opts)):fits(settings,messages,opts)?settings:null;
+ const selected=mode==='auto'?contextCandidates(settings,{compact:row.id==='qwen3-1.7b'}).find(c=>c.localContext>c.localMaxOutput+256&&fits(c,messages,opts)):fits(settings,messages,opts)?settings:null;
  return selected?{settings:selected,messages,instructions:opts.instructions,tier:row.tier,model:row.name,omitted:options.omitted||0,...(mode!=='selected'?continuation(router,s,messages,options,resumeState,require('./hybrid-router.cjs').evaluateLocal):{})}:null;
 }
 async function generateTiers(router,s,messages,options,evaluate){
@@ -88,7 +88,7 @@ async function generateTiers(router,s,messages,options,evaluate){
   };
   let r;
   options.onTierRequested?.(row);
-  try{r=resources?await resources.withAI(invoke,{localSettings:settings,waitForMemory:!!options.waitForLocalMemory,allowContextReduction:mode==='auto',contextFits:candidate=>fits(candidate,msg,opts)}):await invoke();}
+  try{r=resources?await resources.withAI(invoke,{localSettings:settings,waitForMemory:!!options.waitForLocalMemory,allowContextReduction:mode==='auto',allowCompactContext:row.id==='qwen3-1.7b',contextFits:candidate=>fits(candidate,msg,opts)}):await invoke();}
   catch(e){
    if(e.localAdmission){
     if(assessment){
@@ -156,9 +156,10 @@ async function generateTiers(router,s,messages,options,evaluate){
   if(calls<2&&memoryBlocked.length&&resources?.isBackground()){
    const row=memoryBlocked.sort((a,b)=>a.bytes-b.bytes)[0];
    const original={...s,localModelPath:row.file};
-   const waiting=contextCandidates(original).find(candidate=>candidate.localContext>candidate.localMaxOutput+256&&fits(candidate,messages,fullOptions))||original;
+   const waiting=contextCandidates(original,{compact:row.id==='qwen3-1.7b'}).find(candidate=>candidate.localContext>candidate.localMaxOutput+256&&fits(candidate,messages,fullOptions))||original;
+   const budget=budgetSettings(waiting);
    const reserve=(core.settings().ramReserveMB||1024)*1024**2;
-   await resources.checkpoint(Math.max(requiredMemory(row.bytes,waiting.localContext)+Math.max(0,reserve-1024**3),(core.stability?.minimumFor(waiting)||0)+reserve));
+   await resources.checkpoint(Math.max(requiredMemory(row.bytes,budget.localContext)+Math.max(0,reserve-1024**3),(core.stability?.minimumFor(budget)||0)+reserve));
    const result=await run(row,messages,fullOptions);
    if(ORDER.indexOf(row.tier)<desired)route.notice='Resumed with a smaller model after waiting for RAM. Review the response.';
    return finish(result,row.tier);

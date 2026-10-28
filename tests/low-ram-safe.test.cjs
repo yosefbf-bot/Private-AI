@@ -16,6 +16,7 @@ test('balanced inference under pressure uses smaller batches with the exact same
  assert.equal(value('--batch-size'),'64');assert.equal(value('--ubatch-size'),'32');
  assert.equal(value('--model'),settings.localModelPath);assert.equal(value('--ctx-size'),'4096');assert.equal(value('--parallel'),'1');assert.equal(value('--gpu-layers'),'0');
  assert.equal(requests[0].messages[1].content,input);assert.equal(requests[0].max_tokens,192);assert.ok(!args.includes('q8_0'));
+ assert.ok(args.includes('--no-context-shift'),'the runtime cannot discard earlier source tokens to extend a response');
 });
 test('performance mode retains the existing standard batches',async t=>{
  const {brain,settings,launches}=engine(t,{mode:'performance'});await brain.load(settings);const args=launches[0];assert.equal(args[args.indexOf('--batch-size')+1],'128');assert.equal(args[args.indexOf('--ubatch-size')+1],'64');

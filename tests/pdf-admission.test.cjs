@@ -33,15 +33,16 @@ test('mixed PDFs extract embedded pages first and retain OCR admission under con
 
 test('mixed PDFs OCR only textless pages and preserve unreadable-page and incomplete-source reporting',async t=>{
  const {core,calls}=inProcessCore(t);core.resources.memory=()=>4*1024**3;t.mock.method(tools,'verified',async()=>true);
- const runtime=require('../source/pdf-runtime.cjs'),load=runtime.loadPdf;let secondText=0;const secondPages=[];
- t.mock.method(runtime,'loadPdf',async()=>{const pdf=await load();return {...pdf,getDocument(options){const job=pdf.getDocument(options);return {promise:job.promise.then(doc=>new Proxy(doc,{get(target,key){if(key==='getPage')return async p=>{const page=await target.getPage(p);if(calls.length===2)secondPages.push(p);return new Proxy(page,{get(target,key){if(key==='getTextContent')return async(...args)=>{if(calls.length===2)secondText++;return target.getTextContent(...args);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}})),destroy:()=>job.destroy()};}};});
+ const runtime=require('../source/pdf-runtime.cjs'),load=runtime.loadPdf;let secondText=0;const secondPages=[],scales=[],cleaned=[];
+ t.mock.method(runtime,'loadPdf',async()=>{const pdf=await load();return {...pdf,getDocument(options){const job=pdf.getDocument(options);return {promise:job.promise.then(doc=>new Proxy(doc,{get(target,key){if(key==='getPage')return async p=>{const page=await target.getPage(p);if(calls.length===2)secondPages.push(p);return new Proxy(page,{get(target,key){if(key==='getViewport')return options=>{if(calls.length===2)scales.push(options.scale);return target.getViewport(options);};if(key==='cleanup')return()=>{if(calls.length===2)cleaned.push(p);return target.cleanup();};if(key==='getTextContent')return async(...args)=>{if(calls.length===2)secondText++;return target.getTextContent(...args);};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}})),destroy:()=>job.destroy()};}};});
  const engine=require('../source/offline-ocr.cjs');let recognitions=0,closed=0;
- t.mock.method(engine,'create',async()=>({recognize:async()=>({text:++recognitions===1?'Synthetic OCR source text.':''}),close:async()=>closed++}));
+ let active=0,peak=0;t.mock.method(engine,'create',async()=>({recognize:async()=>{active++;peak=Math.max(peak,active);await new Promise(r=>setTimeout(r,5));active--;return {text:++recognitions===1?'Synthetic OCR source text.':''};},close:async()=>closed++}));
  const result=await core.extractDocument({op:'extract',ext:'.pdf',bytes:await pdf(['Synthetic embedded source text.','',''])});
  assert.equal(calls.length,2);assert.deepEqual(calls[1].ocrPages,[2,3]);assert.equal(recognitions,2);assert.equal(closed,1);
  assert.match(result.text,/Synthetic embedded source text/);assert.match(result.text,/Synthetic OCR source text/);assert.match(result.text,/Source incomplete; unreadable content remains unknown/);
  assert.deepEqual(result.unreadablePages,[3]);assert.equal(result.incomplete,true);assert.equal(result.ocr.pages,2);assert.deepEqual(result.ocr.unreadablePages,[3]);assert.equal(result.ocr.verified,false);assert.equal(core.requests.size,0);
  assert.equal(secondText,0,'carried text must not be extracted again');assert.deepEqual(secondPages,[2,3],'only selected OCR pages need loading');
+ assert.equal(peak,1,'OCR pages stay serial');assert.deepEqual(scales,[2,2],'render quality is unchanged');assert.deepEqual(cleaned,[2,3],'each page is released before the next');
 });
 
 test('missing OCR preserves partial embedded text with explicit unavailable-page notices',async t=>{
