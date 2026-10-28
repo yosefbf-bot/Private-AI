@@ -2355,6 +2355,7 @@ document.addEventListener("click", async (e) => {
         await form(
           "Checks on this computer",
           "<p>No API requests or credits were used.</p>" +
+            (result.memoryHealth?`<p><b>Windows memory</b> · ${esc(result.memoryHealth.message)}${Number.isFinite(result.memoryHealth.commitHeadroomGB)?` (${esc(result.memoryHealth.commitHeadroomGB)} GB memory-limit headroom; page file: ${result.memoryHealth.pageFileGB===null?'unknown':esc(result.memoryHealth.pageFileGB)+' GB'}.)`:''} This check never changes Windows settings.</p>`:'')+
             result.checks
               .map((c) => `<p><b>${esc(c.name)}</b> · ${esc(c.status)}</p>`)
               .join("") +

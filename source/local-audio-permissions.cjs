@@ -7,6 +7,7 @@ function createLocalAudioPermissions({getCore,getWindow,uiURL,onRevoke=()=>{}}){
  function available(){const core=getCore(),win=getWindow();return !!core&&!core.locked&&!!core.settings()&&!!win&&!win.isDestroyed()&&win.isVisible();}
  function valid(wc,details){return !!lease&&available()&&wc===lease.wc&&wc.mainFrame===lease.frame&&wc.mainFrame.url===uiURL&&details?.requestingUrl===uiURL&&details?.isMainFrame===true;}
  return {
+  active(){return !!lease;},
   begin(event,{purpose}={}){
    if(!trusted(event)||!available()||!getWindow().isFocused()||!['meeting','dictation','speaker-sample'].includes(purpose))throw fail('POLICY');
    getCore().assertUnlocked();

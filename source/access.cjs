@@ -24,33 +24,42 @@ const OUTLOOK = {
   "outlook.delete": "deleteMessages",
   "outlook.cleanup": "deleteMessages",
 };
-function helperCall(executable, data) {
+function helperCall(executable, data, {signal,authorize,spawnProcess=spawn}={}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, [], {
+    const idle=data.op==='memory.trimIdle';
+    if(signal?.aborted||idle&&typeof authorize!=='function')return reject(fail('ACCESS'));
+    const child = spawnProcess(executable, [], {
       windowsHide: true,
       stdio: ["pipe", "pipe", "ignore"],
       shell: false,
     });
     let chunks = [],
       size = 0,
-      finished = false;
+      finished = false,ready=false;
     const done = (error, result) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort',aborted);
       child.kill();
       error ? reject(fail("ACCESS")) : resolve(result);
     };
     const timer = setTimeout(() => done(true), 30000);
+    const aborted=()=>done(true);signal?.addEventListener('abort',aborted,{once:true});if(signal?.aborted)aborted();
     child.on("error", () => done(true));
     child.stdin.on("error", () => done(true));
     child.stdout.on("data", (b) => {
       size += b.length;
       if (size > 850000) return done(true);
       chunks.push(b);
+      if(idle&&!ready){
+        const buffer=Buffer.concat(chunks),at=buffer.indexOf(10);if(at<0)return;
+        try{const message=JSON.parse(buffer.subarray(0,at).toString('utf8'));if(message.ready!==true||Object.keys(message).length!==1)throw Error();ready=true;chunks=[buffer.subarray(at+1)];if(signal?.aborted||!authorize())return done(true);child.stdin.end('trim\n');}catch{return done(true);}
+      }
     });
     child.on("close", () => {
       try {
+        if(idle&&!ready)throw Error();
         const r = JSON.parse(Buffer.concat(chunks).toString("utf8"));
         if (!r.ok) throw Error();
         done(false, r.result);
@@ -58,7 +67,7 @@ function helperCall(executable, data) {
         done(true);
       }
     });
-    child.stdin.end(JSON.stringify(data) + "\n");
+    if(idle)child.stdin.write(JSON.stringify(data)+'\n');else child.stdin.end(JSON.stringify(data) + "\n");
   });
 }
 class AccessManager {

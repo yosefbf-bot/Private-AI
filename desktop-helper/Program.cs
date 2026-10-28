@@ -29,7 +29,8 @@ internal static class Program
         finally { for (int i = com.Count - 1; i >= 0; i--) try { Marshal.FinalReleaseComObject(com[i]); } catch { } }
     }
     static object Execute(string op) => op switch {
-        "health" => new { windows = OperatingSystem.IsWindows(), architecture = RuntimeInformation.ProcessArchitecture.ToString(), classicOutlook = Type.GetTypeFromProgID("Outlook.Application") is not null },
+        "health" => new { windows = OperatingSystem.IsWindows(), architecture = RuntimeInformation.ProcessArchitecture.ToString(), classicOutlook = Type.GetTypeFromProgID("Outlook.Application") is not null, memory = MemoryHealth() },
+        "memory.trimIdle" => WindowsMemory.TrimIdleChildren(request.GetProperty("pids").EnumerateArray().Select(p => p.GetInt32()).ToArray(), IdleApproval),
         "windows" => Windows(),
         "ui.read" => ReadVisible(Window()),
         "ui.fields" => Fields(Window()),
@@ -44,6 +45,8 @@ internal static class Program
         "outlook.cleanup" => CleanupMessages(),
         _ => throw new InvalidOperationException()
     };
+    static object? MemoryHealth() { try { return WindowsMemory.Health(); } catch { return null; } }
+    static bool IdleApproval() { Console.WriteLine("{\"ready\":true}"); Console.Out.Flush(); return Console.ReadLine() == "trim"; }
     static object Windows()
     {
         string? only = request.TryGetProperty("path", out var p) ? p.GetString() : null;
