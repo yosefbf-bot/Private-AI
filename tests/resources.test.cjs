@@ -19,3 +19,16 @@ test('no new AI calls while paused; deterministic tools do not invoke a model',a
 test('queued cloud call rechecks local-only policy at the network boundary',async()=>{const {r,core}=fixture();let s={processingMode:'cloud-first',allowCloud:true,hipaa:false,model:'synthetic-cloud-model'};core.settings=()=>s;core.key=()=> 'key';core.canSend=()=>{};core.store={list:()=>[],put:()=>{}};core.client={generate:()=>assert.fail('cloud policy bypass')};const router=new HybridRouter(core),gate=deferred();const held=r.task('foreground',()=>r.withAI(()=>gate.promise));await delay(5);const queued=r.task('foreground',()=>router.generate('key',s,[{role:'user',content:'Explain this topic'}]));await delay(5);s={...s,processingMode:'local-only',allowCloud:false};gate.resolve();await held;await assert.rejects(queued,{code:'LOCAL_ONLY'});});
 test('local minimum RAM waits before loading and does not occupy the AI lane',async()=>{const {r,core,ram}=fixture();ram(2*GIB);let called=false;core.router.local={state:'unloaded',validate:()=>2*GIB};const job=r.task('background',()=>r.withAI(async()=>{called=true;},{localSettings:{localContext:2048}}));await delay(8);assert.equal(called,false);assert.equal(r.ai,null);ram(8*GIB);await job;assert.equal(called,true);});
 test('2.1.3 memory estimator and loading idle-timer fix preserved',()=>{assert.equal(requiredMemory(2*GIB,2048),3.5*GIB);const brain=new LocalBrain({settings:()=>({localIdleMinutes:1}),memory:()=>8*GIB});let stopped=false;brain.child={};brain.state='loading';brain.lastUsed=1;brain.stop=()=>{stopped=true;};brain.maintain();assert.equal(stopped,false);brain.state='ready';brain.maintain();assert.equal(stopped,true);clearInterval(brain.timer);});
+
+test('scheduled report reservation keeps the 1.5 GiB floor, waits and executes exactly once after recovery',async()=>{
+ const {r,ram}=fixture(),owner={};let runs=0;ram(1.3*GIB);
+ const job=r.task('background',async()=>{await r.reserveBrowser(owner,'synthetic scheduled report');try{runs++;}finally{r.releaseBrowser(owner);}});
+ await delay(8);assert.equal(runs,0);assert.equal(r.ai,null);assert.match(r.background.reason,/Low RAM/);
+ await r.task('foreground',async()=>assert.equal(runs,0));ram(1.49*GIB);r.notify();await delay(8);assert.equal(runs,0);
+ ram(1.5*GIB);r.notify();await job;assert.equal(runs,1);assert.equal(r.browser,null);assert.equal(r.background,null);
+});
+test('cancelling a RAM-waiting scheduled browser report releases its reservation without executing',async()=>{
+ const {r,ram}=fixture(),owner={},controller=new AbortController();ram(1.3*GIB);
+ const job=r.task('background',()=>r.reserveBrowser(owner,'synthetic report'),{signal:controller.signal});
+ await delay(8);assert.ok(r.browser);controller.abort();await assert.rejects(job,{code:'CANCELLED'});assert.equal(r.browser,null);assert.equal(r.background,null);
+});

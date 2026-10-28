@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const rawFs=require('original-fs');
 const sha=f=>crypto.createHash('sha256').update(rawFs.readFileSync(f)).digest('hex');
-async function run({core,win,reportPath,exe,asar}){
+async function run({core,win,idleReclaimer,reportPath,exe,asar}){
  if(process.platform!=='win32')throw Error('Windows validation must execute on Windows');
  assert.equal(path.resolve(core.root),path.join(path.dirname(reportPath),'app-data'),'Acceptance must use isolated app-data');
  const evidence={version:require('../package.json').version,platform:process.platform,windowsApplicationExecuted:true,actualModelInferenceExecuted:false,passed:false,started:new Date().toISOString(),executableSHA256:sha(exe),applicationArchiveSHA256:sha(asar),checks:[]};
@@ -33,6 +33,19 @@ async function run({core,win,reportPath,exe,asar}){
   const deterministicAnswer=result.result.chat.messages.at(-1);
   assert.equal(deterministicAnswer.error,undefined,'Deterministic packaged chat failed: '+(deterministicAnswer.error?.code||'unknown'));
   assert.match(deterministicAnswer.text,/19/);evidence.checks.push('packaged renderer IPC deterministic request completed');
+  // Exercise the real packaged helper against this app's own idle renderer/GPU.
+  // Keep unsent input in the same live renderer; do not reload or destroy it.
+  assert.ok(idleReclaimer,'Packaged acceptance requires the actual idle coordinator');
+  await win.webContents.executeJavaScript("document.querySelector('#prompt').value='SYNTHETIC unsent acceptance draft'");
+  const restore=async()=>{const start=Date.now();win.show();await win.webContents.executeJavaScript("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");assert.equal(await win.webContents.executeJavaScript("document.querySelector('#prompt').value"),'SYNTHETIC unsent acceptance draft');return Date.now()-start;};
+  win.hide();await new Promise(r=>setTimeout(r,100));const controlRestoreMs=await restore();
+  win.hide();await new Promise(r=>setTimeout(r,100));const trim=await idleReclaimer.reclaim();
+  assert.ok(trim?.trimmed>0,'Native helper must reclaim an owned idle renderer/GPU');
+  assert.ok(trim.workingSetAfterBytes<trim.workingSetBeforeBytes,'Resident working set must drop');
+  const trimmedRestoreMs=await restore();assert.ok(trimmedRestoreMs<5000,'Restored renderer must remain responsive');
+  evidence.idleReclamation={...trim,controlRestoreMs,trimmedRestoreMs,draftPreserved:true,scope:'owned packaged renderer/GPU; working set is not private commit'};
+  await win.webContents.executeJavaScript("document.querySelector('#prompt').value=''");
+  evidence.checks.push('idle packaged renderer/GPU reclamation reduced working set and retained an unsent draft across hide/restore');
   const messaging=await win.webContents.executeJavaScript("window.privateAI.call('messagingStatus')");assert.equal(messaging.ok,true);assert.equal(messaging.result.settings.readAll,true);assert.equal(messaging.result.settings.enabled,false);evidence.checks.push('packaged messaging permissions initialized');
   await win.webContents.executeJavaScript("document.querySelector('[data-view=\"messaging\"]').click()");
   let controls=false;for(let n=0;n<50;n++){controls=await win.webContents.executeJavaScript("!!document.querySelector('[name=\"wa-readAll\"]') && !!document.querySelector('[name=\"wa-disableAllWriting\"]')");if(controls)break;await new Promise(r=>setTimeout(r,100));}assert.equal(controls,true);evidence.checks.push('packaged Messaging page renders independent controls');

@@ -36,6 +36,23 @@ test('Automatic fits the real Small model into 3 GiB without changing saved cont
 test('Automatic retains the requested context when it already fits',async()=>{
  const f=fixture();await f.run();assert.equal(f.calls[0].settings.localContext,4096);
 });
+
+test('measured Small compact context saves allocation without lowering cold admission or output',async()=>{
+ const f=fixture({memory:3*GIB});f.s.localMaxOutput=128;const result=await f.run('Synthetic short request.');
+ assert.equal(f.calls[0].settings.localContext,1024);assert.equal(f.calls[0].settings.localMemoryContext,2048);
+ assert.equal(f.calls[0].settings.localMaxOutput,128);assert.equal(f.calls[0].messages[0].content,'Synthetic short request.');assert.equal(result.routing.selectedTier,'small');assert.equal(f.s.localContext,4096);
+ const blocked=fixture({memory:2.55*GIB});blocked.s.localMaxOutput=128;
+ await assert.rejects(blocked.run('Hello',{preserveLocalModel:true}),{code:'LOW_MEMORY'});assert.equal(blocked.calls.length,0);
+});
+test('compact context retains complete longer sources and the old learned peak guard',async()=>{
+ const f=fixture({memory:3*GIB});f.s.localMaxOutput=128;const text='Synthetic '.repeat(140);await f.run(text);
+ assert.equal(f.calls[0].settings.localContext,2048);assert.equal(f.calls[0].messages[0].content,text);
+ const guarded=fixture({memory:3*GIB});guarded.s.localMaxOutput=128;guarded.core.stability={minimumFor:s=>s.localContext===2048?3*GIB:0};
+ await assert.rejects(guarded.run('Hello',{preserveLocalModel:true}),{code:'LOW_MEMORY'});assert.equal(guarded.calls.length,0);
+});
+test('compact optimization does not apply to unmeasured catalog identities',async()=>{
+ const f=fixture({memory:3*GIB});f.s.localMaxOutput=128;f.rows[0].id='unmeasured';await f.run();assert.equal(f.calls[0].settings.localContext,2048);
+});
 test('Automatic retains a compatible warm Small engine without budgeting its weights twice',async()=>{
  const f=fixture({memory:1.5*GIB}),row=f.rows[0];
  Object.assign(f.router.local,{state:'ready',child:{exitCode:null,signalCode:null},activeSettings:{...f.s,localModelPath:row.file,localContext:2048},signature:[row.file,2048,f.s.resourceMode].join('|'),stop:()=>assert.fail('Compatible ready model must stay loaded')});

@@ -165,6 +165,7 @@ jobs:
           node --test --test-reporter=tap --test-concurrency=2 --test-timeout=60000 tests/*.test.cjs 2>&1 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'privateai-windows-tests.log')
           if ($LASTEXITCODE -ne 0) { throw 'Windows source tests failed.' }
       - name: Exercise actual assistant UI and theme visibility with synthetic Core data
+        timeout-minutes: 5
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'

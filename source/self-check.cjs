@@ -13,6 +13,8 @@ async function localChecks(
   { safeStorage, pipe, verifyPermissions, helperHealth },
 ) {
   const checks = [];
+  const {assessMemory}=require('./memory-health.cjs');
+  let memoryHealth=assessMemory(null);
   const check = async (name, task) => {
     try {
       await task();
@@ -45,7 +47,8 @@ async function localChecks(
     await check("Private folder permissions", verifyPermissions);
     if (helperHealth)
       await check("Bundled Windows app-access helper", async () => {
-        if (!(await helperHealth()).windows) throw Error();
+        const health=await helperHealth();if (!health.windows) throw Error();
+        memoryHealth=assessMemory(health.memory);
       });
     await check("Encrypted database, backup, and file cleanup", () => {
       const file = path.join(dir, "check.db"),
@@ -142,6 +145,7 @@ async function localChecks(
     platform: process.platform,
     architecture: process.arch,
     networkRequests: 0,
+    memoryHealth,
     checks,
   };
   core.store.put("maintenance", "localChecks", result);

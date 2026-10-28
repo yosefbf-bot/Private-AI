@@ -48,6 +48,11 @@ let modelManager,browserWorker,messaging,companion,rendererRecoveries=0,renderer
 const { loadVault, startupMessage } = require("./startup-storage.cjs");
 const { AccessManager, helperCall } = require("./access.cjs");
 let access;
+const {IdleReclaimer,idleEligible}=require('./idle-reclaimer.cjs');
+const idleReclaimer=new IdleReclaimer({
+ eligible:()=>process.platform==='win32'&&!!core&&!!win&&!win.isDestroyed()&&!!access&&idleEligible({hidden:!win.isVisible()||win.isMinimized(),locked:core.locked,recording:localAudio.active(),requests:core.requests.size,foreground:core.resources.foreground,background:!!core.resources.background,ai:!!core.resources.ai,browser:!!core.resources.browser,modelBusy:!!core.router.local?.busy,modelLoading:!!core.router.local?.loadPending,otherWindow:BrowserWindow.getAllWindows().some(w=>w!==win&&!w.isDestroyed()&&w.isVisible())}),
+ trim:options=>access.helper({op:'memory.trimIdle',pids:app.getAppMetrics().filter(p=>['Tab','GPU'].includes(p.type)&&p.pid!==process.pid).map(p=>p.pid).slice(0,32)},options)
+});
 const { registerApp, openApp } = require("./apps.cjs");
 let userSid, startupStage = "folder";
 const browserHosts=require('./browser-hosts.cjs');
@@ -114,12 +119,16 @@ function loadCipher(create) {
 }
 function sampleModelMemory(brain){return memorySampler.poll(brain,(settings,bytes)=>{const row=modelManager.catalog(settings).find(t=>t.file===settings.localModelPath);if(row)core.stability.observePeak(row.tier,settings.localContext,bytes);}).catch(()=>{});}
 function emit(event) {
+  if(idleReclaimer.pending&&!idleReclaimer.eligible())idleReclaimer.cancel();
+  if(event.type==='unlocked')idleReclaimer.cancel();
+  else if(['locked','jobs_changed','job_finished'].includes(event.type))idleReclaimer.schedule();
   if (event.type === 'locked') { localAudio.revoke(); if(!browserWorker?.canContinueLocked?.())browserWorker?.close(); companion?.invalidateInvites(); }
   if(event.type==='job_finished')messaging?.jobFinished(event.jobId).catch(()=>{});
   if (win && !win.isDestroyed()) win.webContents.send("privateai:event", event);
   bridge?.broadcast(event);
 }
 function showWindow() {
+  idleReclaimer.cancel();
   if (!core) return;
   if (win && !win.isDestroyed()) {
     if(rendererNeedsReload){rendererNeedsReload=false;win.loadURL(uiURL);}
@@ -150,6 +159,10 @@ function showWindow() {
   win.webContents.on("will-navigate", (e) => {localAudio.revoke();e.preventDefault();});
   win.webContents.on("did-start-navigation",(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame)localAudio.revoke();});
   win.on("hide",()=>localAudio.revoke());
+  win.on('hide',()=>idleReclaimer.schedule());
+  win.on('minimize',()=>idleReclaimer.schedule());
+  win.on('show',()=>idleReclaimer.cancel());
+  win.on('restore',()=>idleReclaimer.cancel());
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.webContents.on('render-process-gone',()=>{
     localAudio.revoke();
@@ -173,6 +186,7 @@ function showWindow() {
     }
   });
   win.on("closed", () => {
+    idleReclaimer.cancel();
     win = null;
   });
 }
@@ -974,7 +988,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
         const result=await dialog.showMessageBox(win,{type:'warning',title:'Possible interruption to your PC work',message:'Review before running this automation',detail:detail+'\n\nDefer leaves the action unexecuted. Run it manually later when it will not interrupt your work. Approval is for this invocation only.',buttons:['Defer safely','Run now — I approve','Cancel'],defaultId:0,cancelId:2,noLink:true});
         return result.response===1&&!core.locked;
       };
-      access = new AccessManager(core, (data) =>
+      access = new AccessManager(core, (data,options) =>
         helperCall(
           path.join(
             app.isPackaged
@@ -983,9 +997,10 @@ if (!isNative && !app.requestSingleInstanceLock()) {
             "PrivateAI.Access.exe",
           ),
           data,
+          options,
         ),
       );
-      core.router.local=new LocalBrain({runtime:path.join(resources(app.isPackaged?"local-runtime":"build/local-runtime"),"llama-server.exe"),settings:()=>core.settings(),emit,onIdle:sampleModelMemory});
+      core.router.local=new LocalBrain({runtime:path.join(resources(app.isPackaged?"local-runtime":"build/local-runtime"),"llama-server.exe"),settings:()=>core.settings(),emit,onIdle:async brain=>{await sampleModelMemory(brain);idleReclaimer.schedule();}});
       modelManager=new ModelManager({directory:path.join(process.env.LOCALAPPDATA||os.homedir(),"PrivateAIModels"),fetcher:(url,opts)=>session.fromPartition("privateai-download-memory",{cache:false}).fetch(url,opts),emit});
       core.modelManager=modelManager;
       browserWorker=new BrowserWorker(core);
@@ -1016,7 +1031,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       // Desktop-only audio intent: never exposed to the HTTP/native/phone dispatchers.
       ipcMain.handle('privateai:microphone',(event,request)=>{
         requireUI(event);
-        if(request?.action==='begin')return localAudio.begin(event,request);
+        if(request?.action==='begin'){idleReclaimer.cancel();return localAudio.begin(event,request);}
         if(request?.action==='end')return localAudio.end(event,request);
         throw fail('INVALID');
       });
@@ -1093,7 +1108,7 @@ if (!isNative && !app.requestSingleInstanceLock()) {
       startupStage = "window";
       if (!process.argv.includes("--background")||validationReport) showWindow();
       if(validationReport){
-        await require('./windows-validation.cjs').run({core,win,reportPath:validationReport,exe:process.execPath,asar:path.join(process.resourcesPath,'app.asar')});
+        await require('./windows-validation.cjs').run({core,win,idleReclaimer,reportPath:validationReport,exe:process.execPath,asar:path.join(process.resourcesPath,'app.asar')});
         app.quit();
       }
     })
@@ -1111,6 +1126,7 @@ app.on("window-all-closed", () => {
   if (!quitting && !require('./app-lifecycle.cjs').needsBackground(core,{native:isNative,messaging:!!messaging?.settings().enabled,companion:!!companion?.settings().enabled})) app.quit();
 });
 app.on("before-quit", () => {
+  idleReclaimer.cancel();
   if (quitting) return;
   quitting = true;
   if (timer) clearInterval(timer);
