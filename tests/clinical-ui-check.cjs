@@ -2,21 +2,25 @@
 // Real rendered clinical controls with synthetic Core/SQLite data only.
 const test=require('node:test'),assert=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright'),{fixture}=require('./helpers.cjs');
-test('clinical UI safety',async t=>{
- const {core}=fixture(t),root=path.resolve(__dirname,'..');let delayed=null,release=null,started=null;
+test('clinical UI safety',{timeout:60000},async t=>{
+ let browser,server,delayed=null,release=null,started=null;
+ // Register before fixture cleanup: browser callbacks must finish before Core
+ // closes SQLite. HTTP connections cannot outlive the browser's teardown.
+ t.after(async()=>{release?.();await require('./ui-cleanup.cjs').closeUI({browser,server});});
+ const {core}=fixture(t),root=path.resolve(__dirname,'..');
  const dispatch=async(op,data)=>{
   if(op===delayed){delayed=null;started?.();await new Promise(r=>release=r);}
   if(op.startsWith('snf'))return require('../source/snf/index.cjs').dispatch(core,op,data);
   if(op==='workflowSummary')return require('../source/workflows/index.cjs').dispatch(core,op,data);
   return require('../source/operations-copilot.cjs').dispatch(core,op,data);
  };
- const server=http.createServer((req,res)=>{
+ server=http.createServer((req,res)=>{
   if(req.url==='/'){res.setHeader('Content-Type','text/html');res.end('<main id="content"></main>');return;}
   const file=path.resolve(root,'.'+req.url);if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}
   try{res.setHeader('Content-Type','text/javascript');res.end(fs.readFileSync(file));}catch{res.writeHead(404);res.end();}
  });
- await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
- const browser=await chromium.launch({headless:true,executablePath:process.env.PRIVATE_AI_TEST_CHROMIUM});t.after(()=>browser.close());
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ browser=await chromium.launch({headless:true,executablePath:process.env.PRIVATE_AI_TEST_CHROMIUM});
  const page=await browser.newPage();page.setDefaultTimeout(5000);await page.exposeFunction('testCall',dispatch);
  const init=async module=>{
   await page.goto(`http://127.0.0.1:${server.address().port}`);
