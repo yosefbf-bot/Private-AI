@@ -15,15 +15,16 @@ test('clinical UI safety',{timeout:60000},async t=>{
   return require('../source/operations-copilot.cjs').dispatch(core,op,data);
  };
  server=http.createServer((req,res)=>{
-  if(req.url==='/'){res.setHeader('Content-Type','text/html');res.end('<main id="content"></main>');return;}
+  if(req.url==='/'){res.setHeader('Content-Type','text/html');res.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="/source/ui/style.css"></head><body><main id="content"></main></body></html>');return;}
   const file=path.resolve(root,'.'+req.url);if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}
-  try{res.setHeader('Content-Type','text/javascript');res.end(fs.readFileSync(file));}catch{res.writeHead(404);res.end();}
+  try{res.setHeader('Content-Type',path.extname(file)==='.css'?'text/css':'text/javascript');res.end(fs.readFileSync(file));}catch{res.writeHead(404);res.end();}
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  browser=await chromium.launch({headless:true,executablePath:process.env.PRIVATE_AI_TEST_CHROMIUM});
- const page=await browser.newPage();page.setDefaultTimeout(5000);await page.exposeFunction('testCall',dispatch);
+ const page=await browser.newPage({viewport:{width:1392,height:950}});page.setDefaultTimeout(5000);await page.exposeFunction('testCall',dispatch);
  const init=async module=>{
   await page.goto(`http://127.0.0.1:${server.address().port}`);
+  await page.bringToFront();
   await page.evaluate(async module=>{
    window.messages=[];window.copies=[];Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>copies.push(text)},configurable:true});
    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
@@ -36,7 +37,16 @@ test('clinical UI safety',{timeout:60000},async t=>{
  const alert=core.store.list('snf_alert').find(a=>a.severity==='medium');assert.ok(alert,'Uses actual Review rule output');
  await t.test('review filters show actual rule output and recover after an empty search',async()=>{
   await init('snf-ui');await page.evaluate(id=>view.render(document.querySelector('#content'),{alertId:id}),alert.id);
-  await page.locator('[data-filter=review]').click();assert.equal(await page.locator('.snf-alert-card').count(),1);
+  const review=page.locator('[data-filter=review]');
+  await review.evaluate(element=>element.scrollIntoView({block:'center',behavior:'instant'}));
+  // Keep Playwright's normal visibility/stability/hit-target checks. A failure
+  // reports geometry and RAF activity from this synthetic fixture, not PHI.
+  await page.evaluate(()=>{window.testFrames=0;const tick=()=>{window.testFrames++;window.testRAF=requestAnimationFrame(tick);};window.testRAF=requestAnimationFrame(tick);});
+  try{await review.click();}catch(error){
+   const state=await review.evaluate(element=>{const r=element.getBoundingClientRect(),s=getComputedStyle(element);return {ready:document.readyState,visibility:document.visibilityState,frames:window.testFrames,bounds:{x:r.x,y:r.y,width:r.width,height:r.height},display:s.display,disabled:element.disabled};});
+   console.error('Synthetic Review control diagnostic:',JSON.stringify(state));throw error;
+  }finally{await page.evaluate(()=>cancelAnimationFrame(window.testRAF));}
+  assert.equal(await page.locator('.snf-alert-card').count(),1);
   await page.locator('#snf-alert-search').fill('not found');assert.equal(await page.locator('.snf-alert-card').count(),0);
   await page.locator('#snf-alert-search').fill('acetaminophen');assert.equal(await page.locator('.snf-alert-card').count(),1);
   assert.doesNotMatch(await page.textContent('#content'),/All clinical surveillance items in this view are resolved/);

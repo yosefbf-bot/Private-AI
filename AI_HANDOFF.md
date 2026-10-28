@@ -7,7 +7,8 @@ Measured Small1K allocation with unchanged2K admission guard, full input/output 
 No native context shifting/discard, cache compression, lower reserve/admission, background priority experiment, new splitting or cloud fallback.
 One-shot idle renderer/GPU reclamation retains live drafts, excludes work/audio and requires fresh cancellable native authorization; memory health advice is read-only.
 Raw Small/Medium/High task checks retain misses; these are not clinical accuracy guarantees.
-Local full1032/1032,0skips; final test-only normalization focused15/15; hardening30; Edge UI46, assistant25, notes14, contrast117, dark7, clinical8 and Edge/Chrome synthetic reports pass. Audit/Gitleaks0; CI policy19.
+Local full1036/1036,0skips after sectioned-report/draft required-brain wait repairs; final test-only cloud extension4/4 (affected12/12). Normalization focused15/15; hardening30; Edge UI46, assistant25, notes14, contrast117, dark7, clinical8 and Edge/Chrome synthetic reports pass. Audit/Gitleaks0; CI policy19.
+PR49 head4d3dd108 run40726580885 failed a clinical click stability timeout on Edge155 after source/native jobs passed; packaged installer/model checks were skipped. Fixture now uses app styles/standards mode/foreground/scroll and retains ordinary clicks/assertions with synthetic failure diagnostics; Edge156 passed8/8. Await new exact-head full gates; main unchanged.
 Packaged Windows helper/install/upgrade/portable/idle-draft/real-model acceptance is still a mandatory exact-head CI gate, not established by source tests or prototype.
 Owner installation/data/pairings/models and companion unchanged. Do not rerun completed native trials without a concrete reason. No Astra dependency or external paid model setup.
 
