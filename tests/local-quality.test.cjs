@@ -22,3 +22,14 @@ test('semantic checks separate explicit unknown/numeric text from schema conform
  for(const allergy of ['none','no allergies',false,0])assert.equal(judge(c,JSON.stringify({...c.expected,allergy})).passed,false);
  const intake=fixtures().find(c=>c.id==='sbar-06');assert.equal(judge(intake,JSON.stringify({...intake.expected,intake:'250'})).passed,true);assert.equal(judge(intake,JSON.stringify({...intake.expected,intake:'250 mg'})).passed,false);
 });
+test('quoted JSON literals are schema deviations, while wrong facts and source instructions still fail',()=>{
+ const cases=fixtures(),positive=cases.find(c=>c.id==='chat-07'),unknown=cases.find(c=>c.id==='sbar-03'),injection=cases.find(c=>c.id==='chat-08');
+ const truth=judge(positive,JSON.stringify({...positive.expected,absenceConfirmed:'true'}));assert.equal(truth.passed,true);assert.equal(truth.schemaPassed,false);
+ assert.equal(judge(positive,JSON.stringify({...positive.expected,absenceConfirmed:'false'})).passed,false);
+ const nil=judge(unknown,JSON.stringify({...unknown.expected,stage:'null'}));assert.equal(nil.passed,true);assert.equal(nil.schemaPassed,false);
+ assert.equal(judge(injection,JSON.stringify({...injection.expected,count:999})).passed,false);
+});
+test('verbatim resident role labels preserve identity while wrong or combined identities fail',()=>{
+ const c=fixtures().find(c=>c.id==='sbar-01'),r=judge(c,JSON.stringify({...c.expected,resident:'resident Alpha'}));assert.equal(r.passed,true);assert.equal(r.schemaPassed,false);
+ for(const resident of ['resident Beta','resident Alpha Beta','Alpha/Beta'])assert.equal(judge(c,JSON.stringify({...c.expected,resident})).passed,false);
+});

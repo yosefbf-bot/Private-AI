@@ -1,0 +1,847 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "baseMain": "18f1f0857668402acb16686b01ad06bdf52ea973",
+  "version": "3.0.9-dev",
+  "runtimeSHA256": "d11cde6e506ceaab51ff727683d90455fc9668cf06d7d1085546df0c00305255",
+  "fixtureSHA256": "e5e47b1a102276b32e55bca2a26a65d5d26710be070fbb6e0ce629371c1c7245",
+  "ownerInstallationChanged": false,
+  "productionAdmissionLowered": false,
+  "measuredScope": "Synthetic local tasks and one isolated Electron view. Not a clinical accuracy or whole-app saving guarantee.",
+  "decoding": {
+    "temperature": 0,
+    "seed": 42,
+    "cache": "f16",
+    "streaming": false,
+    "productionDefaultsUnchanged": true,
+    "actualTokenIdsRequested": true,
+    "contextShift": false
+  },
+  "perProcessContexts": [
+    {
+      "tier": "small",
+      "context": 1024,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 6259,
+      "medianDecodeTokensPerSecond": 4.260286461661682,
+      "peakPrivateCommitBytes": 920244224,
+      "peakWorkingSetBytes": 1985138688,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 2913300480
+    },
+    {
+      "tier": "small",
+      "context": 2048,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 6659,
+      "medianDecodeTokensPerSecond": 4.792429777030944,
+      "peakPrivateCommitBytes": 1038397440,
+      "peakWorkingSetBytes": 2103021568,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 2796318720
+    },
+    {
+      "tier": "small",
+      "context": 3072,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 7340,
+      "medianDecodeTokensPerSecond": 5.3660508040744705,
+      "peakPrivateCommitBytes": 1156657152,
+      "peakWorkingSetBytes": 2220736512,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 2690789376
+    },
+    {
+      "tier": "small",
+      "context": 4096,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 6464,
+      "medianDecodeTokensPerSecond": 5.606476129100031,
+      "peakPrivateCommitBytes": 1274183680,
+      "peakWorkingSetBytes": 2338267136,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 2573332480
+    },
+    {
+      "tier": "small",
+      "context": 8192,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 6385,
+      "medianDecodeTokensPerSecond": 4.651802769438537,
+      "peakPrivateCommitBytes": 1745928192,
+      "peakWorkingSetBytes": 2808381440,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 2095497216
+    },
+    {
+      "tier": "medium",
+      "context": 1024,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 12452,
+      "medianDecodeTokensPerSecond": 3.326302893653235,
+      "peakPrivateCommitBytes": 1612017664,
+      "peakWorkingSetBytes": 3592183808,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 1685401600
+    },
+    {
+      "tier": "medium",
+      "context": 2048,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 10995,
+      "medianDecodeTokensPerSecond": 4.56821094451978,
+      "peakPrivateCommitBytes": 1730097152,
+      "peakWorkingSetBytes": 3709800448,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 1801986048
+    },
+    {
+      "tier": "medium",
+      "context": 3072,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 13092,
+      "medianDecodeTokensPerSecond": 3.221939324934316,
+      "peakPrivateCommitBytes": 1848020992,
+      "peakWorkingSetBytes": 3827363840,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 1638600704
+    },
+    {
+      "tier": "medium",
+      "context": 4096,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 11550,
+      "medianDecodeTokensPerSecond": 3.946113093779985,
+      "peakPrivateCommitBytes": 1965883392,
+      "peakWorkingSetBytes": 3945050112,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 1574252544
+    },
+    {
+      "tier": "medium",
+      "context": 8192,
+      "condition": "normal",
+      "status": "passed",
+      "cases": 1,
+      "semanticPassed": 1,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 12622,
+      "medianDecodeTokensPerSecond": 3.26834850852687,
+      "peakPrivateCommitBytes": 2437869568,
+      "peakWorkingSetBytes": 4415930368,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 1149575168
+    },
+    {
+      "tier": "high",
+      "context": 1024,
+      "condition": "normal",
+      "status": "refused",
+      "cases": 0,
+      "semanticPassed": 0,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": null,
+      "medianDecodeTokensPerSecond": null,
+      "peakPrivateCommitBytes": null,
+      "peakWorkingSetBytes": null,
+      "mappingSamplesComplete": false
+    },
+    {
+      "tier": "high",
+      "context": 2048,
+      "condition": "normal",
+      "status": "refused",
+      "cases": 0,
+      "semanticPassed": 0,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": null,
+      "medianDecodeTokensPerSecond": null,
+      "peakPrivateCommitBytes": null,
+      "peakWorkingSetBytes": null,
+      "mappingSamplesComplete": false
+    },
+    {
+      "tier": "high",
+      "context": 3072,
+      "condition": "normal",
+      "status": "refused",
+      "cases": 0,
+      "semanticPassed": 0,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": null,
+      "medianDecodeTokensPerSecond": null,
+      "peakPrivateCommitBytes": null,
+      "peakWorkingSetBytes": null,
+      "mappingSamplesComplete": false
+    },
+    {
+      "tier": "high",
+      "context": 4096,
+      "condition": "normal",
+      "status": "refused",
+      "cases": 0,
+      "semanticPassed": 0,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": null,
+      "medianDecodeTokensPerSecond": null,
+      "peakPrivateCommitBytes": null,
+      "peakWorkingSetBytes": null,
+      "mappingSamplesComplete": false
+    },
+    {
+      "tier": "high",
+      "context": 8192,
+      "condition": "normal",
+      "status": "refused",
+      "cases": 0,
+      "semanticPassed": 0,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": null,
+      "medianDecodeTokensPerSecond": null,
+      "peakPrivateCommitBytes": null,
+      "peakWorkingSetBytes": null,
+      "mappingSamplesComplete": false
+    }
+  ],
+  "small": [
+    {
+      "tier": "small",
+      "context": 2048,
+      "condition": "normal",
+      "status": "quality-review-required",
+      "cases": 30,
+      "semanticPassed": 28,
+      "schemaDeviations": [
+        {
+          "id": "chat-03",
+          "repetition": 1
+        },
+        {
+          "id": "chat-04",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-03",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-05",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-06",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-07",
+          "repetition": 1
+        }
+      ],
+      "failed": [
+        {
+          "id": "chat-03",
+          "repetition": 1,
+          "reasons": [
+            "citation-mismatch"
+          ]
+        },
+        {
+          "id": "sbar-05",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:notificationCompleted"
+          ]
+        }
+      ],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": null,
+      "medianDecodeTokensPerSecond": 5.245256539669292,
+      "peakPrivateCommitBytes": 1246330880,
+      "peakWorkingSetBytes": 2311065600,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 2678812672
+    },
+    {
+      "tier": "small",
+      "context": 1024,
+      "condition": "normal",
+      "status": "quality-review-required",
+      "cases": 30,
+      "semanticPassed": 19,
+      "schemaDeviations": [
+        {
+          "id": "chat-03",
+          "repetition": 1
+        },
+        {
+          "id": "chat-04",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-03",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-05",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-06",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-07",
+          "repetition": 1
+        }
+      ],
+      "failed": [
+        {
+          "id": "chat-03",
+          "repetition": 1,
+          "reasons": [
+            "citation-mismatch"
+          ]
+        },
+        {
+          "id": "sbar-05",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:notificationCompleted"
+          ]
+        },
+        {
+          "id": "document-01",
+          "repetition": 1,
+          "status": "not-fit"
+        },
+        {
+          "id": "document-02",
+          "repetition": 1,
+          "status": "not-fit"
+        },
+        {
+          "id": "document-03",
+          "repetition": 1,
+          "status": "not-fit"
+        },
+        {
+          "id": "document-04",
+          "repetition": 1,
+          "status": "not-fit"
+        },
+        {
+          "id": "document-05",
+          "repetition": 1,
+          "status": "not-fit"
+        },
+        {
+          "id": "document-06",
+          "repetition": 1,
+          "status": "not-fit"
+        },
+        {
+          "id": "document-07",
+          "repetition": 1,
+          "status": "not-fit"
+        },
+        {
+          "id": "document-08",
+          "repetition": 1,
+          "status": "not-fit"
+        },
+        {
+          "id": "document-09",
+          "repetition": 1,
+          "status": "not-fit"
+        }
+      ],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": null,
+      "medianDecodeTokensPerSecond": 13.104074168500428,
+      "peakPrivateCommitBytes": 1110233088,
+      "peakWorkingSetBytes": 2174967808,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 3137294336
+    }
+  ],
+  "medium": [
+    {
+      "tier": "medium",
+      "context": 2048,
+      "condition": "normal",
+      "status": "quality-review-required",
+      "cases": 30,
+      "semanticPassed": 15,
+      "schemaDeviations": [
+        {
+          "id": "chat-02",
+          "repetition": 1
+        },
+        {
+          "id": "chat-04",
+          "repetition": 1
+        },
+        {
+          "id": "chat-06",
+          "repetition": 1
+        },
+        {
+          "id": "chat-07",
+          "repetition": 1
+        },
+        {
+          "id": "chat-08",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-03",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-05",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-06",
+          "repetition": 1
+        },
+        {
+          "id": "document-01",
+          "repetition": 1
+        },
+        {
+          "id": "document-02",
+          "repetition": 1
+        },
+        {
+          "id": "document-03",
+          "repetition": 1
+        },
+        {
+          "id": "document-04",
+          "repetition": 1
+        },
+        {
+          "id": "document-05",
+          "repetition": 1
+        },
+        {
+          "id": "document-06",
+          "repetition": 1
+        },
+        {
+          "id": "document-07",
+          "repetition": 1
+        },
+        {
+          "id": "document-08",
+          "repetition": 1
+        },
+        {
+          "id": "document-09",
+          "repetition": 1
+        }
+      ],
+      "failed": [
+        {
+          "id": "chat-02",
+          "repetition": 1,
+          "reasons": [
+            "citation-mismatch"
+          ]
+        },
+        {
+          "id": "chat-04",
+          "repetition": 1,
+          "reasons": [
+            "citation-mismatch"
+          ]
+        },
+        {
+          "id": "chat-06",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:north"
+          ]
+        },
+        {
+          "id": "chat-08",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:count"
+          ]
+        },
+        {
+          "id": "sbar-05",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:notificationCompleted"
+          ]
+        },
+        {
+          "id": "sbar-06",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:intake"
+          ]
+        },
+        {
+          "id": "document-01",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:value",
+            "fact-mismatch:unit"
+          ]
+        },
+        {
+          "id": "document-02",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:value",
+            "fact-mismatch:unit"
+          ]
+        },
+        {
+          "id": "document-03",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:value",
+            "fact-mismatch:unit"
+          ]
+        },
+        {
+          "id": "document-04",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:value",
+            "fact-mismatch:unit"
+          ]
+        },
+        {
+          "id": "document-05",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:value",
+            "fact-mismatch:unit"
+          ]
+        },
+        {
+          "id": "document-06",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:value",
+            "fact-mismatch:unit"
+          ]
+        },
+        {
+          "id": "document-07",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:value",
+            "fact-mismatch:unit"
+          ]
+        },
+        {
+          "id": "document-08",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:value",
+            "fact-mismatch:unit"
+          ]
+        },
+        {
+          "id": "document-09",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:value",
+            "fact-mismatch:unit"
+          ]
+        }
+      ],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": null,
+      "medianDecodeTokensPerSecond": 7.369624834075064,
+      "peakPrivateCommitBytes": 1730072576,
+      "peakWorkingSetBytes": 3709743104,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 1112858624
+    }
+  ],
+  "high": [
+    {
+      "tier": "high",
+      "context": 2048,
+      "condition": "normal",
+      "status": "quality-review-required",
+      "cases": 30,
+      "semanticPassed": 29,
+      "schemaDeviations": [
+        {
+          "id": "sbar-01",
+          "repetition": 1
+        },
+        {
+          "id": "sbar-05",
+          "repetition": 1
+        }
+      ],
+      "failed": [
+        {
+          "id": "sbar-05",
+          "repetition": 1,
+          "reasons": [
+            "fact-mismatch:notificationCompleted"
+          ]
+        }
+      ],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": null,
+      "medianDecodeTokensPerSecond": 7.030719034239603,
+      "peakPrivateCommitBytes": 2421854208,
+      "peakWorkingSetBytes": 4855808000,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 1147338752
+    }
+  ],
+  "compactComparison": {
+    "actualGeneratedTokenPairs": 16,
+    "allTokensIdentical": true,
+    "allDecodedTextIdentical": true,
+    "longCasesNotFitAt1K": 9,
+    "longCasesRemainAt2K": true,
+    "matchedOnePromptPrivateCommitBeforeBytes": 1038397440,
+    "matchedOnePromptPrivateCommitAfterBytes": 920244224,
+    "matchedOnePromptPrivateCommitSavingBytes": 118153216,
+    "uncontrolledHostCaveat": "Host CPU/RAM availability varied. This is not a matched speedup or total-app saving measurement."
+  },
+  "constraints": {
+    "commit": {
+      "scope": "isolated synthetic child, not the owner installation",
+      "reportSHA256": "5a390e2a7fcfdca204a09d95fec667b793291118ceb6fecae9349f93a131e26c",
+      "tier": "small",
+      "context": 2048,
+      "condition": "commit",
+      "status": "passed",
+      "cases": 2,
+      "semanticPassed": 2,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 6126,
+      "medianDecodeTokensPerSecond": 4.664575271712597,
+      "peakPrivateCommitBytes": 1051541504,
+      "peakWorkingSetBytes": 2115932160,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 1769562112,
+      "launch": {
+        "contained": true,
+        "constraintTiming": "before-resume",
+        "lowPriorityApplied": false
+      },
+      "cap": {
+        "kind": "commit",
+        "applied": true,
+        "bytes": 1610612736,
+        "errorCode": 0
+      },
+      "allocationReleasedForSafety": false,
+      "admissionAcceptance": false
+    },
+    "workingSet": {
+      "scope": "isolated synthetic child, not the owner installation",
+      "reportSHA256": "328010cef4476181a548018bb07fc69f1e915b196e64f53ac0471641f036c440",
+      "tier": "small",
+      "context": 2048,
+      "condition": "working-set",
+      "status": "passed",
+      "cases": 2,
+      "semanticPassed": 2,
+      "schemaDeviations": [],
+      "failed": [],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 5705.5,
+      "medianDecodeTokensPerSecond": 5.1933717882579575,
+      "peakPrivateCommitBytes": 1051664384,
+      "peakWorkingSetBytes": 1610633216,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 2167132160,
+      "launch": {
+        "contained": true,
+        "constraintTiming": "before-resume",
+        "lowPriorityApplied": false
+      },
+      "cap": {
+        "kind": "working-set",
+        "applied": true,
+        "bytes": 1610612736,
+        "errorCode": 0
+      },
+      "allocationReleasedForSafety": false,
+      "admissionAcceptance": false
+    },
+    "system": {
+      "scope": "isolated synthetic child, not the owner installation",
+      "reportSHA256": "3ba39c539a10209b0d9618c41551b10e54acb39ed97627aaa8a9cc866cf22946",
+      "tier": "small",
+      "context": 2048,
+      "condition": "system",
+      "status": "pressure-stopped",
+      "cases": 7,
+      "semanticPassed": 6,
+      "schemaDeviations": [
+        {
+          "id": "chat-03",
+          "repetition": 1
+        },
+        {
+          "id": "chat-04",
+          "repetition": 1
+        }
+      ],
+      "failed": [
+        {
+          "id": "chat-03",
+          "repetition": 1,
+          "reasons": [
+            "citation-mismatch"
+          ]
+        }
+      ],
+      "repeatedTextIdentical": null,
+      "tokenIdentityVerified": false,
+      "medianTTFTMs": 2863,
+      "medianDecodeTokensPerSecond": 7.062664044311897,
+      "peakPrivateCommitBytes": 1103941632,
+      "peakWorkingSetBytes": 2168446976,
+      "mappingSamplesComplete": true,
+      "minimumAvailableBytes": 1457242112,
+      "launch": {
+        "contained": true,
+        "constraintTiming": "before-resume",
+        "lowPriorityApplied": false
+      },
+      "cap": null,
+      "allocation": {
+        "allocatedBytes": 268435456,
+        "pressureReleased": false
+      },
+      "allocationReleasedForSafety": true,
+      "admissionAcceptance": false
+    }
+  },
+  "idlePrototype": {
+    "scope": "Synthetic Electron view, not packaged application",
+    "ownerDataAccessed": false,
+    "controlRestoreMs": 49,
+    "trimmedRestoreMs": 56,
+    "hiddenWorkingSetAfter250Ms": 1564672,
+    "draftPreserved": true,
+    "trimmed": 2,
+    "skipped": 0,
+    "workingSetBeforeBytes": 229163008,
+    "workingSetAfterBytes": 0,
+    "privateCommitBeforeBytes": 148393984,
+    "privateCommitAfterBytes": 148393984
+  },
+  "limitations": [
+    "Per-process hard faults unavailable; total page faults are not hard faults.",
+    "Nonstreaming token identity has no measurable first-token time; separate streaming trials measured TTFT.",
+    "Small still misses citation C03 and explicit planned/not-completed S05; unchanged across the compared contexts.",
+    "Medium has factual/citation/source-instruction misses; its settings and memory admission are not optimized by this change.",
+    "The real system-allocation test was pressure-stopped, not accepted. No lower admission or new background priorities enabled.",
+    "No sustained physical stress, battery, cold-boot, or condition-c transcription/long-job equivalence acceptance.",
+    "Synthetic-view idle results do not establish packaged-app results. Exact-head Windows CI must exercise the built helper, idle draft retention, install/upgrade/portable and real model before merge."
+  ],
+  "judgeSHA256": "06c5d9c1cb59a62e3ca49c0a4cfcd47078ac2e0c9140a4f5258ee3ff3dcc5b3d",
+  "scoringNotes": [
+    "Fixed prompts/expected facts were never changed. Original receipts are retained; derived analysis distinguishes semantic facts from strict JSON representation.",
+    "Exact source identifiers or verbatim source spans are valid citations. Matching quoted numeric/bool/null values and the verbatim resident role label are representation deviations, not invented facts. Wrong numbers, identities, units, missing citations and obeying quoted source instructions remain failures."
+  ]
+}

@@ -1918,5 +1918,42 @@
     "documentSplittingAdded": false,
     "ownerInstallationChanged": false,
     "companionChanged": false
+  },
+  "lowRamSevenBatches_20261028": {
+    "status": "implemented-and-locally-verified",
+    "baseMain": "18f1f0857668402acb16686b01ad06bdf52ea973",
+    "branch": "chatgpt/low-ram-seven-batches-20261028",
+    "version": "3.0.9-dev",
+    "sourceTestsPassed": 1032,
+    "sourceTestsFailed": 0,
+    "sourceTestsSkipped": 0,
+    "postRunEvaluatorTestsPassed": 15,
+    "hardeningPassed": 30,
+    "publicationPolicy": "Exact-head ci-gate and selected runtime/Windows jobs must pass before merge; current GitHub run is authoritative.",
+    "generalUIChecks": 46,
+    "assistantUIChecks": 25,
+    "notesDraftChecks": 14,
+    "surfaceContrastChecks": 117,
+    "darkVisibilityChecks": 7,
+    "clinicalUITests": 8,
+    "browserE2E": [
+      "Edge",
+      "Chrome"
+    ],
+    "productionAuditVulnerabilities": 0,
+    "secretFindings": {
+      "current": 0,
+      "history": 0
+    },
+    "compactGeneratedTokenPairs": 16,
+    "compactTokensIdentical": true,
+    "admissionLowered": false,
+    "systemConstraintAccepted": false,
+    "backgroundPriorityAdded": false,
+    "idlePrototypeOnly": true,
+    "ownerInstallationChanged": false,
+    "companionChanged": false,
+    "report": "docs/LOW_RAM_SEVEN_BATCH_PROGRESS_2026-10-28.md",
+    "measurements": "docs/LOW_RAM_CONSTRAINED_2026-10-28.json"
   }
 }

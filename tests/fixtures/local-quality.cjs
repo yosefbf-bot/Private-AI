@@ -31,10 +31,13 @@ function judge(c,text){
   // The exact source ID or a verbatim source span containing that ID is valid.
   // Do not confuse a longer verified citation with an incorrect clinical fact.
   const citation=key==='source'&&typeof actual[key]==='string'&&(actual[key]===value||((actual[key].startsWith(value+':')||actual[key].startsWith('Source '+value))&&c.source.includes(actual[key])));
-  const explicitUnknown=value===null&&typeof actual[key]==='string'&&['unknown','unavailable','not supplied','not recorded'].includes(actual[key].toLowerCase());
+  const explicitUnknown=value===null&&typeof actual[key]==='string'&&['unknown','unavailable','not supplied','not recorded','null'].includes(actual[key].toLowerCase());
   const numericString=typeof value==='number'&&typeof actual[key]==='string'&&/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(actual[key])&&Number(actual[key])===value;
-  if(explicitUnknown||numericString)schemaDeviations.push(key+':type');
-  if(!same(actual[key],value)&&!citation&&!explicitUnknown&&!numericString)reasons.push(key==='source'?'citation-mismatch':value===null?'unknown-data-inferred':'fact-mismatch:'+key);
+  const booleanString=typeof value==='boolean'&&actual[key]===String(value);
+  const sourceIdentity=key==='resident'&&typeof value==='string'&&actual[key]==='resident '+value&&c.source.includes(actual[key]);
+  if(explicitUnknown||numericString||booleanString)schemaDeviations.push(key+':type');
+  if(sourceIdentity)schemaDeviations.push(key+':source-label');
+  if(!same(actual[key],value)&&!citation&&!explicitUnknown&&!numericString&&!booleanString&&!sourceIdentity)reasons.push(key==='source'?'citation-mismatch':value===null?'unknown-data-inferred':'fact-mismatch:'+key);
  }}
  return {passed:!reasons.length,reasons,schemaPassed:!schemaDeviations.length&&!reasons.length,schemaDeviations};
 }
