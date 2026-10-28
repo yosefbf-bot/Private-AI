@@ -3,6 +3,7 @@ const {fail}=require('./security.cjs');
 const {localInput,requiredMemory,contextCandidates}=require('./local-brain.cjs');
 const {getRAMProfile}=require('./ram-profile.cjs');
 const {userText,references}=require('./deterministic.cjs');
+const {signature}=require('./workflows/actions.cjs');
 const ORDER=['small','medium','high','extra'];
 const ANSWER_SCHEMA='Return only JSON with answer (string), evidence (array of exact source quotations), uncertainties (array of strings). Do not invent evidence.';
 const ASSESS_SCHEMA=ANSWER_SCHEMA+' Also include required_tier: small, medium, high, or extra. Choose the smallest sufficient model: small for simple answers, medium for drafting, high for comparisons or multistep analysis, extra for difficult synthesis. Do not provide reasoning steps.';
@@ -17,32 +18,53 @@ function floorTier(prompt,messages){
 }
 function fits(s,messages,options){try{localInput(s,messages,options);return true;}catch(e){if(e.code==='LOCAL_CONTEXT')return false;throw e;}}
 function excerpt(text,max=160){let result='';for(const c of text){if(Buffer.byteLength(result+c)>max)break;result+=c;}return result;}
+const catalogIdentity=rows=>signature(rows.map(({tier,id,file,bytes,installed})=>({tier,id,file,bytes,installed})));
+function routingSnapshot(router,s,all){
+ const cap=s.localMaxTier&&s.localMaxTier!=='auto'?ORDER.indexOf(s.localMaxTier):ORDER.indexOf(getRAMProfile({freeBytes:router.core.resources?.memory?.()}).tierCap),warm=router.warmTier?{...router.warmTier}:null;
+ return {cap,catalog:catalogIdentity(all),completed:[],warm,warmEligible:router.local.state==='ready'&&!!warm&&Date.now()-warm.time<s.keepBrainMinutes*60000,warmFile:router.local.activeSettings?.localModelPath};
+}
+function continuation(router,s,messages,options,resumeState,evaluate){
+ // Do not retain the original streaming callback/controller: that closure can
+ // keep an entire chat/file lookup alive while an offer waits. Only routing
+ // input and bounded model results belong to this session-only checkpoint.
+ const settings={...s,processingMode:'local-only',allowCloud:false},saved={instructions:options.instructions,omitted:options.omitted,taskPrompt:options.taskPrompt,preserveLocalModel:true};
+ return {resumeBytes:Buffer.byteLength(JSON.stringify(messages))+Buffer.byteLength(JSON.stringify(resumeState.completed)),resume:({signal,check,tierChanged})=>generateTiers(router,settings,messages,{...saved,signal,waitForLocalMemory:true,checkResume:check,onTierRequested:tierChanged,resumeState},evaluate)};
+}
 function prepareMemoryWait(router,s,messages,options){
  const manager=router.core.modelManager;if(!manager||/^\s*\//.test(userText(messages)))return null;
- const rows=manager.catalog(s).filter(r=>r.installed),mode=s.localTier||'auto';
+ const all=manager.catalog(s),rows=all.filter(r=>r.installed),mode=s.localTier||'auto',resumeState=options.resumeState||routingSnapshot(router,s,all);
  let row;
  if(mode==='selected')row=rows.find(r=>r.file===s.localModelPath);
  else if(mode!=='auto')row=rows.find(r=>r.tier===mode);
  else{
-  const cap=s.localMaxTier?ORDER.indexOf(s.localMaxTier):ORDER.indexOf(getRAMProfile({freeBytes:router.core.resources.memory()}).tierCap),desired=floorTier(options.taskPrompt??userText(messages),messages);
+  const cap=resumeState.cap,desired=floorTier(options.taskPrompt??userText(messages),messages);
   row=rows.find(r=>r.tier===ORDER[Math.min(cap,desired)]);
-  const warm=router.warmTier;if(s.keepBrainMinutes>0&&warm&&Date.now()-warm.time<s.keepBrainMinutes*60000&&ORDER.indexOf(warm.tier)<=cap&&ORDER.indexOf(warm.tier)>=desired&&router.local.state==='ready')row=rows.find(r=>r.tier===warm.tier&&r.file===router.local.activeSettings?.localModelPath)||row;
+  const warm=resumeState.warm;if(s.keepBrainMinutes>0&&warm&&resumeState.warmEligible&&ORDER.indexOf(warm.tier)<=cap&&ORDER.indexOf(warm.tier)>=desired)row=rows.find(r=>r.tier===warm.tier&&r.file===resumeState.warmFile)||row;
  }
  if(!row)return null;
  const opts={instructions:(options.instructions||'')+'\n'+ANSWER_SCHEMA},settings={...s,localModelPath:row.file};
  const selected=mode==='auto'?contextCandidates(settings).find(c=>c.localContext>c.localMaxOutput+256&&fits(c,messages,opts)):fits(settings,messages,opts)?settings:null;
- return selected?{settings:selected,messages,instructions:opts.instructions,tier:row.tier,model:row.name,omitted:options.omitted||0}:null;
+ return selected?{settings:selected,messages,instructions:opts.instructions,tier:row.tier,model:row.name,omitted:options.omitted||0,...(mode!=='selected'?continuation(router,s,messages,options,resumeState,require('./hybrid-router.cjs').evaluateLocal):{})}:null;
 }
 async function generateTiers(router,s,messages,options,evaluate){
  const core=router.core,manager=core.modelManager,local=router.local,resources=core.resources;
  const mode=s.localTier||'auto',ram=getRAMProfile({freeBytes:resources?.memory?.()});
- const cap=s.localMaxTier&&s.localMaxTier!=='auto'?ORDER.indexOf(s.localMaxTier):ORDER.indexOf(ram.tierCap);
+ const cap=options.resumeState?.cap??(s.localMaxTier&&s.localMaxTier!=='auto'?ORDER.indexOf(s.localMaxTier):ORDER.indexOf(ram.tierCap));
  const all=manager.catalog(s),available=all.filter(t=>t.installed),route={mode,recommendedTier:null,selectedTier:null,attempts:[],notice:'',ramProfile:ram};
+ // Session-only checkpoints retain completed inference, not a lossy summary.
+ // Re-enter deterministic routing with those results; no completed model call
+ // is repeated, and the same two-call budget and required-tier checks apply.
+ const resumeState=options.resumeState||routingSnapshot(router,s,all);
+ if(catalogIdentity(all)!==resumeState.catalog)throw fail('CHANGED');
+ options.checkResume?.();
  let calls=0,tokens=0,smallResult=null,desired=floorTier(options.taskPrompt??userText(messages),messages);
  const fullOptions={...options,onDelta:undefined,instructions:(options.instructions||'')+'\n'+ANSWER_SCHEMA};
  const state=(phase,tier)=>{router.tierStatus={phase,tier};core.emit?.({type:'local-status'});};
  const finish=(r,tier)=>{router.warmTier={tier,time:Date.now()};route.selectedTier=tier;route.contextTokens=r.localContextTokens;if(r.localContextTokens<s.localContext)route.notice=[route.notice,CONTEXT_NOTICE].filter(Boolean).join('\n\n');state('complete',tier);return {...r,model:all.find(t=>t.tier===tier)?.name||r.model,localTokens:tokens,routing:route};};
  async function run(row,msg,opts,{assessment=false}={}){
+  options.checkResume?.();
+  const key=signature({tier:row.tier,messages:msg,instructions:opts.instructions,assessment}),saved=resumeState.completed[calls];
+  if(saved){if(saved.key!==key)throw fail('CHANGED');calls++;if(saved.error)throw fail(saved.error);tokens+=saved.result.localTokens||0;route.attempts.push({tier:row.tier,phase:assessment?'assessment':'answer',status:'completed',contextTokens:saved.result.localContextTokens,reusedCheckpoint:true});return {...saved.result};}
   let settings={...s,localModelPath:row.file,...(assessment?{localMaxOutput:128}:{})};
   if(assessment){
    const active=local.activeSettings;
@@ -56,27 +78,30 @@ async function generateTiers(router,s,messages,options,evaluate){
    if(!fits(settings,msg,opts))throw fail('LOCAL_CONTEXT');
    core.stability?.assertModel();
    await manager.verifyTier(row.tier,s,options.signal);
+   options.checkResume?.();
    if(options.signal?.aborted)throw fail('CANCELLED');
    if(calls>=2)throw fail('LOCAL_UNAVAILABLE');calls++;
    state(assessment?'assessing':'answering',row.tier);
-   const before=resources?.memory();let r;try{r=await local.generate(settings,msg,opts);}catch(e){if(/^LOCAL_(?:ENGINE|UNAVAILABLE)/.test(e.code||''))core.stability?.modelFailure();throw e;}
+   const before=resources?.memory();let r;try{r=await local.generate(settings,msg,opts);}catch(e){resumeState.completed.push({key,error:['CANCELLED','LOW_MEMORY','LOCAL_CONTEXT','LOCAL_FILE_MISSING','LOCAL_MODEL','BUSY','LOCAL_ENGINE_START','LOCAL_ENGINE_TIMEOUT'].includes(e.code)?e.code:'LOCAL_UNAVAILABLE'});if(/^LOCAL_(?:ENGINE|UNAVAILABLE)/.test(e.code||''))core.stability?.modelFailure();throw e;}
    if(before!==undefined)core.stability?.observe(row.tier,settings.localContext,Math.max(0,before-resources.memory()));
    tokens+=r.localTokens||0;return r;
   };
   let r;
+  options.onTierRequested?.(row);
   try{r=resources?await resources.withAI(invoke,{localSettings:settings,waitForMemory:!!options.waitForLocalMemory,allowContextReduction:mode==='auto',contextFits:candidate=>fits(candidate,msg,opts)}):await invoke();}
   catch(e){
    if(e.localAdmission){
     if(assessment){
      // Triage is not the answer. If it cannot start, pin the complete request
      // to the rule-selected answer brain rather than replaying the excerpt.
-     const candidate=prepareMemoryWait(router,s,messages,options);
+     const candidate=prepareMemoryWait(router,s,messages,{...options,resumeState});
      if(candidate){const error=resources.localMemoryFailure(candidate.settings);Object.defineProperty(error,'localWait',{value:candidate});throw error;}
      Object.defineProperty(e,'localAssessment',{value:true});
-    }else Object.defineProperty(e,'localWait',{value:{settings:e.localAdmission,messages:msg,instructions:opts.instructions,tier:row.tier,model:row.name,omitted:opts.omitted||0}});
+    }else Object.defineProperty(e,'localWait',{value:{settings:e.localAdmission,messages:msg,instructions:opts.instructions,tier:row.tier,model:row.name,omitted:opts.omitted||0,...continuation(router,s,messages,options,resumeState,evaluate)}});
    }throw e;
   }
-  route.attempts.push({tier:row.tier,phase:assessment?'assessment':'answer',status:'completed',contextTokens:settings.localContext});return {...r,localContextTokens:settings.localContext};
+  options.checkResume?.();const result={...r,localContextTokens:settings.localContext};resumeState.completed.push({key,result});
+  route.attempts.push({tier:row.tier,phase:assessment?'assessment':'answer',status:'completed',contextTokens:settings.localContext});return result;
  }
  function note(row,e,phase){if(e.code==='CANCELLED'||options.signal?.aborted)throw fail('CANCELLED');route.attempts.push({tier:row.tier,phase,status:'skipped',code:['LOW_MEMORY','LOCAL_CONTEXT','LOCAL_FILE_MISSING','LOCAL_MODEL','BUSY'].includes(e.code)?e.code:'LOCAL_UNAVAILABLE'});}
  try{
@@ -84,9 +109,9 @@ async function generateTiers(router,s,messages,options,evaluate){
    const row=available.find(t=>t.tier===mode);if(!row)throw fail('LOCAL_FILE_MISSING');route.recommendedTier=mode;
    const result=await run(row,messages,fullOptions);return finish(result,mode);
   }
-  const warm=router.warmTier;
-  if(s.keepBrainMinutes>0&&warm&&Date.now()-warm.time<s.keepBrainMinutes*60000&&ORDER.indexOf(warm.tier)<=cap&&local.state==='ready'){
-   const row=available.find(t=>t.tier===warm.tier&&t.file===local.activeSettings?.localModelPath);
+  const warm=resumeState.warm;
+  if(s.keepBrainMinutes>0&&warm&&ORDER.indexOf(warm.tier)<=cap&&resumeState.warmEligible){
+   const row=available.find(t=>t.tier===warm.tier&&t.file===resumeState.warmFile);
    if(row&&ORDER.indexOf(row.tier)>=desired){route.recommendedTier=ORDER[desired];try{const result=await run(row,messages,fullOptions);route.notice='Reused the loaded brain under your follow-up setting.';return finish(result,row.tier);}catch(e){note(row,e,'answer');if(e.code==='LOW_MEMORY'&&options.preserveLocalModel)throw e;}}
   }
   const small=available.find(t=>t.tier==='small');

@@ -5,7 +5,7 @@ const {localInput}=require('./local-brain.cjs');
 const {references}=require('./deterministic.cjs');
 const {evaluateLocal}=require('./hybrid-router.cjs');
 const docs=require('./workflows/documents.cjs');
-const SETTINGS=['provider','model','hipaa','processingMode','allowCloud','localTier','localMaxTier','localModelPath','smallModelPath','mediumModelPath','highModelPath','extraModelPath','localContext','localMaxOutput','resourceMode','org','projectId','customEndpoint','ollamaEndpoint','customInstructions','contextChars'];
+const SETTINGS=['provider','model','hipaa','processingMode','allowCloud','localTier','localMaxTier','localModelPath','smallModelPath','mediumModelPath','highModelPath','extraModelPath','localContext','localMaxOutput','resourceMode','org','projectId','customEndpoint','ollamaEndpoint','customInstructions','contextChars','escalationThreshold','keepBrainMinutes'];
 const policy=core=>{const s=core.settings();return signature(Object.fromEntries(SETTINGS.map(k=>[k,s[k]])));};
 const history=(chat,index)=>signature(chat.messages.slice(0,index).map(({memoryWait,...m})=>m));
 class ChatMemoryWait{
@@ -20,12 +20,13 @@ class ChatMemoryWait{
   // A custom unverified file cannot promise an immutable model identity.
   if(!row||this.offers.size>=4)return;
   const input={settings:{...request.settings,processingMode:'local-only',allowCloud:false},messages:structuredClone(request.messages),instructions:request.instructions||'',omitted:request.omitted||0};
-  const bytes=Buffer.byteLength(JSON.stringify(input));
+  const bytes=Buffer.byteLength(JSON.stringify(input))+(request.resumeBytes||0);
   if(bytes>2*1024**2||[...this.offers.values()].reduce((n,e)=>n+e.bytes,bytes)>8*1024**2)return;
   localInput(input.settings,input.messages,input);
   const index=chat.messages.indexOf(answer),sources=[];
   for(const id of new Set(chat.messages.slice(0,index).flatMap(m=>m.fileIds||[]))){const f=this.core.file(id,chat);if(!f)return;sources.push([id,docs.sourceRevision(f)]);}
-  const token=uuid(),entry={token,chatId:chat.id,index,time:answer.time,history:history(chat,index),instructions:signature(this.core.getInstructions(chat)),policy:policy(this.core),row,input,sources,bytes,created:Date.now(),state:'offered'};
+  const s=this.core.settings(),qualityThreshold=Math.max(70,s.processingMode==='local-first'?70:s.escalationThreshold||85);
+  const token=uuid(),entry={token,chatId:chat.id,index,time:answer.time,history:history(chat,index),instructions:signature(this.core.getInstructions(chat)),policy:policy(this.core),row,input,sources,bytes,qualityThreshold,resume:request.resume,created:Date.now(),state:'offered'};
   this.offers.set(token,entry);answer.memoryWait={token,state:'offered',tier:row.tier,model:row.name};
  }
  check(entry){
@@ -37,10 +38,10 @@ class ChatMemoryWait{
   if(!current?.installed||current.file!==entry.row.file||current.id!==entry.row.id||current.bytes!==entry.row.bytes)throw fail('CHANGED');
   localInput(entry.input.settings,entry.input.messages,entry.input);return c;
  }
- update(entry,state){
-  if(entry.state===state)return;
+ update(entry,state,row){
+  if(entry.state===state&&(!row||entry.activeTier===row.tier))return;
   const c=this.raw(entry.chatId),m=c?.messages[entry.index];if(!m||m.time!==entry.time||m.memoryWait?.token!==entry.token)return;
-  entry.state=state;m.memoryWait={...m.memoryWait,state};this.core.saveChat(c);this.core.emit({type:'jobs_changed'});
+  entry.state=state;if(row)entry.activeTier=row.tier;m.memoryWait={...m.memoryWait,state,...(row?{tier:row.tier,model:row.name}:{})};this.core.saveChat(c);this.core.emit({type:'jobs_changed'});
  }
  async queue({chatId,token}={}){
   this.core.assertUnlocked();if(this.core.locked)throw fail('LOCKED');
@@ -58,14 +59,16 @@ class ChatMemoryWait{
   try{
    await this.core.resources.task('background',async()=>{
     this.check(entry);
-    const result=await this.core.resources.withAI(async settings=>{
+    const result=entry.resume?await entry.resume({signal,check:()=>this.check(entry),tierChanged:row=>{this.check(entry);this.update(entry,entry.state,row);}}):await this.core.resources.withAI(async settings=>{
      this.check(entry);this.core.stability.assertModel();await this.core.modelManager.verifyTier(entry.row.tier,entry.input.settings,signal);this.check(entry);
      return this.core.router.local.generate(settings,entry.input.messages,{instructions:entry.input.instructions,signal});
     },{localSettings:entry.input.settings,waitForMemory:true,allowContextReduction:false});
     const c=this.check(entry),answer=c.messages[entry.index];
     const checked=evaluateLocal(result.text,references(entry.input.messages),!entry.input.omitted&&!result.incomplete);
-    const text=(checked.reliability.score<70?'Local draft — not sufficiently verified.\n\n':'')+checked.text;
-    const output=this.core.router.finish({...result,...checked,text,provider:'local',model:entry.row.name,reason:'local_memory_wait',usage:{inputTokens:0,outputTokens:0},routing:{mode:'pinned-local-wait',selectedTier:entry.row.tier,contextTokens:entry.input.settings.localContext,attempts:[{tier:entry.row.tier,phase:'answer',status:'completed'}],notice:'Resumed the original local request with the same brain and supplied input.'}},entry.input.settings,{signal});
+    const reviewRequired=checked.reliability.score<entry.qualityThreshold||!!result.incomplete||!!entry.input.omitted||!!(result.routing?.recommendedTier&&require('./local-tiers.cjs').ORDER.indexOf(result.routing.selectedTier)<require('./local-tiers.cjs').ORDER.indexOf(result.routing.recommendedTier));
+    const text=(reviewRequired?'Local draft — not sufficiently verified.\n\n':'')+(result.routing?.notice?result.routing.notice+'\n\n':'')+checked.text;
+    if(reviewRequired)checked.reliability={...checked.reliability,label:'Review required',reasons:[...checked.reliability.reasons,'Resumed locally; the original quality threshold and required model tier still apply. No cloud fallback was attempted.']};
+    const output=this.core.router.finish({...result,...checked,text,provider:'local',model:result.model||entry.row.name,reason:'local_memory_wait',usage:{inputTokens:0,outputTokens:0},routing:{...(result.routing||{mode:'pinned-local-wait',selectedTier:entry.row.tier,contextTokens:entry.input.settings.localContext,attempts:[{tier:entry.row.tier,phase:'answer',status:'completed'}]}),memoryWaitResumed:true,qualityThreshold:entry.qualityThreshold,reviewRequired}},entry.input.settings,{signal});
     this.check(entry);answer.text=output.text;delete answer.error;answer.durationMs=Date.now()-started;answer.usage=output.usage;answer.incomplete=output.incomplete;answer.processing={provider:'local',model:output.model,reason:output.reason,reliability:output.reliability,meter:output.meter,routing:output.routing};answer.memoryWait={...answer.memoryWait,state:'completed'};this.core.saveChat(c);
    },{signal,update:state=>{if(this.offers.get(entry.token)===entry&&!this.core.locked)this.update(entry,state);}});
   }catch(error){if(!this.closed&&!this.core.locked){const c=this.raw(entry.chatId),m=c?.messages[entry.index];if(m?.memoryWait?.token===entry.token&&m.time===entry.time){m.error=safeError(error);m.memoryWait={...m.memoryWait,state:signal.aborted?'cancelled':'failed'};this.core.saveChat(c);}}}

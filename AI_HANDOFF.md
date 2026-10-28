@@ -1,3 +1,22 @@
+# RAM resumption quality — October 28, 2026
+
+Base main fd796e7; branch chatgpt/ram-quality-continuation-20261028, 3.0.9-dev.
+Preserved existing admission/unloading/batches; repaired foreground wait skipping
+required-tier escalation/original review threshold. Bounded session checkpoints
+reuse successful and failed attempts, preserve the two-call limit and original
+catalog/cap/warm eligibility, remove retained streaming callbacks, and follow the
+actual required brain in wait status. No cloud/RAM downgrade or lossy changes.
+Local full995/995,0skips; affected78; Edge UI46 passed after a Stop-RPC test race
+was corrected without relaxing its no-extra-call assertions. Hardening30 passed;
+production audit0, Gitleaks current/history0. Final source lint/required exact-head
+runtime/Windows gates must pass before merge. No owner installation/data changed.
+New non-admin isolated whole-tree baseline plus real installed Small passed;
+steady tray idle ~375MiB working set/~148MiB private commit; active peak2.69GiB/
+1.36GiB. Baseline only, no new savings/speedup claim. Detailed scope/limits:
+docs/RAM_QUALITY_CONTINUATION_2026-10-28.md and RAM_BASELINE_2026-10-28.json.
+Do not rerun the old cancelled UAC benchmark. Chats remain session-only waits;
+restart retains the request and requires explicit retry. Companion unchanged.
+
 # Archive lifecycle follow-up — October 27, 2026
 
 PR46 is merged as caae5b2; all8 exact-head and all8 main gates passed.

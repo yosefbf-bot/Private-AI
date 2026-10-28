@@ -841,7 +841,13 @@ let browser;
   checks.push('RAM wait renders in light/dark, keeps the same brain/full input, and refreshes completion without another turn');
   await desktop.locator('.new-chat').click();freeRAM=2*GIB;
   await desktop.locator('#prompt').fill('Synthetic cancelled RAM request.');await desktop.locator('#send').click();await desktop.locator('[data-act=ram-wait]').click();await desktop.locator('[data-act=ram-cancel]').click();
-  freeRAM=8*GIB;core.resources.notify();await desktop.waitForFunction(()=>!document.querySelector('[data-act=ram-cancel]'));assert.equal(localCalls.length,1);
+  // A DOM click dispatches an async stop RPC; acknowledge cancellation before
+  // changing the external RAM condition. Otherwise inference can legitimately
+  // start before the server receives Stop, making this a timing-dependent test.
+  await desktop.waitForFunction(()=>!document.querySelector('[data-act=ram-cancel]'));
+  for(let i=0;i<100&&core.requests.size;i++)await new Promise(r=>setTimeout(r,5));
+  assert.equal(core.requests.size,0);assert.equal(core.chatMemoryWait.offers.size,0);
+  freeRAM=8*GIB;core.resources.notify();assert.equal(localCalls.length,1);
   checks.push('Cancelling the visible RAM wait cannot run it when memory later returns');
   await desktop.locator('.new-chat').click();freeRAM=2*GIB;
   await desktop.locator('#prompt').fill('Synthetic archived RAM request.');await desktop.locator('#send').click();await desktop.locator('[data-act=ram-wait]').click();await desktop.locator('[data-act=ram-cancel]').waitFor();
