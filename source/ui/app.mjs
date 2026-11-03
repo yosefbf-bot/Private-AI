@@ -198,7 +198,7 @@ function updateTop() {
   };
   $("view-title").textContent = names[view] || "Private AI";
   const provNames = Object.fromEntries(Object.values(state.providers || {}).map(p => [p.id, p.name]));
-  const modeName = ({"smart-hybrid":"Smart Hybrid","local-first":"Local First","cloud-first":"Cloud First","local-only":"Local Only"}[state.settings.processingMode] || "Smart Hybrid");
+  const modeName = ({"smart-hybrid":"Smart Hybrid","local-first":"Local First","cloud-first":"Cloud First","api-only":"API Only","local-only":"Local Only"}[state.settings.processingMode] || "Smart Hybrid");
   document.querySelectorAll('#sidebar [data-view="pcc"]').forEach(el => {el.hidden=!state.integrations?.find(x=>x.id==='pcc')?.showDashboard;});
   const activeProv = state.settings.provider || (state.keySaved ? "openai" : "local");
   $("model-label").textContent = `${modeName} · ${provNames[activeProv] || activeProv}`;

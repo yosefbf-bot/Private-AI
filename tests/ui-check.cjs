@@ -31,6 +31,10 @@ const client = {
 const { core } = fixture({ after: (fn) => after.push(fn) }, client);
 const companion = new (require('../source/companion-gateway.cjs').CompanionGateway)(core);
 const {freePort:companionPort, request:companionRequest} = require('./companion-fixture.cjs');
+// This fixture drives its own UI jobs. Earlier synthetic notes must not let the
+// unrelated periodic speech/draft worker add model calls to cancellation checks.
+// Resource/RAM-wait timers and all exact call-count assertions stay active.
+clearInterval(core.speechWorkTimer);
 core.modelManager=new (require("../source/model-manager.cjs").ModelManager)({directory:path.join(core.root,"models")});
 const { AccessManager } = require("../source/access.cjs");
 const access = new AccessManager(core, async (d) => {
@@ -687,13 +691,26 @@ let browser;
     "Page extraction excludes form controls, hidden text, and scripts",
   );
   await desktop.locator('#sidebar [data-view="settings"]').click();await desktop.locator('#content [data-view="processing"]').click();
+  assert.equal(await desktop.locator('[name="localEngine"]').count(),0);
+  await desktop.locator('[name="processingMode"]').selectOption('api-only');
+  await desktop.locator('[name="localTier"]').selectOption('advanced');
+  await desktop.locator('[name="localMaxTier"]').selectOption('advanced');
+  await desktop.locator('[data-act="hybrid-save"]').click();
+  await desktop.waitForFunction(()=>document.querySelector('#model-label').textContent.startsWith('API Only · '));
+  assert.equal(core.settings().processingMode,'api-only');assert.equal(core.settings().localTier,'advanced');assert.equal(core.settings().localMaxTier,'advanced');
+  await desktop.locator('#sidebar [data-view="settings"]').click();await desktop.locator('#content [data-view="processing"]').click();
+  assert.equal(await desktop.locator('[name="localTier"]').inputValue(),'advanced');
+  assert.equal(await desktop.locator('[name="localMaxTier"]').inputValue(),'advanced');
+  await desktop.locator('[data-act="hybrid-tier-advanced"]').click();assert.equal(requestedModel,'qwen35-9b');
+  await desktop.locator('[name="localTier"]').selectOption('auto');await desktop.locator('[name="localMaxTier"]').selectOption('high');
   await desktop.locator('[name="processingMode"]').selectOption('local-only');
   await desktop.locator('[data-act="hybrid-save"]').click();
   await desktop.waitForFunction(()=>document.querySelector('#model-label').textContent.startsWith('Local Only · '));
   assert.equal(core.settings().processingMode,'local-only');
   await desktop.screenshot({path:path.join(root,'build/screenshots/ai-processing.png')});
   assert.equal(await desktop.locator('[data-act="hybrid-runtime"]').count(),0);
-  checks.push('AI Processing saves Local Only and renders model controls');
+  checks.push('AI Processing saves/reloads API Only, 9B and caps; no unused engine selector; Local Only remains available');
+  await desktop.getByText('Existing / alternate models — 3B and 8B',{exact:true}).click();
   await desktop.locator('[data-act="hybrid-tier-medium"]').click();
   assert.equal(requestedModel,'llama32-3b');
   await desktop.locator('[data-act="hybrid-tier-high"]').click();

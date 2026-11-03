@@ -80,6 +80,19 @@ test('retention prunes expired batches but pins unresolved alert evidence, inclu
  assert.equal(core.store.get('snf_alert',alert.id).status,'snoozed');
 });
 
+test('resolved clinical history keeps its evaluation, normalized facts and provenance after file retention',async t=>{
+ const {core}=fixture(t);await core.snf.ingestReports([census(),medication()]);
+ const alert=core.store.list('snf_alert').find(a=>a.code==='AP-002'),old=Date.now()-400*86400000;
+ // An already reviewed legacy resolution is preserved, never reinterpreted as active.
+ core.store.put('snf_alert',alert.id,{...alert,status:'resolved',resolvedAt:old});
+ const before=core.store.list('snf_med_order').map(r=>r.id),evaluation=core.store.get('snf_rule_evaluation',alert.evaluationId);
+ core.snf.cleanup(100,Date.now()+500*86400000);
+ assert.equal(core.store.get('snf_alert',alert.id).status,'resolved');
+ assert.deepEqual(core.store.get('snf_rule_evaluation',alert.evaluationId),evaluation);
+ for(const id of before)assert.ok(core.store.get('snf_med_order',id));
+ for(const source of evaluation.sources){if(source.rowId)assert.ok(core.store.get('snf_import_row',source.rowId));if(source.reportId)assert.ok(core.store.get('snf_import_report',source.reportId));if(source.batchId)assert.ok(core.store.get('snf_import_batch',source.batchId));}
+});
+
 test('production critical summary remains visible in demo mode and with clinical navigation disabled',async t=>{
  const {core}=fixture(t);await core.snf.ingestReports([census(),medication()]);
  const critical=core.summary().snfAlerts.critical;assert.ok(critical>0);

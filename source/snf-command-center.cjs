@@ -362,7 +362,7 @@ class SNFCommandCenter {
         retentionDays: 100,
         retentionReportsDays: 200,
         isSupplementalOnly: true,
-        regulatoryNotice: "Supplemental surveillance. Default raw retention is 100 days and derived reports 200 days; the organization must approve applicable retention and legal holds. No regulatory exemption is asserted.",
+        regulatoryNotice: "Supplemental surveillance. Unreferenced import staging uses a 100 days default. Tracked observations, resident history, alerts and associated evidence have no automatic expiry. Working files have a separate retention policy; original downloaded files are not removed here. The organization must approve applicable retention and legal holds.",
         staleThresholdHours: 18,
         behaviorLookbackDays: 10,
         prnWarningDays: 10,
@@ -1712,79 +1712,11 @@ class SNFCommandCenter {
       total: 0
     };
 
-    // 1. Raw EMR data feeds (held for 100 days for quarterly audits)
-    const rawKinds = [
-      'snf_med_order', 'snf_med_change', 'snf_emar_exception', 'snf_diagnosis',
-      'snf_behavior', 'snf_fall', 'snf_infection', 'snf_wound', 'snf_lab',
-      'snf_clinical24', 'snf_progress_note', 'snf_gdr', 'snf_admission', 'snf_transfer',
-      'snf_psych_review', 'snf_pharmacist_review', 'snf_weight', 'snf_care_plan'
-    ];
-
-    this._tx(() => {
-      for (const kind of rawKinds) {
-        const records = this.store.list(kind);
-        for (const rec of records) {
-          const time = rec.importTimestamp ||
-                       (rec.reportDate ? Date.parse(rec.reportDate) : null) ||
-                       (rec.eventDate ? Date.parse(rec.eventDate) : null) ||
-                       rec.timestamp ||
-                       rec.updated;
-          if (time && time < rawCutoff && !keep.rows.has(rec.provenance?.rowId)) {
-            this.store.delete(kind, rec.id);
-            counts.rawEmrRecords++;
-          }
-        }
-      }
-
-      // 2. Discharged residents (100 days standard cycle following discharge)
-      const residents = this.store.list('snf_resident');
-      for (const res of residents) {
-        const isDischarged = res.status === 'Discharged' || res.dischargeDate;
-        if (isDischarged) {
-          const dischargeTime = res.dischargeDate ? Date.parse(res.dischargeDate) : (res.updated || res.importTimestamp);
-          if (dischargeTime && dischargeTime < rawCutoff && !keep.residents.has(res.id)) {
-            this.store.delete('snf_resident', res.id);
-            counts.dischargedResidents++;
-          }
-        }
-      }
-
-      // 3. Resolved clinical alerts & flags (100 days retention from resolution)
-      const alerts = this.store.list('snf_alert');
-      for (const alert of alerts) {
-        if (alert.status === 'resolved' || alert.status === 'dismissed') {
-          const resolvedTime = alert.resolvedAt || alert.updated || alert.timestamp;
-          if (resolvedTime && resolvedTime < rawCutoff) {
-            this.store.delete('snf_alert', alert.id);
-            counts.resolvedAlerts++;
-          }
-        }
-      }
-
-      // 4. Resolved open issues (100 days retention from resolution)
-      const issues = this.store.list('snf_open_issue');
-      for (const issue of issues) {
-        if (issue.status === 'Resolved' || issue.status === 'Closed') {
-          const resolvedTime = issue.resolvedAt || issue.updated;
-          if (resolvedTime && resolvedTime < rawCutoff) {
-            this.store.delete('snf_open_issue', issue.id);
-            counts.resolvedIssues++;
-          }
-        }
-      }
-
-      // 5. Analytical reports and results (held for additional 100 days = 200 days total)
-      const reportCutoff = now - (retentionDays + 100) * 86400000;
-      const cachedReports = this.store.list('snf_report_cache');
-      counts.reportsPurged = 0;
-      for (const rep of cachedReports) {
-        const repTime = rep.generatedAt || rep.timestamp || rep.updated;
-        if (repTime && repTime < reportCutoff) {
-          this.store.delete('snf_report_cache', rep.id);
-          counts.reportsPurged++;
-        }
-      }
-    });
+    // The owner's 100-day file policy is not a clinical-history expiry.
+    // Keep normalized observations, discharged identities, alert resolutions,
+    // issues and analytical history. Only unreferenced import staging evidence
+    // may expire; originals on disk are outside this cleanup.
+    counts.reportsPurged = 0;
 
     counts.evidenceRecordsPurged = pruneEvidence(this.store, rawCutoff, keep);
     counts.total = counts.evidenceRecordsPurged + counts.rawEmrRecords + counts.dischargedResidents + counts.resolvedAlerts + counts.resolvedIssues + counts.reportsPurged;
@@ -1837,16 +1769,16 @@ class SNFCommandCenter {
       emrPlatform: settings.emrPlatform || 'Generic imported clinical records',
       emrReadOnly: true,
       rawRetentionDays: retentionDays,
-      reportRetentionDays: retentionDays + 100, // 200 days total
-      resolvedAlertsRetentionDays: retentionDays,
-      dischargedResidentsRetentionDays: retentionDays,
+      reportRetentionDays: null, // No automatic expiry for tracked analytical history
+      resolvedAlertsRetentionDays: null,
+      dischargedResidentsRetentionDays: null,
       activeCensus,
       dischargedCensus,
       activeAlerts,
       resolvedAlerts,
       totalRawRecords,
       isSupplementalOnly: true,
-      regulatoryNotice: "Supplemental surveillance. Default raw retention is 100 days and derived reports 200 days; the organization must approve applicable retention and legal holds. No regulatory exemption is asserted."
+      regulatoryNotice: "Supplemental surveillance. Unreferenced import staging uses a 100 days default. Tracked observations, resident history, alerts and associated evidence have no automatic expiry. Working files have a separate retention policy; original downloaded files are not removed here. The organization must approve applicable retention and legal holds."
     };
   }
 

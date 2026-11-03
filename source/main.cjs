@@ -443,7 +443,7 @@ async function dispatch(
       const ram = getRAMProfile();
       const dynCap = TIERS.findIndex(x=>x.tier===ram.tierCap);
       const userCap = s.localMaxTier&&s.localMaxTier!=='auto'?TIERS.findIndex(x=>x.tier===s.localMaxTier):-1;
-      const cap = userCap>=0?Math.min(userCap,dynCap):dynCap;
+      const cap = userCap>=0?userCap:dynCap;
       if(s.localTier==='auto')row=catalog.find(t=>t.installed&&TIERS.findIndex(x=>x.tier===t.tier)<=cap);
       else if(s.localTier!=='selected'){row=catalog.find(t=>t.tier===s.localTier&&t.installed);if(!row)throw fail('LOCAL_FILE_MISSING');}
       const selected=row?{...s,localModelPath:row.file}:s;

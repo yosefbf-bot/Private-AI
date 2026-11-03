@@ -1,3 +1,40 @@
+# Current desktop audit — November 2–3, 2026
+
+Owner resumed Private AI development and requested thorough testing, appropriate
+brain choices including 9B, and Local Only/Hybrid/API Only acceptance. Worktree
+private-ai-audit-20261102, branch chatgpt/full-audit-9b-20261102, verified base main
+8212d79b631f3057e6b23ae091bc8e471f3919ad. See
+docs/PRIVATE_AI_AUDIT_2026-11-02.md and PROJECT_STATUS.json for exact scope/results.
+
+Optional pinned Qwen3.5-9B, API Only isolation, model-specific templates, truthful
+model/RAM UI, and retained report/clinical tracking history are implemented.
+100 days concerns raw working files, not tracked chronology. Original owner
+files/settings/installed apps and the companion are unchanged. The separately
+requested 9B model file was downloaded and checksum-verified; it is not selected
+automatically and has not yet run because of RAM admission. No dependencies changed.
+
+Final complete source1050/1050,0skips includes the missing-legacy-tier RAM-wait fix;
+earlier1049 and focused57 evidence retained. Hardening31, focused123, assistantUI25,
+notes14, contrast117, dark7 and development hardening UI passed. General UI found
+unrelated periodic draft-worker interference in its exact model-call count;
+the fixture now isolates that worker, keeping production timers/assertions. Rerun
+passed46checks. Edge/Chrome synthetic browser workflows passed; initialChrome
+BROWSER_SETUP remains documented (isolated launch and confirmation passed).
+Final source323 syntax and repository514 passed; guide/whitespace checks passed.
+Small actual25 AI checks passed23, plus5/5 calculators; two misses remain disclosed.
+Medium later passed4/8native subset checks; High's retry stopped at0.94GiBfree
+before any answer. 9B remains RAM-refused, not passed. See sanitized native JSON.
+npm audit9moderate/0high/0critical; scoped
+review found no reachable app exploit and advised against incompatible blanket
+upgrades. Gitleaks current/history0. Native DPAPI/Edge synthetic source acceptance
+passed, but live API, new installer and actual9B acceptance are not established.
+
+Do not transfer older binary evidence to this source or claim full release readiness.
+Finish UI/final-source checks, any feasible native model checks, and exact-head CI.
+Preserve failed/incomplete logs under the workspace Validation folder. Publication
+must use a reviewed branch/PR; do not bypass pending/failed gates or install over
+the owner's current profile. The older AnythingLLM cloud handoff remains separate.
+
 # Low-RAM seven-batch work — October 28, 2026
 
 Base main18f1f08; branch chatgpt/low-ram-seven-batches-20261028, desktop3.0.9-dev.

@@ -6,7 +6,7 @@ function parse(prompt){
  if((m=p.match(/^\/?(?:show )?reports(?: (?:from )?(.+))?$/i)))return {type:'list',query:{date:m[1]||'today'}};
  if((m=p.match(/^\/?analy[sz]e reports(?: (?:from |for )?(.+))?$/i)))return {type:'analyze',query:{date:m[1]||'today'}};
  if((m=p.match(/^\/?analy[sz]e (?:reports in |all files in )?folder "([^"\r\n]{1,500})"$/i)))return {type:'analyze',query:{folder:m[1]}};
- if((m=p.match(/^\/?(?:show report )?trends(?: (resident|staff|unit) "([^"\r\n]{1,200})")?(?: over (\d{1,3}) days)?$/i)))return {type:'trends',query:{...(m[1]?{entityType:m[1].toLowerCase(),entityId:m[2]}:{}),...(m[3]?{days:Number(m[3])}:{})}};
+ if((m=p.match(/^\/?(?:show report )?trends(?: (resident|staff|unit) "([^"\r\n]{1,200})")?(?: over (all|\d{1,5}) days)?$/i)))return {type:'trends',query:{...(m[1]?{entityType:m[1].toLowerCase(),entityId:m[2]}:{}),...(m[3]?{days:m[3].toLowerCase()==='all'?'all':Number(m[3])}:{})}};
  if((m=p.match(/^\/report ([^"\r\n]{1,80})$/i)))return {type:'run',name:m[1],parameters:{}};
  m=p.match(/^(?:\/report|(?:go to (?:point ?click ?care|pcc) and )?(?:run|download)(?: the)?(?: report)?) "([^"\r\n]{1,80})"(.*)$/i);
  if(!m)return /^(?:\/report\b|\/?analy[sz]e (?:reports|folder)|\/?trends\b|(?:go to (?:point ?click ?care|pcc) and )?(?:run|download) (?:the )?report\b)/i.test(p)?{type:'help'}:null;

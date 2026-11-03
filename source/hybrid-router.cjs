@@ -30,7 +30,7 @@ class HybridRouter {
   if(options.web&&s.hipaa)throw fail('POLICY');
   if(!options.web&&!initialMemoryError){const result=await deterministic(prompt,messages,options.allowTools===false?undefined:this.core.localTools);if(result)return this.finish(result,s,options);}
   options={...options,instructions:(options.instructions||'')+'\n'+EVIDENCE_INSTRUCTIONS};
-  if(initialMemoryError){const candidate=s.processingMode==='cloud-first'||requiredCapability(messages,options)!=='text'?null:require('./local-tiers.cjs').prepareMemoryWait(this,s,messages,options);if(candidate){const error=this.core.resources.localMemoryFailure(candidate.settings);Object.defineProperty(error,'localWait',{value:candidate});throw error;}throw initialMemoryError;}
+  if(initialMemoryError){const candidate=['cloud-first','api-only'].includes(s.processingMode)||requiredCapability(messages,options)!=='text'?null:require('./local-tiers.cjs').prepareMemoryWait(this,s,messages,options);if(candidate){const error=this.core.resources.localMemoryFailure(candidate.settings);Object.defineProperty(error,'localWait',{value:candidate});throw error;}throw initialMemoryError;}
   const capability=requiredCapability(messages,options);
   const initialCloud=transportCapability(s,key);
   const cloudState=()=>{
@@ -43,9 +43,9 @@ class HybridRouter {
    if(initialCloud.classification==='cloud'&&initialCloud.allowed&&!cloudAllowed(this.core.settings()))throw fail('LOCAL_ONLY');
   };
   let localResult,localFailure,localRouting,localWorkTokens=0,attemptedLocal=false;
-  let reason=s.processingMode==='cloud-first'?'user_selected_cloud':'local_unavailable';
+  let reason=['cloud-first','api-only'].includes(s.processingMode)?'user_selected_cloud':'local_unavailable';
   const attemptLocal=async()=>{
-   if(attemptedLocal||!this.local||capability!=='text')return;
+   if(s.processingMode==='api-only'||attemptedLocal||!this.local||capability!=='text')return;
    attemptedLocal=true;
    try{
     const useTiers=this.core.modelManager&&s.localTier!=='selected'&&(s.localTier!=='auto'||this.core.modelManager.catalog(s).some(t=>t.installed));
@@ -74,6 +74,7 @@ class HybridRouter {
    if(localResult.reliability.score>=threshold||!cloudState().ready)return finishLocal();
   }
   if(!cloudState().ready){
+   if(s.processingMode==='api-only')throw fail(cloudState().reason||'AI_SETUP');
    if(capability!=='text')throw fail('LOCAL_CAPABILITY');
    if(s.provider==='local'&&!localConfigured(s,this.core.modelManager?.catalog(s)||[])){
     const helper=await require('./local-assistant.cjs').generateLocalResponse(prompt,messages,{...options,onDelta:undefined});
@@ -111,7 +112,7 @@ class HybridRouter {
    checkCancelled();
    // Do not mix a local answer into a partially streamed cloud response, retry
    // credentials, or weaken a policy refusal. Offline fallback is text-only.
-   if(cloudAttempted&&e.code==='NETWORK'&&!cloudOutput&&capability==='text'){
+   if(s.processingMode!=='api-only'&&cloudAttempted&&e.code==='NETWORK'&&!cloudOutput&&capability==='text'){
     await attemptLocal();
     if(localResult){localResult.reason='cloud_unavailable_local_fallback';return finishLocal('Provider connection failed before an answer was received. Showing local output; a provider request was attempted.');}
    }

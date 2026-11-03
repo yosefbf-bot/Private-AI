@@ -117,6 +117,15 @@ test('large catalogues remain query-bounded without blocking background indexing
  x.history.queue({ids:[a.id]});let calls=0;x.core.runJob=async input=>{calls++;x.core.store.put('job',input.id,{id:input.id,status:'completed'});};
  assert.equal(await x.history.tick(),true);assert.equal(calls,1);
 });
+
+test('more than 1,000 historical downloads do not disable a seven-day trend query',async t=>{
+ const x=setup(t),today=require('../source/report-parameters.cjs').day(new Date()),a=await add(x,'current.csv',`date,residentId,unit,staffId,weight\n${today},R-1,North,S-1,70`);
+ await x.history.index(a.id);const original=x.core.store.get('report_history',a.id);
+ const oldDate=require('../source/report-parameters.cjs').day(new Date(Date.now()-200*86400000));
+ x.core.store.transaction(()=>{for(let i=0;i<1001;i++){const id=require('node:crypto').randomUUID();x.core.store.put('report_history',id,{...original,id,hash:'synthetic-history-'+i,created:Date.now()-200*86400000,downloadDate:oldDate});x.core.store.put('report_history_rows',id,{id,rows:[{date:oldDate,entities:{resident:'R-1',unit:'North',staff:'S-1'},value:70,eventId:null,row:2}]});}});
+ const result=await x.history.trends({days:7,entityType:'resident',entityId:'R-1'});
+ assert.equal(result.groups.length,1);assert.equal(result.groups[0].observations,1);assert.equal(result.groups[0].latest.value,70);
+});
 test('new reports compare explicit source values by resident staff and unit; absent fields remain unknown',async t=>{
  const x=setup(t),today=require('../source/report-parameters.cjs').day(new Date());
  for(let i=0;i<6;i++){const d=new Date();d.setDate(d.getDate()-6+i);const a=await add(x,'old'+i+'.csv',`date,residentId,unit,staffId,weight\n${require('../source/report-parameters.cjs').day(d)},R-1,North,S-1,${70+i%2}`);await x.history.index(a.id);}
@@ -126,11 +135,25 @@ test('new reports compare explicit source values by resident staff and unit; abs
  const unknown=await x.history.trends({entityType:'resident',entityId:'R-2'});assert.equal(unknown.groups.length,0);assert.ok(unknown.unknownRows>0);
  assert.match(trends.notice,/not.*caus|not.*performance/i);
 });
-test('changed downloads fail before indexing; history obeys100-day window and never deletes source files',async t=>{
+test('changed downloads fail before indexing; retained tracking history has no 100-day expiry',async t=>{
  const x=setup(t),a=await add(x,'changed.csv','date,residentId,weight\n2026-10-25,R-1,70');fs.appendFileSync(path.join(x.core.settings().workspace,a.out.relative),'\n2026-10-26,R-1,71');
  await assert.rejects(x.history.index(a.id),{code:'CHANGED'});
  const old=await add(x,'old.csv','date,residentId,unit,staffId,weight\n2026-01-01,R-1,North,S-1,70',Date.now()-101*86400000);
- assert.equal(x.history.list().some(r=>r.id===old.id),false);x.history.cleanup();assert.equal(x.core.store.get('report_history',old.id),null);assert.ok(fs.existsSync(path.join(x.core.settings().workspace,old.out.relative)));
+ assert.equal(x.history.list().some(r=>r.id===old.id),true);x.history.cleanup();assert.ok(x.core.store.get('report_history',old.id));assert.ok(fs.existsSync(path.join(x.core.settings().workspace,old.out.relative)));
+});
+
+test('100-day working-file cleanup preserves older observations and longer trend queries',async t=>{
+ const x=setup(t),now=Date.now(),past=now-180*86400000,date=require('../source/report-parameters.cjs').day(new Date(past));
+ const csv=`date,residentId,unit,staffId,weight\n${date},R-1,North,S-1,70`,a=await add(x,'historical.csv',csv,past);
+ const indexed=await x.history.index(a.id);assert.equal(indexed.state,'indexed');
+ x.core.store.put('file',indexed.fileId,x.core.store.get('file',indexed.fileId),{updated:past,expires:now-1});
+ x.core.performCleanup();assert.equal(x.core.store.get('file',indexed.fileId),null);
+ const trends=await x.history.trends({days:365,entityType:'resident',entityId:'R-1'});
+ assert.equal(trends.groups[0].observations,1);assert.equal(trends.groups[0].latest.value,70);
+ assert.equal(trends.groups[0].sources[0].reportId,a.id);assert.equal(trends.unavailableEvidence,1);
+ assert.equal((await x.history.trends({days:'all'})).groups[0].observations,1);
+ const b=await add(x,'historical-again.csv',csv);await x.history.index(b.id);
+ assert.equal((await x.history.trends({days:365,entityType:'resident',entityId:'R-1'})).groups[0].observations,1);
 });
 test('locking or pausing leaves pending history work untouched; restart marks uncertain analysis for review',async t=>{
  const x=setup(t),a=await add(x,'one.csv','date,residentId,unit,staffId,weight\n2026-10-25,R-1,North,S-1,70');

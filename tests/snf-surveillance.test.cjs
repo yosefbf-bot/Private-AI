@@ -160,12 +160,12 @@ test('SNF Clinical Surveillance - Core Engine & Rules Test Suite', async (t) => 
     assert(qapiResp.text.includes('QAPI'));
   });
 
-  await t.test('100-Day Retention Cycle & Audit Summary', async () => {
+  await t.test('Working-file retention is separate from tracked clinical history', async () => {
     const summary = snf.getAuditRetentionSummary();
     assert.strictEqual(summary.rawRetentionDays, 100, 'Raw data must be held for 100 days default');
-    assert.strictEqual(summary.reportRetentionDays, 200, 'Report data must be held for 200 days (100 days raw + 100 days results)');
-    assert.strictEqual(summary.resolvedAlertsRetentionDays, 100, 'Resolved alerts must follow 100-day cycle');
-    assert.strictEqual(summary.dischargedResidentsRetentionDays, 100, 'Discharged residents must follow 100-day cycle');
+    assert.strictEqual(summary.reportRetentionDays, null, 'Tracked analytical reports have no automatic age expiry');
+    assert.strictEqual(summary.resolvedAlertsRetentionDays, null, 'Resolved alert history is retained');
+    assert.strictEqual(summary.dischargedResidentsRetentionDays, null, 'Discharged resident history is retained');
     assert.strictEqual(summary.emrReadOnly, true, 'EMR data must be strictly read-only');
     assert(summary.regulatoryNotice.includes('100 days'), 'Notice must state 100-day retention period');
 
@@ -215,15 +215,15 @@ test('SNF Clinical Surveillance - Core Engine & Rules Test Suite', async (t) => 
 
     const cleanupRes = snf.cleanupOldData();
     assert.strictEqual(cleanupRes.success, true);
-    assert(cleanupRes.rawRecordsPurged >= 1, 'Should purge old raw med order');
-    assert(cleanupRes.resolvedAlertsPurged >= 1, 'Should purge old resolved alert');
-    assert(cleanupRes.dischargedResidentsPurged >= 1, 'Should purge old discharged resident');
-    assert(cleanupRes.reportsPurged >= 1, 'Should purge old report older than 200 days');
+    assert.equal(cleanupRes.rawRecordsPurged, 0, 'Keep normalized medication history');
+    assert.equal(cleanupRes.resolvedAlertsPurged, 0, 'Keep resolved alert history');
+    assert.equal(cleanupRes.dischargedResidentsPurged, 0, 'Keep discharged identity history');
+    assert.equal(cleanupRes.reportsPurged, 0, 'Keep analytical history');
 
-    assert.strictEqual(store.get('snf_med_order', 'old-order-1'), null, 'Old order should be deleted');
-    assert.strictEqual(store.get('snf_alert', 'old-resolved-alert'), null, 'Old resolved alert should be deleted');
+    assert.notStrictEqual(store.get('snf_med_order', 'old-order-1'), null, 'Old normalized order remains');
+    assert.notStrictEqual(store.get('snf_alert', 'old-resolved-alert'), null, 'Old resolved alert remains');
     assert.notStrictEqual(store.get('snf_alert', 'recent-resolved-alert'), null, 'Recent resolved alert should remain');
-    assert.strictEqual(store.get('snf_report_cache', 'old-report'), null, 'Report > 200 days should be deleted');
+    assert.notStrictEqual(store.get('snf_report_cache', 'old-report'), null, 'Historical analytical result remains');
     assert.notStrictEqual(store.get('snf_report_cache', 'retained-report'), null, 'Report < 200 days must be preserved');
   });
 

@@ -1,8 +1,8 @@
 {
   "version": "3.0.9-dev",
-  "updatedAt": "2026-10-28T16:46:33.195Z",
-  "baselineCommit": "452800210a33e34b1d18a648d1288562d9061d56",
+  "updatedAt": "2026-11-03T05:27:39.177Z",
+  "baselineCommit": "8212d79b631f3057e6b23ae091bc8e471f3919ad",
   "releaseStatus": "validation-pending",
-  "note": "Protected report sign-in and guided recovery; consult exact-head Windows acceptance before release.",
-  "sourceSHA256": "2ab7d9640665c81381460f8a4aadd8c58014373f6a9d1f8d3a1817dc51ff2d24"
+  "note": "Optional 9B, API Only isolation and retained tracking history; consult the November audit and exact-head Windows acceptance before release.",
+  "sourceSHA256": "678ef2ea44bd5d96b083943e672a03fcc22507f7a897e92de9cb6d894c125867"
 }

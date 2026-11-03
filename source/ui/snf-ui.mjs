@@ -1073,34 +1073,34 @@ export function createSNFUI({ api, toast, esc, renderPage }) {
         <!-- 3. TIERED RETENTION SCHEDULE GRID -->
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:20px;">
           <div class="card" style="padding:16px; border-radius:8px; border:1px solid var(--theme-border, #e2e8f0); background:var(--theme-surface, #fff);">
-            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--theme-text-muted, #64748b); margin-bottom:4px;">EMR Feeds &amp; Raw Data</div>
-            <div style="font-size:28px; font-weight:700; color:var(--theme-text, #0f172a); margin-bottom:6px;">100 Days</div>
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--theme-text-muted, #64748b); margin-bottom:4px;">Tracked Clinical Observations</div>
+            <div style="font-size:28px; font-weight:700; color:var(--theme-text, #0f172a); margin-bottom:6px;">Retained History</div>
             <p style="font-size:13px; color:var(--theme-text-muted, #475569); margin:0; line-height:1.5;">
-              Held for 100 days so facility QAPI committees and clinical teams can perform complete <strong>90-day quarterly audits</strong> (with a 10-day buffer) before automatic purging.
+              Normalized observations and their source evidence remain available beyond 100 days. Working-file retention does not erase tracked history.
             </p>
           </div>
 
           <div class="card" style="padding:16px; border-radius:8px; border:1px solid var(--theme-border, #e2e8f0); background:var(--theme-surface, #fff);">
             <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--theme-text-muted, #64748b); margin-bottom:4px;">Resulted Reports &amp; Analytics</div>
-            <div style="font-size:28px; font-weight:700; color:var(--theme-info, #0284c7); margin-bottom:6px;">200 Days</div>
+            <div style="font-size:28px; font-weight:700; color:var(--theme-info, #0284c7); margin-bottom:6px;">Retained History</div>
             <p style="font-size:13px; color:var(--theme-text-muted, #475569); margin:0; line-height:1.5;">
-              Saved PDF reports and analytics derived from raw feeds receive an <strong>additional 100 days</strong> of retention (total 200 days) to support multi-quarter trend comparisons.
+              Tracked analytical results have no automatic age expiry. Saved working files follow their separate retention policy; original downloads are not removed here.
             </p>
           </div>
 
           <div class="card" style="padding:16px; border-radius:8px; border:1px solid var(--theme-border, #e2e8f0); background:var(--theme-surface, #fff);">
             <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--theme-text-muted, #64748b); margin-bottom:4px;">Resolved Alerts &amp; Flags</div>
-            <div style="font-size:28px; font-weight:700; color:var(--theme-positive, #059669); margin-bottom:6px;">100 Days</div>
+            <div style="font-size:28px; font-weight:700; color:var(--theme-positive, #059669); margin-bottom:6px;">Retained History</div>
             <p style="font-size:13px; color:var(--theme-text-muted, #475569); margin:0; line-height:1.5;">
-              Clinical alerts and issues that have been verified, signed off, or resolved are retained for 100 days post-resolution. <strong>Unresolved alerts remain active indefinitely</strong>.
+              Resolved alerts and issues retain their audit history and evidence. <strong>Unresolved alerts remain active until reviewed</strong>.
             </p>
           </div>
 
           <div class="card" style="padding:16px; border-radius:8px; border:1px solid var(--theme-border, #e2e8f0); background:var(--theme-surface, #fff);">
             <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--theme-text-muted, #64748b); margin-bottom:4px;">Discharged Residents</div>
-            <div style="font-size:28px; font-weight:700; color:var(--theme-text-muted, #475569); margin-bottom:6px;">100 Days</div>
+            <div style="font-size:28px; font-weight:700; color:var(--theme-text-muted, #475569); margin-bottom:6px;">Retained History</div>
             <p style="font-size:13px; color:var(--theme-text-muted, #475569); margin:0; line-height:1.5;">
-              Residents who have been discharged follow the standard 100-day rolling cycle from their discharge date, keeping the surveillance roster focused on active census.
+              Discharged residents remain in historical records; the active census continues to exclude them.
             </p>
           </div>
         </div>

@@ -1,0 +1,514 @@
+{
+  "schema": 1,
+  "scope": "Synthetic source LocalBrain harness; not a packaged-app acceptance or clinical validation",
+  "productionLimitsChanged": false,
+  "runs": [
+    {
+      "condition": "normal",
+      "completedAt": "2026-11-03T05:08:40.397Z",
+      "runtimeExecutableSHA256": "d11cde6e506ceaab51ff727683d90455fc9668cf06d7d1085546df0c00305255",
+      "fixtureSHA256": "e5e47b1a102276b32e55bca2a26a65d5d26710be070fbb6e0ce629371c1c7245",
+      "harnessSHA256": "d46e4c93c95470c19d4e5c6fdb5ea66bdd10cef5f9e4782e01ed725bbf69f9ed",
+      "judgeSHA256": "a874a77ef439477260685373f1cb68847d7ec87ba7298e921488e9b3a6a33fd4",
+      "results": [
+        {
+          "tier": "small",
+          "context": 2048,
+          "status": "quality-review-required",
+          "reason": null,
+          "modelSHA256": "72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb",
+          "loadMs": 1870,
+          "availableBeforeBytes": 4410204160,
+          "requiredBytes": 3176755200,
+          "minimumAvailableBytes": 2046042112,
+          "nativeCases": 25,
+          "nativePassed": 23,
+          "toolCases": 5,
+          "toolPassed": 5,
+          "cases": [
+            {
+              "id": "chat-01",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 10595
+            },
+            {
+              "id": "chat-02",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 14273
+            },
+            {
+              "id": "chat-03",
+              "passed": false,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [
+                "citation-mismatch"
+              ],
+              "durationMs": 14789
+            },
+            {
+              "id": "chat-04",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 14203
+            },
+            {
+              "id": "chat-05",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 18346
+            },
+            {
+              "id": "chat-06",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 14301
+            },
+            {
+              "id": "chat-07",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 14115
+            },
+            {
+              "id": "chat-08",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 15008
+            },
+            {
+              "id": "sbar-01",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 19353
+            },
+            {
+              "id": "sbar-02",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 13592
+            },
+            {
+              "id": "sbar-03",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 16288
+            },
+            {
+              "id": "sbar-04",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 14618
+            },
+            {
+              "id": "sbar-05",
+              "passed": false,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [
+                "fact-mismatch:notificationCompleted"
+              ],
+              "durationMs": 14407
+            },
+            {
+              "id": "sbar-06",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 17841
+            },
+            {
+              "id": "sbar-07",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 17648
+            },
+            {
+              "id": "sbar-08",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 15912
+            },
+            {
+              "id": "document-01",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 28869
+            },
+            {
+              "id": "document-02",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 27495
+            },
+            {
+              "id": "document-03",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 28624
+            },
+            {
+              "id": "document-04",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 28356
+            },
+            {
+              "id": "document-05",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 29560
+            },
+            {
+              "id": "document-06",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 29860
+            },
+            {
+              "id": "document-07",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 29925
+            },
+            {
+              "id": "document-08",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 29054
+            },
+            {
+              "id": "document-09",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 29474
+            },
+            {
+              "id": "calc-01",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": false,
+              "reasons": [],
+              "durationMs": null
+            },
+            {
+              "id": "calc-02",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": false,
+              "reasons": [],
+              "durationMs": null
+            },
+            {
+              "id": "calc-03",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": false,
+              "reasons": [],
+              "durationMs": null
+            },
+            {
+              "id": "calc-04",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": false,
+              "reasons": [],
+              "durationMs": null
+            },
+            {
+              "id": "calc-05",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": false,
+              "reasons": [],
+              "durationMs": null
+            }
+          ],
+          "peakWorkingSetBytes": 2290753536,
+          "peakPrivateCommitBytes": 1225781248
+        },
+        {
+          "tier": "medium",
+          "context": 2048,
+          "status": "refused",
+          "reason": "LOW_MEMORY",
+          "modelSHA256": null,
+          "loadMs": null,
+          "availableBeforeBytes": 4715020288,
+          "requiredBytes": 4783853568,
+          "minimumAvailableBytes": null,
+          "nativeCases": 0,
+          "nativePassed": 0,
+          "toolCases": 0,
+          "toolPassed": 0,
+          "cases": [],
+          "peakWorkingSetBytes": null,
+          "peakPrivateCommitBytes": null
+        },
+        {
+          "tier": "high",
+          "context": 2048,
+          "status": "refused",
+          "reason": "LOW_MEMORY",
+          "modelSHA256": null,
+          "loadMs": null,
+          "availableBeforeBytes": 4714024960,
+          "requiredBytes": 5726363648,
+          "minimumAvailableBytes": null,
+          "nativeCases": 0,
+          "nativePassed": 0,
+          "toolCases": 0,
+          "toolPassed": 0,
+          "cases": [],
+          "peakWorkingSetBytes": null,
+          "peakPrivateCommitBytes": null
+        },
+        {
+          "tier": "advanced",
+          "context": 2048,
+          "status": "refused",
+          "reason": "LOW_MEMORY",
+          "modelSHA256": null,
+          "loadMs": null,
+          "availableBeforeBytes": 4712812544,
+          "requiredBytes": 7291135200,
+          "minimumAvailableBytes": null,
+          "nativeCases": 0,
+          "nativePassed": 0,
+          "toolCases": 0,
+          "toolPassed": 0,
+          "cases": [],
+          "peakWorkingSetBytes": null,
+          "peakPrivateCommitBytes": null
+        }
+      ]
+    },
+    {
+      "condition": "normal",
+      "completedAt": "2026-11-03T05:38:32.148Z",
+      "runtimeExecutableSHA256": "d11cde6e506ceaab51ff727683d90455fc9668cf06d7d1085546df0c00305255",
+      "fixtureSHA256": "e5e47b1a102276b32e55bca2a26a65d5d26710be070fbb6e0ce629371c1c7245",
+      "harnessSHA256": "d46e4c93c95470c19d4e5c6fdb5ea66bdd10cef5f9e4782e01ed725bbf69f9ed",
+      "judgeSHA256": "a874a77ef439477260685373f1cb68847d7ec87ba7298e921488e9b3a6a33fd4",
+      "results": [
+        {
+          "tier": "medium",
+          "context": 2048,
+          "status": "quality-review-required",
+          "reason": null,
+          "modelSHA256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff",
+          "loadMs": 2670,
+          "availableBeforeBytes": 5679058944,
+          "requiredBytes": 4783853568,
+          "minimumAvailableBytes": 1890623488,
+          "nativeCases": 8,
+          "nativePassed": 4,
+          "toolCases": 0,
+          "toolPassed": 0,
+          "cases": [
+            {
+              "id": "chat-01",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 22699
+            },
+            {
+              "id": "chat-02",
+              "passed": false,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [
+                "citation-mismatch"
+              ],
+              "durationMs": 22468
+            },
+            {
+              "id": "chat-03",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 26052
+            },
+            {
+              "id": "chat-07",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 23285
+            },
+            {
+              "id": "chat-08",
+              "passed": false,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [
+                "fact-mismatch:count"
+              ],
+              "durationMs": 24414
+            },
+            {
+              "id": "sbar-03",
+              "passed": true,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [],
+              "durationMs": 26232
+            },
+            {
+              "id": "sbar-05",
+              "passed": false,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [
+                "fact-mismatch:notificationCompleted"
+              ],
+              "durationMs": 22713
+            },
+            {
+              "id": "document-01",
+              "passed": false,
+              "incomplete": false,
+              "nativeInference": true,
+              "reasons": [
+                "fact-mismatch:value",
+                "fact-mismatch:unit"
+              ],
+              "durationMs": 46895
+            }
+          ],
+          "peakWorkingSetBytes": 3710013440,
+          "peakPrivateCommitBytes": 1730265088
+        },
+        {
+          "tier": "high",
+          "context": 2048,
+          "status": "refused",
+          "reason": "LOW_MEMORY",
+          "modelSHA256": null,
+          "loadMs": null,
+          "availableBeforeBytes": 5719027712,
+          "requiredBytes": 5726363648,
+          "minimumAvailableBytes": null,
+          "nativeCases": 0,
+          "nativePassed": 0,
+          "toolCases": 0,
+          "toolPassed": 0,
+          "cases": [],
+          "peakWorkingSetBytes": null,
+          "peakPrivateCommitBytes": null
+        },
+        {
+          "tier": "advanced",
+          "context": 2048,
+          "status": "refused",
+          "reason": "LOW_MEMORY",
+          "modelSHA256": null,
+          "loadMs": null,
+          "availableBeforeBytes": 5718941696,
+          "requiredBytes": 7291135200,
+          "minimumAvailableBytes": null,
+          "nativeCases": 0,
+          "nativePassed": 0,
+          "toolCases": 0,
+          "toolPassed": 0,
+          "cases": [],
+          "peakWorkingSetBytes": null,
+          "peakPrivateCommitBytes": null
+        }
+      ]
+    },
+    {
+      "condition": "normal",
+      "completedAt": "2026-11-03T05:41:30.865Z",
+      "runtimeExecutableSHA256": "d11cde6e506ceaab51ff727683d90455fc9668cf06d7d1085546df0c00305255",
+      "fixtureSHA256": "e5e47b1a102276b32e55bca2a26a65d5d26710be070fbb6e0ce629371c1c7245",
+      "harnessSHA256": "d46e4c93c95470c19d4e5c6fdb5ea66bdd10cef5f9e4782e01ed725bbf69f9ed",
+      "judgeSHA256": "a874a77ef439477260685373f1cb68847d7ec87ba7298e921488e9b3a6a33fd4",
+      "results": [
+        {
+          "tier": "high",
+          "context": 2048,
+          "status": "pressure-stopped",
+          "reason": "LOW_MEMORY",
+          "modelSHA256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+          "loadMs": null,
+          "availableBeforeBytes": 5757620224,
+          "requiredBytes": 5726363648,
+          "minimumAvailableBytes": 1014120448,
+          "nativeCases": 0,
+          "nativePassed": 0,
+          "toolCases": 0,
+          "toolPassed": 0,
+          "cases": [],
+          "peakWorkingSetBytes": 2917081088,
+          "peakPrivateCommitBytes": 1839706112
+        }
+      ]
+    }
+  ],
+  "model9B": {
+    "modelId": "qwen35-9b",
+    "bytes": 5680522464,
+    "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
+    "checksumVerified": true,
+    "verifiedAt": "2026-11-03T05:19:38.266Z",
+    "nativeInferenceExecuted": false
+  },
+  "limitations": [
+    "Small ran 25 AI cases plus five deterministic calculations; Medium ran an eight-case subset. These totals must not be treated as comparable general accuracy percentages.",
+    "High was refused and later stopped by the unchanged memory watchdog before any answer was produced.",
+    "9B download verification succeeded; native 9B inference remains unexecuted because RAM admission refused it.",
+    "Live approved-provider conversations, owner-installed-app acceptance and the new installer are separate checks."
+  ]
+}
