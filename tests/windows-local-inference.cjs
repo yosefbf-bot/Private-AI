@@ -21,7 +21,7 @@ async function run(directory){
  const evidence={version:require('../package.json').version,platform:process.platform,passed:false,actualModelInferenceExecuted:false,runtimeSHA256:crypto.createHash('sha256').update(fs.readFileSync(runtime)).digest('hex'),started:new Date().toISOString(),totalMemoryBytes:os.totalmem(),initialFreeMemoryBytes:os.freemem(),results:[],checks:[],limitations:['No cloud/provider request is made. Policy modes are covered separately by source regression tests.','Generation uses the existing non-streaming transport; time to first token is not measured.','Measurements are observations on this PC, not performance guarantees.']};
  try{
   const tiers=process.argv[3]?process.argv[3].split(','):['small','medium','high','extra'];
-  if(tiers.some(t=>!['small','medium','high','extra'].includes(t)))throw Error('Invalid tier');
+  if(tiers.some(t=>!['small','medium','high','extra','advanced'].includes(t)))throw Error('Invalid tier');
   for(const tier of tiers){
    const row=manager.catalog(settings).find(r=>r.tier===tier);
    if(!row?.installed){(evidence.unavailableTiers??=[]).push(tier);continue;}

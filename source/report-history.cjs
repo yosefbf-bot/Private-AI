@@ -47,8 +47,9 @@ class ReportHistory{
   for(const summary of core.store.summaries('report_analysis'))if(summary.state==='running'){const r=core.store.get('report_analysis',summary.id);if(r?.state==='running')core.store.put('report_analysis',r.id,{...r,state:'needs_review',error:'INTERRUPTED'});}
   for(const s of core.store.list('schedule'))if(s.reportQuery&&s.analysisState==='running')core.store.put('schedule',s.id,{...s,enabled:false,analysisState:'needs_review',error:'INTERRUPTED'});
  }
- days(){const n=this.core.settings().retentionDays;return n>0?Math.min(n,100):100;}
- current(row,now=Date.now()){return !!row&&row.created>=now-this.days()*DAY&&row.created<=now&&row.workspace===this.core.settings().workspace;}
+ // Raw-file retention is independent of the lifetime of tracked observations.
+ // Keep historical facts/provenance until explicitly removed by the owner.
+ current(row,now=Date.now()){return !!row&&Number.isFinite(row.created)&&row.created<=now&&row.workspace===this.core.settings().workspace;}
  available(){this.core.assertUnlocked();if(this.core.developmentMode||require('./snf/demo.cjs').forCore(this.core).current().demoMode)throw fail('POLICY');}
  production(){if(this.core.developmentMode||require('./snf/demo.cjs').forCore(this.core).current().demoMode)throw fail('POLICY');}
  async record(recipe,out,{now=Date.now(),guard=()=>{},verified}={}){
@@ -89,7 +90,6 @@ class ReportHistory{
   this.available();const c=this.core,r=c.store.get('report_history',id);if(!r)throw fail('NOT_FOUND');
   if(r.state==='indexed')return r;
   if(r.workspace!==c.settings().workspace)throw fail('CHANGED');
-  if(r.created<Date.now()-this.days()*DAY)throw fail('EXPIRED');
   const file=safePath(r.workspace,r.relative);if(r.size>20000000||fs.statSync(file).size>20000000)throw fail('LIMIT');const verified=await verifiedFile(file);if(verified.hash!==r.hash)throw fail('CHANGED');this.available();
   // Background work examines small encrypted metadata, not an unbounded user
   // selection or all report bytes. Query limits must not stall the worker.
@@ -113,29 +113,32 @@ class ReportHistory{
   }catch(e){if(!committed&&c.store.db)c.store.delete('file',imported.id);throw e;}
  }
  async trends(query={}){
-  this.available();const days=query.days===undefined?this.days():Number(query.days);if(!Number.isInteger(days)||days<1||days>this.days())throw fail('INVALID');
+  this.available();const days=query.days===undefined||query.days==='all'?'all':Number(query.days);if(days!=='all'&&(!Number.isInteger(days)||days<1||days>36500))throw fail('INVALID');
   if(query.entityType&&!['resident','staff','unit'].includes(query.entityType)||query.entityId!==undefined&&(!query.entityType||!text(query.entityId,200).trim()))throw fail('INVALID');
-  const now=new Date(),cutoff=new Date(now);cutoff.setDate(cutoff.getDate()-days+1);const start=day(cutoff),end=day(now),groups=new Map();let unknownRows=0,pending=0,incomplete=0,pointsCount=0;
-  const reports=this.list({recipeId:query.recipeId}),root=this.core.settings().workspace;
+  const now=new Date(),cutoff=new Date(now);if(days!=='all')cutoff.setDate(cutoff.getDate()-days+1);const start=days==='all'?'0001-01-01':day(cutoff),end=day(now),groups=new Map();let unknownRows=0,pending=0,incomplete=0,pointsCount=0,unavailableEvidence=0;
+  // The picker has a 1,000-item UI limit. History queries must not inherit it:
+  // scan metadata and one encrypted observation set at a time, yield between
+  // batches, and apply the existing result limits to selected observations.
+  const reports=this.core.store.summaries('report_history').filter(r=>this.current(r)&&(!query.recipeId||r.recipeId===query.recipeId)),root=this.core.settings().workspace;
   const stamp=()=>JSON.stringify(this.core.store.db.prepare('SELECT total_changes() AS changes, data_version FROM pragma_data_version').get());
   // Re-encryption gives every legitimate source write a fresh authenticated
   // nonce. Inspect only bounded ciphertext version markers, never copy report
   // bodies to detect an unrelated reminder/chat write during a yield.
-  const ids=reports.map(r=>r.id),sourceStatement=ids.length?this.core.store.db.prepare(`SELECT kind,id,hex(substr(payload,1,13)) AS nonce,hex(substr(payload,-16)) AS tag,length(payload) AS bytes FROM records WHERE kind IN ('report_history','report_history_rows') AND id IN (${ids.map(()=>'?').join(',')}) ORDER BY kind,id`):null;
-  const sourceStamp=()=>fingerprint(sourceStatement?sourceStatement.all(...ids):[]),sourceRevision=sourceStamp(),retention=this.days();let revision=stamp();
-  const check=()=>{this.available();if(this.core.resources.current()?.signal?.aborted)throw fail('CANCELLED');if(root!==this.core.settings().workspace||retention!==this.days())throw fail('CHANGED');const current=stamp();if(current!==revision){if(sourceRevision!==sourceStamp())throw fail('CHANGED');revision=current;}};
+  const sourceStatement=this.core.store.db.prepare("SELECT kind,id,hex(substr(payload,1,13)) AS nonce,hex(substr(payload,-16)) AS tag,length(payload) AS bytes FROM records WHERE kind IN ('report_history','report_history_rows') ORDER BY kind,id");
+  const sourceStamp=()=>{const hash=crypto.createHash('sha256');for(const r of sourceStatement.iterate())hash.update(JSON.stringify(r)+'\n');return hash.digest('hex');},sourceRevision=sourceStamp();let revision=stamp();
+  const check=()=>{this.available();if(this.core.resources.current()?.signal?.aborted)throw fail('CANCELLED');if(root!==this.core.settings().workspace)throw fail('CHANGED');const current=stamp();if(current!==revision){if(sourceRevision!==sourceStamp())throw fail('CHANGED');revision=current;}};
   const pause=async()=>{await new Promise(setImmediate);check();};
   const seen=new Set();let observed=0;
   for(const report of reports){
     await pause();
     if(report.state!=='indexed'){pending++;continue;}
+    if(!report.fileId||!this.core.store.summary('file',report.fileId))unavailableEvidence++;
     const evidence=fingerprint([report.recipeId,report.sourceRevision||report.id,report.hash,report.tracking,report.choices]);if(seen.has(evidence))continue;seen.add(evidence);
     if(report.incomplete)incomplete++;
    unknownRows+=report.unknownRows||0;if(!report.tracking)continue;
    const spec=report.tracking,rows=this.core.store.get('report_history_rows',report.id)?.rows||[],groupPrefix=fingerprint([report.recipeId,report.sourceRevision||report.id,spec,report.choices]);
    for(const row of rows){
-    if(++observed>100000)throw fail('LIMIT');
-    if(observed%256===0)await pause();
+    if(++observed%256===0)await pause();
     if(row.date<start||row.date>end)continue;
     for(const [type,identity] of Object.entries(row.entities)){
      if(query.entityType&&query.entityType!==type||query.entityId&&query.entityId!==identity)continue;
@@ -158,7 +161,7 @@ class ReportHistory{
    const {points:_,...details}=group;
    result.push({...details,observations:points.length,latest,change:group.mode==='snapshot'&&latest&&previous?latest.value-previous.value:null,repeated:group.mode==='events'&&points.length>1,anomaly,reviewRequired:true,sources:points.slice(-20).map(p=>({reportId:p.reportId,row:p.row,date:p.date})),sourceListLimited:points.length>20});
   }
-  check();return {days,start,end,groups:result,unknownRows,pending,incomplete,notice:NOTICE};
+  check();return {days,start,end,groups:result,unknownRows,pending,incomplete,unavailableEvidence,notice:NOTICE+(unavailableEvidence?' Some original imported files are unavailable. Retained observations and provenance remain; full-document reanalysis requires the original source.':'')};
  }
  queue(query={},prompt='Summarize the supplied report. Identify changes, missing information and follow-ups; cite source rows/pages. Do not infer clinical absence from missing data.'){
   this.available();text(prompt,12000);if(!prompt.trim())throw fail('INVALID');
@@ -222,12 +225,10 @@ class ReportHistory{
    return true;
   }finally{this.busy=false;c.emit({type:'jobs_changed'});}
  }
- cleanup(now=Date.now()){
-  const c=this.core,cutoff=now-this.days()*DAY;
-  // Only derived catalogue/observations expire. Original downloads and normal
-  // file/job retention retain their existing policy; no source files are removed.
-  for(const r of c.store.summaries('report_history'))if(r.created<cutoff){for(const kind of ['report_history','report_history_rows','report_comparison'])c.store.delete(kind,r.id);}
-  for(const a of c.store.summaries('report_analysis'))if(a.created<cutoff&&!['running','pending'].includes(a.state))c.store.delete('report_analysis',a.id);
+ cleanup(){
+  // Compatibility entry point for Core maintenance. Working files keep their
+  // own retention policy; tracked facts, comparisons and analysis audit history
+  // do not expire with them. This never removes original downloaded files.
  }
 }
 module.exports={ReportHistory,normalizeTracking,observations,fileHash,NOTICE};

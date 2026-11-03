@@ -6,6 +6,18 @@ function local(core,generate){
  core.resources.withAI=async fn=>fn();
  core.router.local={generate,modelName:()=> 'synthetic-local',close(){}};
 }
+
+test('API Only leaves local-only automatic drafts pending, including a mode change while queued',async t=>{
+ const {core,calls}=fixture(t);local(core,()=>assert.fail('API Only must not run a local draft'));
+ const capture=captures.create(core,{sourceId:crypto.randomUUID(),text:'Review the synthetic door issue.'}).capture;
+ core.saveSettings({processingMode:'api-only'});await drafts.processPending(core);
+ assert.equal(core.store.get('capture_note',capture.id).assistantDraft,undefined);
+ await assert.rejects(drafts.retry(core,{kind:'capture_note',id:capture.id}),{code:'LOCAL_UNAVAILABLE'});
+ core.saveSettings({processingMode:'smart-hybrid'});
+ core.resources.task=async(_kind,fn)=>{core.saveSettings({processingMode:'api-only'});return fn();};
+ await assert.rejects(drafts.retry(core,{kind:'capture_note',id:capture.id}),{code:'LOCAL_UNAVAILABLE'});
+ assert.equal(calls.length,0);assert.equal(core.store.count('todo'),1);
+});
 test('automatic draft uses real local-only router, preserves source/actions and never calls optional cloud',async t=>{
  const {core,calls}=fixture(t);let count=0;
  local(core,async()=>{count++;return {text:JSON.stringify({answer:'Draft: Review the door issue. Owner and deadline unknown.',evidence:['The conference door is broken.'],uncertainties:['Owner unknown']})};});

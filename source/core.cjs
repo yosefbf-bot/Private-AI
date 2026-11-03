@@ -729,6 +729,7 @@ class Core {
     forceLocal = false,
   ) {
     this.assertUnlocked();
+    if(forceLocal&&this.settings().processingMode==='api-only')throw fail('POLICY');
     this.touch();
     const c = this.chat(chatId);
     this.canSend(c.hipaa || this.settings().hipaa,false);

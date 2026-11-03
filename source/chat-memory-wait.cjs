@@ -5,7 +5,7 @@ const {localInput}=require('./local-brain.cjs');
 const {references}=require('./deterministic.cjs');
 const {evaluateLocal}=require('./hybrid-router.cjs');
 const docs=require('./workflows/documents.cjs');
-const SETTINGS=['provider','model','hipaa','processingMode','allowCloud','localTier','localMaxTier','localModelPath','smallModelPath','mediumModelPath','highModelPath','extraModelPath','localContext','localMaxOutput','resourceMode','org','projectId','customEndpoint','ollamaEndpoint','customInstructions','contextChars','escalationThreshold','keepBrainMinutes'];
+const SETTINGS=['provider','model','hipaa','processingMode','allowCloud','localTier','localMaxTier','localModelPath','smallModelPath','mediumModelPath','highModelPath','extraModelPath','advancedModelPath','localContext','localMaxOutput','resourceMode','org','projectId','customEndpoint','ollamaEndpoint','customInstructions','contextChars','escalationThreshold','keepBrainMinutes'];
 const policy=core=>{const s=core.settings();return signature(Object.fromEntries(SETTINGS.map(k=>[k,s[k]])));};
 const history=(chat,index)=>signature(chat.messages.slice(0,index).map(({memoryWait,...m})=>m));
 class ChatMemoryWait{

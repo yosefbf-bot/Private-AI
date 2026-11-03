@@ -5,6 +5,33 @@ const {OpenAIClient}=require('../source/api.cjs');
 const {evaluateLocal}=require('../source/hybrid-router.cjs');
 const {LocalBrain}=require('../source/local-brain.cjs');
 for(const mode of ['smart-hybrid','local-first','cloud-first','local-only'])test(mode+' calculates without calling any model',async t=>{const {core,calls}=fixture(t);core.saveSettings({processingMode:mode});const c=core.createChat();const r=await core.send({chatId:c.id,prompt:'/calc (120 + 30) * 4'});assert.equal(calls.length,0);assert.equal(r.chat.messages.at(-1).text,'(120 + 30) * 4 = 600');assert.equal(r.chat.messages.at(-1).processing.meter.estimatedCost,0);});
+
+test('API Only uses the approved API and never invokes a built-in brain',async t=>{
+ const {core,calls}=fixture(t);core.resources.memory=()=>8*1024**3;
+ core.router.local={generate:()=>assert.fail('API Only invoked local inference'),status:()=>({state:'unloaded'}),close(){}};
+ core.saveSettings({processingMode:'api-only'});
+ assert.equal(core.settings().processingMode,'api-only');
+ const result=await core.router.generate(core.key(),core.settings(),[{role:'user',content:'Explain synthetic test evidence'}]);
+ assert.equal(result.provider,'openai');assert.equal(calls.length,1);
+ const calc=await core.router.generate(core.key(),core.settings(),[{role:'user',content:'/calc 6*7'}]);
+ assert.equal(calc.provider,'deterministic');assert.equal(calls.length,1);
+ const chat=core.createChat();await assert.rejects(core.send({chatId:chat.id,prompt:'Synthetic local-only phone request'},()=>{},{forceLocal:true}),{code:'POLICY'});
+ assert.equal(calls.length,1);
+});
+
+test('API Only fails explicitly for missing key, denied cloud and failed network without local fallback',async t=>{
+ const {core,calls}=fixture(t);core.resources.memory=()=>8*1024**3;
+ core.router.local={generate:()=>assert.fail('Unexpected local fallback'),status:()=>({state:'unloaded'}),close(){}};
+ core.saveSettings({processingMode:'api-only'});
+ const ask=()=>core.router.generate(core.key(),core.settings(),[{role:'user',content:'Explain synthetic test evidence'}]);
+ core.deleteKey();await assert.rejects(ask(),{code:'KEY'});assert.equal(calls.length,0);
+ core.saveKey('sk-synthetic-NOT-A-REAL-KEY');core.saveSettings({allowCloud:false});
+ await assert.rejects(ask(),{code:'LOCAL_ONLY'});assert.equal(calls.length,0);
+ core.saveSettings({allowCloud:true,approved:true,approvalFingerprint:core.summary().providerApprovalFingerprint});
+ core.client.generate=async()=>{throw require('../source/security.cjs').fail('NETWORK');};
+ await assert.rejects(ask(),{code:'NETWORK'});
+ core.saveSettings({provider:'local'});await assert.rejects(ask(),{code:'AI_SETUP'});
+});
 test('Local Only blocks chat, connection check, model listing, and raw client calls',async t=>{const {core,calls}=fixture(t);core.saveSettings({processingMode:'local-only'});const c=core.createChat();const r=await core.send({chatId:c.id,prompt:'Explain this situation.'});assert.equal(r.chat.messages.at(-1).error.code,'LOCAL_ONLY');await assert.rejects(core.models(),e=>e.code==='LOCAL_ONLY');await assert.rejects(core.testConnection(),e=>e.code==='LOCAL_ONLY');let rawCalls=0;const client=new OpenAIClient(()=>{rawCalls++;});await assert.rejects(client.generate('sk-x',{processingMode:'local-only',model:'x'},[]),e=>e.code==='LOCAL_ONLY');await assert.rejects(client.models('sk-x',{processingMode:'local-only'}),e=>e.code==='LOCAL_ONLY');assert.equal(rawCalls+calls.length,0);});
 test('cloud disallow overrides Smart Hybrid and Cloud First',async t=>{const {core,calls}=fixture(t);for(const processingMode of ['smart-hybrid','cloud-first']){core.saveSettings({processingMode,allowCloud:false});const c=core.createChat();const r=await core.send({chatId:c.id,prompt:'Need latest information'});assert.equal(r.chat.messages.at(-1).error.code,'LOCAL_ONLY');}assert.equal(calls.length,0);});
 test('source quotes and numerical checks control local reliability',()=>{const source='The census rose from 120 to 124 residents.';assert.equal(evaluateLocal(JSON.stringify({answer:'Census is 124.',evidence:[source],uncertainties:[]}),source).reliability.score,86);assert.equal(evaluateLocal(JSON.stringify({answer:'Census is 999.',evidence:[source]}),source).reliability.score,60);assert.equal(evaluateLocal(JSON.stringify({answer:'Census is 124.',evidence:['an invented quotation']}),source).reliability.score,55);assert.equal(evaluateLocal('I am 100% confident',source).reliability.score,50);});

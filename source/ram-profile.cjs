@@ -17,7 +17,7 @@ function getRAMProfile({ totalBytes = os.totalmem(), freeBytes = Math.min(os.fre
   let threadBudget = 4;
   let recommendedModels = [...PROVIDERS.ollama.ramModels.conservative];
   let statusBadge = 'Conservative Mode (Compact Models)';
-  let description = 'System RAM is conserved for foreground applications. Fast compact models run safely with immediate memory reclamation to prevent freezing or swapping.';
+  let description = 'Limited free RAM. Keep other apps light; model loading still requires its full memory budget.';
 
   if (totalGB >= 24 && availableGB >= 8) {
     profile = 'expanded';
@@ -25,16 +25,16 @@ function getRAMProfile({ totalBytes = os.totalmem(), freeBytes = Math.min(os.fre
     keepAlive = '5m';
     threadBudget = Math.max(4, Math.min(8, (os.availableParallelism?.() || os.cpus().length) - 2));
     recommendedModels = [...PROVIDERS.ollama.ramModels.expanded];
-    statusBadge = 'Expanded Mode (Full Tiers Unlocked)';
-    description = 'High RAM detected. Full multi-step reasoning models (7B/8B) and warm-cache memory retention are active automatically.';
-  } else if (totalGB > 16 || availableGB >= 5) {
+    statusBadge = 'Expanded Mode (Larger Models May Fit)';
+    description = 'More RAM is available. Larger local models may fit; your saved model ceiling and built-in idle settings still apply.';
+  } else if (availableGB >= 5) {
     profile = 'balanced';
     tierCap = 'high';
     keepAlive = '2m';
     threadBudget = Math.max(3, Math.min(6, Math.floor((os.availableParallelism?.() || os.cpus().length) * 0.6)));
     recommendedModels = [...PROVIDERS.ollama.ramModels.balanced];
     statusBadge = 'Balanced Mode (Medium & High Tiers)';
-    description = 'Comfortable headroom detected. Medium (3B) and High (4B) models active with 2-minute memory cache.';
+    description = 'Moderate free RAM. Model admission checks the selected model and context; no model is loaded by this status display.';
   } else {
     // Under conservative mode: if available RAM is tight (< 2.2 GB), cap to Small
     if (availableGB < 2.2) {
@@ -43,7 +43,7 @@ function getRAMProfile({ totalBytes = os.totalmem(), freeBytes = Math.min(os.fre
       threadBudget = Math.max(2, Math.min(4, Math.floor((os.availableParallelism?.() || os.cpus().length) / 2)));
       recommendedModels = [...PROVIDERS.ollama.ramModels.conservative];
       statusBadge = 'Ultra-Conserve Mode (< 2.2 GB Free)';
-      description = 'Tight RAM headroom. Enforcing Small model tier and zero-lingering cache flush to protect system responsiveness.';
+      description = 'Very little free RAM. Inference may need to wait even for Small. Required model quality and saved settings remain unchanged.';
     }
   }
 

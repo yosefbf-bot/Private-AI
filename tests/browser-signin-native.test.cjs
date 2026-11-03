@@ -5,7 +5,7 @@ test('Windows DPAPI restart retains protected credentials and actual Edge submit
  const run=(root,mode)=>{
   let out;
   try{out=execFileSync(require('electron'),[path.join(__dirname,'browser-signin-native.cjs'),root,mode],{env,encoding:'utf8',windowsHide:true,timeout:55000});}
-  catch(e){assert.fail('Synthetic Windows acceptance failed: '+String(e.stdout||'').split('\n').find(s=>s.startsWith('SIGNIN_NATIVE_RESULT=')));}
+  catch(e){const result=String(e.stdout||'').split('\n').find(s=>s.startsWith('SIGNIN_NATIVE_RESULT='));assert.fail('Synthetic Windows acceptance failed: '+(result||JSON.stringify({mode,code:/^[A-Z_]+$/.test(e.code||'')?e.code:'CHILD_FAILED',status:Number.isInteger(e.status)?e.status:null,signal:/^[A-Z0-9]+$/.test(e.signal||'')?e.signal:null})));}
   const row=JSON.parse(out.split('\n').find(s=>s.startsWith('SIGNIN_NATIVE_RESULT=')).slice('SIGNIN_NATIVE_RESULT='.length));assert.equal(row.passed,true);assert.equal(row.actualWindowsDPAPI,true);assert.equal(row.actualEdgeLogin,true);assert.equal(row.edgeObserved,true);return row;
  };
  for(let attempt=1;attempt<=3;attempt++){

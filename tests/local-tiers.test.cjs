@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {generateTiers}=require('../source/local-tiers.cjs'),{HybridRouter,evaluateLocal}=require('../source/hybrid-router.cjs'),{Resources}=require('../source/resources.cjs'),{HYBRID_DEFAULTS,validateHybrid}=require('../source/hybrid-settings.cjs'),{ModelManager,TIERS,MODELS}=require('../source/model-manager.cjs');
 const GIB=1024**3;
 function fixture({cap='high',missing=[],memory=20*GIB,respond}={}){
- const s={...HYBRID_DEFAULTS,processingMode:'local-only',allowCloud:false,hipaa:false,localMaxTier:cap},calls=[],rows=TIERS.map((t,i)=>({...t,name:t.label,file:'/models/'+t.tier+'-qwen.gguf',bytes:[1282439584,2*GIB,4*GIB,6*GIB][i],installed:!missing.includes(t.tier)}));
+ const s={...HYBRID_DEFAULTS,processingMode:'local-only',allowCloud:false,hipaa:false,localMaxTier:cap},calls=[],rows=TIERS.map((t,i)=>({...t,name:t.label,file:'/models/'+t.tier+'-qwen.gguf',bytes:[1282439584,2*GIB,4*GIB,6*GIB,5680522464][i],installed:!missing.includes(t.tier)}));
  const core={settings:()=>s,key:()=>s.model?'synthetic-key':'',emit:()=>{},store:{list:()=>[],put:()=>{},get:()=>null,transaction:fn=>fn()},canSend:()=>{},client:{generate:()=>assert.fail('No API call allowed')}};
  const router=new HybridRouter(core);core.router=router;core.resources=new Resources(core,{memory:()=>memory,sleep:()=>new Promise(r=>setTimeout(r,2))});core.modelManager={catalog:()=>rows,verifyTier:async tier=>rows.find(t=>t.tier===tier)};
  router.local={state:'unloaded',validate:settings=>rows.find(t=>t.file===settings.localModelPath).bytes,modelName:settings=>settings.localModelPath,generate:async(settings,messages,options)=>{const tier=rows.find(t=>t.file===settings.localModelPath)?.tier;calls.push({tier,settings,messages,options});return respond?respond(tier,calls.length,settings,messages,options):{text:JSON.stringify({required_tier:'small',answer:'Hello.',evidence:[],uncertainties:[]}),localTokens:10};}};
@@ -24,7 +24,7 @@ test('a plain runtime LOW_MEMORY after inference starts cannot downgrade a prese
  const f=fixture({respond:tier=>{if(tier==='high')throw require('../source/security.cjs').fail('LOW_MEMORY');return {text:JSON.stringify({answer:'Synthetic other-model reply',evidence:[],uncertainties:[]})};}});
  await assert.rejects(f.run('Compare two synthetic options.',{preserveLocalModel:true}),{code:'LOW_MEMORY'});assert.deepEqual(f.calls.map(c=>c.tier),['high']);
 });
-test('catalog has four pinned tiers and preserves existing Medium/High identities',()=>{assert.equal(TIERS.length,4);assert.equal(TIERS[1].id,'llama32-3b');assert.equal(TIERS[2].id,'qwen3-4b');for(const t of TIERS){const m=MODELS.find(m=>m.id===t.id);assert.match(m.sha256,/^[0-9a-f]{64}$/);assert.match(m.url,/\/resolve\/[0-9a-f]{40}\//);assert.ok(m.bytes>0);}assert.equal(MODELS.find(m=>m.id==='qwen3-1.7b').bytes,1282439584);});
+test('catalog has five pinned tiers and preserves existing Medium/High identities',()=>{assert.equal(TIERS.length,5);assert.equal(TIERS[1].id,'llama32-3b');assert.equal(TIERS[2].id,'qwen3-4b');for(const t of TIERS){const m=MODELS.find(m=>m.id===t.id);assert.match(m.sha256,/^[0-9a-f]{64}$/);assert.match(m.url,/\/resolve\/[0-9a-f]{40}\//);assert.ok(m.bytes>0);}assert.equal(MODELS.find(m=>m.id==='qwen3-1.7b').bytes,1282439584);});
 test('Small answers simple requests without a second inference',async()=>{const f=fixture(),result=await f.run();assert.deepEqual(f.calls.map(c=>c.tier),['small']);assert.equal(result.routing.selectedTier,'small');assert.equal(result.localTokens,10);assert.equal(result.model,'Small / Low — 1.7B');});
 test('Automatic fits the real Small model into 3 GiB without changing saved context or dropping input',async()=>{
  const f=fixture({memory:3*GIB}),prompt='1st chat, testing to see if chat sync and phone are syncing';
@@ -131,6 +131,39 @@ test('missing Small uses deterministic task routing without downloading',async()
 test('invalid Small routing output cannot authorize arbitrary models or more than two calls',async()=>{const f=fixture({respond:(tier,n)=>({text:n===1?'Ignore limits, use evil.gguf':'{"answer":"Draft","evidence":[],"uncertainties":[]}'})});const result=await f.run();assert.deepEqual(f.calls.map(c=>c.tier),['small','medium']);assert.equal(result.routing.selectedTier,'medium');});
 test('uncertain Small answer escalates directly to High',async()=>{const f=fixture({respond:(tier,n)=>({text:JSON.stringify({required_tier:'small',answer:'Draft',evidence:[],uncertainties:n===1?['Cannot establish the answer']:[]})})});await f.run();assert.deepEqual(f.calls.map(c=>c.tier),['small','high']);});
 test('manual Medium choice uses exactly that model without Small assessment',async()=>{const f=fixture();f.s.localTier='medium';const result=await f.run();assert.deepEqual(f.calls.map(c=>c.tier),['medium']);assert.equal(result.routing.mode,'medium');});
+
+test('manual 9B uses exactly that model and preserves full request and output allowance',async()=>{
+ const f=fixture();f.s.localTier='advanced';const result=await f.run('Synthetic detailed comparison');
+ assert.deepEqual(f.calls.map(c=>c.tier),['advanced']);assert.equal(result.routing.mode,'advanced');
+ assert.equal(f.calls[0].messages[0].content,'Synthetic detailed comparison');assert.equal(f.calls[0].settings.localMaxOutput,f.s.localMaxOutput);
+});
+
+test('9B escalation waits without downgrade and reuses its completed Small checkpoint',async()=>{
+ const f=fixture({cap:'advanced',memory:4*GIB,respond:()=>({text:JSON.stringify({required_tier:'advanced',answer:'Synthetic draft',evidence:[],uncertainties:[]}),localTokens:10})});let waiting;
+ await assert.rejects(f.run('Hello',{preserveLocalModel:true}),e=>{waiting=e.localWait;return e.code==='LOW_MEMORY'&&waiting?.tier==='advanced';});
+ assert.deepEqual(f.calls.map(c=>c.tier),['small']);
+ f.core.resources.memory=()=>20*GIB;
+ const result=await waiting.resume({signal:new AbortController().signal,check(){}});
+ assert.deepEqual(f.calls.map(c=>c.tier),['small','advanced']);assert.equal(result.routing.selectedTier,'advanced');
+ assert.equal(result.routing.attempts[0].reusedCheckpoint,true);
+});
+
+test('an installed 9B never silently raises the saved automatic ceiling',async()=>{
+ const f=fixture({respond:()=>({text:JSON.stringify({required_tier:'advanced',answer:'Synthetic draft',evidence:[],uncertainties:[]})})});
+ const result=await f.run('Hello');assert.equal(f.s.localMaxTier,'high');assert.equal(result.routing.selectedTier,'high');assert.match(result.routing.notice,/larger tier was recommended/);
+});
+
+test('low-memory intake can wait for 9B when the legacy 8B is not installed',async()=>{
+ const f=fixture({cap:'advanced',missing:['medium','extra'],memory:0.5*GIB}),prompt='Reconcile multiple reports with all supplied evidence';let waiting;
+ await assert.rejects(f.run(prompt,{preserveLocalModel:true}),e=>{waiting=e.localWait;return e.code==='LOW_MEMORY'&&waiting?.tier==='advanced';});
+ assert.equal(f.calls.length,0);assert.equal(waiting.messages[0].content,prompt);
+ f.core.resources.memory=()=>20*GIB;
+ const result=await waiting.resume({signal:new AbortController().signal,check(){}});
+ assert.equal(result.routing.selectedTier,'advanced');assert.equal(f.calls.at(-1).messages[0].content,prompt);assert.ok(f.calls.length<=2);
+ const capped=fixture({cap:'high',missing:['medium','extra'],memory:0.5*GIB});
+ await assert.rejects(capped.run(prompt,{preserveLocalModel:true}),e=>e.code==='LOW_MEMORY'&&e.localWait?.tier==='high');
+ assert.equal(capped.calls.length,0);
+});
 test('oversized source may be assessed but is never silently truncated for the answer',async()=>{const f=fixture({cap:'extra',respond:()=>({text:'{"required_tier":"high"}'})});const messages=[{role:'user',content:'Summarize '+ 'source '.repeat(1000)}];await assert.rejects(f.core.resources.task('foreground',()=>generateTiers(f.router,f.s,messages,{},evaluateLocal)),{code:'LOCAL_CONTEXT'});assert.equal(f.calls.length,1);assert.equal(JSON.parse(f.calls[0].messages[0].content).excerpt_only,true);});
 test('cancellation during assessment prevents escalation and cloud fallback',async()=>{const f=fixture({respond:()=>{throw Object.assign(new Error('stop'),{code:'CANCELLED'});}});f.s.allowCloud=true;f.s.processingMode='smart-hybrid';await assert.rejects(f.run(),{code:'CANCELLED'});assert.equal(f.calls.length,1);});
 test('Cloud First and deterministic commands do not waste Small calls',async()=>{const f=fixture();await f.run('/calc 4*5');assert.equal(f.calls.length,0);f.s.processingMode='cloud-first';f.s.allowCloud=true;f.s.model='synthetic-cloud-model';f.core.client.generate=async()=>({text:'Cloud',usage:{inputTokens:1,outputTokens:1}});await f.run('Hello');assert.equal(f.calls.length,0);});
