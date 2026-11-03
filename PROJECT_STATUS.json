@@ -1,6 +1,6 @@
 {
   "desktopAudit9B_20261102": {
-    "status": "source-validation-complete-live-and-release-acceptance-pending",
+    "status": "merged-pr-and-main-gates-passed-live-acceptance-pending",
     "baseMain": "8212d79b631f3057e6b23ae091bc8e471f3919ad",
     "branch": "chatgpt/full-audit-9b-20261102",
     "version": "3.0.9-dev",
@@ -31,8 +31,28 @@
     "ownerInstallationChanged": false,
     "ownerDataChanged": false,
     "companionChanged": false,
-    "currentCandidateInstallerExecuted": false,
-    "exactFinalHeadCI": "pending"
+    "currentCandidateInstallerExecuted": true,
+    "exactFinalHeadCI": "passed",
+    "pullRequest": 50,
+    "testedPRHead": "8e7f8d7326b5145c4be7787b9a95a9b3f5d74f72",
+    "mergeCommit": "7c47b206395efcc2b31a8b87cefd8ea215b1829f",
+    "prRun": 41587052441,
+    "hostedWindowsSourceSuite": {"passed":1050,"failed":0,"skipped":0},
+    "hostedLinuxSourceSuite": {"passed":1033,"failed":0,"skipped":9},
+    "hostedWindowsAcceptance": {
+      "installer":true,"installedApp":true,"restart":true,"smallInference":true,
+      "sameCandidateRetainedDataReinstall":true,"sameAccountPortable":true,
+      "previousReleaseUpgrade":false,"ownerInstallation":false
+    },
+    "mainRun": 41588773786,
+    "mainRunStatus": "passed",
+    "mainWindowsArtifact": {
+      "id":13209732509,"bytes":500281755,
+      "sha256":"8898b359b9eef2d51c9faf304e80c013b24c7c8997fd926114fed923ee0a6378",
+      "expiresUtc":"2026-11-10T06:32:23Z",
+      "localArchiveSizeAndSHA256Verified":true,
+      "ownerInstallationExecuted":false
+    }
   },
   "speedMemoryBatch2_20261026": {
     "status": "merged-exact-head-and-main-gates-passed",

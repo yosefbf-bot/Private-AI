@@ -6,6 +6,34 @@ private-ai-audit-20261102, branch chatgpt/full-audit-9b-20261102, verified base 
 8212d79b631f3057e6b23ae091bc8e471f3919ad. See
 docs/PRIVATE_AI_AUDIT_2026-11-02.md and PROJECT_STATUS.json for exact scope/results.
 
+## Hosted acceptance receipt — November 3, 2026
+
+PR #50 merged as `7c47b206395efcc2b31a8b87cefd8ea215b1829f` after all eight
+required checks passed on head `8e7f8d7326b5145c4be7787b9a95a9b3f5d74f72`.
+PR run: https://github.com/yosefbf-bot/Private-AI/actions/runs/41587052441
+Main run: https://github.com/yosefbf-bot/Private-AI/actions/runs/41588773786
+All eight required jobs also passed on that exact main commit, including the
+actual Windows installer/app checks. The accepted Windows artifact is
+`windows-acceptance-7c47b206395efcc2b31a8b87cefd8ea215b1829f` (ID 13209732509,
+500,281,755 bytes; SHA256
+`8898b359b9eef2d51c9faf304e80c013b24c7c8997fd926114fed923ee0a6378`).
+GitHub's temporary copy expires November 10, 2026. A size/SHA-verified local copy
+is preserved in the workspace at
+`Validation/PrivateAI-Audit-20261102/Accepted-Windows-7c47b20/PrivateAI-7c47b20-Windows-validation.zip`.
+It was not installed on the owner's PC.
+
+Hosted Windows source tests passed 1,050/1,050 with zero skips. The actual
+installer, installed application, restart, packaged Small-model inference,
+synthetic retained-data uninstall/reinstall, same-account portable execution,
+UI checks and unchanged release gate passed. Reinstall used the same candidate;
+it is not proof of upgrading the owner's previous installation/data. Linux
+regression passed 1,033 with nine platform skips; hardening passed 31/31.
+
+These receipts supersede the pre-publication installer/CI pending statements
+in the dated audit. They do not establish 9B performance, live provider/account,
+physical-phone or owner-PC acceptance. Administrative receipt changes do not
+change the tested application source digest or silently re-label skipped jobs.
+
 Optional pinned Qwen3.5-9B, API Only isolation, model-specific templates, truthful
 model/RAM UI, and retained report/clinical tracking history are implemented.
 100 days concerns raw working files, not tracked chronology. Original owner
@@ -27,10 +55,12 @@ before any answer. 9B remains RAM-refused, not passed. See sanitized native JSON
 npm audit9moderate/0high/0critical; scoped
 review found no reachable app exploit and advised against incompatible blanket
 upgrades. Gitleaks current/history0. Native DPAPI/Edge synthetic source acceptance
-passed, but live API, new installer and actual9B acceptance are not established.
+passed; hosted installer acceptance is recorded above. Live API, owner installation
+and actual 9B acceptance remain unperformed.
 
 Do not transfer older binary evidence to this source or claim full release readiness.
-Finish UI/final-source checks, any feasible native model checks, and exact-head CI.
+Source/UI and exact-head PR/main gates are complete. Finish the outstanding
+native model/account checks without lowering memory reserves or privacy gates.
 Preserve failed/incomplete logs under the workspace Validation folder. Publication
 must use a reviewed branch/PR; do not bypass pending/failed gates or install over
 the owner's current profile. The older AnythingLLM cloud handoff remains separate.
