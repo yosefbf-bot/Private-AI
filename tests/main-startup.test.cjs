@@ -108,6 +108,18 @@ test('desktop Load model IPC fits Automatic context and preserves explicit manua
  assert.equal((await call()).ok,true);assert.equal(loads.length,1);assert.equal(loads[0].localContext,2048);assert.equal(b.core.settings().localContext,4096);
  b.core.saveSettings({localTier:'small'});assert.equal((await call()).error.code,'LOW_MEMORY');assert.equal(loads.length,1);
 });
+test('desktop automatic Load model cannot fall back to an uncatalogued saved path or download retired models',async t=>{
+ const b=await boot(t),contents=b.windows[0].webContents,frame={url:b.windows[0].url};contents.mainFrame=frame;
+ const call=(op,data={})=>b.handlers.get('privateai:call')({sender:contents,senderFrame:frame},{op,data});
+ b.core.saveSettings({localTier:'auto',localModelPath:'C:\\synthetic\\uncatalogued.gguf'});
+ b.core.modelManager.catalog=()=>[];b.core.modelManager.download=()=>assert.fail('Retired ID must be rejected before downloading');
+ b.core.router.local.load=()=>assert.fail('Automatic load requires an installed supported tier');
+ assert.equal((await call('localLoad')).error.code,'LOCAL_FILE_MISSING');
+ for(const modelId of ['llama32-3b','qwen3-8b'])assert.equal((await call('downloadModel',{modelId})).error.code,'INVALID');
+ for(const tier of ['medium','extra'])assert.equal((await call('chooseLocalModel',{tier})).error.code,'INVALID');
+ assert.equal(b.dialogs.length,0);
+});
+
 test('entry point preserves existing encrypted chat and paused local-only settings',async t=>{
  const b=await boot(t,{existing:true});assert.equal(b.errors.length,0,JSON.stringify(b.errors));assert.equal(b.core.store.get('chat','kept').title,'Saved chat');assert.equal(b.core.settings().workerPaused,true);assert.equal(b.core.settings().processingMode,'local-only');assert.equal(b.core.settings().allowCloud,false);
 });

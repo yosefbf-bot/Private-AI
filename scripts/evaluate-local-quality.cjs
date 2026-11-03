@@ -10,14 +10,51 @@ const {fixtures,prompt,judge}=require('../tests/fixtures/local-quality.cjs');
 const {NativeMemoryProbe}=require('./native-memory-probe.cjs');
 const GIB=1024**3;
 function options(args){
- const o={tiers:['small'],contexts:[2048],repetitions:2,condition:'normal',caseIds:[],capBytes:0,allocateBytes:0,lowPriority:false,tokenIds:false};
+ const o={tiers:['small'],contexts:[2048],repetitions:2,condition:'normal',caseIds:[],capBytes:0,allocateBytes:0,lowPriority:false,tokenIds:false,watchdogFloorMiB:1024,idlePcConfirmed:false};
  for(let i=0;i<args.length;i+=2){const k=args[i],v=args[i+1];if(!v)throw Error('Missing option');
-  if(k==='--runtime')o.runtime=v;else if(k==='--out')o.out=v;else if(k==='--tiers')o.tiers=v.split(',');else if(k==='--contexts')o.contexts=v.split(',').map(Number);else if(k==='--repetitions')o.repetitions=Number(v);else if(k==='--condition')o.condition=v;else if(k==='--cases')o.caseIds=v.split(',');else if(k==='--cap-mib')o.capBytes=Number(v)*1024**2;else if(k==='--allocate-mib')o.allocateBytes=Number(v)*1024**2;else if(k==='--low-priority'&&['true','false'].includes(v))o.lowPriority=v==='true';else if(k==='--token-ids'&&['true','false'].includes(v))o.tokenIds=v==='true';else throw Error('Unknown option');
+  if(k==='--runtime')o.runtime=v;else if(k==='--out')o.out=v;else if(k==='--tiers')o.tiers=v.split(',');else if(k==='--contexts')o.contexts=v.split(',').map(Number);else if(k==='--repetitions')o.repetitions=Number(v);else if(k==='--condition')o.condition=v;else if(k==='--cases')o.caseIds=v.split(',');else if(k==='--cap-mib')o.capBytes=Number(v)*1024**2;else if(k==='--allocate-mib')o.allocateBytes=Number(v)*1024**2;else if(k==='--low-priority'&&['true','false'].includes(v))o.lowPriority=v==='true';else if(k==='--token-ids'&&['true','false'].includes(v))o.tokenIds=v==='true';else if(k==='--watchdog-floor-mib')o.watchdogFloorMiB=Number(v);else if(k==='--idle-pc-confirmed'&&['true','false'].includes(v))o.idlePcConfirmed=v==='true';else throw Error('Unknown option');
  }
- if(!path.isAbsolute(o.runtime||'')||!path.isAbsolute(o.out||'')||o.tiers.some(t=>!['small','medium','high','extra','advanced'].includes(t))||o.contexts.some(c=>![1024,2048,3072,4096,8192].includes(c))||![1,2].includes(o.repetitions)||!['normal','commit','working-set','system'].includes(o.condition)||o.caseIds.some(id=>!fixtures().some(c=>c.id===id)))throw Error('Invalid evaluation configuration');
+ if(!path.isAbsolute(o.runtime||'')||!path.isAbsolute(o.out||'')||o.tiers.some(t=>!['small','high','advanced'].includes(t))||o.contexts.some(c=>![1024,2048,3072,4096,8192].includes(c))||![1,2].includes(o.repetitions)||!['normal','commit','working-set','system'].includes(o.condition)||o.caseIds.some(id=>!fixtures().some(c=>c.id===id)))throw Error('Invalid evaluation configuration');
  if(['commit','working-set'].includes(o.condition)?!Number.isSafeInteger(o.capBytes)||o.capBytes<GIB||o.capBytes>3*GIB:o.capBytes!==0)throw Error('Invalid diagnostic cap');
  if(o.condition==='system'?!Number.isSafeInteger(o.allocateBytes)||o.allocateBytes<=0||o.allocateBytes>1.5*GIB:o.allocateBytes!==0)throw Error('Invalid system allocation');
+ watchdogPolicy(o);
  return o;
+}
+function watchdogPolicy(o={}){
+ const floorMiB=o.watchdogFloorMiB??1024,idlePcConfirmed=o.idlePcConfirmed??false;
+ if(![256,512,1024].includes(floorMiB)||typeof idlePcConfirmed!=='boolean')throw Error('Invalid test watchdog configuration');
+ const lowered=floorMiB<1024;
+ if(lowered){
+  const selected=fixtures().find(c=>c.id===o.caseIds?.[0]);
+  if(!idlePcConfirmed||o.condition!=='normal'||o.capBytes!==0||o.allocateBytes!==0||o.tiers?.length!==1||o.contexts?.length!==1||o.repetitions!==1||o.caseIds?.length!==1||!selected||selected.kind==='tool')throw Error('Reduced watchdog requires an idle PC and one explicit normal inference case');
+ }
+ return Object.freeze({floorMiB,floorBytes:floorMiB*1024**2,lowered,idlePcConfirmed,pollIntervalMs:lowered?250:1000,normalAdmissionUnchanged:true,productionFloorUnchanged:true,evaluationUsesProductionFloor:!lowered});
+}
+function memoryPressure(availableBytes,floorBytes,released=false){return !!released||!Number.isFinite(availableBytes)||availableBytes<floorBytes;}
+function evaluationFailureReason(error,caseTimedOut=false){
+ if(caseTimedOut)return 'CASE_TIMEOUT';
+ const code=error?.code||error?.message;
+ if(['LOW_MEMORY','LOCAL_CONTEXT','LOCAL_UNAVAILABLE','LOCAL_ENGINE_START','LOCAL_ENGINE_TIMEOUT','LOCAL_DEPENDENCY','LOCAL_CPU','LOCAL_ENGINE_ACCESS','CAP_NOT_APPLIED','INCOMPLETE_EVENT','EVENT_LIMIT','RESPONSE_LIMIT','TOKEN_IDS_UNAVAILABLE','CANCELLED'].includes(code))return code;
+ if(['ECONNRESET','ECONNREFUSED','ETIMEDOUT','UND_ERR_SOCKET','UND_ERR_HEADERS_TIMEOUT','UND_ERR_BODY_TIMEOUT'].includes(error?.cause?.code))return 'TRANSPORT_'+error.cause.code;
+ return error instanceof SyntaxError?'INVALID_RESPONSE_JSON':error instanceof TypeError?'EVALUATION_TYPE_ERROR':'EVALUATION_STOPPED';
+}
+function createEvaluationBrain(args,o={}){
+ const policy=watchdogPolicy(o);
+ if(!policy.lowered)return new LocalBrain(args);
+ // Developer-only adapter: no setting/env/RPC can enable this in the app.
+ // Keep the parent's real memory source, full-input admission, load/generate,
+ // cancellation and process cleanup. Only this short test's maintenance floor
+ // differs; no fake free-RAM value or production-default modification is used.
+ class EvaluationBrain extends LocalBrain {
+  maintain(){
+   if(!this.child){clearInterval(this.timer);this.timer=null;return;}
+   const free=this.memory(),s=this.settings();
+   if(memoryPressure(free,policy.floorBytes)){this.stop('low-memory');return;}
+   const idle=Math.min(s.localIdleMinutes*60000,free<4*GIB&&s.resourceMode==='balanced'&&!(s.keepBrainMinutes>0)?30000:Infinity);
+   if(this.state==='ready'&&!this.busy&&!this.loadPending&&this.lastUsed>0&&Date.now()-this.lastUsed>idle)this.stop('idle');
+  }
+ }
+ return new EvaluationBrain(args);
 }
 const hashText=t=>crypto.createHash('sha256').update(t).digest('hex');
 function tokenResponse(data){
@@ -48,9 +85,12 @@ function priorPeak(tier,context){
  const visit=v=>{if(!v||typeof v!=='object')return;if(v.tier===tier&&v.contextTokens<=Math.max(2048,context)&&Number.isSafeInteger(v.process?.peakWorkingSetBytes))max=Math.max(max,v.process.peakWorkingSetBytes);for(const child of Object.values(v))if(child&&typeof child==='object')visit(child);};visit(data);return max;
 }
 async function evaluate(o,{signal,checkpoint=()=>{},captureOutput=()=>{}}={}){
+ const memoryWatchdog=watchdogPolicy(o);
  const manager=new ModelManager({directory:path.join(process.env.LOCALAPPDATA,'PrivateAIModels')}),memory=()=>Math.min(os.freemem(),process.availableMemory?.()||Infinity);
  const report={schema:1,condition:o.condition,productionLimitsChanged:false,runtimeSHA256:await hashFile(o.runtime),fixtureSHA256:hashText(JSON.stringify(fixtures())),harnessSHA256:await hashFile(__filename),judgeSHA256:await hashFile(path.join(__dirname,'../tests/fixtures/local-quality.cjs')),decoding:{temperature:0,seed:42,cache:'f16',streaming:true,productionDefaultsUnchanged:true},totalMemoryBytes:os.totalmem(),initialAvailableBytes:memory(),results:[],limitations:['Synthetic task checks are not a clinical accuracy guarantee.','Working-set/commit caps are diagnostics, not simulated system-available RAM.','Only actual bounded system allocation is condition c; host reserve/watchdog remain active.','Per-process hard faults are unavailable without separate tracing; total faults are not hard faults.','Mapped counts are sampled Windows virtual-region/resident-page queries, not memory contents.','Token IDs are compared only if the native stream exposes them; otherwise identity is UTF-8 output hash.']};
  report.decoding.streaming=!o.tokenIds;report.decoding.actualTokenIdsRequested=o.tokenIds;report.decoding.contextShift=false;
+ report.memoryWatchdog=memoryWatchdog;
+ if(memoryWatchdog.lowered)report.limitations.push('Owner-confirmed idle-PC experiment with a reduced test-only watchdog; not production memory acceptance. Admission, input, model, timeouts and native containment remain unchanged.');
  const deadline=Date.now()+30*60000,rows=manager.catalog(HYBRID_DEFAULTS),selected=fixtures().filter(c=>!o.caseIds.length||o.caseIds.includes(c.id));
  for(const tier of o.tiers)for(const context of o.contexts){
   if(signal?.aborted||Date.now()>=deadline){report.stopped=true;return report;}
@@ -61,9 +101,9 @@ async function evaluate(o,{signal,checkpoint=()=>{},captureOutput=()=>{}}={}){
   const s={...HYBRID_DEFAULTS,localModelPath:row.file,localContext:context,localMaxOutput:256,processingMode:'local-only',allowCloud:false,keepBrainMinutes:15};
   await manager.verifyTier(tier,s,signal);group.modelSHA256=await hashFile(row.file);
   if(signal?.aborted){group.status='cancelled';checkpoint(report);return report;}
-  let probe,brain,watchdog,attach,lastStream,phase='load',polling=false,probeError=false,pressure=false,globalMinimum=memory();
+  let probe,brain,watchdog,attach,lastStream,phase='load',polling=false,probeError=false,pressure=false,caseTimedOut=false,globalMinimum=memory();
   const controller=new AbortController(),abort=()=>{controller.abort();brain?.stop('cancelled');};signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
-  const record=async mappings=>{if(mappings)while(polling)await new Promise(r=>setTimeout(r,10));if(polling||!probe)return;polling=true;try{const counters=await probe.call('sample',{mappings});globalMinimum=Math.min(globalMinimum,counters.availableBytes);group.samples.push({phase,...counters});if(counters.pressureReleased||counters.availableBytes<GIB){pressure=true;controller.abort();brain?.stop('low-memory');}}catch{probeError=true;controller.abort();brain?.stop('probe-failed');}finally{polling=false;}};
+  const record=async mappings=>{if(mappings)while(polling)await new Promise(r=>setTimeout(r,10));if(polling||!probe)return;polling=true;try{const counters=await probe.call('sample',{mappings});globalMinimum=Math.min(globalMinimum,counters.availableBytes);group.samples.push({phase,...counters});if(memoryPressure(counters.availableBytes,memoryWatchdog.floorBytes,counters.pressureReleased)){pressure=true;controller.abort();brain?.stop('low-memory');}}catch{probeError=true;controller.abort();brain?.stop('probe-failed');}finally{polling=false;}};
   try{
    probe=await new NativeMemoryProbe().start();
    if(controller.signal.aborted)throw Error('CANCELLED');
@@ -75,8 +115,9 @@ async function evaluate(o,{signal,checkpoint=()=>{},captureOutput=()=>{}}={}){
     return {ok:true,json:async()=>{if(o.tokenIds){const data=await res.json();lastStream=tokenResponse(data);return data;}lastStream=await readStream(res,{started,signal:controller.signal});return {choices:[{message:{content:lastStream.text},finish_reason:lastStream.finish}],usage:lastStream.usage};}};
    };
    const spawnProcess=(...args)=>{if(controller.signal.aborted)throw Error('CANCELLED');const flags=args[1],value=k=>Number(flags[flags.indexOf(k)+1]);group.launchSettings={context:value('--ctx-size'),batch:value('--batch-size'),microBatch:value('--ubatch-size'),threads:value('--threads'),gpuLayers:value('--gpu-layers')};const child=probe.spawn(...args,{condition:o.condition,capBytes:o.capBytes,lowPriority:o.lowPriority});attach=child.ready.then(({contained,constraintTiming,cap,lowPriorityApplied})=>{group.launch={contained,constraintTiming,lowPriorityApplied};group.cap=cap;}).catch(()=>{probeError=true;controller.abort();brain?.stop('probe-failed');});return child;};
-   brain=new LocalBrain({runtime:o.runtime,settings:()=>s,memory,fetcher,spawnProcess});
-   watchdog=setInterval(()=>{globalMinimum=Math.min(globalMinimum,memory());if(memory()<GIB){pressure=true;controller.abort();brain.stop('low-memory');}else record(false).catch(()=>{});},1000);
+   brain=createEvaluationBrain({runtime:o.runtime,settings:()=>s,memory,fetcher,spawnProcess},o);
+   let lastNativeSample=0;
+   watchdog=setInterval(()=>{const available=memory();globalMinimum=Math.min(globalMinimum,available);if(memoryPressure(available,memoryWatchdog.floorBytes)){pressure=true;controller.abort();brain.stop('low-memory');}else if(Date.now()-lastNativeSample>=1000){lastNativeSample=Date.now();record(false).catch(()=>{});}},memoryWatchdog.pollIntervalMs);
    const loaded=performance.now();await brain.load(s);await attach;group.loadMs=Math.round(performance.now()-loaded);await record(true);
    if(group.cap&&!group.cap.applied)throw Error('CAP_NOT_APPLIED');
    for(let repetition=1;repetition<=o.repetitions;repetition++)for(const c of selected){
@@ -84,7 +125,7 @@ async function evaluate(o,{signal,checkpoint=()=>{},captureOutput=()=>{}}={}){
     if(c.kind==='tool'){const value=calculate(c.expression);group.cases.push({id:c.id,repetition,kind:'tool',...judge(c,value),nativeInference:false});continue;}
     const messages=[{role:'user',content:prompt(c)}],instructions='Use only the synthetic source. Unknown data stays unknown. Return the requested JSON only.';
     try{localInput(s,messages,{instructions});}catch(e){group.cases.push({id:c.id,repetition,status:'not-fit',passed:false,reason:e.code});continue;}
-    phase='generation';lastStream=null;const timer=setTimeout(()=>{controller.abort();brain.stop('case-timeout');},120000),started=performance.now();let result;
+    phase='generation';lastStream=null;const timer=setTimeout(()=>{caseTimedOut=true;controller.abort();brain.stop('case-timeout');},120000),started=performance.now();let result;
     try{result=await brain.generate(s,messages,{instructions,signal:controller.signal});}finally{clearTimeout(timer);}
     const durationMs=Math.round(performance.now()-started),check=judge(c,result.text);
     captureOutput({tier,context,id:c.id,repetition,text:result.text});
@@ -92,7 +133,12 @@ async function evaluate(o,{signal,checkpoint=()=>{},captureOutput=()=>{}}={}){
     await record(false);checkpoint(report);
    }
    phase='after';await record(true);group.status=group.cases.every(c=>c.passed&&!c.incomplete)?'passed':'quality-review-required';
-  }catch(error){group.status=pressure?'pressure-stopped':probeError?'probe-unavailable':signal?.aborted?'cancelled':'failed';group.reason=['LOW_MEMORY','LOCAL_CONTEXT','CAP_NOT_APPLIED'].includes(error.code||error.message)?error.code||error.message:'EVALUATION_STOPPED';}
+  }catch(error){
+   group.status=pressure?'pressure-stopped':probeError?'probe-unavailable':signal?.aborted?'cancelled':'failed';group.reason=evaluationFailureReason(error,caseTimedOut);group.failurePhase=phase;
+   const location=/evaluate-local-quality\.cjs:(\d+):(\d+)/.exec(error?.stack||'');
+   if(location)group.failureLocation={file:'evaluate-local-quality.cjs',line:Number(location[1]),column:Number(location[2])};
+   if(/^0x[0-9a-f]{8}$/i.test(brain?.lastError?.exitCode||''))group.engineExitCode=brain.lastError.exitCode;
+  }
   finally{clearInterval(watchdog);signal?.removeEventListener('abort',abort);try{brain?.close();await brain?.waitStopped();}catch{group.cleanupError=true;}finally{await probe?.close();}group.minimumAvailableBytes=Math.min(globalMinimum,memory());checkpoint(report);}
  }
  return report;
@@ -108,4 +154,4 @@ async function main(){
  finally{clearInterval(timer);process.removeListener('SIGINT',cancel);process.removeListener('SIGTERM',cancel);}
 }
 if(require.main===module)main().catch(()=>{console.error('Synthetic local evaluation stopped; no raw errors, paths or prompts logged.');process.exitCode=1;});
-module.exports={options,readStream,tokenResponse,evaluate,priorPeak};
+module.exports={options,readStream,tokenResponse,evaluate,priorPeak,watchdogPolicy,createEvaluationBrain,memoryPressure,evaluationFailureReason};

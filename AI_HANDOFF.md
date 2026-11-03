@@ -1,3 +1,37 @@
+## Current follow-up — three brains and bounded developer memory testing, 2026-11-03
+
+Base main `794bc50c7e83ddf1cd59ba99a56fa60f7b5868aa`; branch
+`chatgpt/three-brains-20261103`. See `docs/THREE_BRAINS_2026-11-03.md` and
+`docs/HIGH_TEST_ONLY_2026-11-03.json`. Local validation is complete; hosted
+exact-head release acceptance and the reviewed merge are pending at this commit.
+
+Catalog/UI/routing now use Small 1.7B, High 4B and Advanced 9B. One-time encrypted
+settings migration maps retired 3B/8B to High/Advanced with a notice; active caps,
+privacy, history, full input and normal RAM checks remain intact. No automatic
+download, silent credential/provider change or owner-app installation occurs.
+
+Local final suite 1061/1061 (zero skips), hardening31, native startup/IPC25,
+Edge UI46, focused migration/routing49, syntax323 tracked files plus new-test
+syntax, repository514 before staging, guide and diff checks passed. Gitleaks
+current/history zero. Production audit remains nine moderate, zero high/critical.
+One read-only independent review found an obsolete UI-test click, corrected and
+verified by Edge. Source tests do not replace hosted Windows candidate acceptance.
+
+Owner authorized idle-PC developer test at 512 MiB: High4B passed one synthetic
+case, load3.05s, response28.92s, minimum2.25GiB free. The preceding attempt failed
+for an undiagnosed non-floor reason with1.96GiB free; retained evidence prevents
+claiming a clean first run. No need demonstrated for a256MiB experiment. The
+normal production floor/admission and full input remain unchanged.9B untested.
+
+Owner-authorized local cleanup permanently deleted unused verified3B weights
+(2,019,377,696bytes);8B was absent. Four obsolete payload copies were hash-matched
+to retained release archives, then deleted(999,651,222bytes). Total3,019,028,918bytes.
+Current installer, rollback archives, remaining models, evidence and data retained.
+Local receipts: workspace Validation/PrivateAI-TestFloor-20261103. Installed app
+remains older and will need an explicitly selected new installer to show changes.
+
+Earlier completed audit and acceptance records below remain historical.
+
 # Current desktop audit — November 2–3, 2026
 
 Owner resumed Private AI development and requested thorough testing, appropriate

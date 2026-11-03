@@ -5,16 +5,16 @@ const {ModelManager,MODELS,TIERS}=require('../source/model-manager.cjs');
 const {localInput,LocalBrain}=require('../source/local-brain.cjs');
 const {HYBRID_DEFAULTS}=require('../source/hybrid-settings.cjs');
 
-test('9B has a separately pinned identity without replacing legacy model settings',t=>{
+test('9B has a separately pinned identity without replacing active model settings',t=>{
  const {core,dir}=fixture(t),nine=MODELS.find(m=>m.id==='qwen35-9b');assert.ok(nine);
  assert.equal(nine.bytes,5680522464);assert.equal(nine.sha256,'03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8');
  assert.match(nine.url,/3885219b6810b007914f3a7950a8d1b469d598a5/);
  const manager=new ModelManager({directory:dir});
- core.saveSettings({mediumModelPath:path.join(dir,'old-3b.gguf'),extraModelPath:path.join(dir,'old-8b.gguf'),advancedModelPath:path.join(dir,'new-9b.gguf'),localTier:'advanced',localMaxTier:'advanced'});
+ core.saveSettings({highModelPath:path.join(dir,'four.gguf'),advancedModelPath:path.join(dir,'new-9b.gguf'),localTier:'advanced',localMaxTier:'advanced'});
  const s=core.settings();assert.equal(s.localTier,'advanced');assert.equal(s.localMaxTier,'advanced');
  const catalog=manager.catalog(s);assert.equal(catalog.find(m=>m.tier==='advanced').file,s.advancedModelPath);
- assert.equal(catalog.find(m=>m.tier==='medium').file,s.mediumModelPath);assert.equal(catalog.find(m=>m.tier==='extra').file,s.extraModelPath);
- assert.equal(TIERS.find(t=>t.tier==='extra').id,'qwen3-8b');assert.equal(HYBRID_DEFAULTS.localMaxTier,'high');
+ assert.equal(catalog.find(m=>m.tier==='high').file,s.highModelPath);assert.equal(catalog.length,3);
+ assert.equal(TIERS.find(t=>t.tier==='advanced').id,'qwen35-9b');assert.equal(HYBRID_DEFAULTS.localMaxTier,'high');
 });
 
 test('Qwen3.5 uses template controls without the obsolete soft switch, including renamed tier files',async()=>{

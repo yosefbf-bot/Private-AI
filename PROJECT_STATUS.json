@@ -1,4 +1,36 @@
 {
+  "threeBrains_20261103": {
+    "status": "local-verification-passed-hosted-acceptance-pending",
+    "baseMain": "794bc50c7e83ddf1cd59ba99a56fa60f7b5868aa",
+    "branch": "chatgpt/three-brains-20261103",
+    "report": "docs/THREE_BRAINS_2026-11-03.md",
+    "sourceSHA256": "ff2b7a28803afe6805bfaa4118bfd9776aa284f776fc189f848b07c5eacd347f",
+    "fullSuite": {
+      "passed": 1061,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hardeningPassed": 31,
+    "startupIPCPassed": 25,
+    "edgeUIChecks": 46,
+    "nativeHigh": {
+      "passedCases": 1,
+      "failedPreviousAttempts": 1,
+      "testFloorMiB": 512,
+      "normalAdmissionChanged": false,
+      "productionDefaultsChanged": false
+    },
+    "deletedModelBytes": 2019377696,
+    "deletedDuplicateBuildBytes": 999651222,
+    "ownerInstallationChanged": false,
+    "ownerDataChanged": false,
+    "advanced9BInferenceExecuted": false,
+    "remaining": [
+      "Exact-head hosted Windows installer/portable/restart/retained-data/Small-inference acceptance",
+      "Merge only after required checks pass",
+      "Owner installation and live-account/phone/9B acceptance remain separate"
+    ]
+  },
   "desktopAudit9B_20261102": {
     "status": "merged-pr-and-main-gates-passed-live-acceptance-pending",
     "baseMain": "8212d79b631f3057e6b23ae091bc8e471f3919ad",

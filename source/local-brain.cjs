@@ -24,7 +24,7 @@ function modelFamily(s){
  // A verified tier path may be renamed. Its saved tier identity takes priority
  // over a filename hint; custom files retain the existing best-effort behavior.
  if(file&&file===s.advancedModelPath||/qwen3[._-]?5/i.test(path.basename(file)))return 'qwen35';
- if(file&&[s.smallModelPath,s.highModelPath,s.extraModelPath].includes(file)||/qwen/i.test(path.basename(file)))return 'qwen3';
+ if(file&&[s.smallModelPath,s.highModelPath].includes(file)||/qwen/i.test(path.basename(file)))return 'qwen3';
  return 'other';
 }
 function localInput(s,messages,options={}){

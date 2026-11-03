@@ -21,7 +21,10 @@ Pinned download:
 The existing streaming downloader verifies the full checksum before publishing
 the file. The existing llama.cpp runtime uses the model's chat template with
 thinking explicitly disabled; the Qwen3 `/no_think` suffix is not sent to Qwen3.5.
-Existing Small, Medium, High and Extra High model identities remain compatible.
+Small (1.7B), High (4B) and Advanced (9B) are the supported built-in choices.
+The retired 3B/8B selections migrate to High/Advanced with an explicit notice;
+active Small/High/Advanced ceilings stay unchanged. No replacement downloads
+or weakened memory checks are authorized by migration.
 
 Allow roughly 7–8 GiB of available RAM before loading, with additional room for
 longer context, measured peaks and other programs. Installed RAM is not available

@@ -698,7 +698,7 @@ const accessUI=lazyFeature(async()=>{const {createAccessUI}=await import("./acce
 });});
 function healthHTML(){
   const h=state.health||{},s=state.settings,r=state.resources||{};
-  const ram=state.ramProfile||h.ramProfile||{totalGB:h.totalRAMGB||16,availableGB:h.availableRAMGB||3,profile:'conservative',statusBadge:'Conservative Mode (Compact Models)',description:'Host RAM is conserved for background clinical apps.',tierCap:'medium',keepAlive:'0s',threadBudget:4,recommendedModels:state.providers?.ollama?.ramModels?.conservative||[]};
+  const ram=state.ramProfile||h.ramProfile||{totalGB:h.totalRAMGB||16,availableGB:h.availableRAMGB||3,profile:'conservative',statusBadge:'Conservative Mode (Compact Models)',description:'Host RAM is conserved for background clinical apps.',tierCap:'high',keepAlive:'0s',threadBudget:4,recommendedModels:state.providers?.ollama?.ramModels?.conservative||[]};
   return `<div class="page"><h1>Health &amp; recovery</h1><p>Private AI ${esc(h.version)} · ${h.safeStartup?'Safe startup after an unclean exit. Background work is paused.':'Startup state recorded.'}</p>
   <section class="section">
     <h2>Hardware Memory &amp; Upgrade Awareness</h2>
@@ -950,7 +950,7 @@ function settingsHTML() {
       </label>
     `;
   } else if (currentProvider === "ollama") {
-    const ram = state.ramProfile || state.health?.ramProfile || { totalGB: 16, availableGB: 3, profile: 'conservative', statusBadge: 'Conservative Mode (Compact Models)', keepAlive: '0s', threadBudget: 4, tierCap: 'medium' };
+    const ram = state.ramProfile || state.health?.ramProfile || { totalGB: 16, availableGB: 3, profile: 'conservative', statusBadge: 'Conservative Mode (Compact Models)', keepAlive: '0s', threadBudget: 4, tierCap: 'high' };
     providerSection = `
       <div class="provider-box">
         <div class="provider-badge success">✓ Active: Ollama Local Daemon (No API Key Required)</div>

@@ -5,7 +5,7 @@ const GIB=1024**3,turn=()=>new Promise(r=>setTimeout(r,5));
 function setup(t,source,{missingSmall=false}={}){
  let core,pending,memory=3*GIB;const controller=new AbortController();
  t.after(async()=>{controller.abort();core?.resources.notify();await pending?.catch(()=>{});});
- const f=fixture(t);core=f.core;const calls=[],rows=['small','medium','high'].map((tier,i)=>({tier,id:'synthetic-'+tier,name:'Synthetic '+tier,file:'synthetic-'+tier+'.gguf',bytes:[1282439584,2*GIB,4*GIB][i],installed:!(missingSmall&&tier==='small')}));
+ const f=fixture(t);core=f.core;const calls=[],rows=['small','high'].map((tier,i)=>({tier,id:'synthetic-'+tier,name:'Synthetic '+tier,file:'synthetic-'+tier+'.gguf',bytes:[1282439584,4*GIB][i],installed:!(missingSmall&&tier==='small')}));
  core.saveSettings({hipaa:false,publicModeConfirmed:true,processingMode:'smart-hybrid',allowCloud:true,localTier:'auto',localMaxTier:'high',localContext:2048,localMaxOutput:192,workerPaused:false,ramRecoverySeconds:0});
  core.saveSettings({approved:true,approvalFingerprint:core.summary().providerApprovalFingerprint});
  core.modelManager={catalog:()=>rows,verifyTier:async tier=>rows.find(r=>r.tier===tier)};
