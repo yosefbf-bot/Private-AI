@@ -1,8 +1,8 @@
 {
   "version": "3.0.9-dev",
-  "updatedAt": "2026-11-03T05:27:39.177Z",
-  "baselineCommit": "8212d79b631f3057e6b23ae091bc8e471f3919ad",
+  "updatedAt": "2026-11-03T13:47:24.052Z",
+  "baselineCommit": "794bc50c7e83ddf1cd59ba99a56fa60f7b5868aa",
   "releaseStatus": "validation-pending",
-  "note": "Optional 9B, API Only isolation and retained tracking history; consult the November audit and exact-head Windows acceptance before release.",
-  "sourceSHA256": "678ef2ea44bd5d96b083943e672a03fcc22507f7a897e92de9cb6d894c125867"
+  "note": "Three built-in brains (Small/High/Advanced), retired-model settings migration and developer-only memory experiment. See THREE_BRAINS_2026-11-03.md and exact-head Windows acceptance.",
+  "sourceSHA256": "ff2b7a28803afe6805bfaa4118bfd9776aa284f776fc189f848b07c5eacd347f"
 }

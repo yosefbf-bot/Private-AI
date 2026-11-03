@@ -4,7 +4,7 @@ const {fixture}=require('./helpers.cjs');
 const GIB=1024**3;
 function setup(t,{tier='auto',cap='high',free=2*GIB,respond}={}){
  const f=fixture(t);let memory=free;const calls=[];
- const rows=['small','medium','high','extra'].map((tier,i)=>({id:'synthetic-'+tier,tier,name:'Synthetic '+tier,file:'synthetic-'+tier+'.gguf',bytes:[1282439584,2*GIB,4*GIB,6*GIB][i],installed:true}));
+ const rows=['small','high','advanced'].map((tier,i)=>({id:'synthetic-'+tier,tier,name:'Synthetic '+tier,file:'synthetic-'+tier+'.gguf',bytes:[1282439584,4*GIB,6*GIB][i],installed:true}));
  f.core.saveSettings({processingMode:'local-only',allowCloud:false,localTier:tier,localMaxTier:cap,localContext:2048,localMaxOutput:192,ramRecoverySeconds:0});
  f.core.modelManager={catalog:()=>rows,verifyTier:async tier=>rows.find(r=>r.tier===tier)};
  f.core.router.local={state:'unloaded',validate:s=>rows.find(r=>r.file===s.localModelPath).bytes,modelName:s=>s.localModelPath,close(){},stop(){},waitStopped:async()=>{},generate:async(s,m,o)=>{const tier=rows.find(r=>r.file===s.localModelPath).tier;calls.push({tier,s,m,o});return respond(tier,calls.length,s,m,o);}};
@@ -33,10 +33,10 @@ test('completed Small inference is reused when the required High brain must wait
  assert.deepEqual(f.calls.map(c=>c.tier),['small','high'],'Completed inference must never execute twice');assert.equal(m.processing.routing.selectedTier,'high');assert.equal(m.processing.meter.localTokens,14);
 });
 
-test('RAM-blocked classification can still recommend Extra without answering an excerpt',async t=>{
- const f=setup(t,{cap:'extra',respond:tier=>tier==='small'?{text:'{"required_tier":"extra"}',localTokens:3}:answer()}),prompt='Analyze and compare the entire synthetic inventory.',token=await offer(f,prompt);
+test('RAM-blocked classification can still recommend Advanced without answering an excerpt',async t=>{
+ const f=setup(t,{cap:'advanced',respond:tier=>tier==='small'?{text:'{"required_tier":"advanced"}',localTokens:3}:answer()}),prompt='Analyze and compare the entire synthetic inventory.',token=await offer(f,prompt);
  await f.core.queueChatWhenMemoryFree({chatId:f.chat.id,token});f.setFree(20*GIB);const m=await settle(f);
- assert.deepEqual(f.calls.map(c=>c.tier),['small','extra']);assert.equal(m.processing.routing.selectedTier,'extra');assert.match(JSON.stringify(f.calls[1].m),/Analyze and compare the entire synthetic inventory/);assert.doesNotMatch(JSON.stringify(f.calls[1].m),/task_excerpt/);
+ assert.deepEqual(f.calls.map(c=>c.tier),['small','advanced']);assert.equal(m.processing.routing.selectedTier,'advanced');assert.match(JSON.stringify(f.calls[1].m),/Analyze and compare the entire synthetic inventory/);assert.doesNotMatch(JSON.stringify(f.calls[1].m),/task_excerpt/);
 });
 
 test('queued hybrid output retains its review threshold without invoking a cloud provider',async t=>{
@@ -73,11 +73,11 @@ test('a different catalog model cannot take over a saved routing checkpoint',asy
 test('failed inference attempts also retain the original two-call budget after a RAM wait',async t=>{
  const f=setup(t,{free:3*GIB,respond:(tier,n)=>{if(n===1)throw require('../source/security.cjs').fail('LOCAL_UNAVAILABLE');return answer(tier==='small'?{required_tier:'high'}:{});}}),token=await offer(f);
  assert.deepEqual(f.calls.map(c=>c.tier),['small']);await f.core.queueChatWhenMemoryFree({chatId:f.chat.id,token});f.setFree(12*GIB);const m=await settle(f);
- assert.deepEqual(f.calls.map(c=>c.tier),['small','medium']);assert.equal(m.processing.routing.selectedTier,'medium');
+ assert.deepEqual(f.calls.map(c=>c.tier),['small','high']);assert.equal(m.processing.routing.selectedTier,'high');
 });
 
 test('an early RAM offer retains its original eligible warm brain after other work changes it',async t=>{
- const f=setup(t,{free:0.9*GIB,respond:()=>answer()}),high=f.rows[2];f.core.saveSettings({keepBrainMinutes:1});
+ const f=setup(t,{free:0.9*GIB,respond:()=>answer()}),high=f.rows[1];f.core.saveSettings({keepBrainMinutes:1});
  f.core.router.warmTier={tier:'high',time:Date.now()};Object.assign(f.core.router.local,{state:'ready',activeSettings:{...f.core.settings(),localModelPath:high.file}});
  const token=await offer(f);assert.equal(f.core.chatMemoryWait.offers.get(token).row.tier,'high');
  f.core.router.warmTier={tier:'small',time:Date.now()};f.core.router.local.state='unloaded';

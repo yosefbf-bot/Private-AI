@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-03",
+  "kind": "owner-approved-idle-PC-developer-experiment",
+  "productionSettingsChanged": false,
+  "watchdogFloorMiB": 512,
+  "normalStartupAdmissionChanged": false,
+  "artificialMemoryPressure": false,
+  "runtimeSHA256": "d11cde6e506ceaab51ff727683d90455fc9668cf06d7d1085546df0c00305255",
+  "executedHarnessSHA256": "344e89afd2f1aa588f72ad56e2693f5c370cd16430d090d4c3f9a333144f45d1",
+  "modelSHA256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+  "tier": "high",
+  "context": 2048,
+  "loadMs": 3050,
+  "minimumAvailableBytes": 2417176576,
+  "peakEngineWorkingSetBytes": 4652589056,
+  "cases": [
+    {
+      "id": "chat-01",
+      "repetition": 1,
+      "nativeInference": true,
+      "passed": true,
+      "reasons": [],
+      "schemaPassed": true,
+      "schemaDeviations": [],
+      "incomplete": false,
+      "responseComplete": true,
+      "streamComplete": true,
+      "finishReason": "stop",
+      "outputSHA256": "308876fa7628a5619a0bc43dd8ea2815fef26cd44ebccf30ce7f1c585efa2360",
+      "tokenIdsSHA256": null,
+      "tokenIdsCount": null,
+      "ttftMs": 20729,
+      "durationMs": 28917,
+      "outputTokens": 16,
+      "tokensPerSecond": 1.8331344178808329,
+      "endToEndTokensPerSecond": 0.553
+    }
+  ],
+  "previousAttempt": {
+    "status": "failed",
+    "failure": "EVALUATION_STOPPED",
+    "minimumAvailableBytes": 2104889344,
+    "cause": "Not established; not a watchdog-memory-floor stop. Original failed evidence retained locally."
+  },
+  "limitations": [
+    "One synthetic case; not broad model-quality or new-release acceptance.",
+    "The passing run remained above the normal 1 GiB emergency floor, so it does not prove reduced memory requirements.",
+    "The 256 MiB option was not exercised. Advanced 9B inference remains untested.",
+    "Local detailed reports retain the original harness hash and historical test-policy field naming; production defaults were not changed."
+  ]
+}

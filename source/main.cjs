@@ -444,7 +444,7 @@ async function dispatch(
       const dynCap = TIERS.findIndex(x=>x.tier===ram.tierCap);
       const userCap = s.localMaxTier&&s.localMaxTier!=='auto'?TIERS.findIndex(x=>x.tier===s.localMaxTier):-1;
       const cap = userCap>=0?userCap:dynCap;
-      if(s.localTier==='auto')row=catalog.find(t=>t.installed&&TIERS.findIndex(x=>x.tier===t.tier)<=cap);
+      if(s.localTier==='auto'){row=catalog.find(t=>t.installed&&TIERS.findIndex(x=>x.tier===t.tier)<=cap);if(!row)throw fail('LOCAL_FILE_MISSING');}
       else if(s.localTier!=='selected'){row=catalog.find(t=>t.tier===s.localTier&&t.installed);if(!row)throw fail('LOCAL_FILE_MISSING');}
       const selected=row?{...s,localModelPath:row.file}:s;
       await core.resources.task('foreground',()=>core.resources.withAI(async effective=>{if(row)await modelManager.verifyTier(row.tier,s);return core.router.local.load(effective).catch(e=>{if(/^LOCAL_ENGINE/.test(e.code||''))core.stability.modelFailure();throw e;});},{localSettings:selected,allowContextReduction:s.localTier==='auto'}));return core.router.local.status();
@@ -459,11 +459,6 @@ async function dispatch(
     case "downloadModel": {
       const modelId=data.modelId||'qwen3-4b';if(!MODELS.some(m=>m.id===modelId))throw fail('INVALID');
       if(core.router.local.busy||modelManager.controller)throw fail('BUSY');
-      if(modelId==='llama32-3b'){
-        const choice=await dialog.showMessageBox(win,{type:'info',title:'Llama 3.2 model license',message:'Use Llama 3.2 under Meta’s Community License and Acceptable Use Policy.',detail:'Built with Llama. This optional download uses a third-party GGUF conversion by bartowski. Read the included terms before accepting. Qwen remains available.',buttons:['Read terms','Accept and continue','Cancel'],defaultId:2,cancelId:2,noLink:true});
-        if(choice.response===0)await shell.openPath(resources('docs/LLAMA_TERMS.html'));
-        if(choice.response!==1)return {cancelled:true};
-      }
       modelManager.download(modelId).then(modelPath=>{const tier=TIERS.find(t=>t.id===modelId).tier;core.saveSettings({[tier+'ModelPath']:modelPath});emit({type:"model-download",state:"selected"});}).catch(e=>emit({type:"model-download",state:"failed",error:safeError(e)}));return modelManager.status();
     }
     case "cancelModelDownload": modelManager.cancel(); return true;

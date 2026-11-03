@@ -12,7 +12,7 @@ function getRAMProfile({ totalBytes = os.totalmem(), freeBytes = Math.min(os.fre
   const availableGB = Math.round((freeBytes / (1024 ** 3)) * 10) / 10;
 
   let profile = 'conservative';
-  let tierCap = 'medium';
+  let tierCap = 'high';
   let keepAlive = '0s';
   let threadBudget = 4;
   let recommendedModels = [...PROVIDERS.ollama.ramModels.conservative];
@@ -21,7 +21,7 @@ function getRAMProfile({ totalBytes = os.totalmem(), freeBytes = Math.min(os.fre
 
   if (totalGB >= 24 && availableGB >= 8) {
     profile = 'expanded';
-    tierCap = 'extra';
+    tierCap = 'advanced';
     keepAlive = '5m';
     threadBudget = Math.max(4, Math.min(8, (os.availableParallelism?.() || os.cpus().length) - 2));
     recommendedModels = [...PROVIDERS.ollama.ramModels.expanded];
@@ -33,7 +33,7 @@ function getRAMProfile({ totalBytes = os.totalmem(), freeBytes = Math.min(os.fre
     keepAlive = '2m';
     threadBudget = Math.max(3, Math.min(6, Math.floor((os.availableParallelism?.() || os.cpus().length) * 0.6)));
     recommendedModels = [...PROVIDERS.ollama.ramModels.balanced];
-    statusBadge = 'Balanced Mode (Medium & High Tiers)';
+    statusBadge = 'Balanced Mode (Small & High Tiers)';
     description = 'Moderate free RAM. Model admission checks the selected model and context; no model is loaded by this status display.';
   } else {
     // Under conservative mode: if available RAM is tight (< 2.2 GB), cap to Small

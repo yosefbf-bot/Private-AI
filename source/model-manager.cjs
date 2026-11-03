@@ -2,12 +2,10 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {fail}=require('./security.cjs');
 const MODEL=Object.freeze({id:'qwen3-4b',name:'Qwen3-4B Q4_K_M',file:'Qwen3-4B-Q4_K_M.gguf',bytes:2497280256,sha256:'7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5',url:'https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf?download=true',license:'Apache-2.0'});
-const LLAMA=Object.freeze({id:'llama32-3b',name:'Llama 3.2 3B Instruct Q4_K_M',file:'Llama-3.2-3B-Instruct-Q4_K_M.gguf',bytes:2019377696,sha256:'6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff',url:'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/5ab33fa94d1d04e903623ae72c95d1696f09f9e8/Llama-3.2-3B-Instruct-Q4_K_M.gguf?download=true',license:'Llama 3.2 Community License'});
 const SMALL=Object.freeze({id:'qwen3-1.7b',name:'Qwen3-1.7B Q4_K_M',file:'Qwen_Qwen3-1.7B-Q4_K_M.gguf',bytes:1282439584,sha256:'72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb',url:'https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-GGUF/resolve/dcb19155b962dbb6389f4691a982043a8e651022/Qwen_Qwen3-1.7B-Q4_K_M.gguf?download=true',license:'Apache-2.0'});
-const EXTRA=Object.freeze({id:'qwen3-8b',name:'Qwen3-8B Q4_K_M',file:'Qwen3-8B-Q4_K_M.gguf',bytes:5027783488,sha256:'d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785',url:'https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf?download=true',license:'Apache-2.0'});
 const ADVANCED=Object.freeze({id:'qwen35-9b',name:'Qwen3.5-9B Q4_K_M',file:'Qwen3.5-9B-Q4_K_M.gguf',bytes:5680522464,sha256:'03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8',url:'https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/Qwen3.5-9B-Q4_K_M.gguf?download=true',license:'Apache-2.0'});
-const MODELS=Object.freeze([MODEL,LLAMA,SMALL,EXTRA,ADVANCED]);
-const TIERS=Object.freeze([{tier:'small',label:'Small / Low — 1.7B',id:SMALL.id},{tier:'medium',label:'Medium — 3B',id:LLAMA.id},{tier:'high',label:'High — 4B',id:MODEL.id},{tier:'extra',label:'Extra High — 8B',id:EXTRA.id},{tier:'advanced',label:'Advanced — 9B',id:ADVANCED.id}]);
+const MODELS=Object.freeze([SMALL,MODEL,ADVANCED]);
+const TIERS=Object.freeze([{tier:'small',label:'Small / Low — 1.7B',id:SMALL.id},{tier:'high',label:'High — 4B',id:MODEL.id},{tier:'advanced',label:'Advanced — 9B',id:ADVANCED.id}]);
 class ModelManager{
  constructor({directory,fetcher=globalThis.fetch,emit=()=>{},models=MODELS}){Object.assign(this,{directory,fetcher,emit,models});this.selected=MODEL;this.progress={state:'idle',received:0,total:MODEL.bytes};this.verified=new Map();}
  catalog(settings={}){
@@ -65,4 +63,4 @@ class ModelManager{
   finally{if(fd!==undefined)try{await fd.close();}catch{}try{await fs.promises.unlink(temp);}catch{}this.controller=null;this.emit({type:'model-download',...this.status()});}
  }
 }
-module.exports={MODEL,LLAMA,SMALL,EXTRA,ADVANCED,MODELS,TIERS,ModelManager};
+module.exports={MODEL,SMALL,ADVANCED,MODELS,TIERS,ModelManager};

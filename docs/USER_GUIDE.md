@@ -77,10 +77,10 @@ Bundled offline instructions for this source version. Reading this guide does no
 
 **Where:** Settings → Local models & processing
 
-1. Open AI Processing → Local brain tiers. Small is Qwen3 1.7B Q4_K_M; Medium is Llama 3.2 3B Q4_K_M; High is Qwen3 4B Q4_K_M; Extra High is Qwen3 8B Q4_K_M.
+1. Open AI Processing → Local brain tiers. The three choices are Small Qwen3 1.7B Q4_K_M, High Qwen3 4B Q4_K_M and Advanced Qwen3.5 9B Q4_K_M.
 2. Use Download model for a missing tier, or Locate existing file to reuse a compatible GGUF already on disk. Existing downloads are verified and reused.
-3. The main choices are Small 1.7B, High 4B and optional Advanced Qwen3.5 9B (5.68 GB download). Existing 3B and 8B models remain available under alternate models. The 9B download is checksum-verified, text-only in this integration, and needs roughly 7–8 GiB free before loading (context and measured peaks can require more). Choose a local tier and automatic tier cap, then Save processing settings. A download does not raise the saved cap. Load selected / starting model loads it explicitly; normal reasoning loads a model when needed.
-4. Extra High is optional and needs considerably more available RAM. Only one model is loaded at a time.
+3. The main choices are Small 1.7B, High 4B and optional Advanced Qwen3.5 9B (5.68 GB download). The 3B and 8B options are retired. Existing 3B selections move to High; 8B selections move to Advanced, with a notice. Replacement files must already be installed or explicitly downloaded; normal RAM checks still apply. The 9B download is checksum-verified, text-only in this integration, and needs roughly 7–8 GiB free before loading (context and measured peaks can require more). Choose a local tier and automatic tier cap, then Save processing settings. A download does not raise the saved cap. Load selected / starting model loads it explicitly; normal reasoning loads a model when needed.
+4. Advanced is optional and needs considerably more available RAM. Only one model is loaded at a time.
 
 **Keep in mind:** A larger model is not guaranteed to be correct. Downloads require internet, but ordinary local inference does not. Missing models are never downloaded automatically.
 
@@ -101,7 +101,7 @@ Bundled offline instructions for this source version. Reading this guide does no
 **Where:** Settings → Local models & processing; Health & recovery
 
 1. Open AI Processing and choose Unload now before changing to a smaller model or context.
-2. Try Small or Medium, Local context tokens 2048, and Maximum local answer tokens 512. Save processing settings, then Load selected / starting model.
+2. For a light task, explicitly choose Small and Local context tokens 2048, and Maximum local answer tokens 512. Save processing settings, then Load selected / starting model.
 3. Close unused heavy programs and browser sessions. Balanced reduces CPU demand; a smaller brain and context reduce model RAM demand.
 4. Health & recovery shows available RAM, the active model and waiting reasons. Keep free RAM and RAM recovery delay control resource checks.
 5. An unloaded local brain has no maintenance timer. In Balanced mode below 4 GiB free, an inactive brain unloads after about 30 seconds instead of its usual idle interval, unless Keep brain warm is enabled. Smaller inference batches are used only for cold Balanced loads under that pressure. Active answers keep the emergency-memory protection. Closing the window keeps approved background work alive in the tray; explicit Quit exits.

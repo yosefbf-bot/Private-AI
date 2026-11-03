@@ -44,7 +44,7 @@ test('automatic routing can offer the same complete simple request below the res
  const f=setup(t);f.core.saveSettings({localTier:'auto',localMaxTier:'high'});f.setMemory(0.9*GIB);assert.equal(typeof await offer(f),'string');assert.equal(f.calls(),0);
 });
 test('RAM blocked triage queues the full analysis for its selected answer brain',async t=>{
- const f=setup(t),high={...f.row,tier:'high',name:'Synthetic High',file:'synthetic-high.gguf',bytes:2490000000};f.core.modelManager.catalog=()=>[f.row,high];f.core.saveSettings({localTier:'auto',localMaxTier:'extra'});
+ const f=setup(t),high={...f.row,tier:'high',name:'Synthetic High',file:'synthetic-high.gguf',bytes:2490000000};f.core.modelManager.catalog=()=>[f.row,high];f.core.saveSettings({localTier:'auto',localMaxTier:'advanced'});
  const result=await f.core.send({chatId:f.chat.id,prompt:'Analyze and compare the complete synthetic inputs.'}),wait=result.chat.messages.at(-1).memoryWait;
  assert.equal(wait?.tier,'high');const entry=f.core.chatMemoryWait.offers.get(wait.token);assert.match(JSON.stringify(entry.input.messages),/Analyze and compare the complete synthetic inputs/);assert.doesNotMatch(JSON.stringify(entry.input.messages),/task_excerpt/);assert.equal(f.calls(),0);
 });

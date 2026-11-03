@@ -17,7 +17,7 @@ const {
   nextRun,
   WorkerManager,
 } = require("./worker.cjs");
-const {HYBRID_DEFAULTS,validateHybrid,cloudAllowed}=require("./hybrid-settings.cjs");
+const {HYBRID_DEFAULTS,validateHybrid,cloudAllowed,migrateModelSettings}=require("./hybrid-settings.cjs");
 const {HybridRouter}=require("./hybrid-router.cjs");
 const DEFAULTS = {
   ...HYBRID_DEFAULTS,
@@ -54,6 +54,8 @@ class Core {
     this.backgroundContext=new (require("node:async_hooks").AsyncLocalStorage)();
     this.backgroundToken={};
     this.store = store;
+    const savedSettings=store.get("settings","main");
+    if(savedSettings){const migrated=migrateModelSettings(savedSettings);if(migrated!==savedSettings)store.put("settings","main",migrated);}
     this.root = root;
     this.client = client;
     this.router = new HybridRouter(this);
@@ -102,7 +104,7 @@ class Core {
     store.audit("startup");
   }
   settings() {
-    const s = { ...DEFAULTS, ...this.store.get("settings", "main") };
+    const s = { ...DEFAULTS, ...migrateModelSettings(this.store.get("settings", "main")||{}) };
     s.approved = require("./provider-policy.cjs").approved(s, this.store.get("secret", s.provider)?.key);
     return s;
   }
