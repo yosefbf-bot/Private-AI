@@ -1,6 +1,6 @@
 {
   "threeBrains_20261103": {
-    "status": "local-verification-passed-hosted-acceptance-pending",
+    "status": "merged-pr-and-main-gates-passed-owner-installation-pending",
     "baseMain": "794bc50c7e83ddf1cd59ba99a56fa60f7b5868aa",
     "branch": "chatgpt/three-brains-20261103",
     "report": "docs/THREE_BRAINS_2026-11-03.md",
@@ -26,10 +26,32 @@
     "ownerDataChanged": false,
     "advanced9BInferenceExecuted": false,
     "remaining": [
-      "Exact-head hosted Windows installer/portable/restart/retained-data/Small-inference acceptance",
-      "Merge only after required checks pass",
-      "Owner installation and live-account/phone/9B acceptance remain separate"
-    ]
+      "Owner installation of this accepted candidate",
+      "Broader comparable High/9B quality tests with sufficient actual RAM",
+      "Live approved-provider API and physical-phone/account acceptance",
+      "Scoped dependency compatibility investigation; nine moderate and no high/critical advisories"
+    ],
+    "implementationPR": 52,
+    "implementationHead": "79df802b82d5294ae2c35c1d536c53371533e489",
+    "implementationRun": 41648308115,
+    "acceptedMain": "d4bd56a12d7ffcb7bb06f42d9d38a809851e1cd7",
+    "acceptedMainRun": 41650999977,
+    "hostedWindowsSuite": {
+      "passed": 1061,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hostedLinuxSuite": {
+      "passed": 1044,
+      "failed": 0,
+      "skipped": 9
+    },
+    "hostedChecksPassed": 8,
+    "acceptedArtifact": {
+      "id": 13239300036,
+      "bytes": 500301730,
+      "sha256": "be2771601141aa0a020b38415c9ee2c722af34aa1f087c9ab68b7917cc63f9f3"
+    }
   },
   "desktopAudit9B_20261102": {
     "status": "merged-pr-and-main-gates-passed-live-acceptance-pending",

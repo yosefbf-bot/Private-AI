@@ -2,8 +2,10 @@
 
 Base main `794bc50c7e83ddf1cd59ba99a56fa60f7b5868aa`; branch
 `chatgpt/three-brains-20261103`. See `docs/THREE_BRAINS_2026-11-03.md` and
-`docs/HIGH_TEST_ONLY_2026-11-03.json`. Local validation is complete; hosted
-exact-head release acceptance and the reviewed merge are pending at this commit.
+`docs/HIGH_TEST_ONLY_2026-11-03.json`. Local and hosted validation are complete. PR #52 head79df802 passed all8
+checks (run41648308115), then merged asd4bd56a. Its main run41650999977
+also passed all8 checks, including actual Windows candidate acceptance.
+This administrative receipt does not change application code or its digest.
 
 Catalog/UI/routing now use Small 1.7B, High 4B and Advanced 9B. One-time encrypted
 settings migration maps retired 3B/8B to High/Advanced with a notice; active caps,
@@ -15,7 +17,11 @@ Edge UI46, focused migration/routing49, syntax323 tracked files plus new-test
 syntax, repository514 before staging, guide and diff checks passed. Gitleaks
 current/history zero. Production audit remains nine moderate, zero high/critical.
 One read-only independent review found an obsolete UI-test click, corrected and
-verified by Edge. Source tests do not replace hosted Windows candidate acceptance.
+verified by Edge. Hosted main Windows source suite1061/1061, Linux1044pass/9platformskips.
+Accepted Windows artifact13239300036 (500,301,730bytes), SHA256
+be2771601141aa0a020b38415c9ee2c722af34aa1f087c9ab68b7917cc63f9f3.
+Actual installer/app/inference, restart, synthetic-data uninstall/reinstall and
+portable acceptance passed. This is not owner-data, live-account or phone acceptance.
 
 Owner authorized idle-PC developer test at 512 MiB: High4B passed one synthetic
 case, load3.05s, response28.92s, minimum2.25GiB free. The preceding attempt failed
@@ -29,6 +35,21 @@ to retained release archives, then deleted(999,651,222bytes). Total3,019,028,918
 Current installer, rollback archives, remaining models, evidence and data retained.
 Local receipts: workspace Validation/PrivateAI-TestFloor-20261103. Installed app
 remains older and will need an explicitly selected new installer to show changes.
+
+Next review requested by owner: live API and broader High/9B tests, plus the
+moderate dependency findings. Small's two synthetic misses were source:null in
+chat-03 and notificationCompleted:null in sbar-05 (explicit negative lost, not a
+false completion claim). Compare identical cases across Small/High/9B;3B is retired.
+At the latest check15.58GiB total/5.94GiB free was below9B's6.79GiB minimum at2048.
+Do not lower production guards to force admission. Broader High and9B quality are
+unproven; source-harness High success is not packaged High acceptance.
+A bounded read-only dependency review confirmed Excel load/writeBuffer usesJSZip
+and WhatsApp usesLocalAuth, not the affected archive routes. No reachable app
+exploit confirmed. Proposed next isolated experiment: glob14.0.2 beneath
+archiver-utils5.0.2, verified minimatch>=11.0.1, with Windows matching/archive,
+Excel round-trip, WhatsApp load and packaging checks. Do not apply global overrides:
+rimraf/ASAR callback contracts and glob10/Minimatch11 matchers differ. No dependency
+changes or new live API requests were made in this follow-up review.
 
 Earlier completed audit and acceptance records below remain historical.
 
