@@ -20,7 +20,7 @@ unrelated periodic draft-worker interference in its exact model-call count;
 the fixture now isolates that worker, keeping production timers/assertions. Rerun
 passed46checks. Edge/Chrome synthetic browser workflows passed; initialChrome
 BROWSER_SETUP remains documented (isolated launch and confirmation passed).
-Source322 syntax and repository510 passed; final staged-file checks pending.
+Final source323 syntax and repository514 passed; guide/whitespace checks passed.
 Small actual25 AI checks passed23, plus5/5 calculators; two misses remain disclosed.
 Medium later passed4/8native subset checks; High's retry stopped at0.94GiBfree
 before any answer. 9B remains RAM-refused, not passed. See sanitized native JSON.

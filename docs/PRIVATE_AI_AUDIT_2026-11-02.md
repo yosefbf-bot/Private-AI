@@ -83,8 +83,8 @@ GitHub and fetch on November 2. Worktree: `private-ai-audit-20261102`, branch
   run and **57/57** focused routing/wait checks are retained as separate evidence.
   Exact-head hosted release verification is still required before release.
 - Focused feature/data tests before that final follow-up: **123/123**, no skips.
-- Hardening: **31/31**; syntax: **322 tracked files**; repository policy:
-  **510 tracked files**; generated guide consistency and whitespace passed.
+- Hardening: **31/31**; final syntax: **323 tracked files**; repository policy:
+  **514 tracked files**; generated guide consistency and whitespace passed.
 - Real Edge assistant UI: **25 checks**, **14 draft checks**, **117 contrast
   checks** and **7 dark-visibility checks** passed. Development hardening UI
   also passed. The general Edge UI rerun passed **46/46 checks**, including API

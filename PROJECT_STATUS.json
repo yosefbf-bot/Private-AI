@@ -11,6 +11,8 @@
     "finalWaitFollowupTests": {"passed":57,"failed":0,"skipped":0},
     "focusedTests": {"passed":123,"failed":0,"skipped":0},
     "hardeningPassed": 31,
+    "syntaxFiles": 323,
+    "repositoryFiles": 514,
     "assistantUIChecks": 25,
     "notesDraftChecks": 14,
     "surfaceContrastChecks": 117,
